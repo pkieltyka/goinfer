@@ -6,7 +6,7 @@ import (
 	"slices"
 	"testing"
 
-	"github.com/townsendmerino/goinfer/internal/vision"
+	"github.com/pkieltyka/goinfer/internal/vision"
 )
 
 // TestLoadGlmOcrTower_matchesTheEncoder: the wrapper the invoice example uses gives the encoder's own bits.

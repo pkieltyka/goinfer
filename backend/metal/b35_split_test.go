@@ -7,7 +7,7 @@ import (
 	"path/filepath"
 	"testing"
 
-	"github.com/townsendmerino/goinfer/decoder"
+	"github.com/pkieltyka/goinfer/decoder"
 )
 
 // TestB35SplitInvariance is B35's gate on Metal: a Gated-DeltaNet prompt prefilled in several

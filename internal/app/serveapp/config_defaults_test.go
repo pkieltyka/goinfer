@@ -5,7 +5,7 @@ import (
 	"runtime"
 	"testing"
 
-	schema "github.com/townsendmerino/goinfer/internal/config"
+	schema "github.com/pkieltyka/goinfer/internal/config"
 )
 
 // TestConfigDefaults is G-SB10-6: every flag serve

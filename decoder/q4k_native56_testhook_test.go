@@ -10,7 +10,7 @@ import (
 	"testing"
 	"time"
 
-	"github.com/townsendmerino/aikit/linalg"
+	"github.com/pkieltyka/aikit/linalg"
 )
 
 // TestQ4K_native56: a Backend "cpu" q4k load of a file with Phi-3's type mix (qkv Q5_K, down Q6_K) keeps those projections as

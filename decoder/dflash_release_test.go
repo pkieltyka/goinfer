@@ -11,7 +11,7 @@ import (
 	"slices"
 	"testing"
 
-	"github.com/townsendmerino/aikit/linalg"
+	"github.com/pkieltyka/aikit/linalg"
 )
 
 // writeTinyDFlash writes a BF16 DFlash v1 checkpoint (2 layers, hidden 8) to a temp dir and returns the dir. With ownHead it

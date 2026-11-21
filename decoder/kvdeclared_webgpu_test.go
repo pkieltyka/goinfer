@@ -4,7 +4,7 @@ import (
 	"slices"
 	"testing"
 
-	"github.com/townsendmerino/goinfer/internal/runtime/program"
+	"github.com/pkieltyka/goinfer/internal/runtime/program"
 )
 
 // webgpuKVRateOracle is WebGPU's K/V bytes a position as it was written from the architecture alone, before the price read the rows

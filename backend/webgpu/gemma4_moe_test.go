@@ -3,12 +3,12 @@
 package webgpu
 
 import (
-	"github.com/townsendmerino/goinfer/backend/webgpu/internal/kernels"
+	"github.com/pkieltyka/goinfer/backend/webgpu/internal/kernels"
 	"math"
 	"os"
 	"testing"
 
-	"github.com/townsendmerino/goinfer/decoder"
+	"github.com/pkieltyka/goinfer/decoder"
 )
 
 // The gates of Gemma 4's parallel dense and MoE feed-forward on WebGPU, on the tiny enable_moe_block fixtures, int4 on both sides.

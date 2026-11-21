@@ -12,9 +12,9 @@ import (
 	"testing"
 	"time"
 
-	"github.com/townsendmerino/goinfer/decoder"
+	"github.com/pkieltyka/goinfer/decoder"
 
-	"github.com/townsendmerino/goinfer/internal/testgate"
+	"github.com/pkieltyka/goinfer/internal/testgate"
 )
 
 // TestKVCacheF16_fit is the Increment-2 measurement gate (task-gpu-f16-kv.md +

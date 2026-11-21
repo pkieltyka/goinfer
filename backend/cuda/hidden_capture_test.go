@@ -7,9 +7,9 @@ import (
 	"os"
 	"testing"
 
-	"github.com/townsendmerino/goinfer/decoder"
+	"github.com/pkieltyka/goinfer/decoder"
 
-	"github.com/townsendmerino/goinfer/internal/testgate"
+	"github.com/pkieltyka/goinfer/internal/testgate"
 )
 
 // TestResidentHiddenCapture is the gate on the resident hidden-state seam (P10 increment 4,

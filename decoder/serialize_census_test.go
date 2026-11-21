@@ -23,7 +23,7 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/townsendmerino/aikit/linalg"
+	"github.com/pkieltyka/aikit/linalg"
 )
 
 // populated reports whether a LayerWeights field holds anything, for the kinds this struct uses.

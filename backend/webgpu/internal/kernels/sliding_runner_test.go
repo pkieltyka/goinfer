@@ -6,7 +6,7 @@ import (
 	"math"
 	"testing"
 
-	"github.com/townsendmerino/aikit/linalg"
+	"github.com/pkieltyka/aikit/linalg"
 )
 
 // TestDecodeRunnerSlidingWindow_parity pins the resident dense forward with sliding-window

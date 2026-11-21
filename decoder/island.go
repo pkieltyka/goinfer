@@ -4,8 +4,8 @@ import (
 	"math"
 	"slices"
 
-	"github.com/townsendmerino/aikit/embed"
-	"github.com/townsendmerino/aikit/linalg"
+	"github.com/pkieltyka/aikit/embed"
+	"github.com/pkieltyka/aikit/linalg"
 )
 
 // islandMat holds an f32 island tensor [rows, cols] (a family's projections kept at full precision) as the bf16 WeightMat kind

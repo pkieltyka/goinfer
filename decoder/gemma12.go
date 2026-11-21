@@ -4,7 +4,7 @@ import (
 	"fmt"
 	"math"
 
-	"github.com/townsendmerino/aikit/embed"
+	"github.com/pkieltyka/aikit/embed"
 )
 
 // Gemma 1 (model_type "gemma"; Gemma, CodeGemma) and Gemma 2 (model_type "gemma2") — the two Gemma generations before

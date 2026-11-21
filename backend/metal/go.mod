@@ -1,11 +1,11 @@
-module github.com/townsendmerino/goinfer/backend/metal
+module github.com/pkieltyka/goinfer/backend/metal
 
 go 1.27.0
 
 require (
 	github.com/ebitengine/purego v0.10.1
-	github.com/townsendmerino/aikit v1.78.0
-	github.com/townsendmerino/goinfer v0.24.1
+	github.com/pkieltyka/aikit v0.0.0-20261121021302-f0b03f6d1ed8
+	github.com/pkieltyka/goinfer v0.24.1
 	golang.org/x/sys v0.47.0
 )
 

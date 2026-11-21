@@ -7,8 +7,8 @@ import (
 	"slices"
 	"strings"
 
-	"github.com/townsendmerino/goinfer/backend/cuda/internal/fitdecide"
-	"github.com/townsendmerino/goinfer/decoder"
+	"github.com/pkieltyka/goinfer/backend/cuda/internal/fitdecide"
+	"github.com/pkieltyka/goinfer/decoder"
 )
 
 // memReadings are the free-VRAM figures a resident build's memory decisions read, in the order the build reads them. Each

@@ -3,7 +3,7 @@ package decoder
 import (
 	"math"
 
-	"github.com/townsendmerino/goinfer/internal/runtime/hybridattn"
+	"github.com/pkieltyka/goinfer/internal/runtime/hybridattn"
 )
 
 // DeepSeek-V2/V3 (deepseek_v2 / deepseek_v3): Multi-head Latent Attention over a DeepSeekMoE FFN. K/V are compressed to a shared

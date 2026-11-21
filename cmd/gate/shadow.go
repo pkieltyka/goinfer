@@ -10,7 +10,7 @@ import (
 	"regexp"
 	"strings"
 
-	"github.com/townsendmerino/goinfer/internal/guard/paritykey"
+	"github.com/pkieltyka/goinfer/internal/guard/paritykey"
 )
 
 // gate shadow: the parity key's shadow mode. For one push, from before to after, it

@@ -7,8 +7,8 @@ import (
 	"os"
 	"path/filepath"
 
-	"github.com/townsendmerino/aikit/embed"
-	"github.com/townsendmerino/aikit/linalg"
+	"github.com/pkieltyka/aikit/embed"
+	"github.com/pkieltyka/aikit/linalg"
 )
 
 // Qwen3-ASR's audio encoder ("AuT") and projector, float32 on the CPU.

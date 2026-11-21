@@ -7,7 +7,7 @@ import (
 	"os"
 	"testing"
 
-	"github.com/townsendmerino/goinfer/decoder"
+	"github.com/pkieltyka/goinfer/decoder"
 )
 
 // TestKVI8ScaleWrittenAtTruePosition pins that the int8 rope-store kernel writes each key's

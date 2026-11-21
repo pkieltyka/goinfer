@@ -3,7 +3,7 @@ package decoder
 import (
 	"strconv"
 
-	"github.com/townsendmerino/aikit/embed"
+	"github.com/pkieltyka/aikit/embed"
 )
 
 // ggufSampling reads a GGUF's general.sampling.* keys (llama.cpp's names: temp, top_p, top_k, min_p, penalty_repeat).

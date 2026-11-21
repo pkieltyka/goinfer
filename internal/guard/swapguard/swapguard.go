@@ -18,9 +18,9 @@ import (
 	"sync"
 	"testing"
 
-	"github.com/townsendmerino/goinfer/decoder"
-	"github.com/townsendmerino/goinfer/internal/runtime/logs"
-	"github.com/townsendmerino/goinfer/internal/runtime/mem/probe"
+	"github.com/pkieltyka/goinfer/decoder"
+	"github.com/pkieltyka/goinfer/internal/runtime/logs"
+	"github.com/pkieltyka/goinfer/internal/runtime/mem/probe"
 )
 
 // ThresholdBytes parses GOINFER_SWAP_GUARD once, shared by both halves of the guard so

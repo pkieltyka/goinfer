@@ -9,7 +9,7 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/townsendmerino/goinfer/decoder"
+	"github.com/pkieltyka/goinfer/decoder"
 )
 
 // wideWindowTiny writes a tiny dense model whose config declares a 131072-position window, so the fit-by-default candidate

@@ -10,7 +10,7 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/townsendmerino/goinfer/internal/app/loadflags"
+	"github.com/pkieltyka/goinfer/internal/app/loadflags"
 )
 
 // piOverflowPatterns and opencodeOverflowPatterns are the two agents' own overflow matchers, as their sources list them

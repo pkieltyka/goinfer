@@ -5,7 +5,7 @@ package cuda
 import (
 	"time"
 
-	"github.com/townsendmerino/goinfer/internal/cost"
+	"github.com/pkieltyka/goinfer/internal/cost"
 )
 
 // The resident's cost counters (internal/cost). No walker names the operation a kernel belongs to, so a CUDA operation is

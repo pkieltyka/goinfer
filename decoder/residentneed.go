@@ -1,8 +1,8 @@
 package decoder
 
 import (
-	"github.com/townsendmerino/goinfer/internal/runtime/mem"
-	"github.com/townsendmerino/goinfer/internal/runtime/program"
+	"github.com/pkieltyka/goinfer/internal/runtime/mem"
+	"github.com/pkieltyka/goinfer/internal/runtime/program"
 )
 
 // One memory-accounting path per backend.

@@ -5,7 +5,7 @@ import (
 	"testing"
 	"unsafe"
 
-	"github.com/townsendmerino/aikit/linalg"
+	"github.com/pkieltyka/aikit/linalg"
 )
 
 // TestKSO1_savingsCountOnlyTheLane: kquantSavings prices only what a backend's q4k lane uploads natively. On metal a recorded

@@ -14,9 +14,9 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/townsendmerino/goinfer/chat"
-	"github.com/townsendmerino/goinfer/internal/runtime/modelload"
-	"github.com/townsendmerino/goinfer/internal/testpath"
+	"github.com/pkieltyka/goinfer/chat"
+	"github.com/pkieltyka/goinfer/internal/runtime/modelload"
+	"github.com/pkieltyka/goinfer/internal/testpath"
 )
 
 // G-ids-3's three `decode` turns, replayed through the /v1/responses renderer with Mellum2.1's tokenizer and template and no

@@ -3,8 +3,8 @@
 package kernels
 
 import (
-	"github.com/townsendmerino/goinfer/backend/cuda/internal/launchgeom"
-	"github.com/townsendmerino/goinfer/backend/cuda/internal/wpack"
+	"github.com/pkieltyka/goinfer/backend/cuda/internal/launchgeom"
+	"github.com/pkieltyka/goinfer/backend/cuda/internal/wpack"
 )
 
 // The names package cuda gives the launch geometry and the KV f16 converters, so the tests moved from there read as

@@ -7,7 +7,7 @@ import (
 	"testing"
 	"time"
 
-	"github.com/townsendmerino/aikit/linalg"
+	"github.com/pkieltyka/aikit/linalg"
 )
 
 // randMat fills a deterministic pseudo-random [-1,1] matrix (no Math.rand dep

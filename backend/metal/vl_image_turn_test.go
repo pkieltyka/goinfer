@@ -9,7 +9,7 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/townsendmerino/goinfer/decoder"
+	"github.com/pkieltyka/goinfer/decoder"
 )
 
 // TestVLImageTurn_metalResident is S3's tiny-fixture check: a Gemma 3 and a

@@ -15,12 +15,12 @@ import (
 	"strconv"
 	"sync"
 
-	"github.com/townsendmerino/goinfer/internal/runtime/logs"
-	"github.com/townsendmerino/goinfer/internal/runtime/mem"
-	"github.com/townsendmerino/goinfer/internal/runtime/program"
+	"github.com/pkieltyka/goinfer/internal/runtime/logs"
+	"github.com/pkieltyka/goinfer/internal/runtime/mem"
+	"github.com/pkieltyka/goinfer/internal/runtime/program"
 
-	"github.com/townsendmerino/aikit/linalg"
-	"github.com/townsendmerino/goinfer/decoder"
+	"github.com/pkieltyka/aikit/linalg"
+	"github.com/pkieltyka/goinfer/decoder"
 )
 
 // moeLayer holds one MoE layer's device weights: the f32 router (+bias), the stacked all-E

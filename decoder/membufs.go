@@ -1,6 +1,6 @@
 package decoder
 
-import "github.com/townsendmerino/goinfer/internal/runtime/program"
+import "github.com/pkieltyka/goinfer/internal/runtime/program"
 
 // layerShapeOf is layer l's widths for its operations' buffers (program.Buffers), read where the walker's implementations of those
 // operations read them (Model.walkToken).

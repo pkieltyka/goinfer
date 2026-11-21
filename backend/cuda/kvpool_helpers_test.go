@@ -8,8 +8,8 @@ import (
 	"testing"
 
 	gc "github.com/eitamring/gocudrv/cuda"
-	gpu "github.com/townsendmerino/goinfer/backend/cuda/internal/gpudev"
-	"github.com/townsendmerino/goinfer/internal/runtime/mem"
+	gpu "github.com/pkieltyka/goinfer/backend/cuda/internal/gpudev"
+	"github.com/pkieltyka/goinfer/internal/runtime/mem"
 )
 
 // kvIdentityIDs is the block table that maps block i to block i, for a contiguous cache of positions rows: KV_ROW(t, k) == k for every

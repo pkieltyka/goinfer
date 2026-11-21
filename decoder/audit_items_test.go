@@ -7,7 +7,7 @@ import (
 	"reflect"
 	"testing"
 
-	"github.com/townsendmerino/aikit/linalg"
+	"github.com/pkieltyka/aikit/linalg"
 )
 
 // loadSharedKVFixture is a tiny Gemma 4 with its last layer marked KV-shared, as an E-model's are: the E-model fixture is not tracked, and

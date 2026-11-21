@@ -8,7 +8,7 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/townsendmerino/goinfer/internal/testgate"
+	"github.com/pkieltyka/goinfer/internal/testgate"
 )
 
 // ---------------------------------------------------------------------------

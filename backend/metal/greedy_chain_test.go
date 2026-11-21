@@ -9,7 +9,7 @@ import (
 	"runtime/debug"
 	"testing"
 
-	"github.com/townsendmerino/goinfer/decoder"
+	"github.com/pkieltyka/goinfer/decoder"
 )
 
 // chainFixtureResident is the MC3 fixture with a tied or an untied LM head (writeMC3FixtureTied), loaded at int4 with one

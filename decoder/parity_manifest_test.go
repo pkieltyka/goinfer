@@ -35,7 +35,7 @@ import (
 	"testing"
 	"time"
 
-	"github.com/townsendmerino/goinfer/internal/guard/paritykey"
+	"github.com/pkieltyka/goinfer/internal/guard/paritykey"
 )
 
 // mergeRowsPath, when set, makes TestParityManifest_merge fold the collected

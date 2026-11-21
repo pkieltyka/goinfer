@@ -4,7 +4,7 @@ import (
 	"os"
 	"testing"
 
-	"github.com/townsendmerino/goinfer/internal/testgate"
+	"github.com/pkieltyka/goinfer/internal/testgate"
 )
 
 // TestRow4GiwKind_gemma4_identicalToCanonical is the kind-4 acceptance gate's real-scale

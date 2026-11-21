@@ -6,10 +6,10 @@ import (
 	"path/filepath"
 	"testing"
 
-	"github.com/townsendmerino/goinfer/decoder"
-	"github.com/townsendmerino/goinfer/internal/runtime/modelload"
+	"github.com/pkieltyka/goinfer/decoder"
+	"github.com/pkieltyka/goinfer/internal/runtime/modelload"
 
-	"github.com/townsendmerino/goinfer/internal/testgate"
+	"github.com/pkieltyka/goinfer/internal/testgate"
 )
 
 // Qwen3-Embedding parity gates.

@@ -15,15 +15,15 @@ import (
 	"strings"
 	"time"
 
-	"github.com/townsendmerino/goinfer/decoder"
-	"github.com/townsendmerino/goinfer/decoder/fit"
-	"github.com/townsendmerino/goinfer/internal/guard/swapguard"
-	"github.com/townsendmerino/goinfer/internal/runtime/giw"
-	"github.com/townsendmerino/goinfer/internal/runtime/logs"
-	"github.com/townsendmerino/goinfer/internal/runtime/mem"
-	"github.com/townsendmerino/goinfer/internal/runtime/prequant"
-	"github.com/townsendmerino/goinfer/pull"
-	"github.com/townsendmerino/goinfer/tokenizer"
+	"github.com/pkieltyka/goinfer/decoder"
+	"github.com/pkieltyka/goinfer/decoder/fit"
+	"github.com/pkieltyka/goinfer/internal/guard/swapguard"
+	"github.com/pkieltyka/goinfer/internal/runtime/giw"
+	"github.com/pkieltyka/goinfer/internal/runtime/logs"
+	"github.com/pkieltyka/goinfer/internal/runtime/mem"
+	"github.com/pkieltyka/goinfer/internal/runtime/prequant"
+	"github.com/pkieltyka/goinfer/pull"
+	"github.com/pkieltyka/goinfer/tokenizer"
 )
 
 // Resolve turns a --model value into a local path: an hf:/demo: reference is fetched (or found in the

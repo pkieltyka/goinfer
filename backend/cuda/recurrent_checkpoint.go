@@ -6,10 +6,10 @@ import (
 	"errors"
 	"fmt"
 
-	gpu "github.com/townsendmerino/goinfer/backend/cuda/internal/gpudev"
-	"github.com/townsendmerino/goinfer/decoder"
-	"github.com/townsendmerino/goinfer/internal/runtime/logs"
-	"github.com/townsendmerino/goinfer/internal/runtime/mem"
+	gpu "github.com/pkieltyka/goinfer/backend/cuda/internal/gpudev"
+	"github.com/pkieltyka/goinfer/decoder"
+	"github.com/pkieltyka/goinfer/internal/runtime/logs"
+	"github.com/pkieltyka/goinfer/internal/runtime/mem"
 )
 
 // The recurrent checkpoint on CUDA (decoder.ResidentKVSubsystem; docs/measurements/kv8a-2026-10/README.md, "Where the

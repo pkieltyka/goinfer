@@ -5,9 +5,9 @@ package cuda
 import (
 	"fmt"
 
-	gpu "github.com/townsendmerino/goinfer/backend/cuda/internal/gpudev"
-	"github.com/townsendmerino/goinfer/internal/vision"
-	"github.com/townsendmerino/goinfer/multimodal"
+	gpu "github.com/pkieltyka/goinfer/backend/cuda/internal/gpudev"
+	"github.com/pkieltyka/goinfer/internal/vision"
+	"github.com/pkieltyka/goinfer/multimodal"
 )
 
 // Qwen2.5-VL's vision tower in float32 on the CUDA tower base: the port

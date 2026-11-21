@@ -10,8 +10,8 @@ import (
 	"strconv"
 	"testing"
 
-	"github.com/townsendmerino/goinfer/decoder"
-	"github.com/townsendmerino/goinfer/internal/runtime/prequant"
+	"github.com/pkieltyka/goinfer/decoder"
+	"github.com/pkieltyka/goinfer/internal/runtime/prequant"
 )
 
 // TestG4Prefetch_bitExactAndRuns is lever 3's gate: on the tiny Gemma 4 MoE as a

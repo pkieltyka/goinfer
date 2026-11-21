@@ -8,9 +8,9 @@ import (
 	"testing"
 	"time"
 
-	"github.com/townsendmerino/goinfer/decoder"
+	"github.com/pkieltyka/goinfer/decoder"
 
-	"github.com/townsendmerino/goinfer/internal/testgate"
+	"github.com/pkieltyka/goinfer/internal/testgate"
 )
 
 // dflashLoop runs the full resident block-drafting round loop and returns the tokens it emitted

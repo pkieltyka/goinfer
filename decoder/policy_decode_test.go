@@ -8,7 +8,7 @@ import (
 	"testing"
 	"time"
 
-	"github.com/townsendmerino/goinfer/internal/runtime/sampling"
+	"github.com/pkieltyka/goinfer/internal/runtime/sampling"
 )
 
 // fakeDecode is plainDecodeLoop's target over a scriptedForward: the row is the fake's logits after the history, pick

@@ -15,9 +15,9 @@ import (
 	"time"
 	"unsafe"
 
-	gpu "github.com/townsendmerino/goinfer/backend/cuda/internal/gpudev"
-	"github.com/townsendmerino/goinfer/decoder"
-	"github.com/townsendmerino/goinfer/internal/vision"
+	gpu "github.com/pkieltyka/goinfer/backend/cuda/internal/gpudev"
+	"github.com/pkieltyka/goinfer/decoder"
+	"github.com/pkieltyka/goinfer/internal/vision"
 )
 
 // G-S3a on CUDA for the float32 SigLIP tower: the CUDA tower against aikit's CPU tower, both float32,

@@ -12,10 +12,10 @@ import (
 	"testing"
 	"time"
 
-	gpu "github.com/townsendmerino/goinfer/backend/cuda/internal/gpudev"
-	"github.com/townsendmerino/goinfer/decoder"
+	gpu "github.com/pkieltyka/goinfer/backend/cuda/internal/gpudev"
+	"github.com/pkieltyka/goinfer/decoder"
 
-	"github.com/townsendmerino/goinfer/internal/testgate"
+	"github.com/pkieltyka/goinfer/internal/testgate"
 )
 
 // TestResidentDrafter_fuseParity is the first gate on the resident block drafter: its `fc`

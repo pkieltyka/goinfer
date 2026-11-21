@@ -6,7 +6,7 @@ import (
 	"path/filepath"
 	"testing"
 
-	"github.com/townsendmerino/goinfer/internal/audio"
+	"github.com/pkieltyka/goinfer/internal/audio"
 )
 
 // G-S14d1: aikit's Whisper encoder against transformers' WhisperEncoder on a tiny random-weight Whisper

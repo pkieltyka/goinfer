@@ -13,9 +13,9 @@ import (
 	"slices"
 	"testing"
 
-	"github.com/townsendmerino/goinfer/decoder"
-	"github.com/townsendmerino/goinfer/decoder/fit"
-	"github.com/townsendmerino/goinfer/tokenizer"
+	"github.com/pkieltyka/goinfer/decoder"
+	"github.com/pkieltyka/goinfer/decoder/fit"
+	"github.com/pkieltyka/goinfer/tokenizer"
 )
 
 // TestW8Native_F3amended_closerToF32 is gate F3 as the owner amended it: Metal's native int8int8 (precise math, the owner's other decision) against the CPU's int8int8 at Metal's

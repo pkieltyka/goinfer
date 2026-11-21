@@ -11,10 +11,10 @@ import (
 	"strings"
 	"time"
 
-	gpu "github.com/townsendmerino/goinfer/backend/cuda/internal/gpudev"
-	"github.com/townsendmerino/goinfer/backend/cuda/internal/launchgeom"
-	"github.com/townsendmerino/goinfer/decoder"
-	"github.com/townsendmerino/goinfer/internal/runtime/mem"
+	gpu "github.com/pkieltyka/goinfer/backend/cuda/internal/gpudev"
+	"github.com/pkieltyka/goinfer/backend/cuda/internal/launchgeom"
+	"github.com/pkieltyka/goinfer/decoder"
+	"github.com/pkieltyka/goinfer/internal/runtime/mem"
 )
 
 // errPrefillDeclined marks an arch or geometry decline from the batched path, which covers the plain dense unfused

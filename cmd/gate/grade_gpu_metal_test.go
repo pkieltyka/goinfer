@@ -10,7 +10,7 @@ import (
 	"testing"
 )
 
-const metalPkg = "github.com/townsendmerino/goinfer/metal"
+const metalPkg = "github.com/pkieltyka/goinfer/metal"
 
 // metalCellEvents is a cell's stream: each test run with action act and one output line, then the package's ok or FAIL
 // line. A crash adds a panic and a frame from this repo after the first test.
@@ -22,7 +22,7 @@ func metalCellEvents(tests []string, act string, crash bool) []testEvent {
 		if crash && i == 0 {
 			evs = append(evs, testEvent{Action: "output", Package: metalPkg, Output: "panic: boom\n"},
 				testEvent{Action: "output", Package: metalPkg, Output: "goroutine 1 [running]:\n"},
-				testEvent{Action: "output", Package: metalPkg, Output: "github.com/townsendmerino/goinfer/metal.TestX(...)\n"})
+				testEvent{Action: "output", Package: metalPkg, Output: "github.com/pkieltyka/goinfer/metal.TestX(...)\n"})
 			return evs
 		}
 		if act == "fail" {

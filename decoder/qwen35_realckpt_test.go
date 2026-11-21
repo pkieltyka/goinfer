@@ -19,7 +19,7 @@ import (
 	"runtime"
 	"testing"
 
-	"github.com/townsendmerino/goinfer/internal/testgate"
+	"github.com/pkieltyka/goinfer/internal/testgate"
 )
 
 // realQwen35Dir returns the on-disk path to the real Qwen3.6-35B-A3B checkpoint,

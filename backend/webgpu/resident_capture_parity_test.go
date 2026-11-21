@@ -7,7 +7,7 @@ import (
 	"os"
 	"testing"
 
-	"github.com/townsendmerino/goinfer/decoder"
+	"github.com/pkieltyka/goinfer/decoder"
 )
 
 // TestResidentCaptureParityWebGPU runs the resident Forward against the CPU ForwardForTest at the same quant (an 8-token

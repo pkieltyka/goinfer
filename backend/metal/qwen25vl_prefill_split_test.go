@@ -12,9 +12,9 @@ import (
 	"sort"
 	"testing"
 
-	"github.com/townsendmerino/goinfer/decoder"
-	"github.com/townsendmerino/goinfer/multimodal"
-	"github.com/townsendmerino/goinfer/tokenizer"
+	"github.com/pkieltyka/goinfer/decoder"
+	"github.com/pkieltyka/goinfer/multimodal"
+	"github.com/pkieltyka/goinfer/tokenizer"
 )
 
 // G-S3c's root cause, the Metal-binary half. Served, the Qwen2.5-VL

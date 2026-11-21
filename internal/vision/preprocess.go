@@ -13,7 +13,7 @@
 // + the security guard.
 //
 // "multimodal.md" refers to
-// https://github.com/townsendmerino/goinfer/blob/main/docs/multimodal.md.
+// https://github.com/pkieltyka/goinfer/blob/main/docs/multimodal.md.
 package vision
 
 import (

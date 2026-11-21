@@ -7,9 +7,9 @@ import (
 	"sort"
 	"testing"
 
-	"github.com/townsendmerino/goinfer/decoder"
+	"github.com/pkieltyka/goinfer/decoder"
 
-	"github.com/townsendmerino/goinfer/internal/testgate"
+	"github.com/pkieltyka/goinfer/internal/testgate"
 )
 
 // TestR14DrafterArgmaxAB is R14's build gate (docs/measurements/r14-drafter-argmax-2026-09-22.md):

@@ -8,9 +8,9 @@ import (
 	"strconv"
 	"testing"
 
-	"github.com/townsendmerino/goinfer/decoder"
+	"github.com/pkieltyka/goinfer/decoder"
 
-	"github.com/townsendmerino/goinfer/internal/testgate"
+	"github.com/pkieltyka/goinfer/internal/testgate"
 )
 
 // forwardPagedCaptureForTest replicates forwardLogitsPaged's per-layer walk but captures the residual

@@ -3,15 +3,15 @@ package serveapp
 import (
 	"bytes"
 	"fmt"
-	"github.com/townsendmerino/goinfer/internal/runtime/mem"
+	"github.com/pkieltyka/goinfer/internal/runtime/mem"
 	"io"
 	"os"
 	"path/filepath"
 	"strings"
 
-	"github.com/townsendmerino/goinfer/decoder"
-	"github.com/townsendmerino/goinfer/internal/runtime/prequant"
-	"github.com/townsendmerino/goinfer/internal/vision"
+	"github.com/pkieltyka/goinfer/decoder"
+	"github.com/pkieltyka/goinfer/internal/runtime/prequant"
+	"github.com/pkieltyka/goinfer/internal/vision"
 )
 
 // attachableTower is what attachGemma3Tower needs of a vision encoder: the device attach and the release of one that did not take.

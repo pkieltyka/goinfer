@@ -7,10 +7,10 @@ import (
 	"math"
 	"testing"
 
-	gpu "github.com/townsendmerino/goinfer/backend/cuda/internal/gpudev"
-	"github.com/townsendmerino/goinfer/decoder"
+	gpu "github.com/pkieltyka/goinfer/backend/cuda/internal/gpudev"
+	"github.com/pkieltyka/goinfer/decoder"
 
-	"github.com/townsendmerino/goinfer/internal/testgate"
+	"github.com/pkieltyka/goinfer/internal/testgate"
 )
 
 // requireCUDAResidentMRoPE is requireCUDAResident's m-RoPE twin: qwen3-4b (that helper's model)

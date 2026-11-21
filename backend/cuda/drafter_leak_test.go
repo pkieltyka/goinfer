@@ -7,9 +7,9 @@ import (
 	"os"
 	"testing"
 
-	"github.com/townsendmerino/goinfer/decoder"
+	"github.com/pkieltyka/goinfer/decoder"
 
-	"github.com/townsendmerino/goinfer/internal/testgate"
+	"github.com/pkieltyka/goinfer/internal/testgate"
 )
 
 // TestResidentDrafter_fuseContextReleasesScratch is M-21's own gate (docs/audit-2026-09-10.md):

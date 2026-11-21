@@ -6,7 +6,7 @@ import (
 	"fmt"
 
 	"github.com/oliverbestmann/webgpu/wgpu"
-	"github.com/townsendmerino/goinfer/internal/vision"
+	"github.com/pkieltyka/goinfer/internal/vision"
 )
 
 // walkBlock runs one block's program over the residual stream x [np, hidden] in place, each op through the tower's

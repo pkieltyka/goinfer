@@ -12,8 +12,8 @@ import (
 	"testing"
 	"time"
 
-	"github.com/townsendmerino/goinfer/internal/vision"
-	"github.com/townsendmerino/goinfer/multimodal"
+	"github.com/pkieltyka/goinfer/internal/vision"
+	"github.com/pkieltyka/goinfer/multimodal"
 )
 
 // G-S3a, for the rebuilt towers (vl_towers.go): the Metal SigLIP

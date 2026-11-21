@@ -6,7 +6,7 @@ import (
 	"os"
 	"testing"
 
-	"github.com/townsendmerino/goinfer/decoder"
+	"github.com/pkieltyka/goinfer/decoder"
 )
 
 // TestOneSlotStep_phi3PrefillAB is P29's tier 1 measurement: Phi-3 mini 4k at --quant q4k

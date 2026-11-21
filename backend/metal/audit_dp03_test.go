@@ -10,7 +10,7 @@ import (
 	"testing"
 	"time"
 
-	"github.com/townsendmerino/goinfer/decoder"
+	"github.com/pkieltyka/goinfer/decoder"
 )
 
 // TestDP03_kSlotsDecode is D-P03's whole-token check (docs/audit-metal-2026-09-30.md, "D-P03"): resident MoE decode

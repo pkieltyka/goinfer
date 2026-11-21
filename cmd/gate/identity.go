@@ -571,11 +571,11 @@ func buildIdentitySide(o identityOpts, wd string, s *identitySide) error {
 	set := map[string]string{}
 	switch o.Backend {
 	case "metal":
-		modDir, register = filepath.Join(s.WT, "backend", "metal"), `_ "github.com/townsendmerino/goinfer/backend/metal"`
+		modDir, register = filepath.Join(s.WT, "backend", "metal"), `_ "github.com/pkieltyka/goinfer/backend/metal"`
 	case "webgpu":
-		modDir, register, tags = filepath.Join(s.WT, "backend", "webgpu"), `_ "github.com/townsendmerino/goinfer/backend/webgpu"`, "gpu"
+		modDir, register, tags = filepath.Join(s.WT, "backend", "webgpu"), `_ "github.com/pkieltyka/goinfer/backend/webgpu"`, "gpu"
 	case "cuda":
-		modDir, register, tags = filepath.Join(s.WT, "backend", "cuda"), `_ "github.com/townsendmerino/goinfer/backend/cuda"`, "cuda"
+		modDir, register, tags = filepath.Join(s.WT, "backend", "cuda"), `_ "github.com/pkieltyka/goinfer/backend/cuda"`, "cuda"
 	}
 	if o.Backend == "cpu" {
 		set["GOWORK"], set["GOFLAGS"] = "off", "-mod=readonly"

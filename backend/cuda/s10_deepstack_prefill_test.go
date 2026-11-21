@@ -12,10 +12,10 @@ import (
 	"testing"
 	"time"
 
-	"github.com/townsendmerino/goinfer/decoder"
-	"github.com/townsendmerino/goinfer/internal/vision"
-	"github.com/townsendmerino/goinfer/multimodal"
-	"github.com/townsendmerino/goinfer/tokenizer"
+	"github.com/pkieltyka/goinfer/decoder"
+	"github.com/pkieltyka/goinfer/internal/vision"
+	"github.com/pkieltyka/goinfer/multimodal"
+	"github.com/pkieltyka/goinfer/tokenizer"
 )
 
 // G-S10g, tiny half; CUDA twin of metal/s16_mrope_prefill_test.go's TestS16DeepstackPrefill_tiny. The Qwen3-VL tiny decoder

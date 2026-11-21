@@ -11,7 +11,7 @@ import (
 	"time"
 
 	gc "github.com/eitamring/gocudrv/cuda"
-	"github.com/townsendmerino/goinfer/decoder"
+	"github.com/pkieltyka/goinfer/decoder"
 )
 
 // TestTopKSelect_matchesReference is the kernel gate for the top-K (R7): for every row shape a decode

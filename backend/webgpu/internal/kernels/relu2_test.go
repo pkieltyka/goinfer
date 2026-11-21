@@ -8,7 +8,7 @@ import (
 	"testing"
 
 	"github.com/oliverbestmann/webgpu/wgpu"
-	"github.com/townsendmerino/aikit/linalg"
+	"github.com/pkieltyka/aikit/linalg"
 )
 
 // TestNemotronRelu2FFN_parity pins the resident non-gated squared-ReLU FFN (up(W8A8) → relu²→int8

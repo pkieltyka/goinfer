@@ -10,9 +10,9 @@ import (
 	"path/filepath"
 	"testing"
 
-	"github.com/townsendmerino/goinfer/chat"
-	"github.com/townsendmerino/goinfer/decoder"
-	"github.com/townsendmerino/goinfer/tokenizer"
+	"github.com/pkieltyka/goinfer/chat"
+	"github.com/pkieltyka/goinfer/decoder"
+	"github.com/pkieltyka/goinfer/tokenizer"
 )
 
 // TestS9EModelBatched_tiny is G-S9c of S9 step 2 ( registered before any

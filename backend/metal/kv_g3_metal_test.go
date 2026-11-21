@@ -17,10 +17,10 @@ import (
 	"testing"
 	"time"
 
-	gpu "github.com/townsendmerino/goinfer/backend/metal/internal/gpudev"
-	"github.com/townsendmerino/goinfer/decoder"
-	"github.com/townsendmerino/goinfer/internal/app/loadflags"
-	"github.com/townsendmerino/goinfer/internal/runtime/mem"
+	gpu "github.com/pkieltyka/goinfer/backend/metal/internal/gpudev"
+	"github.com/pkieltyka/goinfer/decoder"
+	"github.com/pkieltyka/goinfer/internal/app/loadflags"
+	"github.com/pkieltyka/goinfer/internal/runtime/mem"
 )
 
 // g3MetalNotBuilt are the Metal cells whose fixture builds no Metal resident (a decline outside KV), so the model runs on the CPU

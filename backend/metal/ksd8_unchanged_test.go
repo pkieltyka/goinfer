@@ -12,7 +12,7 @@ import (
 	"path/filepath"
 	"testing"
 
-	"github.com/townsendmerino/goinfer/decoder"
+	"github.com/pkieltyka/goinfer/decoder"
 )
 
 // TestKSD8_otherFamiliesUnchanged is D8-G6's byte check: llama-tiny, qwen35-tiny and (with GOINFER_HEAVY_TESTS=1) the 1.5B's

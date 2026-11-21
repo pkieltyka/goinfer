@@ -2,7 +2,7 @@
 
 package metal
 
-import "github.com/townsendmerino/goinfer/internal/runtime/mem"
+import "github.com/pkieltyka/goinfer/internal/runtime/mem"
 
 // A Gated-DeltaNet layer in the batched prefill pass (docs/audit-metal-2026-09-30.md).
 // The projections (qkv, z, out) run as prefill GEMMs over all M rows, and in_proj_b / in_proj_a as a small

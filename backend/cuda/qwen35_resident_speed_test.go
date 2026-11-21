@@ -8,7 +8,7 @@ import (
 	"time"
 
 	gc "github.com/eitamring/gocudrv/cuda"
-	"github.com/townsendmerino/goinfer/decoder"
+	"github.com/pkieltyka/goinfer/decoder"
 )
 
 // Decode rate, resident vs CPU, for the Gated-DeltaNet hybrid.

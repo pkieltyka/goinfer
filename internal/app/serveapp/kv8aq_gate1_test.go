@@ -11,8 +11,8 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/townsendmerino/goinfer/chat"
-	"github.com/townsendmerino/goinfer/internal/runtime/modelload"
+	"github.com/pkieltyka/goinfer/chat"
+	"github.com/pkieltyka/goinfer/internal/runtime/modelload"
 )
 
 // TestKV8aQ_gate1Scopes posts recorded /v1/chat/completions bodies, in file order, to the chat route of a scripted server that has a

@@ -8,9 +8,9 @@ import (
 	"testing"
 	"time"
 
-	"github.com/townsendmerino/goinfer/decoder"
+	"github.com/pkieltyka/goinfer/decoder"
 
-	"github.com/townsendmerino/goinfer/internal/testgate"
+	"github.com/pkieltyka/goinfer/internal/testgate"
 )
 
 // TestCohereRealResidentParityCUDA is the REAL-CHECKPOINT gate for the pairwise rope on CUDA: Aya-expanse-8B

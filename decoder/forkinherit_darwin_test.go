@@ -9,7 +9,7 @@ import (
 	"testing"
 	"unsafe"
 
-	"github.com/townsendmerino/aikit/mmap"
+	"github.com/pkieltyka/aikit/mmap"
 )
 
 // The syscall number and argument order excludeFromFork relies on are real: the same call with an invalid inheritance

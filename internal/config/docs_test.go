@@ -10,7 +10,7 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/townsendmerino/goinfer/internal/config"
+	"github.com/pkieltyka/goinfer/internal/config"
 )
 
 var updateDocs = flag.Bool("update", false, "rewrite the generated parts of docs/env-vars.md from the schema and docs/env-vars.meta.json")

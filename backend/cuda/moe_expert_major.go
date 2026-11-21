@@ -3,10 +3,10 @@
 package cuda
 
 import (
-	"github.com/townsendmerino/goinfer/internal/runtime/mem"
+	"github.com/pkieltyka/goinfer/internal/runtime/mem"
 	"slices"
 
-	gpu "github.com/townsendmerino/goinfer/backend/cuda/internal/gpudev"
+	gpu "github.com/pkieltyka/goinfer/backend/cuda/internal/gpudev"
 )
 
 // CUDA expert-major MoE prefill (docs/measurements/p20-expert-locality-2026-09-21.md).

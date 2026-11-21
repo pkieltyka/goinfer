@@ -19,7 +19,7 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/townsendmerino/goinfer/backend/metal/kernels"
+	"github.com/pkieltyka/goinfer/backend/metal/kernels"
 )
 
 // TestGptOssAttnSink_metal gates the sink term against decoder/forward_gptoss.go's

@@ -8,8 +8,8 @@ import (
 	"os"
 	"testing"
 
-	"github.com/townsendmerino/goinfer/internal/runtime/sampling"
-	"github.com/townsendmerino/goinfer/tokenizer"
+	"github.com/pkieltyka/goinfer/internal/runtime/sampling"
+	"github.com/pkieltyka/goinfer/tokenizer"
 )
 
 // M4 multi-token decode parity. Prefills a prompt, greedy-decodes N tokens off

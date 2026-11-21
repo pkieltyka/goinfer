@@ -9,9 +9,9 @@ import (
 	"testing"
 	"time"
 
-	"github.com/townsendmerino/goinfer/decoder"
+	"github.com/pkieltyka/goinfer/decoder"
 
-	"github.com/townsendmerino/goinfer/internal/testgate"
+	"github.com/pkieltyka/goinfer/internal/testgate"
 )
 
 // BenchmarkKVLongCtx sweeps decode tok/s vs context depth for int8 / f16 / f32 KV on the

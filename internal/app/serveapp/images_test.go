@@ -4,7 +4,7 @@ import (
 	"encoding/json"
 	"testing"
 
-	"github.com/townsendmerino/goinfer/chat"
+	"github.com/pkieltyka/goinfer/chat"
 )
 
 // 1×1 px PNG, base64.

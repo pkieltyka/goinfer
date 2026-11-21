@@ -5,8 +5,8 @@ package cuda
 import (
 	"fmt"
 
-	"github.com/townsendmerino/goinfer/decoder"
-	"github.com/townsendmerino/goinfer/internal/runtime/logs"
+	"github.com/pkieltyka/goinfer/decoder"
+	"github.com/pkieltyka/goinfer/internal/runtime/logs"
 )
 
 // An idle conversation's rows move to pinned host memory when the pool releases its blocks, and come back when it returns

@@ -6,8 +6,8 @@ import (
 	"errors"
 	"testing"
 
-	"github.com/townsendmerino/goinfer/backend/cuda/internal/gpudev"
-	"github.com/townsendmerino/goinfer/internal/runtime/mem"
+	"github.com/pkieltyka/goinfer/backend/cuda/internal/gpudev"
+	"github.com/pkieltyka/goinfer/internal/runtime/mem"
 )
 
 // A caller that can degrade recovers gpudev's allocation panic, and mem.DeviceAllocFailed tells it from a bug by its type's marker

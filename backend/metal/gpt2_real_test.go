@@ -6,8 +6,8 @@ import (
 	"os"
 	"testing"
 
-	"github.com/townsendmerino/goinfer/decoder"
-	"github.com/townsendmerino/goinfer/tokenizer"
+	"github.com/pkieltyka/goinfer/decoder"
+	"github.com/pkieltyka/goinfer/tokenizer"
 )
 
 // TestGPT2ResidentParity is GPT-2's Metal gate — the same residentParity/assertParity harness

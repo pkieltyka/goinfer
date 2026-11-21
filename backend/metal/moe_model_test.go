@@ -14,7 +14,7 @@ import (
 	"sort"
 	"testing"
 
-	"github.com/townsendmerino/goinfer/decoder"
+	"github.com/pkieltyka/goinfer/decoder"
 )
 
 // Tiny synthetic dims. Every GEMV contraction (hidden, ffnInter, qDim) is a multiple of 32

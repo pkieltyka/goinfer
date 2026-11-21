@@ -4,7 +4,7 @@ package metal
 
 import (
 	"fmt"
-	"github.com/townsendmerino/goinfer/internal/runtime/mem"
+	"github.com/pkieltyka/goinfer/internal/runtime/mem"
 )
 
 // The batched phase 2 for the generic paged MoE prefill: the

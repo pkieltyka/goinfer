@@ -6,7 +6,7 @@ import (
 	"os"
 	"testing"
 
-	"github.com/townsendmerino/goinfer/internal/testgate"
+	"github.com/pkieltyka/goinfer/internal/testgate"
 )
 
 // TestGemmaSublayerTrace answers the Metal bisect's Fork-1 question: at the first layer a

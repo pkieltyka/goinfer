@@ -9,7 +9,7 @@ import (
 	"testing"
 	"time"
 
-	"github.com/townsendmerino/goinfer/decoder"
+	"github.com/pkieltyka/goinfer/decoder"
 )
 
 // TestMoEPrefillMeasure_batchedVsSequential is P-15's real-checkpoint measurement (docs/audit-2026-09-10.md): it times Metal's

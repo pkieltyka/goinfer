@@ -9,7 +9,7 @@ import (
 	"testing"
 	"time"
 
-	"github.com/townsendmerino/goinfer/decoder"
+	"github.com/pkieltyka/goinfer/decoder"
 )
 
 // TestSpecVerifyCurveMetal is the Metal side of cuda/spec_verify_ceiling_test.go (D1/P10): the

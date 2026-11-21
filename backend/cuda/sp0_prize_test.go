@@ -13,12 +13,12 @@ import (
 	"testing"
 	"time"
 
-	"github.com/townsendmerino/goinfer/chat"
-	"github.com/townsendmerino/goinfer/decoder"
-	"github.com/townsendmerino/goinfer/internal/runtime/modelload"
-	"github.com/townsendmerino/goinfer/tokenizer"
+	"github.com/pkieltyka/goinfer/chat"
+	"github.com/pkieltyka/goinfer/decoder"
+	"github.com/pkieltyka/goinfer/internal/runtime/modelload"
+	"github.com/pkieltyka/goinfer/tokenizer"
 
-	"github.com/townsendmerino/goinfer/internal/testgate"
+	"github.com/pkieltyka/goinfer/internal/testgate"
 )
 
 // TestSP0_prize is SP0's instrument (docs/measurements/sp0-2026-10/README.md, which registers the protocol): a drafter's

@@ -16,12 +16,12 @@ import (
 	"time"
 	"unsafe"
 
-	"github.com/townsendmerino/goinfer/internal/cost"
-	"github.com/townsendmerino/goinfer/internal/runtime/giw"
-	"github.com/townsendmerino/goinfer/internal/runtime/kvmgr"
-	"github.com/townsendmerino/goinfer/internal/runtime/logs"
+	"github.com/pkieltyka/goinfer/internal/cost"
+	"github.com/pkieltyka/goinfer/internal/runtime/giw"
+	"github.com/pkieltyka/goinfer/internal/runtime/kvmgr"
+	"github.com/pkieltyka/goinfer/internal/runtime/logs"
 
-	"github.com/townsendmerino/goinfer/decoder/config"
+	"github.com/pkieltyka/goinfer/decoder/config"
 )
 
 // decodeTiming env-gates per-component decode timing (GOINFER_DECODE_TIMING=1) so
@@ -449,7 +449,7 @@ func modelFromOptions(w *Weights, be Backend, opts Options) *Model {
 // Load loads a model from dir, which is a checkpoint directory (config.json and its safetensors shards), a.
 // gguf file, or a prequantized .giw bundle, for any supported family. opts chooses the backend, the
 // weight quantization and the rest. "cpu" is always available. "cuda", "metal" and "webgpu" become
-// available when their module is imported: github.com/townsendmerino/goinfer/backend/cuda (built with -tags cuda),
+// available when their module is imported: github.com/pkieltyka/goinfer/backend/cuda (built with -tags cuda),
 // ../backend/metal (on darwin) and .../backend/webgpu (built with -tags gpu). As Options.Backend says, a name not compiled
 // into the binary falls back to cpu. A model that would not fit this machine's memory is refused with an
 // error wrapping ErrWontFitResident.
@@ -948,7 +948,7 @@ func (m *Model) embedToken(id int, dst []float32) {
 //
 // Generate is a raw completion primitive: it continues prompt verbatim and knows nothing about chat turns, roles, or a
 // checkpoint's template, so encoding a user message with no formatting makes an instruct-tuned model degenerate into
-// repetition. Rendering a template is the caller's job: see github.com/townsendmerino/goinfer/chat (chat.Detect resolves a
+// repetition. Rendering a template is the caller's job: see github.com/pkieltyka/goinfer/chat (chat.Detect resolves a
 // checkpoint's own template from its tokenizer metadata) and examples/embed/main.go for the whole sequence.
 //
 // Sampling is greedy at Temperature 0, else temperature/top-k/top-p (see Sampler). A SamplingParams.LogitProcessor, if set,

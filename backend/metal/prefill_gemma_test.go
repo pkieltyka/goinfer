@@ -7,7 +7,7 @@ import (
 	"os"
 	"testing"
 
-	"github.com/townsendmerino/goinfer/decoder"
+	"github.com/pkieltyka/goinfer/decoder"
 )
 
 // gemmaPrefillPrompt mirrors TestPrefillParity's own shape: an arbitrary fixed token sequence

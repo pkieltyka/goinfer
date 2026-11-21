@@ -959,7 +959,7 @@ modules never import webgpu, preserving their pure-Go / no-cgo promise.
 
 Usage: add a blank import of this package and build with `-tags gpu`:
 
-	import _ "github.com/townsendmerino/goinfer/gpu"
+	import _ "github.com/pkieltyka/goinfer/gpu"
 
 then select the backend (decoder.Options{Backend: "webgpu"} /
 encoder NewBackend("webgpu")). Without the tag this module's

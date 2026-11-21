@@ -6,7 +6,7 @@ import (
 	"reflect"
 	"testing"
 
-	"github.com/townsendmerino/goinfer/chat"
+	"github.com/pkieltyka/goinfer/chat"
 )
 
 // H-a (docs/measurements/harness-dialects-2026-10-09.md): /v1/responses decoded `tools` only in the Chat Completions

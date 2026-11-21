@@ -6,7 +6,7 @@ import (
 	"fmt"
 	"slices"
 
-	gpu "github.com/townsendmerino/goinfer/backend/cuda/internal/gpudev"
+	gpu "github.com/pkieltyka/goinfer/backend/cuda/internal/gpudev"
 )
 
 // The int8 KV cache (docs/measurements/cuda-kv-i8-2026-11/scope.md). Each owning layer holds K and V as int8 in its pools (kc, vc) and one f32

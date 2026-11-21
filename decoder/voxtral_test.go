@@ -12,8 +12,8 @@ import (
 	"slices"
 	"testing"
 
-	"github.com/townsendmerino/goinfer/internal/audio"
-	"github.com/townsendmerino/goinfer/internal/runtime/sampling"
+	"github.com/pkieltyka/goinfer/internal/audio"
+	"github.com/pkieltyka/goinfer/internal/runtime/sampling"
 )
 
 // G-S14e2: Voxtral's text decoder loads from the checkpoint's own layout (nested text_config, tensors

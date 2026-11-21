@@ -8,7 +8,7 @@ import (
 	"os"
 	"testing"
 
-	"github.com/townsendmerino/goinfer/internal/runtime/sampling"
+	"github.com/pkieltyka/goinfer/internal/runtime/sampling"
 )
 
 // M8 int8 accuracy. Loads the checkpoint with per-row int8 weight quant and

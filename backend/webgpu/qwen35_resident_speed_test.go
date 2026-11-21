@@ -7,7 +7,7 @@ import (
 	"testing"
 	"time"
 
-	"github.com/townsendmerino/goinfer/decoder"
+	"github.com/pkieltyka/goinfer/decoder"
 )
 
 // Decode rate, resident vs CPU, for the Gated-DeltaNet hybrid. Residency is a capability and

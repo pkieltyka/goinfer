@@ -7,7 +7,7 @@ import (
 	"os"
 	"testing"
 
-	"github.com/townsendmerino/aikit/linalg"
+	"github.com/pkieltyka/aikit/linalg"
 )
 
 // TestGemma4MoE_quantizedLoad is the Task-4 gate: the gemma4 safetensors loader

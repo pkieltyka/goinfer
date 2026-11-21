@@ -3,7 +3,7 @@
 package cuda
 
 import (
-	gpu "github.com/townsendmerino/goinfer/backend/cuda/internal/gpudev"
+	gpu "github.com/pkieltyka/goinfer/backend/cuda/internal/gpudev"
 )
 
 // dnPrefillBufs are the M-row buffers a batched prefill of a Gated-DeltaNet model uses.

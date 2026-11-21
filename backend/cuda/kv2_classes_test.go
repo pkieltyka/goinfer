@@ -12,7 +12,7 @@ import (
 	"slices"
 	"testing"
 
-	"github.com/townsendmerino/goinfer/decoder"
+	"github.com/pkieltyka/goinfer/decoder"
 )
 
 // G4-C, KV1's carry-overs on the device (docs/measurements/kv2-cuda-2026-10-15.md).

@@ -14,8 +14,8 @@ import (
 	"testing"
 	"time"
 
-	"github.com/townsendmerino/goinfer/internal/vision"
-	"github.com/townsendmerino/goinfer/multimodal"
+	"github.com/pkieltyka/goinfer/internal/vision"
+	"github.com/pkieltyka/goinfer/multimodal"
 )
 
 // TestKSD4_towerHashes is D4-G2's instrument: every tower of

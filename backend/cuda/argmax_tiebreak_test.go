@@ -9,8 +9,8 @@ import (
 	"testing"
 
 	gc "github.com/eitamring/gocudrv/cuda"
-	"github.com/townsendmerino/goinfer/decoder"
-	"github.com/townsendmerino/goinfer/internal/runtime/sampling"
+	"github.com/pkieltyka/goinfer/decoder"
+	"github.com/pkieltyka/goinfer/internal/runtime/sampling"
 )
 
 // TestArgmaxTieBreak is the C-14 gate: the on-device argmax_reduce must return the LOWEST index on an

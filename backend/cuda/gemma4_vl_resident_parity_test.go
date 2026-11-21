@@ -10,7 +10,7 @@ import (
 	"os"
 	"testing"
 
-	"github.com/townsendmerino/goinfer/decoder"
+	"github.com/pkieltyka/goinfer/decoder"
 )
 
 // gemma4VLBidirScaledGolden mirrors scripts/pin_gemma4_vl_bidir_scaled.py's image-golden JSON —

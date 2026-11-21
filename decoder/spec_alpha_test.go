@@ -5,8 +5,8 @@ import (
 	"sort"
 	"testing"
 
-	"github.com/townsendmerino/goinfer/constrain"
-	"github.com/townsendmerino/goinfer/tokenizer"
+	"github.com/pkieltyka/goinfer/constrain"
+	"github.com/pkieltyka/goinfer/tokenizer"
 )
 
 // TestNgramAlphaPredictor is the §06 gating measurement: is the n-gram source's

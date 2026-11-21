@@ -10,7 +10,7 @@ import (
 	"testing"
 	"time"
 
-	"github.com/townsendmerino/goinfer/decoder"
+	"github.com/pkieltyka/goinfer/decoder"
 )
 
 // Windowed layers at starts that are not multiples of 64 (docs/measurements/kv1-2026-10-13.md, G2). The KV manager's

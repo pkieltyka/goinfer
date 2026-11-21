@@ -2,9 +2,9 @@
 # tier2-1.sh — PR 1 of repo layout Tier 2: move GPU backend modules under backend/
 #
 # Moves:
-#   cuda/  -> backend/cuda/    (module github.com/townsendmerino/goinfer/backend/cuda)
-#   metal/ -> backend/metal/   (module github.com/townsendmerino/goinfer/backend/metal)
-#   gpu/   -> backend/webgpu/  (module github.com/townsendmerino/goinfer/backend/webgpu, package webgpu)
+#   cuda/  -> backend/cuda/    (module github.com/pkieltyka/goinfer/backend/cuda)
+#   metal/ -> backend/metal/   (module github.com/pkieltyka/goinfer/backend/metal)
+#   gpu/   -> backend/webgpu/  (module github.com/pkieltyka/goinfer/backend/webgpu, package webgpu)
 #
 # Usage:
 #   bash scripts/layout/tier2-1.sh
@@ -101,18 +101,18 @@ def replace_exact(path: Path, old: str, new: str, *, allow_already_applied: bool
 # ===========================================================================
 replace_exact(
     ROOT / "backend/cuda/go.mod",
-    "module github.com/townsendmerino/goinfer/cuda\n",
-    "module github.com/townsendmerino/goinfer/backend/cuda\n",
+    "module github.com/pkieltyka/goinfer/cuda\n",
+    "module github.com/pkieltyka/goinfer/backend/cuda\n",
 )
 replace_exact(
     ROOT / "backend/metal/go.mod",
-    "module github.com/townsendmerino/goinfer/metal\n",
-    "module github.com/townsendmerino/goinfer/backend/metal\n",
+    "module github.com/pkieltyka/goinfer/metal\n",
+    "module github.com/pkieltyka/goinfer/backend/metal\n",
 )
 replace_exact(
     ROOT / "backend/webgpu/go.mod",
-    "module github.com/townsendmerino/goinfer/gpu\n",
-    "module github.com/townsendmerino/goinfer/backend/webgpu\n",
+    "module github.com/pkieltyka/goinfer/gpu\n",
+    "module github.com/pkieltyka/goinfer/backend/webgpu\n",
 )
 
 GOMOD_PATHS = [
@@ -197,7 +197,7 @@ for go_file in all_go_files:
     def _rewrite_import_block(m: re.Match) -> str:
         blk = m.group(0)
         return IMPORT_PATH_RE.sub(
-            lambda im: f'"github.com/townsendmerino/goinfer/{GOMOD_MAP[im.group(1)]}{im.group(2)}"',
+            lambda im: f'"github.com/pkieltyka/goinfer/{GOMOD_MAP[im.group(1)]}{im.group(2)}"',
             blk,
         )
 
@@ -212,7 +212,7 @@ for go_file in all_go_files:
             count=1,
         )
 
-    # Step 4b: in files that import "github.com/townsendmerino/goinfer/backend/webgpu"
+    # Step 4b: in files that import "github.com/pkieltyka/goinfer/backend/webgpu"
     # under no alias or alias `gpu`, rewrite `gpu.` -> `webgpu.`.
     imports_goinfer_webgpu_as_gpu = False
     for im_block in IMPORT_BLOCK_RE.finditer(txt):
@@ -296,8 +296,8 @@ for go_file in all_go_files:
 # Also update backend/webgpu/internal/kernels/bufaccount_test.go package list passed to `go list`
 replace_exact(
     ROOT / "backend/webgpu/internal/kernels/bufaccount_test.go",
-    'pkgs := []string{"github.com/townsendmerino/goinfer/gpu/internal/kernels", "github.com/townsendmerino/goinfer/gpu"}',
-    'pkgs := []string{"github.com/townsendmerino/goinfer/backend/webgpu/internal/kernels", "github.com/townsendmerino/goinfer/backend/webgpu"}',
+    'pkgs := []string{"github.com/pkieltyka/goinfer/gpu/internal/kernels", "github.com/pkieltyka/goinfer/gpu"}',
+    'pkgs := []string{"github.com/pkieltyka/goinfer/backend/webgpu/internal/kernels", "github.com/pkieltyka/goinfer/backend/webgpu"}',
 )
 
 
@@ -484,13 +484,13 @@ replace_exact(
 )
 replace_exact(
     rel_yml,
-    " | grep -qE '^\\s*mod\\s+github.com/townsendmerino/goinfer/metal\\b' \\\n",
-    " | grep -qE '^\\s*mod\\s+github.com/townsendmerino/goinfer/backend/metal\\b' \\\n",
+    " | grep -qE '^\\s*mod\\s+github.com/pkieltyka/goinfer/metal\\b' \\\n",
+    " | grep -qE '^\\s*mod\\s+github.com/pkieltyka/goinfer/backend/metal\\b' \\\n",
 )
 replace_exact(
     rel_yml,
-    " | grep -qE '^\\s*mod\\s+github.com/townsendmerino/goinfer/cuda\\b' \\\n",
-    " | grep -qE '^\\s*mod\\s+github.com/townsendmerino/goinfer/backend/cuda\\b' \\\n",
+    " | grep -qE '^\\s*mod\\s+github.com/pkieltyka/goinfer/cuda\\b' \\\n",
+    " | grep -qE '^\\s*mod\\s+github.com/pkieltyka/goinfer/backend/cuda\\b' \\\n",
 )
 
 # 6e. .github/workflows/standalone-build.yml
@@ -583,8 +583,8 @@ replace_exact(
 # 6h. Other scripts in scripts/
 replace_exact(
     ROOT / "scripts/queue_citation_lint.py",
-    '                           (ROOT / "cuda" / "go.mod", "github.com/townsendmerino/aikit/gpu")):',
-    '                           (ROOT / "backend" / "cuda" / "go.mod", "github.com/townsendmerino/aikit/gpu")):',
+    '                           (ROOT / "cuda" / "go.mod", "github.com/pkieltyka/aikit/gpu")):',
+    '                           (ROOT / "backend" / "cuda" / "go.mod", "github.com/pkieltyka/aikit/gpu")):',
 )
 replace_exact(
     ROOT / "scripts/night.py",
@@ -599,8 +599,8 @@ replace_exact(
 )
 replace_exact(
     ROOT / "scripts/test_cuda_device_suite.py",
-    '"github.com/townsendmerino/goinfer/cuda"',
-    '"github.com/townsendmerino/goinfer/backend/cuda"',
+    '"github.com/pkieltyka/goinfer/cuda"',
+    '"github.com/pkieltyka/goinfer/backend/cuda"',
 )
 
 # 6i. cmd/lint/lint.go and cmd/lint/lint_test.go
@@ -832,19 +832,19 @@ replace_exact(
     ROOT / "cmd/gate/identity.go",
     '\tswitch o.Backend {\n'
     '\tcase "metal":\n'
-    '\t\tmodDir, register = filepath.Join(s.WT, "metal"), `_ "github.com/townsendmerino/goinfer/metal"`\n'
+    '\t\tmodDir, register = filepath.Join(s.WT, "metal"), `_ "github.com/pkieltyka/goinfer/metal"`\n'
     '\tcase "webgpu":\n'
-    '\t\tmodDir, register, tags = filepath.Join(s.WT, "gpu"), `_ "github.com/townsendmerino/goinfer/gpu"`, "gpu"\n'
+    '\t\tmodDir, register, tags = filepath.Join(s.WT, "gpu"), `_ "github.com/pkieltyka/goinfer/gpu"`, "gpu"\n'
     '\tcase "cuda":\n'
-    '\t\tmodDir, register, tags = filepath.Join(s.WT, "cuda"), `_ "github.com/townsendmerino/goinfer/cuda"`, "cuda"\n'
+    '\t\tmodDir, register, tags = filepath.Join(s.WT, "cuda"), `_ "github.com/pkieltyka/goinfer/cuda"`, "cuda"\n'
     '\t}',
     '\tswitch o.Backend {\n'
     '\tcase "metal":\n'
-    '\t\tmodDir, register = filepath.Join(s.WT, "backend", "metal"), `_ "github.com/townsendmerino/goinfer/backend/metal"`\n'
+    '\t\tmodDir, register = filepath.Join(s.WT, "backend", "metal"), `_ "github.com/pkieltyka/goinfer/backend/metal"`\n'
     '\tcase "webgpu":\n'
-    '\t\tmodDir, register, tags = filepath.Join(s.WT, "backend", "webgpu"), `_ "github.com/townsendmerino/goinfer/backend/webgpu"`, "gpu"\n'
+    '\t\tmodDir, register, tags = filepath.Join(s.WT, "backend", "webgpu"), `_ "github.com/pkieltyka/goinfer/backend/webgpu"`, "gpu"\n'
     '\tcase "cuda":\n'
-    '\t\tmodDir, register, tags = filepath.Join(s.WT, "backend", "cuda"), `_ "github.com/townsendmerino/goinfer/backend/cuda"`, "cuda"\n'
+    '\t\tmodDir, register, tags = filepath.Join(s.WT, "backend", "cuda"), `_ "github.com/pkieltyka/goinfer/backend/cuda"`, "cuda"\n'
     '\t}',
 )
 replace_exact(
@@ -854,8 +854,8 @@ replace_exact(
 )
 replace_exact(
     ROOT / "cmd/gate/identity_test.go",
-    '\tfor _, reg := range []string{"", `_ "github.com/townsendmerino/goinfer/metal"`} {',
-    '\tfor _, reg := range []string{"", `_ "github.com/townsendmerino/goinfer/backend/metal"`} {',
+    '\tfor _, reg := range []string{"", `_ "github.com/pkieltyka/goinfer/metal"`} {',
+    '\tfor _, reg := range []string{"", `_ "github.com/pkieltyka/goinfer/backend/metal"`} {',
 )
 
 # cmd/gate/comments_only.go
@@ -972,9 +972,9 @@ changelog_frag = ROOT / "changelog.d/2026-11-03-layout-tier2-backends.md"
 write_text(
     changelog_frag,
     "- **BREAKING — GPU backend modules moved under `backend/`**: the three GPU backend satellite modules have moved under `backend/` as part of the Tier 2 repository layout reorganization, and the WebGPU package clause is now `package webgpu` instead of `package gpu`:\n"
-    "  - `github.com/townsendmerino/goinfer/cuda` (and subpaths) -> `github.com/townsendmerino/goinfer/backend/cuda`\n"
-    "  - `github.com/townsendmerino/goinfer/metal` (and subpaths) -> `github.com/townsendmerino/goinfer/backend/metal`\n"
-    "  - `github.com/townsendmerino/goinfer/gpu` (and subpaths) -> `github.com/townsendmerino/goinfer/backend/webgpu` (`package gpu` -> `package webgpu`)\n",
+    "  - `github.com/pkieltyka/goinfer/cuda` (and subpaths) -> `github.com/pkieltyka/goinfer/backend/cuda`\n"
+    "  - `github.com/pkieltyka/goinfer/metal` (and subpaths) -> `github.com/pkieltyka/goinfer/backend/metal`\n"
+    "  - `github.com/pkieltyka/goinfer/gpu` (and subpaths) -> `github.com/pkieltyka/goinfer/backend/webgpu` (`package gpu` -> `package webgpu`)\n",
 )
 
 if MISSES:

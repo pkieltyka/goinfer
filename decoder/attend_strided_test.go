@@ -4,7 +4,7 @@ import (
 	"math/rand"
 	"testing"
 
-	"github.com/townsendmerino/aikit/linalg"
+	"github.com/pkieltyka/aikit/linalg"
 )
 
 // TestAttendStrided_matchesGatherReference proves the P1 wiring (attendBatchedHeads's

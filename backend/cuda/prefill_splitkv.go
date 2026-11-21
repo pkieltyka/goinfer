@@ -3,8 +3,8 @@
 package cuda
 
 import (
-	gpu "github.com/townsendmerino/goinfer/backend/cuda/internal/gpudev"
-	"github.com/townsendmerino/goinfer/backend/cuda/internal/launchgeom"
+	gpu "github.com/pkieltyka/goinfer/backend/cuda/internal/gpudev"
+	"github.com/pkieltyka/goinfer/backend/cuda/internal/launchgeom"
 )
 
 // prefillSplitKVBudget bounds the score scratch of the row-batched exact attention: a launch group takes as many rows as fit

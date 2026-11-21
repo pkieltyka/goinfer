@@ -4,8 +4,8 @@ package kernels
 
 import (
 	"fmt"
-	"github.com/townsendmerino/goinfer/internal/cost"
-	"github.com/townsendmerino/goinfer/internal/runtime/mem"
+	"github.com/pkieltyka/goinfer/internal/cost"
+	"github.com/pkieltyka/goinfer/internal/runtime/mem"
 	"math"
 	"os"
 	"slices"

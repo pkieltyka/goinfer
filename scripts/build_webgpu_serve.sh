@@ -25,7 +25,7 @@ case "$mode" in
     mkdir -p "$(dirname "$out")"
     echo "building $out from backend/webgpu/cmd/serve (tags=gpu, CGO_ENABLED=1, tag $tag)"
     ( cd backend/webgpu && CGO_ENABLED=1 GOWORK="$gowork" go build -tags gpu -trimpath \
-        -ldflags="-s -w -X github.com/townsendmerino/goinfer/internal/app/serveapp.injectedVersion=$tag" \
+        -ldflags="-s -w -X github.com/pkieltyka/goinfer/internal/app/serveapp.injectedVersion=$tag" \
         -o "$out" ./cmd/serve )
     ls -l "$out"
     ;;

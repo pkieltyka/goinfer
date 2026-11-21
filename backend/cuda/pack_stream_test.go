@@ -9,11 +9,11 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/townsendmerino/aikit/linalg"
-	gpu "github.com/townsendmerino/goinfer/backend/cuda/internal/gpudev"
-	"github.com/townsendmerino/goinfer/internal/runtime/mem"
+	"github.com/pkieltyka/aikit/linalg"
+	gpu "github.com/pkieltyka/goinfer/backend/cuda/internal/gpudev"
+	"github.com/pkieltyka/goinfer/internal/runtime/mem"
 
-	"github.com/townsendmerino/goinfer/decoder"
+	"github.com/pkieltyka/goinfer/decoder"
 )
 
 // The streaming pack's gates (docs/measurements/cuda-stream-pack-2026-10-18/README.md): G-S1 device bytes identical to packWeight+upW, G-S2a host bytes

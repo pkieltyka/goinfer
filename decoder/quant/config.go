@@ -11,7 +11,7 @@ import (
 	"fmt"
 	"strings"
 
-	"github.com/townsendmerino/aikit/embed"
+	"github.com/pkieltyka/aikit/embed"
 )
 
 // Reconstructor dequantizes a named 2-D [out, in] weight tensor from a safetensors

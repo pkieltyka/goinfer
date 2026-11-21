@@ -71,8 +71,8 @@ func TestBuildIdent_injectedWins(t *testing.T) {
 	}
 }
 
-// ldflagsX matches one `-X github.com/townsendmerino/goinfer/<pkg>.<var>=` in a build script.
-var ldflagsX = regexp.MustCompile(`-X github\.com/townsendmerino/goinfer/([\w/]+)\.(\w+)=`)
+// ldflagsX matches one `-X github.com/pkieltyka/goinfer/<pkg>.<var>=` in a build script.
+var ldflagsX = regexp.MustCompile(`-X github\.com/pkieltyka/goinfer/([\w/]+)\.(\w+)=`)
 
 // TestLdflagsTargetsExist: `go build -ldflags -X pkg.name=v` does NOTHING when pkg.name does not
 // exist — no error, no warning, the binary builds and reports its stamped version instead. So a

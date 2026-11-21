@@ -7,7 +7,7 @@ import (
 	"os"
 	"testing"
 
-	"github.com/townsendmerino/goinfer/decoder"
+	"github.com/pkieltyka/goinfer/decoder"
 )
 
 // gemma3ParityPrompt mirrors metal/gemma4_twogeom_test.go's twoGeomPrompt — an arbitrary fixed

@@ -5,7 +5,7 @@ package cuda
 import (
 	"testing"
 
-	"github.com/townsendmerino/goinfer/decoder"
+	"github.com/pkieltyka/goinfer/decoder"
 )
 
 // legacyLayer is launchToken's layer loop body as it was before the walk (OP4cu-b2), kept for B2-1's comparison and B2-6's A/B

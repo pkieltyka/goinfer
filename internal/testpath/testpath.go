@@ -11,7 +11,7 @@ import (
 	"testing"
 )
 
-const rootModule = "module github.com/townsendmerino/goinfer"
+const rootModule = "module github.com/pkieltyka/goinfer"
 
 // Root is the root module's directory: the nearest directory at or above the working directory (the package's, under
 // go test) whose go.mod declares goinfer's root module. It fails t when there is none.

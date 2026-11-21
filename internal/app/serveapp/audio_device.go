@@ -5,8 +5,8 @@ import (
 	"io"
 	"slices"
 
-	"github.com/townsendmerino/goinfer/internal/audio"
-	"github.com/townsendmerino/goinfer/multimodal"
+	"github.com/pkieltyka/goinfer/internal/audio"
+	"github.com/pkieltyka/goinfer/multimodal"
 )
 
 // attachWhisperDevice puts a Whisper-style encoder (Whisper's, and Voxtral's tower) on backend's device when this binary registers one for it, and returns where the encoder

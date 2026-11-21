@@ -7,7 +7,7 @@ import (
 	"path/filepath"
 	"testing"
 
-	"github.com/townsendmerino/aikit/linalg"
+	"github.com/pkieltyka/aikit/linalg"
 )
 
 // TestWantsRow4Fallback_metalOnly pins the exact scope of M-07's row4-skip decision

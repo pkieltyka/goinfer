@@ -5,12 +5,12 @@ package metal
 import (
 	"errors"
 	"fmt"
-	"github.com/townsendmerino/goinfer/internal/runtime/mem"
+	"github.com/pkieltyka/goinfer/internal/runtime/mem"
 	"math"
 	"sync"
 
-	gpu "github.com/townsendmerino/goinfer/backend/metal/internal/gpudev"
-	"github.com/townsendmerino/goinfer/embeddinggemma2"
+	gpu "github.com/pkieltyka/goinfer/backend/metal/internal/gpudev"
+	"github.com/pkieltyka/goinfer/embeddinggemma2"
 )
 
 // EmbeddingGemma 2's text encoder on Metal: the CPU forward of

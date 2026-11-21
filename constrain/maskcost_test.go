@@ -7,8 +7,8 @@ import (
 	"testing"
 	"time"
 
-	"github.com/townsendmerino/goinfer/constrain"
-	"github.com/townsendmerino/goinfer/tokenizer"
+	"github.com/pkieltyka/goinfer/constrain"
+	"github.com/pkieltyka/goinfer/tokenizer"
 )
 
 // TestMaskCost_P20 measures the per-step cost of Masker.Process that audit item P-20 only estimated:

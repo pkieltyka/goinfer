@@ -10,7 +10,7 @@ import (
 	"sort"
 	"testing"
 
-	"github.com/townsendmerino/aikit/embed"
+	"github.com/pkieltyka/aikit/embed"
 )
 
 // D11's gate: the final-norm hidden state at EVERY prompt position must

@@ -4,7 +4,7 @@ import (
 	"context"
 	"fmt"
 
-	"github.com/townsendmerino/goinfer/internal/runtime/kvmgr"
+	"github.com/pkieltyka/goinfer/internal/runtime/kvmgr"
 )
 
 // Shared state, many questions. A decision request asks several

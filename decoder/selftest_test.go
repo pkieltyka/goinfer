@@ -7,7 +7,7 @@ import (
 	"testing"
 	"time"
 
-	"github.com/townsendmerino/aikit/linalg"
+	"github.com/pkieltyka/aikit/linalg"
 )
 
 // The CPU self-test runs from Load, once per process, and records a result a report can show. On a healthy host it passes, and it says how long it took.

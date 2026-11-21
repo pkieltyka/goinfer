@@ -1,6 +1,6 @@
 package decoder
 
-import "github.com/townsendmerino/aikit/linalg"
+import "github.com/pkieltyka/aikit/linalg"
 
 // DefaultDecodeParallelThreshold is the matmul parallelism crossover (in MACs) for the int8 (W8A8) decode path:
 // parallelize the per-token weight matmuls, leaving trivially small ops serial. It is hardware-specific (it shifts with

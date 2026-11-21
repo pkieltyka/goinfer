@@ -6,7 +6,7 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/townsendmerino/goinfer/decoder"
+	"github.com/pkieltyka/goinfer/decoder"
 )
 
 // TestCohereResidentSmokeMetal and TestCohere2ResidentSmokeMetal are G5's last row

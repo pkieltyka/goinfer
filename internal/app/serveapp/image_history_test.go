@@ -9,7 +9,7 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/townsendmerino/goinfer/internal/app/loadflags"
+	"github.com/pkieltyka/goinfer/internal/app/loadflags"
 )
 
 func dataURI(payload string) string {

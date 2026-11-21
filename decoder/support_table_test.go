@@ -8,7 +8,7 @@ import (
 	"testing"
 	"testing/fstest"
 
-	"github.com/townsendmerino/goinfer/multimodal"
+	"github.com/pkieltyka/goinfer/multimodal"
 )
 
 // S8: the images-and-audio support table in

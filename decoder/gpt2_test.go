@@ -8,8 +8,8 @@ import (
 	"os"
 	"testing"
 
-	"github.com/townsendmerino/goinfer/internal/runtime/sampling"
-	"github.com/townsendmerino/goinfer/tokenizer"
+	"github.com/pkieltyka/goinfer/internal/runtime/sampling"
+	"github.com/pkieltyka/goinfer/tokenizer"
 )
 
 // G5 GPT-2 parity. GPT-2 is the first family that breaks the Llama mold:

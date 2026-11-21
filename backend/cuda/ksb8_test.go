@@ -12,7 +12,7 @@ import (
 	"testing"
 	"time"
 
-	"github.com/townsendmerino/goinfer/decoder"
+	"github.com/pkieltyka/goinfer/decoder"
 )
 
 // TestKSB8_widthChooser is B8-G1: prefillWidthFor on a table of rooms, then

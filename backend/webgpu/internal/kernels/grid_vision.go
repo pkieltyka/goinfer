@@ -4,14 +4,14 @@ package kernels
 
 import (
 	"fmt"
-	"github.com/townsendmerino/goinfer/internal/runtime/mem"
+	"github.com/pkieltyka/goinfer/internal/runtime/mem"
 	"math"
 	"sync"
 
 	"github.com/oliverbestmann/webgpu/wgpu"
-	"github.com/townsendmerino/goinfer/internal/vision"
+	"github.com/pkieltyka/goinfer/internal/vision"
 
-	"github.com/townsendmerino/goinfer/multimodal"
+	"github.com/pkieltyka/goinfer/multimodal"
 )
 
 // The Qwen3.5+ and GLM-OCR vision towers on WebGPU: aikit's ForwardViT up to the last block, in float32, from aikit's

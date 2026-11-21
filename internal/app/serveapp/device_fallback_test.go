@@ -6,8 +6,8 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/townsendmerino/goinfer/internal/runtime/mem"
-	"github.com/townsendmerino/goinfer/multimodal"
+	"github.com/pkieltyka/goinfer/internal/runtime/mem"
+	"github.com/pkieltyka/goinfer/multimodal"
 )
 
 type fakeGridAcc struct {

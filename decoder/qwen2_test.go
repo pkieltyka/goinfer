@@ -8,8 +8,8 @@ import (
 	"os"
 	"testing"
 
-	"github.com/townsendmerino/goinfer/internal/runtime/sampling"
-	"github.com/townsendmerino/goinfer/tokenizer"
+	"github.com/pkieltyka/goinfer/internal/runtime/sampling"
+	"github.com/pkieltyka/goinfer/tokenizer"
 )
 
 // Qwen2 family parity. Qwen2/Qwen2.5 is the llama descriptor plus q/k/v

@@ -8,7 +8,7 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/townsendmerino/goinfer/internal/app/loadflags"
+	"github.com/pkieltyka/goinfer/internal/app/loadflags"
 )
 
 var updateOptionsGolden = flag.Bool("update-options-golden", false, "rewrite testdata/options.golden.json")

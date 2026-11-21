@@ -28,7 +28,7 @@ import (
 	"strconv"
 	"strings"
 
-	"github.com/townsendmerino/goinfer/chat"
+	"github.com/pkieltyka/goinfer/chat"
 )
 
 // budgetFlag is -reasoning-budget parsed.

@@ -8,7 +8,7 @@ import (
 	"os"
 	"testing"
 
-	"github.com/townsendmerino/goinfer/internal/runtime/sampling"
+	"github.com/pkieltyka/goinfer/internal/runtime/sampling"
 )
 
 // G2 Olmo 3 parity (allenai/Olmo-3-{7B,32B}, model_type

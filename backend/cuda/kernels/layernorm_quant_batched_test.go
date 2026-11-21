@@ -7,7 +7,7 @@ import (
 	"testing"
 
 	gc "github.com/eitamring/gocudrv/cuda"
-	gpu "github.com/townsendmerino/goinfer/backend/cuda/internal/gpudev"
+	gpu "github.com/pkieltyka/goinfer/backend/cuda/internal/gpudev"
 )
 
 // requireBareCUDADevice needs only the driver — no checkpoint, no GOINFER_HEAVY_TESTS — since a

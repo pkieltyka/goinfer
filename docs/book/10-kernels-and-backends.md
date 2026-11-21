@@ -74,7 +74,7 @@ access pattern rather than for readability. On a memory-bound workload, layout i
 more than instruction selection.
 
 **Parallelism.** Go's actual advantage. Prefill splits across goroutines with no special
-machinery, and the six-worker prefill that shipped in [v0.15.0](https://github.com/townsendmerino/goinfer/blob/main/docs/releases/v0.15.0-release-notes.md) (3.28× at 3,020 tokens) is goroutine
+machinery, and the six-worker prefill that shipped in [v0.15.0](https://github.com/pkieltyka/goinfer/blob/main/docs/releases/v0.15.0-release-notes.md) (3.28× at 3,020 tokens) is goroutine
 parallelism working. Getting the
 same parallelism in C means a thread pool you wrote or a dependency you took.
 
@@ -106,7 +106,7 @@ disappear.](./10-fig1-nibble-layout.svg)
 
 *The same unpacking, animated, at 8 weights per group rather than 32 so the nibbles are readable. The instruction
 counts are about the drawing, not a measurement
-([video](./10-anim-nibble-unpack.mp4), [scene source](https://github.com/townsendmerino/goinfer/blob/main/docs/book/10-anim-nibble-unpack.py)).*
+([video](./10-anim-nibble-unpack.mp4), [scene source](https://github.com/pkieltyka/goinfer/blob/main/docs/book/10-anim-nibble-unpack.py)).*
 
 Measured on Zen 2, that is **1.12× on the dot product** — and 1.12× both hot in L1 and cold from
 memory, which is what says it is an instruction-count win rather than a cache effect.
@@ -193,7 +193,7 @@ separately, ahead of any throughput number.
 happened here.
 
 The three backends are not equivalent, and the capability matrix in
-[`docs/capability-matrix.md`](https://github.com/townsendmerino/goinfer/blob/main/docs/capability-matrix.md) exists because "does model X run on backend Y" has a genuinely
+[`docs/capability-matrix.md`](https://github.com/pkieltyka/goinfer/blob/main/docs/capability-matrix.md) exists because "does model X run on backend Y" has a genuinely
 complicated answer. Adding an architecture means implementing that architecture once per
 backend, which is the standing tax of owning the forward pass rather than inheriting one.
 
@@ -215,8 +215,8 @@ feature tried in September set `GOMEMLIMIT` to hold a paged MoE model's memory d
 never bound and changed nothing. On the 35B-A3B it sat below the ~5.7 GB live heap, and the collector ran
 continuously, about 70 cycles a second: 8,642–8,688 cycles in the run, decode down from 2.27 to 1.08 tok/s, and
 time to first token up 2.4×. By the rule registered before the measurement, the feature was removed
-([`docs/measurements/moe-pager-mode-darwin-2026-09-23.md`](https://github.com/townsendmerino/goinfer/blob/main/docs/measurements/moe-pager-mode-darwin-2026-09-23.md),
-Result 2; [`gomemlimit-gctrace-2026-09-23.md`](https://github.com/townsendmerino/goinfer/blob/main/docs/measurements/gomemlimit-gctrace-2026-09-23.md) is the
+([`docs/measurements/moe-pager-mode-darwin-2026-09-23.md`](https://github.com/pkieltyka/goinfer/blob/main/docs/measurements/moe-pager-mode-darwin-2026-09-23.md),
+Result 2; [`gomemlimit-gctrace-2026-09-23.md`](https://github.com/pkieltyka/goinfer/blob/main/docs/measurements/gomemlimit-gctrace-2026-09-23.md) is the
 earlier 1.5B null).
 
 So the collector's cost here is the memory pressure you put on it, not the work of decoding a token.
@@ -225,7 +225,7 @@ So the collector's cost here is the memory pressure you put on it, not the work 
 
 ## How it stands against the peers
 
-Against Ollama, the picture in [`docs/benchmarks.md`](https://github.com/townsendmerino/goinfer/blob/main/docs/benchmarks.md) changed a good deal during September, and
+Against Ollama, the picture in [`docs/benchmarks.md`](https://github.com/pkieltyka/goinfer/blob/main/docs/benchmarks.md) changed a good deal during September, and
 it depends on the backend and on which phase you measure.
 
 **Decode on CUDA is ahead.** The pre-registered re-anchor of 2026-11-19/20 (an RTX 2070 SUPER at driver 595.112.07,
@@ -233,7 +233,7 @@ Ollama v0.32.5, every arm sent the same sampling fields) put goinfer ahead on de
 graded cells across the 0.5B, 1.5B and 7B from 128 to 8,000 tokens, 1.04–1.94× (the 1.5B and 7B at the int8 output head that became
 the default for 1B+ models the same day), and level on the 7B at 8,000; on the 7B
 the margin narrows with depth
-([`docs/measurements/peer-reanchor-2026-11-19/README.md`](https://github.com/townsendmerino/goinfer/blob/main/docs/measurements/peer-reanchor-2026-11-19/README.md);
+([`docs/measurements/peer-reanchor-2026-11-19/README.md`](https://github.com/pkieltyka/goinfer/blob/main/docs/measurements/peer-reanchor-2026-11-19/README.md);
 the 2026-09-29 sweep before it read 1.05–1.47× in all 12). Flash-decode,
 on by default since 2026-09-23, is what turned the deeper cells: before it, the edge held only at short context,
 where launch overhead dominates and Go's cheaper dispatch shows, and Ollama won with depth. *(An earlier draft of
@@ -281,7 +281,7 @@ llama.cpp/Ollama-CUDA at equal 4-bit quantization on a GPU, in a static binary w
 dependency that boots in about half a second.
 
 That 60–70% needs its scope attached, because the figure is narrower and older than the figure
-reads. [`docs/positioning.md`](https://github.com/townsendmerino/goinfer/blob/main/docs/positioning.md) records it as **dense-Qwen2/Llama residency decode only**, measured
+reads. [`docs/positioning.md`](https://github.com/pkieltyka/goinfer/blob/main/docs/positioning.md) records it as **dense-Qwen2/Llama residency decode only**, measured
 **2026-06-08 against a 2025-era peer** — so it is not a current ratio, and it does not describe
 the model families added since, because GPU residency requires dense attention and several
 newer families are ineligible for residency entirely. Quoting 60–70% as a present-tense,
@@ -305,15 +305,15 @@ goinfer-serve --version
 ```
 
 The darwin-arm64 release prints `backends: cpu metal`: the CPU path and the Metal backend, both in one cgo-free binary.
-Each release asset prints the backends compiled into it. Measured on 2026-10-02 with the v0.20.0 release ([record](https://github.com/townsendmerino/goinfer/blob/main/docs/measurements/book-try-it-2026-10.md),
+Each release asset prints the backends compiled into it. Measured on 2026-10-02 with the v0.20.0 release ([record](https://github.com/pkieltyka/goinfer/blob/main/docs/measurements/book-try-it-2026-10.md),
 chapter 10).
 
 ---
 
 *Sources: `docs/benchmarks.md` (lane statement, peer standings, re-anchor banner),
-`docs/capability-matrix.md`, [`docs/cuda-backend.md`](https://github.com/townsendmerino/goinfer/blob/main/docs/cuda-backend.md), [`docs/hardware-matrix.md`](https://github.com/townsendmerino/goinfer/blob/main/docs/hardware-matrix.md),
+`docs/capability-matrix.md`, [`docs/cuda-backend.md`](https://github.com/pkieltyka/goinfer/blob/main/docs/cuda-backend.md), [`docs/hardware-matrix.md`](https://github.com/pkieltyka/goinfer/blob/main/docs/hardware-matrix.md),
 the performance queue (kept privately) (P14 item 3: the 1.12× kernel result, the AVX2 accumulator
 refutation, and the wiring),
-[`docs/measurements/w4a8-splithalf-decode-ab-PREREGISTERED.md`](https://github.com/townsendmerino/goinfer/blob/main/docs/measurements/w4a8-splithalf-decode-ab-PREREGISTERED.md) (the +2.10% A/B, its floor, the
+[`docs/measurements/w4a8-splithalf-decode-ab-PREREGISTERED.md`](https://github.com/pkieltyka/goinfer/blob/main/docs/measurements/w4a8-splithalf-decode-ab-PREREGISTERED.md) (the +2.10% A/B, its floor, the
 profile-vs-wall-clock bound, and the 4% bar fixed in advance),
-[`docs/completed/task-w4a8-neon-bandwidth.md`](https://github.com/townsendmerino/goinfer/blob/main/docs/completed/task-w4a8-neon-bandwidth.md) (the arm64 side, where the same idea shipped).*
+[`docs/completed/task-w4a8-neon-bandwidth.md`](https://github.com/pkieltyka/goinfer/blob/main/docs/completed/task-w4a8-neon-bandwidth.md) (the arm64 side, where the same idea shipped).*

@@ -3,8 +3,8 @@ package decoder
 import (
 	"path/filepath"
 
-	"github.com/townsendmerino/goinfer/internal/runtime/logs"
-	"github.com/townsendmerino/goinfer/internal/runtime/mem/probe"
+	"github.com/pkieltyka/goinfer/internal/runtime/logs"
+	"github.com/pkieltyka/goinfer/internal/runtime/mem/probe"
 )
 
 // What a .giw load does about the page cache before it walks the bundle's matrix headers. Two systems, two reasons

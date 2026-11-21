@@ -22,7 +22,7 @@ goinfer-serve --model hf:Qwen/Qwen2.5-Coder-0.5B-Instruct-GGUF:q4_k_m --backend 
 ```
 
 `goinfer-serve` listens on `localhost:8080`. Every figure a "Try it" quotes was measured with a release binary and
-is held to its record ([`docs/measurements/book-try-it-2026-10.md`](https://github.com/townsendmerino/goinfer/blob/main/docs/measurements/book-try-it-2026-10.md))
+is held to its record ([`docs/measurements/book-try-it-2026-10.md`](https://github.com/pkieltyka/goinfer/blob/main/docs/measurements/book-try-it-2026-10.md))
 by the site's claims check, so it moves when the record does. Sizes and counts should match yours exactly; anything
 timed will not.
 
@@ -43,7 +43,7 @@ timed will not.
 
 ## The shorter version, and the code map
 
-[`docs/how-inference-works.md`](https://github.com/townsendmerino/goinfer/blob/main/docs/how-inference-works.md) covers this same material in about 2,300 words instead of 15,000.
+[`docs/how-inference-works.md`](https://github.com/pkieltyka/goinfer/blob/main/docs/how-inference-works.md) covers this same material in about 2,300 words instead of 15,000.
 It is the better starting point if you want the whole arc in ten minutes, and it is the better
 reference if your question is *"where does this live in the source?"* — it anchors concepts to
 specific LINES in `decoder/`, where these chapters link whole files.
@@ -57,9 +57,9 @@ than "check both", and a true one.
 
 What both pages do carry is references into the source, and both are now tooling-checked
 rather than trusted: the summary's line anchors are maintained by
-[`scripts/queue_citation_lint.py`](https://github.com/townsendmerino/goinfer/blob/main/scripts/queue_citation_lint.py)
+[`scripts/queue_citation_lint.py`](https://github.com/pkieltyka/goinfer/blob/main/scripts/queue_citation_lint.py)
 (which re-keys them by content when code moves), and these chapters' file links by
-[`scripts/book_link_lint.py`](https://github.com/townsendmerino/goinfer/blob/main/scripts/book_link_lint.py)
+[`scripts/book_link_lint.py`](https://github.com/pkieltyka/goinfer/blob/main/scripts/book_link_lint.py)
 (which fails CI on a rename). The remaining overlap is prose explaining the same mechanism
 twice, which no tool can reconcile — and which is a duplication cost, not a correctness one.
 
@@ -81,7 +81,7 @@ one backend, one model size, or a model slice rather than a whole model — the 
 because the alternative is how a non-transferable number loses its label and becomes folklore.
 
 The driver and distro upgrade that had left parts of
-[`docs/benchmarks.md`](https://github.com/townsendmerino/goinfer/blob/main/docs/benchmarks.md)
+[`docs/benchmarks.md`](https://github.com/pkieltyka/goinfer/blob/main/docs/benchmarks.md)
 marked stale was re-anchored and **closed on 2026-08-31** — that page's own top matter carries the
 "no leg still owes a run" line, and names the three rows deliberately left out of scope rather than
 quietly carried. Nothing in these chapters depended on those rows either way.

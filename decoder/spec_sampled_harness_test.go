@@ -4,7 +4,7 @@ import (
 	"context"
 	"testing"
 
-	"github.com/townsendmerino/goinfer/tokenizer"
+	"github.com/pkieltyka/goinfer/tokenizer"
 )
 
 // TestNgramSampledHarness re-measures acceptance under sampling to test the

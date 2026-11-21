@@ -9,7 +9,7 @@ import (
 	"os"
 	"testing"
 
-	"github.com/townsendmerino/goinfer/decoder"
+	"github.com/pkieltyka/goinfer/decoder"
 )
 
 // TestGemma4MoE_residentParity is Split-B task 2c's END-TO-END gate. Every primitive underneath is

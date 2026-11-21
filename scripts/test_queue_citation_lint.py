@@ -823,10 +823,10 @@ class TestPinnedDocs(_LintRepo):
 
     def test_aikit_path_in_a_pinned_doc_resolves_in_the_module_cache_at_the_commits_version(self):
         # go.mod at the pinned commit requires aikit v9.9.9; the cache holds that version only
-        self.write("go.mod", "module example.com/goinfer\n\ngo 1.22\n\nrequire github.com/townsendmerino/aikit v9.9.9\n")
+        self.write("go.mod", "module example.com/goinfer\n\ngo 1.22\n\nrequire github.com/pkieltyka/aikit v9.9.9\n")
         c = _git_commit_all(self.repo, "go.mod pins aikit v9.9.9")
         cache = pathlib.Path(self.repo) / "mc"
-        mod = cache / "github.com" / "townsendmerino" / "aikit@v9.9.9" / "linalg"
+        mod = cache / "github.com" / "pkieltyka" / "aikit@v9.9.9" / "linalg"
         mod.mkdir(parents=True)
         (mod / "quant.go").write_text("package linalg\n\nfunc Quant() {}\n")
         qcl._MODCACHE = cache
@@ -839,13 +839,13 @@ class TestPinnedDocs(_LintRepo):
         self.assertRed("past the end")
 
     def test_missing_module_is_a_missing_download_not_a_skip(self):
-        self.write("go.mod", "module example.com/goinfer\n\ngo 1.22\n\nrequire github.com/townsendmerino/aikit v9.9.9\n")
+        self.write("go.mod", "module example.com/goinfer\n\ngo 1.22\n\nrequire github.com/pkieltyka/aikit v9.9.9\n")
         c = _git_commit_all(self.repo, "go.mod pins aikit v9.9.9")
         self.doc(self.pinned("see `linalg/quant.go:3`\n", commit=c))
         self.assertRed("CANNOT SEARCH", "go mod download")
 
     def test_aikit_path_in_a_pinned_doc_resolves_from_sibling_git_repo_when_modcache_cold(self):
-        self.write("go.mod", "module example.com/goinfer\n\ngo 1.22\n\nrequire github.com/townsendmerino/aikit v9.9.9\n")
+        self.write("go.mod", "module example.com/goinfer\n\ngo 1.22\n\nrequire github.com/pkieltyka/aikit v9.9.9\n")
         c = _git_commit_all(self.repo, "go.mod pins aikit v9.9.9")
         with tempfile.TemporaryDirectory() as sib_td:
             sib = os.path.join(sib_td, "aikit")
@@ -870,9 +870,9 @@ class TestPinnedDocs(_LintRepo):
 
     def test_pinned_modules_lists_what_the_pinned_records_need_and_nothing_else(self):
         # Two records pinned to commits that required different aikit versions; neither version is downloaded.
-        self.write("go.mod", "module example.com/goinfer\n\ngo 1.22\n\nrequire github.com/townsendmerino/aikit v9.9.9\n")
+        self.write("go.mod", "module example.com/goinfer\n\ngo 1.22\n\nrequire github.com/pkieltyka/aikit v9.9.9\n")
         c1 = _git_commit_all(self.repo, "go.mod pins aikit v9.9.9")
-        self.write("go.mod", "module example.com/goinfer\n\ngo 1.22\n\nrequire github.com/townsendmerino/aikit v9.9.10\n")
+        self.write("go.mod", "module example.com/goinfer\n\ngo 1.22\n\nrequire github.com/pkieltyka/aikit v9.9.10\n")
         c2 = _git_commit_all(self.repo, "go.mod pins aikit v9.9.10")
         self.doc(self.pinned("see `linalg/quant.go:3` and `linalg/quant.go:Quant`\n", commit=c1), name="rec-a.md")
         self.doc(self.pinned("see `mmap/mmap_unix.go:46`\n", commit=c2), name="rec-b.md")
@@ -880,12 +880,12 @@ class TestPinnedDocs(_LintRepo):
         self.doc(self.pinned("see `pkg/svc.go:3`\n", commit=c2), name="rec-c.md")
         code, out = self.run_lint(["--pinned-modules"])
         self.assertEqual(code, 0, out)
-        self.assertEqual(out.split(), ["github.com/townsendmerino/aikit@v9.9.10", "github.com/townsendmerino/aikit@v9.9.9"])
+        self.assertEqual(out.split(), ["github.com/pkieltyka/aikit@v9.9.10", "github.com/pkieltyka/aikit@v9.9.9"])
         # The list is what the lint then needs: with both in the cache it is green.
         cache = pathlib.Path(self.repo) / "mc"
         for ver, rel, body in (("v9.9.9", "linalg/quant.go", "package linalg\n\nfunc Quant() {}\n"),
                                ("v9.9.10", "mmap/mmap_unix.go", "package mmap\n" + "// line\n" * 60)):
-            f = cache / "github.com" / "townsendmerino" / f"aikit@{ver}" / rel
+            f = cache / "github.com" / "pkieltyka" / f"aikit@{ver}" / rel
             f.parent.mkdir(parents=True)
             f.write_text(body)
         qcl._MODCACHE = cache

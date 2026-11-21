@@ -8,9 +8,9 @@ import (
 	"testing"
 	"time"
 
-	"github.com/townsendmerino/goinfer/decoder"
+	"github.com/pkieltyka/goinfer/decoder"
 
-	"github.com/townsendmerino/goinfer/internal/testgate"
+	"github.com/pkieltyka/goinfer/internal/testgate"
 )
 
 // forwardLogitsPerLayerSubmit is the SUBMISSION STRUCTURE a naive Metal expert-paging path would be

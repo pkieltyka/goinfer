@@ -5,7 +5,7 @@ package metal
 import (
 	"testing"
 
-	"github.com/townsendmerino/goinfer/decoder"
+	"github.com/pkieltyka/goinfer/decoder"
 )
 
 // TestS18ShrinkCtxToFit is S18's part 3 on the Mac ( registered before the code): with a

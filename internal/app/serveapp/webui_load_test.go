@@ -5,7 +5,7 @@ import (
 	"context"
 	"encoding/json"
 	"errors"
-	"github.com/townsendmerino/goinfer/internal/app/loadflags"
+	"github.com/pkieltyka/goinfer/internal/app/loadflags"
 	"io"
 	"net/http"
 	"net/http/httptest"
@@ -15,7 +15,7 @@ import (
 	"testing"
 	"time"
 
-	"github.com/townsendmerino/goinfer/pull"
+	"github.com/pkieltyka/goinfer/pull"
 )
 
 // fakeCache points os.UserCacheDir at a temp directory (XDG_CACHE_HOME on Linux, HOME on darwin,

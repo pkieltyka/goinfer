@@ -211,7 +211,7 @@ func readClState(src clSource) (*clState, error) {
 	if b, err = src.read("go.mod"); err != nil {
 		return nil, err
 	}
-	if m := regexp.MustCompile(`(?m)^\s*github\.com/townsendmerino/aikit (v[^\s]+)`).FindSubmatch(b); m != nil {
+	if m := regexp.MustCompile(`(?m)^\s*github\.com/pkieltyka/aikit (v[^\s]+)`).FindSubmatch(b); m != nil {
 		st.Pin = string(m[1])
 	}
 	return st, nil

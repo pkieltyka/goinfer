@@ -9,7 +9,7 @@ import (
 	"sort"
 	"testing"
 
-	"github.com/townsendmerino/goinfer/constrain"
+	"github.com/pkieltyka/goinfer/constrain"
 )
 
 // policyStreamsPath is SB5's census: the token stream each

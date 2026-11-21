@@ -6,7 +6,7 @@ import (
 	"strconv"
 	"strings"
 
-	"github.com/townsendmerino/aikit/embed"
+	"github.com/pkieltyka/aikit/embed"
 )
 
 // A Qwen3.5+ vision tower from a llama.cpp GGUF mmproj (clip architecture, projector type qwen3vl_merger): the layout

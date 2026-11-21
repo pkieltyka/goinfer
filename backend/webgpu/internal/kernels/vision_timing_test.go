@@ -7,9 +7,9 @@ import (
 	"testing"
 	"time"
 
-	"github.com/townsendmerino/goinfer/internal/vision"
+	"github.com/pkieltyka/goinfer/internal/vision"
 
-	"github.com/townsendmerino/goinfer/internal/testgate"
+	"github.com/pkieltyka/goinfer/internal/testgate"
 )
 
 func TestVisionEncoder_timing(t *testing.T) {

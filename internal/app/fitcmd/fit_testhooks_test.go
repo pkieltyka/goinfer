@@ -10,10 +10,10 @@ import (
 	"testing"
 	"time"
 
-	"github.com/townsendmerino/aikit/linalg"
-	"github.com/townsendmerino/goinfer/decoder"
-	"github.com/townsendmerino/goinfer/decoder/fit"
-	"github.com/townsendmerino/goinfer/internal/runtime/modelload"
+	"github.com/pkieltyka/aikit/linalg"
+	"github.com/pkieltyka/goinfer/decoder"
+	"github.com/pkieltyka/goinfer/decoder/fit"
+	"github.com/pkieltyka/goinfer/internal/runtime/modelload"
 )
 
 // TestSourceFor_opensWhatTheLoadOpens: fit plans each backend on what a load on that backend opens. The quant is the load's own

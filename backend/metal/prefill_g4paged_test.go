@@ -11,8 +11,8 @@ import (
 	"strconv"
 	"testing"
 
-	"github.com/townsendmerino/goinfer/decoder"
-	"github.com/townsendmerino/goinfer/internal/runtime/prequant"
+	"github.com/pkieltyka/goinfer/decoder"
+	"github.com/pkieltyka/goinfer/internal/runtime/prequant"
 )
 
 // TestG4LayerMajor_matchesSequential is 4b's gate: the layer-major paged prefill

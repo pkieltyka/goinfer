@@ -6,7 +6,7 @@ import (
 	"math"
 	"testing"
 
-	"github.com/townsendmerino/goinfer/decoder"
+	"github.com/pkieltyka/goinfer/decoder"
 )
 
 // These helpers live behind goinfer_testhooks because mustResident calls Model.ResidentForwardForTest, which exists only

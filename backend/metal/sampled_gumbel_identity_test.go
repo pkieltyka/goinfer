@@ -10,8 +10,8 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/townsendmerino/goinfer/decoder"
-	"github.com/townsendmerino/goinfer/tokenizer"
+	"github.com/pkieltyka/goinfer/decoder"
+	"github.com/pkieltyka/goinfer/tokenizer"
 )
 
 // TestSampledGumbelStreamIdentity is the Mac end-to-end gate for the on-device sampler, a port of

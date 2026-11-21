@@ -9,7 +9,7 @@ import (
 	"testing"
 
 	gc "github.com/eitamring/gocudrv/cuda"
-	gpu "github.com/townsendmerino/goinfer/backend/cuda/internal/gpudev"
+	gpu "github.com/pkieltyka/goinfer/backend/cuda/internal/gpudev"
 )
 
 // TestGemvShapeSweep sweeps the PRODUCTION forward GEMVs across the geometries the real model

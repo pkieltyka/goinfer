@@ -11,12 +11,12 @@ import (
 	"syscall"
 	"unsafe"
 
-	"github.com/townsendmerino/aikit/linalg"
-	gpu "github.com/townsendmerino/goinfer/backend/cuda/internal/gpudev"
-	"github.com/townsendmerino/goinfer/backend/cuda/internal/wpack"
+	"github.com/pkieltyka/aikit/linalg"
+	gpu "github.com/pkieltyka/goinfer/backend/cuda/internal/gpudev"
+	"github.com/pkieltyka/goinfer/backend/cuda/internal/wpack"
 
-	"github.com/townsendmerino/goinfer/decoder"
-	"github.com/townsendmerino/goinfer/internal/runtime/mem"
+	"github.com/pkieltyka/goinfer/decoder"
+	"github.com/pkieltyka/goinfer/internal/runtime/mem"
 )
 
 // A dense projection is planned while the build walks the layers and packed while it uploads. planWeight makes packWeight's accept-or-decline

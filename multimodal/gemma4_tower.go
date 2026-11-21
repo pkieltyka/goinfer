@@ -5,7 +5,7 @@ import (
 	"sort"
 	"sync"
 
-	"github.com/townsendmerino/goinfer/internal/vision"
+	"github.com/pkieltyka/goinfer/internal/vision"
 )
 
 // Gemma 4 vision tower accelerators (docs/multimodal.md, "Finishing this doc"). A backend module (goinfer/backend/metal) registers a device

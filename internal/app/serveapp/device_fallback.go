@@ -5,8 +5,8 @@ import (
 	"os"
 	"sync"
 
-	"github.com/townsendmerino/goinfer/internal/runtime/mem"
-	"github.com/townsendmerino/goinfer/multimodal"
+	"github.com/pkieltyka/goinfer/internal/runtime/mem"
+	"github.com/pkieltyka/goinfer/multimodal"
 )
 
 // A device vision tower that runs out of VRAM on a request falls back to the CPU tower for that request and every

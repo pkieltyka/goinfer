@@ -4,13 +4,13 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
-	"github.com/townsendmerino/goinfer/internal/app/serveapp/jobs"
+	"github.com/pkieltyka/goinfer/internal/app/serveapp/jobs"
 	"net/http"
 	"strings"
 	"sync"
 	"time"
 
-	"github.com/townsendmerino/goinfer/chat"
+	"github.com/pkieltyka/goinfer/chat"
 )
 
 // OpenAI Responses API (/v1/responses). Stateless input (input, instructions, text.format, tools, streaming) plus

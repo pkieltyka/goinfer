@@ -13,12 +13,12 @@ import (
 	"path/filepath"
 	"testing"
 
-	"github.com/townsendmerino/goinfer/constrain"
-	"github.com/townsendmerino/goinfer/internal/app/loadflags"
-	"github.com/townsendmerino/goinfer/multimodal"
-	"github.com/townsendmerino/goinfer/tokenizer"
+	"github.com/pkieltyka/goinfer/constrain"
+	"github.com/pkieltyka/goinfer/internal/app/loadflags"
+	"github.com/pkieltyka/goinfer/multimodal"
+	"github.com/pkieltyka/goinfer/tokenizer"
 
-	"github.com/townsendmerino/goinfer/internal/testgate"
+	"github.com/pkieltyka/goinfer/internal/testgate"
 )
 
 // TestServe_glmOcrExtraction_O5 is O5's serve gate, on the real GLM-OCR checkpoint (CPU, int4: about two minutes, most of it

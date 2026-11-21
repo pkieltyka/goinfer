@@ -10,7 +10,7 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/townsendmerino/goinfer/decoder"
+	"github.com/pkieltyka/goinfer/decoder"
 )
 
 // TestReqLog_prefillFallback: a request whose prefill fell back carries prefill_fallback=<path> and its quoted reason on its

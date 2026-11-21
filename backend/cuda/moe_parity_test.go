@@ -6,7 +6,7 @@ import (
 	"math"
 	"testing"
 
-	"github.com/townsendmerino/goinfer/decoder"
+	"github.com/pkieltyka/goinfer/decoder"
 )
 
 // TestMoEResidentParity is the ADMISSION gate for MoE on CUDA: the resident MoE forward must

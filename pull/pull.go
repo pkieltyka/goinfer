@@ -37,7 +37,7 @@ import (
 	"sync"
 	"time"
 
-	"github.com/townsendmerino/goinfer/internal/runtime/diskfree"
+	"github.com/pkieltyka/goinfer/internal/runtime/diskfree"
 )
 
 // hfAPI and hfCDN are split because they are different services with different failure
@@ -52,7 +52,7 @@ var (
 
 // userAgent identifies goinfer to HF. Anonymous requests are rate-limited by IP; naming the
 // client is the courteous minimum and makes our traffic attributable.
-const userAgent = "goinfer-pull/1 (+https://github.com/townsendmerino/goinfer)"
+const userAgent = "goinfer-pull/1 (+https://github.com/pkieltyka/goinfer)"
 
 // Ref is a parsed model reference: a HuggingFace repo plus either an exact filename or a
 // quant selector to resolve against the repo's listing.

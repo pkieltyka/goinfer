@@ -11,9 +11,9 @@ import (
 	"slices"
 	"testing"
 
-	gpu "github.com/townsendmerino/goinfer/backend/cuda/internal/gpudev"
-	"github.com/townsendmerino/goinfer/backend/cuda/internal/wpack"
-	"github.com/townsendmerino/goinfer/decoder"
+	gpu "github.com/pkieltyka/goinfer/backend/cuda/internal/gpudev"
+	"github.com/pkieltyka/goinfer/backend/cuda/internal/wpack"
+	"github.com/pkieltyka/goinfer/decoder"
 )
 
 // The exact-input identity: on K and V that are already f16-representable, a _kv16 attention reader

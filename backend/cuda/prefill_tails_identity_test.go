@@ -22,9 +22,9 @@ import (
 	"time"
 	"unsafe"
 
-	gpu "github.com/townsendmerino/goinfer/backend/cuda/internal/gpudev"
-	"github.com/townsendmerino/goinfer/decoder"
-	"github.com/townsendmerino/goinfer/internal/diag/sb2census"
+	gpu "github.com/pkieltyka/goinfer/backend/cuda/internal/gpudev"
+	"github.com/pkieltyka/goinfer/decoder"
+	"github.com/pkieltyka/goinfer/internal/diag/sb2census"
 )
 
 // The batched prefill's tails: only ResidualAll reads the [M, hidden]

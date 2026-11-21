@@ -3,7 +3,7 @@ package decoder
 import (
 	"encoding/json"
 
-	"github.com/townsendmerino/goinfer/decoder/quant"
+	"github.com/pkieltyka/goinfer/decoder/quant"
 )
 
 // GPTQ (safetensors-resident int4) and checkpoint quantization configuration.

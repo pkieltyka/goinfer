@@ -13,7 +13,7 @@ import (
 	"testing"
 	"time"
 
-	"github.com/townsendmerino/goinfer/decoder"
+	"github.com/pkieltyka/goinfer/decoder"
 )
 
 // ksh6Sampler streams nvidia-smi's used memory every 20 ms until stop; it returns the maximum used MiB it saw and the samples.

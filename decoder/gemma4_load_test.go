@@ -5,9 +5,9 @@ import (
 	"os"
 	"testing"
 
-	"github.com/townsendmerino/aikit/embed"
+	"github.com/pkieltyka/aikit/embed"
 
-	"github.com/townsendmerino/goinfer/internal/testgate"
+	"github.com/pkieltyka/goinfer/internal/testgate"
 )
 
 // TestGemma4Config_realGGUF runs the real E2B GGUF through ggufConfig + resolveArchitecture and asserts the parsed

@@ -9,7 +9,7 @@ import (
 	"fmt"
 	"os"
 
-	"github.com/townsendmerino/goinfer/decoder"
+	"github.com/pkieltyka/goinfer/decoder"
 )
 
 func main() {

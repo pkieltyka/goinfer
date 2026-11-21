@@ -9,8 +9,8 @@ import (
 	"reflect"
 	"testing"
 
-	"github.com/townsendmerino/goinfer/decoder"
-	"github.com/townsendmerino/goinfer/internal/app/loadflags"
+	"github.com/pkieltyka/goinfer/decoder"
+	"github.com/pkieltyka/goinfer/internal/app/loadflags"
 )
 
 // The real-model harnesses load through serveOptions: the decoder.Options `goinfer serve` builds for the same flags (internal/loadflags, the code serve

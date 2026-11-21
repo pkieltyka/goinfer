@@ -9,8 +9,8 @@ import (
 	"time"
 	"unsafe"
 
-	"github.com/townsendmerino/aikit/linalg"
-	"github.com/townsendmerino/aikit/mmap"
+	"github.com/pkieltyka/aikit/linalg"
+	"github.com/pkieltyka/aikit/mmap"
 )
 
 // The pager's generic span-residency cache (eviction over budget, WILLNEED/DONTNEED,

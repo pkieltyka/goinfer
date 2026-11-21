@@ -6,7 +6,7 @@ import (
 	"path/filepath"
 	"testing"
 
-	"github.com/townsendmerino/goinfer/decoder"
+	"github.com/pkieltyka/goinfer/decoder"
 )
 
 // residentLockstepForced is residentLockstep with every MoE layer's routing on Metal replaced, at every step, by the

@@ -6,7 +6,7 @@ package prequant
 import (
 	"context"
 
-	"github.com/townsendmerino/goinfer/decoder"
+	"github.com/pkieltyka/goinfer/decoder"
 )
 
 // Phases is decoder.TranscodePhases.

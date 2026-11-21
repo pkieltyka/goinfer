@@ -14,8 +14,8 @@ import (
 	"testing"
 	"time"
 
-	"github.com/townsendmerino/goinfer/decoder"
-	"github.com/townsendmerino/goinfer/internal/wrappedupload"
+	"github.com/pkieltyka/goinfer/decoder"
+	"github.com/pkieltyka/goinfer/internal/wrappedupload"
 )
 
 // agxClient is one GPU client of another process: its process and the GPU time it has accumulated, in nanoseconds.

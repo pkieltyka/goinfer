@@ -10,8 +10,8 @@ import (
 	"testing"
 	"time"
 
-	"github.com/townsendmerino/goinfer/internal/audio"
-	"github.com/townsendmerino/goinfer/multimodal"
+	"github.com/pkieltyka/goinfer/internal/audio"
+	"github.com/pkieltyka/goinfer/multimodal"
 )
 
 // TestG4AMetal_E2BTower is G-S5d's tower half ( S5, registered before

@@ -4,7 +4,7 @@ import (
 	"context"
 	"fmt"
 
-	"github.com/townsendmerino/aikit/linalg"
+	"github.com/pkieltyka/aikit/linalg"
 )
 
 // walkBatch runs prog's layers over K pre-embedded rows h ([K*hidden], updated in place) appended as the next K positions of

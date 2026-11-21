@@ -15,8 +15,8 @@ import (
 	"testing"
 	"time"
 
-	"github.com/townsendmerino/goinfer/decoder"
-	"github.com/townsendmerino/goinfer/internal/fidelity"
+	"github.com/pkieltyka/goinfer/decoder"
+	"github.com/pkieltyka/goinfer/internal/fidelity"
 )
 
 // Options.EmbedInt4 reaches every family loader (decoder/embed_int4_loaders_test.go), so a family that used to get an int8 head by default

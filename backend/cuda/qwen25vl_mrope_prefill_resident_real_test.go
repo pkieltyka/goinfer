@@ -8,10 +8,10 @@ import (
 	"testing"
 
 	gc "github.com/eitamring/gocudrv/cuda"
-	"github.com/townsendmerino/goinfer/decoder"
-	"github.com/townsendmerino/goinfer/internal/vision"
+	"github.com/pkieltyka/goinfer/decoder"
+	"github.com/pkieltyka/goinfer/internal/vision"
 
-	"github.com/townsendmerino/goinfer/internal/testgate"
+	"github.com/pkieltyka/goinfer/internal/testgate"
 )
 
 // TestQwen25VLMRoPEPrefillResidentReal_gate is the real-checkpoint gate for the resident m-RoPE prefill fast path

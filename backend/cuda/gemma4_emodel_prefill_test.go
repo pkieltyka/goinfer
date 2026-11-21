@@ -7,7 +7,7 @@ import (
 	"strconv"
 	"testing"
 
-	"github.com/townsendmerino/goinfer/decoder"
+	"github.com/pkieltyka/goinfer/decoder"
 )
 
 // S9 on CUDA, part A: the batched text-prompt prefill for Gemma 4 E-models.

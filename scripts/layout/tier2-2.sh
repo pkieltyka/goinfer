@@ -135,7 +135,7 @@ def replace_exact(rel_path: str, pairs: list[tuple[str, str]]) -> None:
 # ---------------------------------------------------------------------------
 # 1. Rewrite quoted Go import strings across all .go files (including tests
 #    and build-tagged files), check per-file replacement counts, and handle
-#    any stdlib "runtime" vs "github.com/townsendmerino/goinfer/internal/runtime"
+#    any stdlib "runtime" vs "github.com/pkieltyka/goinfer/internal/runtime"
 #    package-name collision by aliasing the internal import as `rt`.
 # ---------------------------------------------------------------------------
 IMPORT_RE = re.compile(
@@ -156,7 +156,7 @@ def rewrite_import_match(m: re.Match) -> str:
     name = m.group(1)
     rest = m.group(2) or ""
     group = MAPPING[name]
-    return f'"github.com/townsendmerino/goinfer/internal/{group}/{name}{rest}"'
+    return f'"github.com/pkieltyka/goinfer/internal/{group}/{name}{rest}"'
 
 
 total_rewritten_imports = 0
@@ -192,7 +192,7 @@ for root, dirs, files in os.walk(REPO_ROOT):
             fpath.write_text(content, encoding="utf-8")
 
         # Trap 1: If a file imports both stdlib "runtime" and directly imports
-        # "github.com/townsendmerino/goinfer/internal/runtime" (package runtime),
+        # "github.com/pkieltyka/goinfer/internal/runtime" (package runtime),
         # alias the internal one as `rt` and update its selector uses.
         if STDLIB_RUNTIME_RE.search(content) and INTERNAL_RUNTIME_DIRECT_RE.search(content):
             STDLIB_SYMS = {
@@ -208,7 +208,7 @@ for root, dirs, files in os.walk(REPO_ROOT):
                 "SetMutexProfileFraction", "SetCgoTraceback",
             }
             content = INTERNAL_RUNTIME_DIRECT_RE.sub(
-                r'\1rt "github.com/townsendmerino/goinfer/internal/runtime"', content
+                r'\1rt "github.com/pkieltyka/goinfer/internal/runtime"', content
             )
 
             def replace_rt_ident(m: re.Match) -> str:
@@ -415,8 +415,8 @@ replace_exact(
             "./internal/runtime/sampling/",
         ),
         (
-            "^github.com/townsendmerino/goinfer/internal/sampling$",
-            "^github.com/townsendmerino/goinfer/internal/runtime/sampling$",
+            "^github.com/pkieltyka/goinfer/internal/sampling$",
+            "^github.com/pkieltyka/goinfer/internal/runtime/sampling$",
         ),
     ],
 )
@@ -488,8 +488,8 @@ replace_exact(
     "docs/layout.md",
     [
         (
-            "- `gpu/` -> `backend/webgpu/` (`module github.com/townsendmerino/goinfer/gpu` -> `github.com/townsendmerino/goinfer/backend/webgpu`, `package gpu` -> `package webgpu`)",
-            "- `gpu/` -> `backend/webgpu/` (`module github.com/townsendmerino/goinfer/gpu` -> `github.com/townsendmerino/goinfer/backend/webgpu`, `package gpu` -> `package webgpu`)\n"
+            "- `gpu/` -> `backend/webgpu/` (`module github.com/pkieltyka/goinfer/gpu` -> `github.com/pkieltyka/goinfer/backend/webgpu`, `package gpu` -> `package webgpu`)",
+            "- `gpu/` -> `backend/webgpu/` (`module github.com/pkieltyka/goinfer/gpu` -> `github.com/pkieltyka/goinfer/backend/webgpu`, `package gpu` -> `package webgpu`)\n"
             "- `internal/{serveapp,chatapp,cliutil,fitcmd,decidecmd,pullcmd,inproc,connect,loadflags}` -> `internal/app/<pkg>` (package clause unchanged)\n"
             "- `internal/{swapguard,prezerolint,paritykey,movedpaths,servecheck,memgate}` -> `internal/guard/<pkg>` (package clause unchanged)\n"
             "- `internal/{hwcensus,hwreport,kernelprint,sb2census,towerid}` -> `internal/diag/<pkg>` (package clause unchanged)\n"

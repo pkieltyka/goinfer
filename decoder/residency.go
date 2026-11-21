@@ -10,10 +10,10 @@ import (
 	"strings"
 	"sync/atomic"
 
-	"github.com/townsendmerino/aikit/linalg"
+	"github.com/pkieltyka/aikit/linalg"
 
-	"github.com/townsendmerino/goinfer/internal/runtime/adapter"
-	"github.com/townsendmerino/goinfer/internal/runtime/logs"
+	"github.com/pkieltyka/goinfer/internal/runtime/adapter"
+	"github.com/pkieltyka/goinfer/internal/runtime/logs"
 )
 
 // isWebGPUBackend reports whether a Backend.Name() string names the webgpu backend. NOT a plain

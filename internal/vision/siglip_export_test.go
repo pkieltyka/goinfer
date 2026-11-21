@@ -5,7 +5,7 @@ import (
 	"os"
 	"testing"
 
-	"github.com/townsendmerino/aikit/linalg"
+	"github.com/pkieltyka/aikit/linalg"
 )
 
 // G-S3's export check (the S2 G-S2a rule applied to SigLIP):

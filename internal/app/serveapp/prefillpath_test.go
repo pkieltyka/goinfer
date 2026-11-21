@@ -2,7 +2,7 @@ package serveapp
 
 import (
 	"encoding/json"
-	"github.com/townsendmerino/goinfer/internal/app/loadflags"
+	"github.com/pkieltyka/goinfer/internal/app/loadflags"
 	"net/http"
 	"net/http/httptest"
 	"os"
@@ -10,8 +10,8 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/townsendmerino/goinfer/decoder"
-	"github.com/townsendmerino/goinfer/internal/vision"
+	"github.com/pkieltyka/goinfer/decoder"
+	"github.com/pkieltyka/goinfer/internal/vision"
 )
 
 // The serve half of the prefill-path report. Both fast paths a GPU backend advertises, the resident decode

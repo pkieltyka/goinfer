@@ -10,8 +10,8 @@ import (
 	"path/filepath"
 	"testing"
 
-	"github.com/townsendmerino/goinfer/backend/webgpu"
-	"github.com/townsendmerino/goinfer/decoder"
+	"github.com/pkieltyka/goinfer/backend/webgpu"
+	"github.com/pkieltyka/goinfer/decoder"
 )
 
 // TestResidentPrefillLast_parity is the Increment-3 gate for the resident

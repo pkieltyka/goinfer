@@ -6,7 +6,7 @@ import (
 	"net/http/httptest"
 	"testing"
 
-	"github.com/townsendmerino/goinfer/decoder"
+	"github.com/pkieltyka/goinfer/decoder"
 )
 
 // H2: /health carries each backend's startup self-test, so an operator sees that a backend declined or a kernel tier was stepped down without reading a log. The field is always an array, and a failing

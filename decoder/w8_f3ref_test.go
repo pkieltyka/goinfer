@@ -10,7 +10,7 @@ import (
 	"runtime"
 	"testing"
 
-	"github.com/townsendmerino/goinfer/tokenizer"
+	"github.com/pkieltyka/goinfer/tokenizer"
 )
 
 // TestW8F3Reference_write builds F3′'s prompts exactly as the metal test does (the first 8 files of the prefill gate's

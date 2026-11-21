@@ -13,7 +13,7 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/townsendmerino/goinfer/decoder"
+	"github.com/pkieltyka/goinfer/decoder"
 )
 
 // TestGemma4MoEScaled_residentParity is the asserting parity gate for the Gemma-4 resident forward against the

@@ -13,7 +13,7 @@ package mamba2
 import (
 	"math"
 
-	"github.com/townsendmerino/goinfer/internal/runtime/hybridattn"
+	"github.com/pkieltyka/goinfer/internal/runtime/hybridattn"
 )
 
 // Params is the mixer's geometry: nHeads heads of headDim (P), an SSM state of dState (N) per head-channel, B and C

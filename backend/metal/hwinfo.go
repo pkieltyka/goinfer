@@ -6,7 +6,7 @@ import (
 	"fmt"
 	"syscall"
 
-	"github.com/townsendmerino/goinfer/decoder"
+	"github.com/pkieltyka/goinfer/decoder"
 )
 
 func init() { decoder.RegisterHardwareInfo("metal", metalHardwareInfo) }

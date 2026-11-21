@@ -8,10 +8,10 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/townsendmerino/goinfer/backend/webgpu"
-	"github.com/townsendmerino/goinfer/decoder"
+	"github.com/pkieltyka/goinfer/backend/webgpu"
+	"github.com/pkieltyka/goinfer/decoder"
 
-	"github.com/townsendmerino/goinfer/internal/testgate"
+	"github.com/pkieltyka/goinfer/internal/testgate"
 )
 
 // TestMLAResidency_realDeepSeek_R05 is the regression gate for a REAL DeepSeek MLA base (qk head

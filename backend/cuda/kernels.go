@@ -6,8 +6,8 @@ import (
 	_ "embed"
 	"slices"
 
-	gpu "github.com/townsendmerino/goinfer/backend/cuda/internal/gpudev"
-	"github.com/townsendmerino/goinfer/backend/cuda/internal/wpack"
+	gpu "github.com/pkieltyka/goinfer/backend/cuda/internal/gpudev"
+	"github.com/pkieltyka/goinfer/backend/cuda/internal/wpack"
 )
 
 // The production decode kernels (NVRTC to PTX, go:embed, driver-JIT via cuModuleLoadDataEx), embedded in a non-test file

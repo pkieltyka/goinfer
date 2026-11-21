@@ -15,9 +15,9 @@ import (
 	"testing"
 	"time"
 
-	"github.com/townsendmerino/goinfer/decoder"
-	"github.com/townsendmerino/goinfer/internal/runtime/mem/probe"
-	"github.com/townsendmerino/goinfer/tokenizer"
+	"github.com/pkieltyka/goinfer/decoder"
+	"github.com/pkieltyka/goinfer/internal/runtime/mem/probe"
+	"github.com/pkieltyka/goinfer/tokenizer"
 )
 
 // d7Load1 is the 1-minute load average (sysctl vm.loadavg), the void rule's first term.

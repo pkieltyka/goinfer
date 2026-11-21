@@ -9,7 +9,7 @@ import (
 	"runtime/debug"
 	"testing"
 
-	"github.com/townsendmerino/goinfer/decoder"
+	"github.com/pkieltyka/goinfer/decoder"
 )
 
 // TestP29_q4kPromptRoutePerSlotCount: the route a q4k-lane prompt takes, and the rows each step carries, at one resident KV

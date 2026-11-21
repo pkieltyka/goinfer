@@ -8,7 +8,7 @@ import (
 	"os"
 	"testing"
 
-	"github.com/townsendmerino/goinfer/decoder"
+	"github.com/pkieltyka/goinfer/decoder"
 )
 
 // TestGptOssExpertCacheAB pins that expert caching does not change which expert's biases are used.

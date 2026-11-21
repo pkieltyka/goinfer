@@ -6,7 +6,7 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/townsendmerino/goinfer/internal/app/loadflags"
+	"github.com/pkieltyka/goinfer/internal/app/loadflags"
 )
 
 // G-S14i2: a Whisper directory in --model loads as a speech model, beside a decoder when there is one, and a directory missing what it needs is refused by name.

@@ -12,7 +12,7 @@ import (
 	"testing"
 	"time"
 
-	"github.com/townsendmerino/goinfer/tokenizer"
+	"github.com/pkieltyka/goinfer/tokenizer"
 )
 
 // cpuDecodeAB is the paired, in-process, ABBA harness for CPU-decode knobs on one loaded model

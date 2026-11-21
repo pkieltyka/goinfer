@@ -10,9 +10,9 @@ import (
 	"sync"
 	"time"
 
-	"github.com/townsendmerino/goinfer/chat"
-	"github.com/townsendmerino/goinfer/constrain"
-	"github.com/townsendmerino/goinfer/internal/codec"
+	"github.com/pkieltyka/goinfer/chat"
+	"github.com/pkieltyka/goinfer/constrain"
+	"github.com/pkieltyka/goinfer/internal/codec"
 )
 
 // handleChatTools serves /v1/chat/completions when tools are present: it renders

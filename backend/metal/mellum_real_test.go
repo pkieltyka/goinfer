@@ -6,7 +6,7 @@ import (
 	"os"
 	"testing"
 
-	"github.com/townsendmerino/goinfer/internal/testgate"
+	"github.com/pkieltyka/goinfer/internal/testgate"
 )
 
 // TestMellumResidentParity is G11's Metal half: the real-weight validation of Mellum on the Metal

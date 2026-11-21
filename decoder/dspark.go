@@ -6,9 +6,9 @@ import (
 	"os"
 	"path/filepath"
 
-	"github.com/townsendmerino/aikit/embed"
-	"github.com/townsendmerino/aikit/linalg"
-	"github.com/townsendmerino/goinfer/internal/runtime/sampling"
+	"github.com/pkieltyka/aikit/embed"
+	"github.com/pkieltyka/aikit/linalg"
+	"github.com/pkieltyka/goinfer/internal/runtime/sampling"
 )
 
 // DSparkDrafter is an imported DeepSeek DSpark block drafter (docs/spec/08): the same non-causal block trunk DFlash

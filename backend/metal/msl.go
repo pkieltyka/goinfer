@@ -2,7 +2,7 @@
 
 package metal
 
-import "github.com/townsendmerino/goinfer/backend/metal/kernels"
+import "github.com/pkieltyka/goinfer/backend/metal/kernels"
 
 // The MSL sources live in metal/kernels, a package that imports nothing from decoder, so the kernel tests beside them
 // are cached apart from this package's and a decoder edit does not re-run them (docs/measurements/test-wait-2026-10.md §2).

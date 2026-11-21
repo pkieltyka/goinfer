@@ -1588,7 +1588,7 @@ doc for the measured cost of the generic scan on the 9B).
 Moved from `backend/cuda/device.go` (the comment at the top of the file) on 2026-10-09.
 
 ```text
-CUDA device layer — now aikit's native-GPU substrate (github.com/townsendmerino/aikit/gpu),
+CUDA device layer — now aikit's native-GPU substrate (github.com/pkieltyka/aikit/gpu),
 the CUDA analogue of what backend/metal/device.go did for Metal (goinfer 5ec20ff). goinfer keeps its
 tuned decode kernels here and builds them on these device types — the GPU analogue of the
 linalg relationship. Only the device TYPES moved; nothing about the decode path changed, so

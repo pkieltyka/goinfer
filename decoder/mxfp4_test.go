@@ -7,7 +7,7 @@ import (
 	"os"
 	"testing"
 
-	"github.com/townsendmerino/aikit/embed"
+	"github.com/pkieltyka/aikit/embed"
 )
 
 // The MXFP4 arithmetic lives in aikit (embed.MXFP4Scale / DequantMXFP4Blocks / DequantMXFP4Split), gated there

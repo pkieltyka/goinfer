@@ -12,8 +12,8 @@ import (
 	"time"
 
 	gc "github.com/eitamring/gocudrv/cuda"
-	"github.com/townsendmerino/goinfer/decoder"
-	"github.com/townsendmerino/goinfer/internal/runtime/mem"
+	"github.com/pkieltyka/goinfer/decoder"
+	"github.com/pkieltyka/goinfer/internal/runtime/mem"
 )
 
 // The build-scratch / margin accounting gates, registered

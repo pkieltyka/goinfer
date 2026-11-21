@@ -1,6 +1,6 @@
 package wpack
 
-import "github.com/townsendmerino/aikit/linalg"
+import "github.com/pkieltyka/aikit/linalg"
 
 // The names package cuda gives the packers, over wpack, so the tests moved from there read as they did. hostW holds only a
 // packed weight's fields: the moved tests do not plan.

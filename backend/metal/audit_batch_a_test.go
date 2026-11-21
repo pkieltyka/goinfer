@@ -16,7 +16,7 @@ import (
 	"testing"
 	"time"
 
-	"github.com/townsendmerino/goinfer/decoder"
+	"github.com/pkieltyka/goinfer/decoder"
 )
 
 // Phase 2, Batch A: the timed probes of docs/audit-metal-2026-09-30.md §10

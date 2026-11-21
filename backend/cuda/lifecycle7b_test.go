@@ -7,9 +7,9 @@ import (
 	"testing"
 
 	gc "github.com/eitamring/gocudrv/cuda"
-	"github.com/townsendmerino/goinfer/decoder"
+	"github.com/pkieltyka/goinfer/decoder"
 
-	"github.com/townsendmerino/goinfer/internal/testgate"
+	"github.com/pkieltyka/goinfer/internal/testgate"
 )
 
 // TestResidentCloseFreesVRAM_7B is TestResidentCloseFreesVRAM's shape at the scale that reproduces

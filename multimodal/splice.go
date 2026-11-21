@@ -5,7 +5,7 @@ import (
 	"slices"
 	"strings"
 
-	"github.com/townsendmerino/goinfer/tokenizer"
+	"github.com/pkieltyka/goinfer/tokenizer"
 )
 
 // This is the one image-block splice every vision caller shares (goinfer-serve's vision routes, goinfer-chat --image, the examples);

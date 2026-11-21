@@ -5,7 +5,7 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
-	"github.com/townsendmerino/goinfer/internal/app/loadflags"
+	"github.com/pkieltyka/goinfer/internal/app/loadflags"
 	"io"
 	"net/http"
 	"net/http/httptest"

@@ -13,10 +13,10 @@ import (
 	"slices"
 	"testing"
 
-	"github.com/townsendmerino/goinfer/chat"
-	"github.com/townsendmerino/goinfer/internal/app/loadflags"
+	"github.com/pkieltyka/goinfer/chat"
+	"github.com/pkieltyka/goinfer/internal/app/loadflags"
 
-	"github.com/townsendmerino/goinfer/internal/testgate"
+	"github.com/pkieltyka/goinfer/internal/testgate"
 )
 
 // TestServe_qwen35Image_G4 is P8a's G4 (docs/measurements/p8a-qwen35-vl-2026-09/preregistration.md) on

@@ -78,7 +78,7 @@ func TestGoroutineLeakCheck(t *testing.T) {
 	t.Logf("goroutineleak total: %s", total)
 	// Only fail on leaks whose stack touches goinfer's own code (ignore any runtime/test
 	// harness background goroutines the profiler might list).
-	if goinferLeaks := countFrames(report, "townsendmerino/goinfer"); goinferLeaks > 0 {
+	if goinferLeaks := countFrames(report, "pkieltyka/goinfer"); goinferLeaks > 0 {
 		t.Errorf("goroutineleak: %d leaked goroutine(s) in goinfer code:\n%s", goinferLeaks, report)
 	}
 }

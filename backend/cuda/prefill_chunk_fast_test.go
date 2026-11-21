@@ -7,7 +7,7 @@ import (
 	"os"
 	"testing"
 
-	"github.com/townsendmerino/goinfer/decoder"
+	"github.com/pkieltyka/goinfer/decoder"
 )
 
 // TestPrefillChunked_fastKernelsOnEveryChunk pins that a prompt longer than one chunk (512 rows) runs the fast kernels on every pass (docs/measurements/prefill-chunk-demotion-2026-09-21.md): every pass but the last runs tailKVOnly, which forceExactKernels (tail != tailLastLogits) must not send to the slow exact GEMM and attention.

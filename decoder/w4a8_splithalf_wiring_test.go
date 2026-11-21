@@ -5,7 +5,7 @@ import (
 	"math/rand"
 	"testing"
 
-	"github.com/townsendmerino/aikit/linalg"
+	"github.com/pkieltyka/aikit/linalg"
 )
 
 // TestW4A8SplitHalfWiring_matchesCanonical drives the split-half repack THROUGH

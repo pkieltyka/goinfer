@@ -1,8 +1,8 @@
 package main
 
 import (
-	"github.com/townsendmerino/goinfer/chat"
-	"github.com/townsendmerino/goinfer/tokenizer"
+	"github.com/pkieltyka/goinfer/chat"
+	"github.com/pkieltyka/goinfer/tokenizer"
 	"os"
 	"os/exec"
 	"path/filepath"

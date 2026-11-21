@@ -1,6 +1,6 @@
 package decoder
 
-import "github.com/townsendmerino/aikit/linalg"
+import "github.com/pkieltyka/aikit/linalg"
 
 // wmBytes is one weight matrix's in-memory footprint, read from the backing slices, not computed from Rows()*Cols(): a
 // quantized matrix carries per-group scales beside its packed payload and int4 packs two values per byte, so a

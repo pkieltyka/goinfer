@@ -8,7 +8,7 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/townsendmerino/goinfer/internal/testgate"
+	"github.com/pkieltyka/goinfer/internal/testgate"
 )
 
 // P13: loadWeights closes the safetensors SOURCE mapping at end of load when nothing can alias it; holding it for the

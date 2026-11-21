@@ -5,8 +5,8 @@ import (
 	"fmt"
 	"slices"
 
-	"github.com/townsendmerino/goinfer/constrain"
-	"github.com/townsendmerino/goinfer/internal/runtime/sampling"
+	"github.com/pkieltyka/goinfer/constrain"
+	"github.com/pkieltyka/goinfer/internal/runtime/sampling"
 )
 
 // ConfidentDrafter reports a confidence for its most recent Draft, so RouterDrafter can order sources by predicted

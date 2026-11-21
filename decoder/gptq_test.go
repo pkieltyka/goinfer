@@ -8,7 +8,7 @@ import (
 	"os"
 	"testing"
 
-	"github.com/townsendmerino/goinfer/internal/runtime/sampling"
+	"github.com/pkieltyka/goinfer/internal/runtime/sampling"
 )
 
 func TestParseQuantConfig(t *testing.T) {

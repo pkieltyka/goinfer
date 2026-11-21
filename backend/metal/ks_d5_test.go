@@ -8,9 +8,9 @@ import (
 	"slices"
 	"testing"
 
-	"github.com/townsendmerino/goinfer/decoder"
+	"github.com/pkieltyka/goinfer/decoder"
 
-	"github.com/townsendmerino/goinfer/internal/testgate"
+	"github.com/pkieltyka/goinfer/internal/testgate"
 )
 
 // TestKSD5_guFShare is KS-D5's first measurement: the batched prefill's scratch

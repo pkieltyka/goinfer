@@ -71,7 +71,7 @@ func TestParityManifest_coreClosed(t *testing.T) {
 	}
 	info := &types.Info{Uses: map[*ast.Ident]types.Object{}, Defs: map[*ast.Ident]types.Object{}}
 	conf := types.Config{Importer: importer.ForCompiler(fset, "source", nil)}
-	if _, err := conf.Check("github.com/townsendmerino/goinfer/decoder", fset, files, info); err != nil {
+	if _, err := conf.Check("github.com/pkieltyka/goinfer/decoder", fset, files, info); err != nil {
 		t.Fatalf("type-checking decoder: %v", err)
 	}
 	decl := map[types.Object]*ast.FuncDecl{}

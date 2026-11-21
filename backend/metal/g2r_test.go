@@ -7,9 +7,9 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/townsendmerino/goinfer/decoder"
+	"github.com/pkieltyka/goinfer/decoder"
 
-	"github.com/townsendmerino/goinfer/internal/testgate"
+	"github.com/pkieltyka/goinfer/internal/testgate"
 )
 
 // TestG2R_registered is OP1's real Gemma 2 gate, G2-R, run as registered: the Metal process, reading the CPU side from the file

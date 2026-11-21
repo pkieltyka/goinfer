@@ -9,7 +9,7 @@ import (
 	"time"
 
 	gc "github.com/eitamring/gocudrv/cuda"
-	"github.com/townsendmerino/goinfer/decoder"
+	"github.com/pkieltyka/goinfer/decoder"
 )
 
 // TestThetaProbe_CUDA measures Theta, the marginal cost of one extra verify node in units of one single-token target step,

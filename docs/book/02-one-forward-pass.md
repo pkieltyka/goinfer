@@ -12,7 +12,7 @@ Give the model the token IDs so far. The model returns one number per vocabulary
 score saying how good that vocabulary entry would be as the next token. That computation is
 the **forward pass**, so called because data flows forward through the network with no loops.
 
-In this repo the forward pass is `Model.forward` in [`decoder/model.go`](https://github.com/townsendmerino/goinfer/blob/main/decoder/model.go), a thin wrapper that
+In this repo the forward pass is `Model.forward` in [`decoder/model.go`](https://github.com/pkieltyka/goinfer/blob/main/decoder/model.go), a thin wrapper that
 runs the layer stack (`runLayers`) and then projects the layer stack's result to scores
 (`logitsFromHidden`). Under those two calls is essentially all of the work this book is about.
 
@@ -183,7 +183,7 @@ The shape of the matrix multiply is the whole difference:
 
 *The same multiply, animated. Decode reads every weight to serve one row; prefill reads the same weights once and
 serves six. The counts are arithmetic about the 8 × 8 drawing, not measurements
-([video](./02-anim-matmul-shape.mp4), [scene source](https://github.com/townsendmerino/goinfer/blob/main/docs/book/02-anim-matmul-shape.py)).*
+([video](./02-anim-matmul-shape.mp4), [scene source](https://github.com/pkieltyka/goinfer/blob/main/docs/book/02-anim-matmul-shape.py)).*
 
 The same computation, two completely different performance problems. Chapter 8 takes the two
 regimes apart properly.
@@ -208,10 +208,10 @@ The "chat, streamed" row prints the decode rate: every token in it is one forwar
 scores. On an M1 Pro it read 62.6 tok/s on the CPU and 94.4 tok/s with `--backend metal` (medians of three), so a
 forward pass of the 1.5B costs about 16 ms on the CPU and 11 ms on the GPU. The same check ends `1 of 9 checks
 FAILED`: the tools row, where this small model asks for the tool again instead of answering (chapter 11 reads that
-line). Your machine's numbers will differ. Measured on 2026-10-02 with the v0.20.0 release ([record](https://github.com/townsendmerino/goinfer/blob/main/docs/measurements/book-try-it-2026-10.md), timed figures).
+line). Your machine's numbers will differ. Measured on 2026-10-02 with the v0.20.0 release ([record](https://github.com/pkieltyka/goinfer/blob/main/docs/measurements/book-try-it-2026-10.md), timed figures).
 
 ---
 
 *Sources: `decoder/model.go` (`forward`, `runLayers`, `logitsFromHidden`),
-[`docs/how-inference-works.md`](https://github.com/townsendmerino/goinfer/blob/main/docs/how-inference-works.md) §Step 2, [`docs/benchmarks.md`](https://github.com/townsendmerino/goinfer/blob/main/docs/benchmarks.md) (decode-only, greedy, depth 128,
+[`docs/how-inference-works.md`](https://github.com/pkieltyka/goinfer/blob/main/docs/how-inference-works.md) §Step 2, [`docs/benchmarks.md`](https://github.com/pkieltyka/goinfer/blob/main/docs/benchmarks.md) (decode-only, greedy, depth 128,
 quiet box), the performance queue (kept privately) (G16/G20 prefill).*

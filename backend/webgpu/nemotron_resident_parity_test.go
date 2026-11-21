@@ -7,7 +7,7 @@ import (
 	"strconv"
 	"testing"
 
-	"github.com/townsendmerino/goinfer/decoder"
+	"github.com/pkieltyka/goinfer/decoder"
 )
 
 // TestNemotronResidentParity is the whole-model parity gate: resident Nemotron-H

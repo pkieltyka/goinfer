@@ -10,9 +10,9 @@ import (
 	"testing"
 	"time"
 
-	"github.com/townsendmerino/goinfer/backend/webgpu"
-	"github.com/townsendmerino/goinfer/decoder"
-	"github.com/townsendmerino/goinfer/tokenizer"
+	"github.com/pkieltyka/goinfer/backend/webgpu"
+	"github.com/pkieltyka/goinfer/decoder"
+	"github.com/pkieltyka/goinfer/tokenizer"
 )
 
 // ngramWorkloads mirror the CPU harness (decoder/spec_harness_test.go): completion

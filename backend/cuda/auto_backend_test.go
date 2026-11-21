@@ -6,7 +6,7 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/townsendmerino/goinfer/decoder"
+	"github.com/pkieltyka/goinfer/decoder"
 )
 
 // TestAutoBackend_followsTheDevice (R17): with this module linked, auto picks cuda exactly when a device opens, and

@@ -9,7 +9,7 @@ import (
 	"os"
 	"testing"
 
-	"github.com/townsendmerino/goinfer/decoder"
+	"github.com/pkieltyka/goinfer/decoder"
 )
 
 // S19: the bidirectional Gemma 4 image prefill on the resident (PrefillSpansLast, attn_span_batched).

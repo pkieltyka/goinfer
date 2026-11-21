@@ -8,8 +8,8 @@ import (
 	"testing"
 	"time"
 
-	"github.com/townsendmerino/goinfer/decoder"
-	"github.com/townsendmerino/goinfer/tokenizer"
+	"github.com/pkieltyka/goinfer/decoder"
+	"github.com/pkieltyka/goinfer/tokenizer"
 )
 
 // TestMoEExpertReuseProbe measures whether the expert-major prefill restructuring M-05 proposes (docs/audit-metal-2026-09-12.md)

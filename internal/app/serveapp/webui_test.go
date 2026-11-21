@@ -3,7 +3,7 @@ package serveapp
 import (
 	"context"
 	"encoding/json"
-	"github.com/townsendmerino/goinfer/internal/app/loadflags"
+	"github.com/pkieltyka/goinfer/internal/app/loadflags"
 	"go/ast"
 	"go/parser"
 	"go/token"
@@ -17,7 +17,7 @@ import (
 	"testing"
 	"time"
 
-	"github.com/townsendmerino/goinfer/pull"
+	"github.com/pkieltyka/goinfer/pull"
 )
 
 // TestWebUI_disabledByDefault pins that the -web routes refuse when the flag is off. The

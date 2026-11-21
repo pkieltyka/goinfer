@@ -11,7 +11,7 @@ import (
 	"testing"
 	"time"
 
-	"github.com/townsendmerino/goinfer/multimodal"
+	"github.com/pkieltyka/goinfer/multimodal"
 )
 
 // G-S14f3's goinfer arm: every WAV in $GOINFER_S14F_DIR (scripts/s14c4_data.py's) through the Transcriber, short-form greedy, language detected, and

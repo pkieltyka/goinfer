@@ -8,7 +8,7 @@ import (
 	"os"
 	"testing"
 
-	"github.com/townsendmerino/goinfer/decoder"
+	"github.com/pkieltyka/goinfer/decoder"
 )
 
 // loadG4MoEGraphs loads a gemma4-MoE fixture as a CUDA resident int4 runner with CUDA graphs on/off

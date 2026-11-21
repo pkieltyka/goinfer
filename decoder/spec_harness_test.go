@@ -8,7 +8,7 @@ import (
 	"testing"
 	"time"
 
-	"github.com/townsendmerino/goinfer/tokenizer"
+	"github.com/pkieltyka/goinfer/tokenizer"
 )
 
 // specWorkloads are completion-style prompts with heavy internal repetition — the

@@ -11,7 +11,7 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/townsendmerino/goinfer/internal/guard/paritykey"
+	"github.com/pkieltyka/goinfer/internal/guard/paritykey"
 )
 
 // loaderConfigMode is a GGUF fixture's loader table entry for its parsed config: configIdentity of the Cfg its loader

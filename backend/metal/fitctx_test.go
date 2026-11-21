@@ -11,10 +11,10 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/townsendmerino/goinfer/decoder"
-	"github.com/townsendmerino/goinfer/decoder/fit"
-	"github.com/townsendmerino/goinfer/internal/runtime/giw"
-	"github.com/townsendmerino/goinfer/internal/runtime/mem"
+	"github.com/pkieltyka/goinfer/decoder"
+	"github.com/pkieltyka/goinfer/decoder/fit"
+	"github.com/pkieltyka/goinfer/internal/runtime/giw"
+	"github.com/pkieltyka/goinfer/internal/runtime/mem"
 )
 
 // fitBudget sizes a memory figure for m: the bytes at which exactly `positions` positions of KV fit beside the weights

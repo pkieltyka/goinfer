@@ -9,7 +9,7 @@ import (
 	"testing"
 
 	gc "github.com/eitamring/gocudrv/cuda"
-	"github.com/townsendmerino/goinfer/decoder"
+	"github.com/pkieltyka/goinfer/decoder"
 )
 
 // TestUploadKV_matchesSequentialForward is UploadKV's correctness test (P6b / gap-0, docs/multimodal.md): the hybrid

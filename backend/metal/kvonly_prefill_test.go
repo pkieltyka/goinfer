@@ -7,7 +7,7 @@ import (
 	"os"
 	"testing"
 
-	"github.com/townsendmerino/goinfer/decoder"
+	"github.com/pkieltyka/goinfer/decoder"
 )
 
 // TestForwardNoLogits_byteIdenticalKV gates M-01 (audit-metal-2026-09-12.md): ForwardNoLogits

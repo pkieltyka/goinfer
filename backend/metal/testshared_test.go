@@ -6,7 +6,7 @@ import (
 	"math"
 	"testing"
 
-	"github.com/townsendmerino/goinfer/internal/runtime/f16"
+	"github.com/pkieltyka/goinfer/internal/runtime/f16"
 )
 
 // Shared metal test helpers that must remain available to tests NOT gated on the

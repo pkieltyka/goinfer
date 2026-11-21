@@ -6,7 +6,7 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/townsendmerino/goinfer/decoder"
+	"github.com/pkieltyka/goinfer/decoder"
 )
 
 // TestBuildResident_f32DeclinesClearly (int8 slice 4): an f32 load on -backend metal declines with the reason and the

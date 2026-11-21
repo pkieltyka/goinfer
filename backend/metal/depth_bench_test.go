@@ -8,7 +8,7 @@ import (
 	"testing"
 	"time"
 
-	"github.com/townsendmerino/goinfer/decoder"
+	"github.com/pkieltyka/goinfer/decoder"
 )
 
 // TestZZ_metalDepthBench — the Metal side of benchmarks.md's greedy-decode-by-KV-depth curve, which

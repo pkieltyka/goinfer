@@ -17,7 +17,7 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/townsendmerino/goinfer/decoder"
+	"github.com/pkieltyka/goinfer/decoder"
 )
 
 // R-23: on a K=V layer (Gemma 4 global layers, attention_k_eq_v) the resident decode and prefill projected k TWICE, once into kB and

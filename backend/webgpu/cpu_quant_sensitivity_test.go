@@ -7,7 +7,7 @@ import (
 	"os"
 	"testing"
 
-	"github.com/townsendmerino/goinfer/decoder"
+	"github.com/pkieltyka/goinfer/decoder"
 )
 
 // TestCPUQuantSensitivity is the control for TestResidentCaptureParityWebGPU: no GPU at all. It runs the CPU int4 forward

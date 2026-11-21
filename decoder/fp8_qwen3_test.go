@@ -18,7 +18,7 @@ package decoder
 import (
 	"testing"
 
-	"github.com/townsendmerino/goinfer/internal/runtime/sampling"
+	"github.com/pkieltyka/goinfer/internal/runtime/sampling"
 )
 
 func TestFP8Qwen3_vsBF16(t *testing.T) {

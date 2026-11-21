@@ -11,7 +11,7 @@ import (
 	"strings"
 	"time"
 
-	"github.com/townsendmerino/goinfer/internal/guard/paritykey"
+	"github.com/pkieltyka/goinfer/internal/guard/paritykey"
 )
 
 // The parity sweep's record. `gate parity` prints a verdict and keeps its raw streams in the log directory; RELEASING.md's

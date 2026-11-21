@@ -5,8 +5,8 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/townsendmerino/goinfer/chat"
-	"github.com/townsendmerino/goinfer/internal/codec"
+	"github.com/pkieltyka/goinfer/chat"
+	"github.com/pkieltyka/goinfer/internal/codec"
 )
 
 // The shared tool turn's reconciliation, driven by the real prose streamer and the real ChatML

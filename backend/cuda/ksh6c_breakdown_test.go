@@ -13,7 +13,7 @@ import (
 	"sync"
 	"testing"
 
-	"github.com/townsendmerino/goinfer/decoder"
+	"github.com/pkieltyka/goinfer/decoder"
 )
 
 // TestKSH6C_postPoolBreakdown is a reading for KS-H6's build: one CUDA

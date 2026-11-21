@@ -5,9 +5,9 @@ import (
 	"os"
 	"testing"
 
-	"github.com/townsendmerino/aikit/linalg"
+	"github.com/pkieltyka/aikit/linalg"
 
-	"github.com/townsendmerino/goinfer/internal/testgate"
+	"github.com/pkieltyka/goinfer/internal/testgate"
 )
 
 // TestRequantBar_DoubleQuantCost measures what Metal's DOUBLE quantization costs, per model.

@@ -6,7 +6,7 @@ import (
 	"io"
 	"math"
 
-	"github.com/townsendmerino/goinfer/internal/runtime/sampling"
+	"github.com/pkieltyka/goinfer/internal/runtime/sampling"
 )
 
 // SpecTrace is one speculated position's record — the labeled row the acceptance

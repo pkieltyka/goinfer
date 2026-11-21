@@ -23,8 +23,8 @@ import (
 	"os"
 	"path/filepath"
 
-	"github.com/townsendmerino/goinfer/internal/clef"
-	"github.com/townsendmerino/goinfer/internal/decide"
+	"github.com/pkieltyka/goinfer/internal/clef"
+	"github.com/pkieltyka/goinfer/internal/decide"
 )
 
 const (

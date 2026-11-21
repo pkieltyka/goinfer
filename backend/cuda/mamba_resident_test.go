@@ -9,7 +9,7 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/townsendmerino/goinfer/decoder"
+	"github.com/pkieltyka/goinfer/decoder"
 )
 
 // OP2b on CUDA, step 2b: Nemotron-H resident on CUDA. Gate M is the tiny model

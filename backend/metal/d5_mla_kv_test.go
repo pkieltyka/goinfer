@@ -13,9 +13,9 @@ import (
 	"strings"
 	"testing"
 
-	gpu "github.com/townsendmerino/goinfer/backend/metal/internal/gpudev"
-	"github.com/townsendmerino/goinfer/decoder"
-	"github.com/townsendmerino/goinfer/internal/app/loadflags"
+	gpu "github.com/pkieltyka/goinfer/backend/metal/internal/gpudev"
+	"github.com/pkieltyka/goinfer/decoder"
+	"github.com/pkieltyka/goinfer/internal/app/loadflags"
 )
 
 // d5Opts is a Metal load of --kv v as serve sets it (KVPrecision and the CPU cache's KVQuant).

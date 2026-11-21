@@ -4,7 +4,7 @@ import (
 	"errors"
 	"fmt"
 
-	"github.com/townsendmerino/aikit/linalg"
+	"github.com/pkieltyka/aikit/linalg"
 )
 
 // qwen3_5_moe (qwen35moe): the Gated DeltaNet / gated-softmax hybrid. The GGUF

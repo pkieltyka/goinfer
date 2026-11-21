@@ -6,7 +6,7 @@ import (
 	"math"
 	"testing"
 
-	"github.com/townsendmerino/aikit/linalg"
+	"github.com/pkieltyka/aikit/linalg"
 )
 
 func refRMSNorm(x, w []float32, H int, eps float32, addOne bool) []float32 {

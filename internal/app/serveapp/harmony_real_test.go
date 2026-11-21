@@ -7,7 +7,7 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/townsendmerino/goinfer/internal/app/loadflags"
+	"github.com/pkieltyka/goinfer/internal/app/loadflags"
 )
 
 // TestHarmonyTools_realModelLoop is the gpt-oss tool loop through serve's real handlers on the real model: a request with a declared

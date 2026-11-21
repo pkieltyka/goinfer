@@ -8,8 +8,8 @@ import (
 	"os"
 	"testing"
 
-	"github.com/townsendmerino/goinfer/internal/runtime/sampling"
-	"github.com/townsendmerino/goinfer/internal/testgate"
+	"github.com/pkieltyka/goinfer/internal/runtime/sampling"
+	"github.com/pkieltyka/goinfer/internal/testgate"
 )
 
 // runMellum2Golden loads the unquantized Mellum2 (int8int8, the serve default)

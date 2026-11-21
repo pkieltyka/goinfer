@@ -12,7 +12,7 @@ import (
 	"testing"
 	"time"
 
-	"github.com/townsendmerino/goinfer/internal/testgate"
+	"github.com/pkieltyka/goinfer/internal/testgate"
 )
 
 // TestQ4KStep_phi3Tier1 is OP6's Metal tier 1 ( registered before any

@@ -1019,7 +1019,7 @@ it sank once already. Batching it behind two chores is precisely how that happen
 
 **C3 DONE 2026-08-15** (auto-pickup fired on the `v0.13.0` tag). cgo-free/no-Xcode build verified via
 the require path; two real gaps found — `go install …/metal/cmd/serve@v0.13.0` is broken by the
-committed `replace github.com/townsendmerino/goinfer => ../` in the tagged `metal/go.mod`, and
+committed `replace github.com/pkieltyka/goinfer => ../` in the tagged `metal/go.mod`, and
 resident-metal decode isn't drivable via the public API (needs the serve binary, which `go install`
 can't build). Full findings + the resolved dep set in `docs/measurements/c3-metal-consumer-window.md`.
 **Follow-up worth queuing:** tag `metal/` from a replace-free tree so `go install` works.

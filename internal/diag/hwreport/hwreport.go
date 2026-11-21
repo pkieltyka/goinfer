@@ -18,9 +18,9 @@ import (
 	"strings"
 	"time"
 
-	"github.com/townsendmerino/aikit/linalg"
-	"github.com/townsendmerino/goinfer/decoder"
-	"github.com/townsendmerino/goinfer/internal/app/fitcmd"
+	"github.com/pkieltyka/aikit/linalg"
+	"github.com/pkieltyka/goinfer/decoder"
+	"github.com/pkieltyka/goinfer/internal/app/fitcmd"
 )
 
 // Options says which parts to add.

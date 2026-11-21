@@ -8,7 +8,7 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/townsendmerino/goinfer/decoder"
+	"github.com/pkieltyka/goinfer/decoder"
 )
 
 // TestMetalResidentCheckCap gates C3 (Metal half): writes at/past the resident KV cap are refused

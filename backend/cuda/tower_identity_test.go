@@ -10,8 +10,8 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/townsendmerino/goinfer/internal/diag/towerid"
-	"github.com/townsendmerino/goinfer/internal/vision"
+	"github.com/pkieltyka/goinfer/internal/diag/towerid"
+	"github.com/pkieltyka/goinfer/internal/vision"
 )
 
 // TestTowerIdentity_cuda is AX2a-T on CUDA: every tower CUDA declares, and

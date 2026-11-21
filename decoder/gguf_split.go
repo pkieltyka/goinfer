@@ -7,7 +7,7 @@ import (
 	"regexp"
 	"strconv"
 
-	"github.com/townsendmerino/aikit/embed"
+	"github.com/pkieltyka/aikit/embed"
 )
 
 // ggufShardName matches llama-gguf-split's shard naming, "<prefix>-00001-of-00003.gguf": the prefix, the shard number

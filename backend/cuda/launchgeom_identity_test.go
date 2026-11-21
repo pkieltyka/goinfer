@@ -15,8 +15,8 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/townsendmerino/goinfer/backend/cuda/internal/launchgeom"
-	"github.com/townsendmerino/goinfer/backend/cuda/internal/wpack"
+	"github.com/pkieltyka/goinfer/backend/cuda/internal/launchgeom"
+	"github.com/pkieltyka/goinfer/backend/cuda/internal/wpack"
 )
 
 var updateLaunchGeomHashes = flag.Bool("launchgeom.update", false, "rewrite testdata/launchgeom_hashes.txt from this tree")

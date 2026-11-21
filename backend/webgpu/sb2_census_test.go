@@ -22,13 +22,13 @@ import (
 	"time"
 
 	"github.com/oliverbestmann/webgpu/wgpu"
-	"github.com/townsendmerino/goinfer/backend/webgpu/internal/kernels"
-	"github.com/townsendmerino/goinfer/decoder"
-	"github.com/townsendmerino/goinfer/decoder/fit"
-	"github.com/townsendmerino/goinfer/internal/diag/sb2census"
-	"github.com/townsendmerino/goinfer/internal/guard/memgate"
-	"github.com/townsendmerino/goinfer/internal/runtime/mem"
-	"github.com/townsendmerino/goinfer/internal/runtime/program"
+	"github.com/pkieltyka/goinfer/backend/webgpu/internal/kernels"
+	"github.com/pkieltyka/goinfer/decoder"
+	"github.com/pkieltyka/goinfer/decoder/fit"
+	"github.com/pkieltyka/goinfer/internal/diag/sb2census"
+	"github.com/pkieltyka/goinfer/internal/guard/memgate"
+	"github.com/pkieltyka/goinfer/internal/runtime/mem"
+	"github.com/pkieltyka/goinfer/internal/runtime/program"
 )
 
 // Layer B-webgpu of the admission and routing census: WebGPU's own static

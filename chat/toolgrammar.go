@@ -4,7 +4,7 @@ import (
 	"fmt"
 	"strings"
 
-	"github.com/townsendmerino/goinfer/constrain"
+	"github.com/pkieltyka/goinfer/constrain"
 )
 
 // ToolGrammar is the constrained decoding for a turn that offers tools and lets the model answer in prose (tool_choice

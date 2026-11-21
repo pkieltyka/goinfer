@@ -10,7 +10,7 @@ import (
 	"sort"
 	"testing"
 
-	"github.com/townsendmerino/aikit/linalg"
+	"github.com/pkieltyka/aikit/linalg"
 )
 
 // alsBF16Copy writes a copy of the checkpoint directory dir whose model.safetensors holds every F32 tensor as BF16 (nearest-even),

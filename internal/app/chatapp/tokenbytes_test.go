@@ -7,8 +7,8 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/townsendmerino/goinfer/constrain"
-	"github.com/townsendmerino/goinfer/tokenizer"
+	"github.com/pkieltyka/goinfer/constrain"
+	"github.com/pkieltyka/goinfer/tokenizer"
 )
 
 // TestJSONMasker_reusesCachedTokenBytes pins that jsonMasker reads the token-to-bytes table newSession builds once into

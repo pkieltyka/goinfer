@@ -6,7 +6,7 @@ import (
 	"math"
 	"testing"
 
-	"github.com/townsendmerino/goinfer/decoder"
+	"github.com/pkieltyka/goinfer/decoder"
 )
 
 // TestLoRADownGridBitIdenticalCUDA gates audit P-11's launch-shape change. lora_delta_down now runs

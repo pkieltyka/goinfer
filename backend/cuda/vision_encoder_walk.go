@@ -5,7 +5,7 @@ package cuda
 import (
 	"fmt"
 
-	"github.com/townsendmerino/goinfer/internal/vision"
+	"github.com/pkieltyka/goinfer/internal/vision"
 )
 
 // int8Regs are the int8 SigLIP tower's registers. Each is held as float32 (f), as int8 rows and their scales (q8), or both:

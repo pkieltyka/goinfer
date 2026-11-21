@@ -7,8 +7,8 @@ import (
 	"fmt"
 	"sync/atomic"
 
-	gpu "github.com/townsendmerino/goinfer/backend/metal/internal/gpudev"
-	"github.com/townsendmerino/goinfer/decoder"
+	gpu "github.com/pkieltyka/goinfer/backend/metal/internal/gpudev"
+	"github.com/pkieltyka/goinfer/decoder"
 )
 
 // The KV block pool's capacity. Each layer's pool

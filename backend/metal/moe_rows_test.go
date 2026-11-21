@@ -7,7 +7,7 @@ import (
 	"os"
 	"testing"
 
-	"github.com/townsendmerino/goinfer/decoder"
+	"github.com/pkieltyka/goinfer/decoder"
 )
 
 // TestMoEExpertRows_bitIdentical is D-B04's routed-expert half's gate: the routed-expert GEMVs through R18's rows form

@@ -8,7 +8,7 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/townsendmerino/goinfer/embeddinggemma2"
+	"github.com/pkieltyka/goinfer/embeddinggemma2"
 )
 
 // taskStub is a taskEmbedder with EmbeddingGemma 2's query/document prompts and one more. It records the prompt each

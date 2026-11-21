@@ -5,8 +5,8 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/townsendmerino/goinfer/chat"
-	"github.com/townsendmerino/goinfer/multimodal"
+	"github.com/pkieltyka/goinfer/chat"
+	"github.com/pkieltyka/goinfer/multimodal"
 )
 
 // TestAgentWeb_hardening pins, by source grep, that agent-web wraps its mutating routes (POST /api/chat, POST

@@ -12,7 +12,7 @@ import (
 	"testing"
 	"time"
 
-	"github.com/townsendmerino/goinfer/embeddinggemma2"
+	"github.com/pkieltyka/goinfer/embeddinggemma2"
 )
 
 // TestG4AMetal_realParity is Phase A's gates AM1 and AM2 on the real

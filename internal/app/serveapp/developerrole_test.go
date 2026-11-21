@@ -6,7 +6,7 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/townsendmerino/goinfer/chat"
+	"github.com/pkieltyka/goinfer/chat"
 )
 
 // Gates for the `role: "developer"` → `role: "system"` alias (queue G12). Without the alias "developer"

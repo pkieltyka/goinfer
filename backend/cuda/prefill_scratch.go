@@ -6,7 +6,7 @@ import (
 	"fmt"
 	"strconv"
 
-	"github.com/townsendmerino/goinfer/internal/runtime/logs"
+	"github.com/pkieltyka/goinfer/internal/runtime/logs"
 )
 
 // prefillWidths are the default pass widths the build chooses among (prefillWidthFor), widest first; each a multiple of the block

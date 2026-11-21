@@ -9,7 +9,7 @@ import (
 	"slices"
 	"testing"
 
-	"github.com/townsendmerino/goinfer/internal/runtime/program"
+	"github.com/pkieltyka/goinfer/internal/runtime/program"
 )
 
 // TestProgramShape_matchesTheAccessors is OP4cu-b1's B-1: on every tracked

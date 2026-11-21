@@ -12,11 +12,11 @@ import (
 	"strings"
 	"sync"
 
-	"github.com/townsendmerino/aikit/embed"
-	"github.com/townsendmerino/aikit/linalg"
-	"github.com/townsendmerino/goinfer/decoder/quant"
+	"github.com/pkieltyka/aikit/embed"
+	"github.com/pkieltyka/aikit/linalg"
+	"github.com/pkieltyka/goinfer/decoder/quant"
 
-	"github.com/townsendmerino/goinfer/internal/runtime/hybridattn"
+	"github.com/pkieltyka/goinfer/internal/runtime/hybridattn"
 )
 
 // LayerWeights bundles one decoder block's tensors. Matrices follow

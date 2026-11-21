@@ -5,7 +5,7 @@ import (
 	"math"
 	"strings"
 
-	"github.com/townsendmerino/aikit/embed"
+	"github.com/pkieltyka/aikit/embed"
 )
 
 const (

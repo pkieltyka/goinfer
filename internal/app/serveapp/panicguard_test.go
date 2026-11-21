@@ -3,7 +3,7 @@ package serveapp
 import (
 	"encoding/json"
 	"fmt"
-	"github.com/townsendmerino/goinfer/internal/app/serveapp/jobs"
+	"github.com/pkieltyka/goinfer/internal/app/serveapp/jobs"
 	"net/http"
 	"net/http/httptest"
 	"strings"

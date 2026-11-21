@@ -9,8 +9,8 @@ import (
 	"slices"
 	"testing"
 
-	"github.com/townsendmerino/aikit/linalg"
-	"github.com/townsendmerino/goinfer/internal/runtime/giw"
+	"github.com/pkieltyka/aikit/linalg"
+	"github.com/pkieltyka/goinfer/internal/runtime/giw"
 )
 
 // gbWriteGIW writes m's weights to path as a weights-only .giw, with islands as f32 arrays when f32Form (the form before kind 9).

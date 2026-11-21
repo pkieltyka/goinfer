@@ -9,8 +9,8 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/townsendmerino/goinfer/decoder"
-	"github.com/townsendmerino/goinfer/internal/runtime/program"
+	"github.com/pkieltyka/goinfer/decoder"
+	"github.com/pkieltyka/goinfer/internal/runtime/program"
 )
 
 // TestOlmo3ResidentSmokeMetal is the smoke gate for FeatPostOnlyNorm + FeatQKNormWhole: the model goes resident, no logit of a 24-token decode or of the batched prefill is NaN, and the prefill is batched.

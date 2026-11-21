@@ -8,7 +8,7 @@ import (
 	"testing"
 	"time"
 
-	"github.com/townsendmerino/goinfer/decoder"
+	"github.com/pkieltyka/goinfer/decoder"
 )
 
 // TestAuditAP02_shortPromptTiming is A-P02's speed half: a fresh K-token prompt's wall time three ways, as T1.10 timed it, but on the build A-P01 changed

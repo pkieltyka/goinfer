@@ -8,7 +8,7 @@ import (
 	"path/filepath"
 	"testing"
 
-	"github.com/townsendmerino/goinfer/internal/runtime/sampling"
+	"github.com/pkieltyka/goinfer/internal/runtime/sampling"
 )
 
 // TestQwen3_5_textParity is the tiny-oracle gate for Qwen3.8 (model_type qwen3_5) — the DENSE

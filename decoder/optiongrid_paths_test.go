@@ -6,7 +6,7 @@ import (
 	"slices"
 	"testing"
 
-	"github.com/townsendmerino/goinfer/internal/runtime/sampling"
+	"github.com/pkieltyka/goinfer/internal/runtime/sampling"
 )
 
 // The option grid's cells (optiongrid.go) are moved from "admitted, untested" to "tested" by the

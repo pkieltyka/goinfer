@@ -6,7 +6,7 @@ import (
 	"os"
 	"testing"
 
-	"github.com/townsendmerino/goinfer/decoder"
+	"github.com/pkieltyka/goinfer/decoder"
 )
 
 // TestGemma4Router_residentIdxParity is the 9c Step-5 ROUTER-FIRST gate: before any expert GEMV

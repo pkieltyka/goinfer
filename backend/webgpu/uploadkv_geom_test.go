@@ -5,13 +5,13 @@ package webgpu
 import (
 	"context"
 	"errors"
-	"github.com/townsendmerino/goinfer/backend/webgpu/internal/kernels"
+	"github.com/pkieltyka/goinfer/backend/webgpu/internal/kernels"
 	"io/fs"
 	"math/rand"
 	"os"
 	"testing"
 
-	"github.com/townsendmerino/goinfer/decoder"
+	"github.com/pkieltyka/goinfer/decoder"
 )
 
 // TestUploadKV_perLayerGeometry is G-S12.0a: the procedure of

@@ -10,7 +10,7 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/townsendmerino/goinfer/internal/vision"
+	"github.com/pkieltyka/goinfer/internal/vision"
 )
 
 // fakeSiglipResident records what a resident SigLIP factory was handed.

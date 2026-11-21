@@ -6,7 +6,7 @@ import (
 	"slices"
 	"testing"
 
-	"github.com/townsendmerino/goinfer/decoder"
+	"github.com/pkieltyka/goinfer/decoder"
 )
 
 // TestKV2_optionKVShareOff_resident drives Options.KVShareOff through a CUDA resident's prefill (the option grid's

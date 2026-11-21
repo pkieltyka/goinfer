@@ -1,6 +1,6 @@
 package decoder
 
-import "github.com/townsendmerino/goinfer/decoder/fit"
+import "github.com/pkieltyka/goinfer/decoder/fit"
 
 // The fit guard's and the planner's exchange types live in decoder/fit; these are the same types under their long-standing names.
 type (

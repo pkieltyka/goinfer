@@ -14,7 +14,7 @@ sys.path.insert(0, HERE)
 import cuda_device_suite_issue as cdi  # noqa: E402
 
 RED = ["cuda-device-suite: 90 passed, 1 failed, 0 device skips, 3 other skips, 1 failed package(s)", "FAILED TESTS (1):",
-       "  github.com/townsendmerino/goinfer/cuda.TestBroken", "VERDICT: RED"]
+       "  github.com/pkieltyka/goinfer/cuda.TestBroken", "VERDICT: RED"]
 GREEN = ["cuda-device-suite: 91 passed, 0 failed, 0 device skips, 3 other skips, 0 failed package(s)", "VERDICT: GREEN"]
 
 FAKE = """#!/usr/bin/env python3

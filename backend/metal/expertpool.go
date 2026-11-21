@@ -4,7 +4,7 @@ package metal
 
 import (
 	"fmt"
-	"github.com/townsendmerino/goinfer/internal/runtime/mem"
+	"github.com/pkieltyka/goinfer/internal/runtime/mem"
 	"io"
 	"sync"
 	"sync/atomic"
@@ -12,8 +12,8 @@ import (
 	"time"
 	"unsafe"
 
-	gpu "github.com/townsendmerino/goinfer/backend/metal/internal/gpudev"
-	"github.com/townsendmerino/goinfer/decoder"
+	gpu "github.com/pkieltyka/goinfer/backend/metal/internal/gpudev"
+	"github.com/pkieltyka/goinfer/decoder"
 )
 
 // expertSlot is a view of one slot of an expertPool: .At()-offset Buffers onto the pool's contiguous per-field buffers,

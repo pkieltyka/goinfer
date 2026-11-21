@@ -16,9 +16,9 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/townsendmerino/goinfer/tokenizer"
+	"github.com/pkieltyka/goinfer/tokenizer"
 
-	"github.com/townsendmerino/goinfer/internal/testgate"
+	"github.com/pkieltyka/goinfer/internal/testgate"
 )
 
 func TestNemotronReal_gate(t *testing.T) {

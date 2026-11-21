@@ -3,7 +3,7 @@ package decide
 import (
 	"testing"
 
-	"github.com/townsendmerino/goinfer/decoder"
+	"github.com/pkieltyka/goinfer/decoder"
 )
 
 func TestHeadQuant(t *testing.T) {

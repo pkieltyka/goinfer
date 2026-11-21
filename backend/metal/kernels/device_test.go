@@ -6,7 +6,7 @@ import (
 	"math"
 	"testing"
 
-	gpu "github.com/townsendmerino/goinfer/backend/metal/internal/gpudev"
+	gpu "github.com/pkieltyka/goinfer/backend/metal/internal/gpudev"
 )
 
 type (

@@ -3,7 +3,7 @@ package chat
 import (
 	"testing"
 
-	"github.com/townsendmerino/goinfer/tokenizer"
+	"github.com/pkieltyka/goinfer/tokenizer"
 )
 
 // CensusPath is the census's seam, for an external test that cannot be in this package (one importing a package that

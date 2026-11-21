@@ -7,7 +7,7 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/townsendmerino/goinfer/chat"
+	"github.com/pkieltyka/goinfer/chat"
 )
 
 // wavBytes is a RIFF WAV of n silent 16-bit mono samples at rate Hz.

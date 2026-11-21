@@ -4,7 +4,7 @@ import (
 	"fmt"
 	"strings"
 
-	"github.com/townsendmerino/goinfer/internal/vision"
+	"github.com/pkieltyka/goinfer/internal/vision"
 )
 
 // The encoder's image resize. The checkpoint's Gemma4ImageProcessor

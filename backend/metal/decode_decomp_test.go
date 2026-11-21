@@ -13,7 +13,7 @@ import (
 	"testing"
 	"time"
 
-	"github.com/townsendmerino/goinfer/decoder"
+	"github.com/pkieltyka/goinfer/decoder"
 )
 
 // TestMetalDecodeDecomp is S0 of the Metal decode-at-depth scoping: where does one decode token's GPU

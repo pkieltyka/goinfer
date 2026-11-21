@@ -16,7 +16,7 @@ import (
 	"strings"
 	"time"
 
-	"github.com/townsendmerino/goinfer/pull"
+	"github.com/pkieltyka/goinfer/pull"
 )
 
 // pullUsage is printed for `pull -h` and on a malformed reference.

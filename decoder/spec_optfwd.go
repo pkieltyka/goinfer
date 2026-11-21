@@ -1,6 +1,6 @@
 package decoder
 
-import "github.com/townsendmerino/goinfer/internal/runtime/sampling"
+import "github.com/pkieltyka/goinfer/internal/runtime/sampling"
 
 import ()
 

@@ -6,7 +6,7 @@ import (
 	"os"
 	"testing"
 
-	"github.com/townsendmerino/goinfer/internal/runtime/hybridattn"
+	"github.com/pkieltyka/goinfer/internal/runtime/hybridattn"
 )
 
 // TestKDARehearsal_matchesReference is F4's synthetic-tiny bring-up:

@@ -5,7 +5,7 @@ package cuda
 import (
 	"testing"
 
-	"github.com/townsendmerino/goinfer/decoder"
+	"github.com/pkieltyka/goinfer/decoder"
 )
 
 // TestSmolLM3ResidentSmokeCUDA is G5's FeatNoPE row smoke gate

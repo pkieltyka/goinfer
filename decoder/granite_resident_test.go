@@ -6,7 +6,7 @@ import (
 	"os"
 	"testing"
 
-	"github.com/townsendmerino/goinfer/internal/testgate"
+	"github.com/pkieltyka/goinfer/internal/testgate"
 )
 
 // TestGraniteResidentBridge validates the accessor bridge: the resident SSM builder reads the Mamba geometry, per-layer

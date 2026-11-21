@@ -6,8 +6,8 @@ import (
 	"fmt"
 	"slices"
 
-	gpu "github.com/townsendmerino/goinfer/backend/cuda/internal/gpudev"
-	"github.com/townsendmerino/goinfer/internal/runtime/program"
+	gpu "github.com/pkieltyka/goinfer/backend/cuda/internal/gpudev"
+	"github.com/pkieltyka/goinfer/internal/runtime/program"
 )
 
 // cudaStep is one entry of CUDA's fusion table: one of

@@ -9,8 +9,8 @@ import (
 	"testing"
 	"time"
 
-	"github.com/townsendmerino/aikit/linalg"
-	"github.com/townsendmerino/goinfer/tokenizer"
+	"github.com/pkieltyka/aikit/linalg"
+	"github.com/pkieltyka/goinfer/tokenizer"
 )
 
 // moeBenchIDs is the K-token input of the expert-major tests. GOINFER_MOE_BATCH_IDS selects it: "real" (the default) is the first K

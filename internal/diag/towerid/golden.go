@@ -11,8 +11,8 @@ import (
 	"slices"
 	"testing"
 
-	"github.com/townsendmerino/goinfer/internal/diag/kernelprint"
-	"github.com/townsendmerino/goinfer/internal/vision"
+	"github.com/pkieltyka/goinfer/internal/diag/kernelprint"
+	"github.com/pkieltyka/goinfer/internal/vision"
 )
 
 // Golden is one backend's committed record on one platform, with the anchor its bits depend on.

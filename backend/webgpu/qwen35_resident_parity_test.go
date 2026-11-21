@@ -14,8 +14,8 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/townsendmerino/goinfer/decoder"
-	"github.com/townsendmerino/goinfer/internal/runtime/program"
+	"github.com/pkieltyka/goinfer/decoder"
+	"github.com/pkieltyka/goinfer/internal/runtime/program"
 )
 
 // Whole-model parity for the Gated-DeltaNet hybrid: the resident runner vs the

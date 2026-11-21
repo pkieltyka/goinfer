@@ -9,7 +9,7 @@ import (
 	"time"
 
 	gc "github.com/eitamring/gocudrv/cuda"
-	"github.com/townsendmerino/goinfer/decoder"
+	"github.com/pkieltyka/goinfer/decoder"
 )
 
 // TestSpecDecode is D1's end-to-end gate: n-gram-drafted, batched-verified speculative decode must

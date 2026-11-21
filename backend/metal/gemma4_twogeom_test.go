@@ -7,7 +7,7 @@ import (
 	"os"
 	"testing"
 
-	"github.com/townsendmerino/goinfer/decoder"
+	"github.com/pkieltyka/goinfer/decoder"
 )
 
 // twoGeomPrompt is pin_gemma4_dense_twogeom's fixed prompt (the SAME ids the CUDA gate uses, so

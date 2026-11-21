@@ -8,8 +8,8 @@ import (
 	"errors"
 	"flag"
 	"fmt"
-	"github.com/townsendmerino/goinfer/backend/webgpu/internal/kernels"
-	"github.com/townsendmerino/goinfer/internal/cost"
+	"github.com/pkieltyka/goinfer/backend/webgpu/internal/kernels"
+	"github.com/pkieltyka/goinfer/internal/cost"
 	"io"
 	"log/slog"
 	"math"
@@ -27,10 +27,10 @@ import (
 	"testing"
 	"time"
 
-	"github.com/townsendmerino/goinfer/decoder"
-	"github.com/townsendmerino/goinfer/internal/runtime/logs"
+	"github.com/pkieltyka/goinfer/decoder"
+	"github.com/pkieltyka/goinfer/internal/runtime/logs"
 
-	"github.com/townsendmerino/goinfer/internal/testgate"
+	"github.com/pkieltyka/goinfer/internal/testgate"
 )
 
 // kvSlotTurn is one generation of the MC1 identity scenario: its token ids and PrefillReused.

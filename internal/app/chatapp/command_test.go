@@ -6,8 +6,8 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/townsendmerino/goinfer/chat"
-	"github.com/townsendmerino/goinfer/decoder"
+	"github.com/pkieltyka/goinfer/chat"
+	"github.com/pkieltyka/goinfer/decoder"
 )
 
 // quietly runs f with stdout discarded, since the commands print their confirmations there.

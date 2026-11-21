@@ -7,7 +7,7 @@ import (
 	"slices"
 	"testing"
 
-	"github.com/townsendmerino/aikit/linalg"
+	"github.com/pkieltyka/aikit/linalg"
 )
 
 // G-S2a: a device tower built from these exports runs the

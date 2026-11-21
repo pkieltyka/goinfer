@@ -8,7 +8,7 @@ import (
 	"testing"
 	"time"
 
-	"github.com/townsendmerino/goinfer/decoder"
+	"github.com/pkieltyka/goinfer/decoder"
 )
 
 // TestZZ_metalSoftcapTokenShare loads a real dense Gemma (final-logit softcap, 262k vocab) and times

@@ -8,7 +8,7 @@ import (
 	"testing"
 
 	gc "github.com/eitamring/gocudrv/cuda"
-	"github.com/townsendmerino/goinfer/decoder"
+	"github.com/pkieltyka/goinfer/decoder"
 )
 
 // TestSplitKV_bitIdentical is Campaign A's correctness gate: the split-KV decode attention must be

@@ -9,7 +9,7 @@ import (
 	"encoding/json"
 	"os"
 
-	"github.com/townsendmerino/goinfer/internal/audio"
+	"github.com/pkieltyka/goinfer/internal/audio"
 )
 
 // TestTinyAudio_matchesTransformers is Phase A's gate A2t: aikit's gemma4_audio

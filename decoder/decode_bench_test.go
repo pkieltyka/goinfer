@@ -6,7 +6,7 @@ import (
 	"sync"
 	"testing"
 
-	"github.com/townsendmerino/aikit/linalg"
+	"github.com/pkieltyka/aikit/linalg"
 )
 
 // benchModel loads the 0.5B once and caches it — the go test harness calls a

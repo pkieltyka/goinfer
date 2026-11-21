@@ -7,7 +7,7 @@ import (
 	"slices"
 	"testing"
 
-	"github.com/townsendmerino/goinfer/tokenizer"
+	"github.com/pkieltyka/goinfer/tokenizer"
 )
 
 // G-S14e4a (ii): VoxtralPrompt with no language, on the real tekken.json, is transformers 5.15.0's own

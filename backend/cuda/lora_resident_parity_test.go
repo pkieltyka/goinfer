@@ -11,7 +11,7 @@ import (
 	"path/filepath"
 	"testing"
 
-	"github.com/townsendmerino/goinfer/decoder"
+	"github.com/pkieltyka/goinfer/decoder"
 )
 
 // TestLoRAResidentParityCUDA is the G3 numeric gate: compute-

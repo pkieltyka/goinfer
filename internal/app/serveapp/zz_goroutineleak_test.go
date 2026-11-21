@@ -1,7 +1,7 @@
 package serveapp
 
 import (
-	"github.com/townsendmerino/goinfer/internal/app/loadflags"
+	"github.com/pkieltyka/goinfer/internal/app/loadflags"
 	"net/http"
 	"net/http/httptest"
 	"os"
@@ -100,7 +100,7 @@ func TestServe_goroutineLeakCheck(t *testing.T) {
 	}
 	leaks := 0
 	for block := range strings.SplitSeq(report, "\n\n") {
-		if strings.Contains(block, "@") && strings.Contains(block, "townsendmerino/goinfer") {
+		if strings.Contains(block, "@") && strings.Contains(block, "pkieltyka/goinfer") {
 			leaks++
 		}
 	}

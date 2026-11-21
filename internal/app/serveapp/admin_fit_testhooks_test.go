@@ -13,11 +13,11 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/townsendmerino/goinfer/decoder"
-	"github.com/townsendmerino/goinfer/internal/app/loadflags"
-	"github.com/townsendmerino/goinfer/internal/runtime/giw"
-	"github.com/townsendmerino/goinfer/internal/runtime/modelload"
-	"github.com/townsendmerino/goinfer/internal/runtime/prequant"
+	"github.com/pkieltyka/goinfer/decoder"
+	"github.com/pkieltyka/goinfer/internal/app/loadflags"
+	"github.com/pkieltyka/goinfer/internal/runtime/giw"
+	"github.com/pkieltyka/goinfer/internal/runtime/modelload"
+	"github.com/pkieltyka/goinfer/internal/runtime/prequant"
 )
 
 // TestAdminFit_answerIsWhatTheLoadDoes: POST /admin/models/fit says what the load then does with the same body. Where it

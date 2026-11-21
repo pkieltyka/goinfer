@@ -9,7 +9,7 @@ import (
 	"os"
 	"testing"
 
-	"github.com/townsendmerino/goinfer/decoder"
+	"github.com/pkieltyka/goinfer/decoder"
 )
 
 var twoGeomPrompt = []int{1, 7, 42, 100, 5, 200, 13, 88}

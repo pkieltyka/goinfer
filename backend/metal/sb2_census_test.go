@@ -22,14 +22,14 @@ import (
 	"testing"
 	"time"
 
-	"github.com/townsendmerino/goinfer/decoder"
-	"github.com/townsendmerino/goinfer/decoder/fit"
-	"github.com/townsendmerino/goinfer/internal/diag/sb2census"
-	"github.com/townsendmerino/goinfer/internal/guard/memgate"
-	"github.com/townsendmerino/goinfer/internal/runtime/mem"
-	"github.com/townsendmerino/goinfer/internal/runtime/prequant"
-	"github.com/townsendmerino/goinfer/internal/runtime/program"
-	"github.com/townsendmerino/goinfer/internal/wrappedupload"
+	"github.com/pkieltyka/goinfer/decoder"
+	"github.com/pkieltyka/goinfer/decoder/fit"
+	"github.com/pkieltyka/goinfer/internal/diag/sb2census"
+	"github.com/pkieltyka/goinfer/internal/guard/memgate"
+	"github.com/pkieltyka/goinfer/internal/runtime/mem"
+	"github.com/pkieltyka/goinfer/internal/runtime/prequant"
+	"github.com/pkieltyka/goinfer/internal/runtime/program"
+	"github.com/pkieltyka/goinfer/internal/wrappedupload"
 )
 
 // Layer B-metal of the admission and routing census: Metal's decisions

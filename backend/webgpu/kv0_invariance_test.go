@@ -5,7 +5,7 @@ package webgpu
 import (
 	"context"
 	"fmt"
-	"github.com/townsendmerino/goinfer/backend/webgpu/internal/kernels"
+	"github.com/pkieltyka/goinfer/backend/webgpu/internal/kernels"
 	"math"
 	"os"
 	"path/filepath"
@@ -15,8 +15,8 @@ import (
 	"testing"
 	"time"
 
-	"github.com/townsendmerino/goinfer/decoder"
-	"github.com/townsendmerino/goinfer/tokenizer"
+	"github.com/pkieltyka/goinfer/decoder"
+	"github.com/pkieltyka/goinfer/tokenizer"
 )
 
 // KV0's WebGPU invariance gates (docs/measurements/kv0-invariance-2026-10-13.md): the twin of metal's

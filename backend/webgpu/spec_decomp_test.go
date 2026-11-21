@@ -9,8 +9,8 @@ import (
 	"testing"
 	"time"
 
-	"github.com/townsendmerino/goinfer/backend/webgpu"
-	"github.com/townsendmerino/goinfer/decoder"
+	"github.com/pkieltyka/goinfer/backend/webgpu"
+	"github.com/pkieltyka/goinfer/decoder"
 )
 
 // TestSpeculativeResident_decomp decomposes the per-round cost so the kill-gate

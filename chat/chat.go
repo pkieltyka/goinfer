@@ -24,7 +24,7 @@ import (
 	"strings"
 	"time"
 
-	"github.com/townsendmerino/goinfer/tokenizer"
+	"github.com/pkieltyka/goinfer/tokenizer"
 )
 
 // Segment is a span of the rendered prompt tagged special (structural markers: tokenize WITH the added-token trie) or not

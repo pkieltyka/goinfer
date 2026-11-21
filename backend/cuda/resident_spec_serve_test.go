@@ -8,7 +8,7 @@ import (
 	"testing"
 
 	gc "github.com/eitamring/gocudrv/cuda"
-	"github.com/townsendmerino/goinfer/decoder"
+	"github.com/pkieltyka/goinfer/decoder"
 )
 
 // TestResidentSpecServe is the SERVE-path gate for D1 on resident CUDA: the exact production entry the

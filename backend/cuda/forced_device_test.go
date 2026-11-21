@@ -9,7 +9,7 @@ import (
 	"path/filepath"
 	"testing"
 
-	"github.com/townsendmerino/goinfer/decoder"
+	"github.com/pkieltyka/goinfer/decoder"
 )
 
 // Hardware-coverage H1.5: the device-shape and memory-budget decisions are made from numbers our one card

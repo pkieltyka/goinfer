@@ -76,7 +76,7 @@ if [ "$MODE" = prequant ]; then
   # flag has its ordinary effect there) — only the prequant path fixes a quant at build time, so
   # only it injects embeddedQuant. `-X` values cannot contain spaces (go build's own ldflags
   # parser word-splits them), which is the other reason this stays a single token.
-  EMBED_QUANT_LDFLAG="-X github.com/townsendmerino/goinfer/internal/app/chatapp.embeddedQuant=$QUANT"
+  EMBED_QUANT_LDFLAG="-X github.com/pkieltyka/goinfer/internal/app/chatapp.embeddedQuant=$QUANT"
 else
   echo "staging $(basename "$MODEL") -> internal/app/chatapp/model.gguf ($(du -h "$MODEL" | cut -f1))"
   cp "$MODEL" "$PKGDIR/model.gguf"
@@ -85,14 +85,14 @@ else
 fi
 
 LDFLAGS="-s -w $EMBED_QUANT_LDFLAG"
-[ -n "$TIER" ] && LDFLAGS="$LDFLAGS -X github.com/townsendmerino/goinfer/internal/app/chatapp.embeddedTier=$TIER"
-[ -n "${GOINFER_RELEASE_TAG:-}" ] && LDFLAGS="$LDFLAGS -X github.com/townsendmerino/goinfer/internal/app/chatapp.injectedVersion=$GOINFER_RELEASE_TAG"
+[ -n "$TIER" ] && LDFLAGS="$LDFLAGS -X github.com/pkieltyka/goinfer/internal/app/chatapp.embeddedTier=$TIER"
+[ -n "${GOINFER_RELEASE_TAG:-}" ] && LDFLAGS="$LDFLAGS -X github.com/pkieltyka/goinfer/internal/app/chatapp.injectedVersion=$GOINFER_RELEASE_TAG"
 
 TARGETS=("$@")
 if [ ${#TARGETS[@]} -eq 0 ]; then TARGETS=("$(go env GOOS)/$(go env GOARCH)"); fi
 
 # Workspace mode (go.work, mandatory for local cross-module work per CLAUDE.md) already resolves
-# github.com/townsendmerino/goinfer for the metal/cuda submodules with no replace, and REJECTS
+# github.com/pkieltyka/goinfer for the metal/cuda submodules with no replace, and REJECTS
 # GOFLAGS=-mod=mod outright ("may only be set to readonly or vendor when in workspace mode").
 # CI's checkout has no go.work (gitignored) and needs the replace, same as the release workflow's
 # other cross-compile loops. `go env GOWORK` is the authoritative check — it reports the workspace
@@ -125,12 +125,12 @@ for t in "${TARGETS[@]}"; do
     cd "$moduledir"
     extra_goflags=""
     if $need_replace; then
-      go mod edit -replace github.com/townsendmerino/goinfer="$ROOT"
+      go mod edit -replace github.com/pkieltyka/goinfer="$ROOT"
       extra_goflags="-mod=mod"
     fi
     CGO_ENABLED=0 GOOS="$os" GOARCH="$arch" GOFLAGS="$extra_goflags" \
       go build -tags "$buildtags" -ldflags="$LDFLAGS" -trimpath -o "$out" "$entry"
-    if $need_replace; then go mod edit -dropreplace github.com/townsendmerino/goinfer; fi
+    if $need_replace; then go mod edit -dropreplace github.com/pkieltyka/goinfer; fi
   )
 done
 echo "done:"

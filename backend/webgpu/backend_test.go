@@ -7,7 +7,7 @@ import (
 	"math/rand"
 	"testing"
 
-	"github.com/townsendmerino/aikit/linalg"
+	"github.com/pkieltyka/aikit/linalg"
 )
 
 // TestWebGPUBackend_matchesCPU validates the WebGPU matmul against the CPU

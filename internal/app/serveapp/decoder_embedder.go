@@ -17,9 +17,9 @@ import (
 	"sync"
 	"time"
 
-	"github.com/townsendmerino/goinfer/decoder"
-	"github.com/townsendmerino/goinfer/internal/runtime/modelload"
-	"github.com/townsendmerino/goinfer/tokenizer"
+	"github.com/pkieltyka/goinfer/decoder"
+	"github.com/pkieltyka/goinfer/internal/runtime/modelload"
+	"github.com/pkieltyka/goinfer/tokenizer"
 )
 
 // Qwen3-Embedding conventions, read from the model's config files and from what sentence-transformers actually feeds the

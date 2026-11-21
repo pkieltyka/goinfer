@@ -1,8 +1,8 @@
 package serveapp
 
 import (
-	"github.com/townsendmerino/goinfer/decoder"
-	"github.com/townsendmerino/goinfer/engine"
+	"github.com/pkieltyka/goinfer/decoder"
+	"github.com/pkieltyka/goinfer/engine"
 )
 
 // genReport is a generation's account as the shell reads it.

@@ -8,7 +8,7 @@ import (
 	"testing"
 	"time"
 
-	"github.com/townsendmerino/goinfer/decoder"
+	"github.com/pkieltyka/goinfer/decoder"
 )
 
 // BenchmarkResidentDecode times greedy resident decode (ForwardArgmax, the serve fast path) on CUDA

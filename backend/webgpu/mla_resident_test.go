@@ -7,8 +7,8 @@ import (
 	"os"
 	"testing"
 
-	"github.com/townsendmerino/goinfer/backend/webgpu"
-	"github.com/townsendmerino/goinfer/decoder"
+	"github.com/pkieltyka/goinfer/backend/webgpu"
+	"github.com/pkieltyka/goinfer/decoder"
 )
 
 // TestMLAResidency_matchesCPU is the end-to-end bridge gate for MLA residency: the tiny

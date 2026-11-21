@@ -6,7 +6,7 @@ import (
 	"os"
 	"testing"
 
-	"github.com/townsendmerino/goinfer/decoder"
+	"github.com/pkieltyka/goinfer/decoder"
 )
 
 // TestPrefillLast_declinesPagedGenericMoE is audit-2026-09-10's C-08: PrefillLast's MoE row loop

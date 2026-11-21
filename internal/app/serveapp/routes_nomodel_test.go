@@ -31,7 +31,7 @@ func TestServe_generationRoutesExistWithoutAStartupModel(t *testing.T) {
 	if runtime.GOOS == "windows" {
 		bin += ".exe"
 	}
-	build := exec.Command("go", "build", "-o", bin, "github.com/townsendmerino/goinfer/cmd/serve")
+	build := exec.Command("go", "build", "-o", bin, "github.com/pkieltyka/goinfer/cmd/serve")
 	build.Dir = ".."
 	if out, err := build.CombinedOutput(); err != nil {
 		t.Skipf("cannot build cmd/serve here: %v\n%s", err, out)

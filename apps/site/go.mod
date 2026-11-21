@@ -1,4 +1,4 @@
-module github.com/townsendmerino/goinfer/site
+module github.com/pkieltyka/goinfer/site
 
 go 1.27.0
 

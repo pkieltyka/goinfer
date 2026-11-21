@@ -12,7 +12,7 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/townsendmerino/goinfer/internal/runtime/program"
+	"github.com/pkieltyka/goinfer/internal/runtime/program"
 )
 
 // TestMM5_noFamilySwitchInPricing is G-MP4: Metal's and CUDA's KV pricing and the

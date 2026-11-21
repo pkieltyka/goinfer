@@ -10,8 +10,8 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/townsendmerino/goinfer/internal/runtime/modelload"
-	"github.com/townsendmerino/goinfer/internal/testpath"
+	"github.com/pkieltyka/goinfer/internal/runtime/modelload"
+	"github.com/pkieltyka/goinfer/internal/testpath"
 )
 
 // TestSideRequests_ccDiag renders Claude Code requests rebuilt from an agent's own transcripts (cc_rebuild.py beside the e2e record) the way serve does,

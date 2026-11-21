@@ -15,8 +15,8 @@ import (
 	"testing"
 	"time"
 
-	"github.com/townsendmerino/goinfer/backend/metal/kernels"
-	"github.com/townsendmerino/goinfer/internal/vision"
+	"github.com/pkieltyka/goinfer/backend/metal/kernels"
+	"github.com/pkieltyka/goinfer/internal/vision"
 )
 
 // G-S18f ( registered before the code): the

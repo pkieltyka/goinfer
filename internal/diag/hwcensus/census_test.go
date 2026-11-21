@@ -246,8 +246,8 @@ func discover(t *testing.T) map[string][]string {
 	}
 	found := map[string][]string{}
 	scanTree(t, root, "goinfer", found)
-	for _, v := range pinned(t, root, "github.com/townsendmerino/aikit", "go.mod") {
-		scanTree(t, moduleDir(t, root, "github.com/townsendmerino/aikit", v), "aikit", found)
+	for _, v := range pinned(t, root, "github.com/pkieltyka/aikit", "go.mod") {
+		scanTree(t, moduleDir(t, root, "github.com/pkieltyka/aikit", v), "aikit", found)
 	}
 	return found
 }

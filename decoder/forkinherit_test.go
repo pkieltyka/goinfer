@@ -6,8 +6,8 @@ import (
 	"testing"
 	"unsafe"
 
-	"github.com/townsendmerino/aikit/mmap"
-	"github.com/townsendmerino/goinfer/internal/runtime/giw"
+	"github.com/pkieltyka/aikit/mmap"
+	"github.com/pkieltyka/goinfer/internal/runtime/giw"
 )
 
 // Load must hand the WHOLE .giw mapping to protectGIWMapping (forkinherit_darwin.go). Tested through

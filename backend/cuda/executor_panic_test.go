@@ -8,8 +8,8 @@ import (
 	"strings"
 	"testing"
 
-	gpu "github.com/townsendmerino/goinfer/backend/cuda/internal/gpudev"
-	"github.com/townsendmerino/goinfer/internal/runtime/mem"
+	gpu "github.com/pkieltyka/goinfer/backend/cuda/internal/gpudev"
+	"github.com/pkieltyka/goinfer/internal/runtime/mem"
 )
 
 // Audit C-24 / C-25 — the executor goroutine must survive a panicking job, and the expert-cache

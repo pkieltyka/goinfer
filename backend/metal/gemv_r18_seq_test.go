@@ -14,7 +14,7 @@ import (
 	"testing"
 	"time"
 
-	"github.com/townsendmerino/goinfer/decoder"
+	"github.com/pkieltyka/goinfer/decoder"
 )
 
 // TestR18InSequence is R18's grading instrument ( R18; graded, then wired). On a real

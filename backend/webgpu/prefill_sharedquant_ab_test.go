@@ -5,7 +5,7 @@ package webgpu
 import (
 	"context"
 	"fmt"
-	"github.com/townsendmerino/goinfer/backend/webgpu/internal/kernels"
+	"github.com/pkieltyka/goinfer/backend/webgpu/internal/kernels"
 	"math"
 	"math/rand"
 	"os"
@@ -15,7 +15,7 @@ import (
 	"testing"
 	"time"
 
-	"github.com/townsendmerino/goinfer/decoder"
+	"github.com/pkieltyka/goinfer/decoder"
 )
 
 // TestPrefill_sharedQuantAB times R-25: the WebGPU batched prefill with one

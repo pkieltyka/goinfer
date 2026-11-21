@@ -10,8 +10,8 @@ import (
 	"path/filepath"
 	"testing"
 
-	gpu "github.com/townsendmerino/goinfer/backend/cuda/internal/gpudev"
-	"github.com/townsendmerino/goinfer/decoder"
+	gpu "github.com/pkieltyka/goinfer/backend/cuda/internal/gpudev"
+	"github.com/pkieltyka/goinfer/decoder"
 )
 
 // SP2's tier-0 gates: G1a, a verify leaves the committed

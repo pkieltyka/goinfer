@@ -4,7 +4,7 @@ import (
 	"reflect"
 	"testing"
 
-	"github.com/townsendmerino/goinfer/tokenizer"
+	"github.com/pkieltyka/goinfer/tokenizer"
 )
 
 // S11: several image blocks spliced from the end, each its own Special segment, the text between them left as text.

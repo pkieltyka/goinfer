@@ -7,7 +7,7 @@ import (
 	"path/filepath"
 	"testing"
 
-	"github.com/townsendmerino/goinfer/decoder"
+	"github.com/pkieltyka/goinfer/decoder"
 )
 
 // TestGemma2Softcap_lanesAndPrefillMetal builds a resident for each Gemma 2 tiny fixture directly (Metal does not

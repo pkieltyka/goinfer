@@ -14,9 +14,9 @@ import (
 	"runtime"
 	"strconv"
 
-	"github.com/townsendmerino/goinfer/decoder"
-	"github.com/townsendmerino/goinfer/internal/app/cliutil"
-	"github.com/townsendmerino/goinfer/internal/config"
+	"github.com/pkieltyka/goinfer/decoder"
+	"github.com/pkieltyka/goinfer/internal/app/cliutil"
+	"github.com/pkieltyka/goinfer/internal/config"
 )
 
 // App is the binary registering the flags. A few help texts differ: serve's --model takes per-model

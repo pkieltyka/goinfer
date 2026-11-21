@@ -5,7 +5,7 @@
 # WHY THIS EXISTS. A cold-user run against v0.16.0 (docs/measurements/cold-user-2026-09-06.md)
 # found the README documenting a binary the release did not ship (`goinfer-serve`, used as a
 # runnable command three times) and an install line that fetches a module but cannot build
-# against it (`go get github.com/townsendmerino/goinfer` → four `missing go.sum entry` errors).
+# against it (`go get github.com/pkieltyka/goinfer` → four `missing go.sum entry` errors).
 # Both are the kind of defect that is invisible from inside a clone: the repo is on disk, the
 # workspace resolves everything, and every command in the README "works" for the person who
 # wrote it.
@@ -123,7 +123,7 @@ fi
 mapfile -t MODELCMDS < <(grep -A 1 -- '<!-- smoke-model -->' "$README" | grep -vE '^(--|.*<!-- smoke)' | sed '/^$/d')
 if [ "${#MODELCMDS[@]}" -gt 0 ]; then
 	echo "==> installing goinfer-chat, for registry short-name resolution"
-	( cd "$WORK" && GOFLAGS= go install github.com/townsendmerino/goinfer/demo/chat@latest ) \
+	( cd "$WORK" && GOFLAGS= go install github.com/pkieltyka/goinfer/demo/chat@latest ) \
 		|| { echo "    could not install demo/chat — registry short-name checks below will fail closed"; }
 	registry=""
 	if [ -x "$GOBIN/chat" ]; then
@@ -203,11 +203,11 @@ ran=$((ran + 1))
 
 # BUILD AGAINST WHAT THE INSTALL LINES INSTALLED. This is the check that actually catches the
 # v0.16.0 defect, and the first version of this script did NOT have it — it ran each command and
-# checked the exit code, which passes, because `go get github.com/townsendmerino/goinfer`
+# checked the exit code, which passes, because `go get github.com/pkieltyka/goinfer`
 # SUCCEEDS. The failure the cold-user run hit was at BUILD time:
 #
-#   missing go.sum entry for module providing package github.com/townsendmerino/aikit/embed
-#   (imported by github.com/townsendmerino/goinfer/decoder)
+#   missing go.sum entry for module providing package github.com/pkieltyka/aikit/embed
+#   (imported by github.com/pkieltyka/goinfer/decoder)
 #
 # A gate that runs the documented command and stops there cannot see that, and this one was
 # proven unable to: with the old install line restored, it still went green. Building a trivial
@@ -221,7 +221,7 @@ package main
 import (
 	"fmt"
 
-	"github.com/townsendmerino/goinfer/decoder"
+	"github.com/pkieltyka/goinfer/decoder"
 )
 
 func main() { fmt.Println(decoder.Options{}) }

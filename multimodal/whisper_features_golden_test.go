@@ -9,7 +9,7 @@ import (
 	"math"
 	"testing"
 
-	"github.com/townsendmerino/goinfer/internal/audio"
+	"github.com/pkieltyka/goinfer/internal/audio"
 )
 
 // G-S14a: aikit's Whisper front end against transformers 5.15.0's WhisperFeatureExtractor, both of its

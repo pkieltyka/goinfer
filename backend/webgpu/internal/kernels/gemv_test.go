@@ -6,7 +6,7 @@ import (
 	"testing"
 	"time"
 
-	"github.com/townsendmerino/aikit/linalg"
+	"github.com/pkieltyka/aikit/linalg"
 )
 
 // TestGEMV_parity checks the coalesced GEMV kernel against the integer reference

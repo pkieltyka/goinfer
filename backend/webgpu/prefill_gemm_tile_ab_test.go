@@ -12,7 +12,7 @@ import (
 	"testing"
 	"time"
 
-	"github.com/townsendmerino/goinfer/decoder"
+	"github.com/pkieltyka/goinfer/decoder"
 )
 
 // TestPrefill_gemmTileAB is R10's build gate against the band registered in

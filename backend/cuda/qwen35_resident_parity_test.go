@@ -9,7 +9,7 @@ import (
 	"testing"
 
 	gc "github.com/eitamring/gocudrv/cuda"
-	"github.com/townsendmerino/goinfer/decoder"
+	"github.com/pkieltyka/goinfer/decoder"
 )
 
 // Whole-model parity for the Gated-DeltaNet hybrid ON CUDA: the resident runner vs the

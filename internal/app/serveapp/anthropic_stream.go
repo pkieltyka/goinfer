@@ -3,11 +3,11 @@ package serveapp
 import (
 	"encoding/json"
 	"errors"
-	"github.com/townsendmerino/goinfer/internal/app/serveapp/jobs"
+	"github.com/pkieltyka/goinfer/internal/app/serveapp/jobs"
 	"net/http"
 	"strings"
 
-	"github.com/townsendmerino/goinfer/chat"
+	"github.com/pkieltyka/goinfer/chat"
 )
 
 // Anthropic SSE differs from the OpenAI flavor: named events

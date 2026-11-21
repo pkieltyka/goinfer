@@ -12,8 +12,8 @@ import (
 	"runtime"
 	"sync"
 
-	"github.com/townsendmerino/aikit/embed"
-	"github.com/townsendmerino/aikit/linalg"
+	"github.com/pkieltyka/aikit/embed"
+	"github.com/pkieltyka/aikit/linalg"
 )
 
 // Config is the decoder's shape, read from the checkpoint's config.json.

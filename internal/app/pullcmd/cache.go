@@ -5,7 +5,7 @@ import (
 	"fmt"
 	"os"
 
-	"github.com/townsendmerino/goinfer/pull"
+	"github.com/pkieltyka/goinfer/pull"
 )
 
 // RunCache is `goinfer-chat cache`: what the pull cache holds on disk (task-checkpoint-fetch-2026-09.md), one line per

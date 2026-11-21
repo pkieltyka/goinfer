@@ -4,7 +4,7 @@ import (
 	"fmt"
 	"math"
 
-	"github.com/townsendmerino/aikit/linalg"
+	"github.com/pkieltyka/aikit/linalg"
 )
 
 // qwen_resident.go is the device-resident seam for the Qwen2.5-VL vision tower —

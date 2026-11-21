@@ -9,7 +9,7 @@ import (
 	"os"
 	"testing"
 
-	"github.com/townsendmerino/goinfer/decoder"
+	"github.com/pkieltyka/goinfer/decoder"
 )
 
 // TestGemma4MoE_localize is the localization harness: at pos 0 (smallest error) it diffs the four gemma4-MoE-layer

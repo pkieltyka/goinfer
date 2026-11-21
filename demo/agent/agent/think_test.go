@@ -9,9 +9,9 @@ import (
 	"testing"
 	"unicode/utf8"
 
-	"github.com/townsendmerino/goinfer/chat"
-	"github.com/townsendmerino/goinfer/decoder"
-	"github.com/townsendmerino/goinfer/tokenizer"
+	"github.com/pkieltyka/goinfer/chat"
+	"github.com/pkieltyka/goinfer/decoder"
+	"github.com/pkieltyka/goinfer/tokenizer"
 )
 
 func thinkTokenizer(t *testing.T, alphabet string) (*tokenizer.Tokenizer, map[string]int) {

@@ -12,8 +12,8 @@ import (
 	"sync"
 	"testing"
 
-	"github.com/townsendmerino/goinfer/decoder"
-	"github.com/townsendmerino/goinfer/tokenizer"
+	"github.com/pkieltyka/goinfer/decoder"
+	"github.com/pkieltyka/goinfer/tokenizer"
 )
 
 // mc3Checkpoint is the checkpoint the MC3 end-to-end tests load, GOINFER_METAL_MC3_MODEL (the 1.5B by default), and the

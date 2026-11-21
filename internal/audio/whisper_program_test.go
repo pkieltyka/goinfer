@@ -6,7 +6,7 @@ import (
 	"math/rand/v2"
 	"testing"
 
-	"github.com/townsendmerino/goinfer/internal/vision"
+	"github.com/pkieltyka/goinfer/internal/vision"
 )
 
 // errRan marks an op the walker ran (and panicked in) instead of refusing.

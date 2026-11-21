@@ -247,13 +247,13 @@ signal arrived during cgo execution
 
 goroutine 2523 gp=0x303cfba82780 m=0 mp=0x1008af6a0 [syscall]:
 github.com/ebitengine/purego/objc.ID.Send(...)
-github.com/townsendmerino/aikit/gpu.(*Encoder).End(0x303d7f73a840)
-github.com/townsendmerino/goinfer/metal.TestSAQVFusion_correctnessAndThroughput(0x303d8c1ba248)
+github.com/pkieltyka/aikit/gpu.(*Encoder).End(0x303d7f73a840)
+github.com/pkieltyka/goinfer/metal.TestSAQVFusion_correctnessAndThroughput(0x303d8c1ba248)
 	/x/metal/sa_qv_fusion_test.go:173 +0xc5c
 r14     0x8000000000000000
 r15     0x1ed2965b8
 fault   0x10
-FAIL	github.com/townsendmerino/goinfer/metal	119.290s
+FAIL	github.com/pkieltyka/goinfer/metal	119.290s
 `
 	var buf strings.Builder
 	g := &gpuGate{w: &buf}
@@ -369,7 +369,7 @@ func TestClassifyAdapterProbe_distinguishesNoAdapterFromProbeFailure(t *testing.
 			wantNoteText: "", // no note — this IS the hardware case
 		},
 		"build break (V-21): neither line ever printed": {
-			out:          "# github.com/townsendmerino/goinfer/gpu\ngpu/adapter_probe_test.go:9:2: undefined: someSymbol\nFAIL\tgithub.com/townsendmerino/goinfer/gpu [build failed]\n",
+			out:          "# github.com/pkieltyka/goinfer/gpu\ngpu/adapter_probe_test.go:9:2: undefined: someSymbol\nFAIL\tgithub.com/pkieltyka/goinfer/gpu [build failed]\n",
 			wantPresent:  false,
 			wantNoteText: "not \"no hardware\"",
 		},
@@ -525,12 +525,12 @@ func TestGPU_webgpuProbeThatNeverAnsweredFailsTheGroup(t *testing.T) {
 		wantRC             int
 	}{
 		"the probe fails to build": {
-			p: probe("# github.com/townsendmerino/goinfer/gpu/internal/kernels\ngpu/internal/kernels/attn_keys_rows_test.go:128:37: undefined: b2i\n"+
-				"FAIL\tgithub.com/townsendmerino/goinfer/gpu/internal/kernels [build failed]\n", fmt.Errorf("exit status 1")),
+			p: probe("# github.com/pkieltyka/goinfer/gpu/internal/kernels\ngpu/internal/kernels/attn_keys_rows_test.go:128:37: undefined: b2i\n"+
+				"FAIL\tgithub.com/pkieltyka/goinfer/gpu/internal/kernels [build failed]\n", fmt.Errorf("exit status 1")),
 			wantFail: 1, wantRC: 1,
 		},
 		"the probe exits non-zero before it answers": {
-			p:        probe("=== RUN   TestAdapterProbe\npanic: wgpu: instance creation failed\nexit status 2\nFAIL\tgithub.com/townsendmerino/goinfer/gpu/internal/kernels\t0.1s\n", fmt.Errorf("exit status 1")),
+			p:        probe("=== RUN   TestAdapterProbe\npanic: wgpu: instance creation failed\nexit status 2\nFAIL\tgithub.com/pkieltyka/goinfer/gpu/internal/kernels\t0.1s\n", fmt.Errorf("exit status 1")),
 			wantFail: 1, wantRC: 1,
 		},
 		"GOINFER_GATE_SKIP_WEBGPU opts out": {

@@ -7,9 +7,9 @@ import (
 	"math/rand"
 	"testing"
 
-	"github.com/townsendmerino/aikit/linalg"
-	gpu "github.com/townsendmerino/goinfer/backend/cuda/internal/gpudev"
-	"github.com/townsendmerino/goinfer/internal/audio"
+	"github.com/pkieltyka/aikit/linalg"
+	gpu "github.com/pkieltyka/goinfer/backend/cuda/internal/gpudev"
+	"github.com/pkieltyka/goinfer/internal/audio"
 )
 
 // S14.6 lever B's kernels and encoder: the exact GELU against aikit's contract kernel BIT FOR BIT, the im2col

@@ -9,7 +9,7 @@ import (
 	"testing"
 	"time"
 
-	"github.com/townsendmerino/goinfer/decoder"
+	"github.com/pkieltyka/goinfer/decoder"
 )
 
 // TestPrefillTTFT scopes the "batched Metal prefill as a pure TTFT lever" question

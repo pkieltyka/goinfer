@@ -12,10 +12,10 @@ import (
 
 	gc "github.com/eitamring/gocudrv/cuda"
 
-	"github.com/townsendmerino/aikit/embed"
+	"github.com/pkieltyka/aikit/embed"
 
-	"github.com/townsendmerino/goinfer/backend/cuda/internal/launchgeom"
-	"github.com/townsendmerino/goinfer/backend/cuda/internal/wpack"
+	"github.com/pkieltyka/goinfer/backend/cuda/internal/launchgeom"
+	"github.com/pkieltyka/goinfer/backend/cuda/internal/wpack"
 )
 
 // kso1cModels are O1C-G3's two files: Qwen2.5-Coder-0.5B q4_k_m (Q6_K in half its layers' v and down) and Phi-3 mini q4

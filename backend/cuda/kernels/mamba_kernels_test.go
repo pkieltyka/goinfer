@@ -8,7 +8,7 @@ import (
 	"testing"
 
 	gc "github.com/eitamring/gocudrv/cuda"
-	"github.com/townsendmerino/goinfer/internal/runtime/mamba2"
+	"github.com/pkieltyka/goinfer/internal/runtime/mamba2"
 )
 
 // OP2b on CUDA, gate K: the Mamba-2 gated norm against

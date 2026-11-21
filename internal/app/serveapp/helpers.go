@@ -10,7 +10,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
-	"github.com/townsendmerino/goinfer/internal/app/serveapp/jobs"
+	"github.com/pkieltyka/goinfer/internal/app/serveapp/jobs"
 	"mime/multipart"
 	"net/http"
 	"reflect"

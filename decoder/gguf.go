@@ -8,12 +8,12 @@ import (
 	"io"
 	"path/filepath"
 
-	"github.com/townsendmerino/aikit/embed"
-	"github.com/townsendmerino/aikit/linalg"
+	"github.com/pkieltyka/aikit/embed"
+	"github.com/pkieltyka/aikit/linalg"
 
-	"github.com/townsendmerino/goinfer/internal/runtime/logs"
+	"github.com/pkieltyka/goinfer/internal/runtime/logs"
 
-	"github.com/townsendmerino/goinfer/decoder/config"
+	"github.com/pkieltyka/goinfer/decoder/config"
 )
 
 // GGUF loading: read a quantized llama.cpp checkpoint and run it through the generic forward. The GGUF file carries both

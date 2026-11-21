@@ -7,7 +7,7 @@ import (
 	"slices"
 	"testing"
 
-	"github.com/townsendmerino/goinfer/decoder"
+	"github.com/pkieltyka/goinfer/decoder"
 )
 
 // TestSessionLRU_sharesAPreamble is the CPU's copy through its caller, serve's session LRU

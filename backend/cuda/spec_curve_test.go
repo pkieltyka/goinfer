@@ -9,7 +9,7 @@ import (
 	"time"
 
 	gc "github.com/eitamring/gocudrv/cuda"
-	"github.com/townsendmerino/goinfer/decoder"
+	"github.com/pkieltyka/goinfer/decoder"
 )
 
 // TestSpecDecodeCurve measures D1 (n-gram speculative decode) across KV depth now that the batched

@@ -47,7 +47,7 @@ Ask a language model for JSON and you usually get JSON. Usually. Sometimes there
 
 ## What goinfer does
 
-You give the `constrain` package a Go value of your struct type. It reads the type and its `json` tags, derives a JSON Schema, and compiles the schema into a grammar. A model writes one token at a time (a token is a word or a piece of one). While it writes, goinfer removes every next token that would take the output outside that grammar. This is the example from the project's [README](https://github.com/townsendmerino/goinfer/blob/main/README.md):
+You give the `constrain` package a Go value of your struct type. It reads the type and its `json` tags, derives a JSON Schema, and compiles the schema into a grammar. A model writes one token at a time (a token is a word or a piece of one). While it writes, goinfer removes every next token that would take the output outside that grammar. This is the example from the project's [README](https://github.com/pkieltyka/goinfer/blob/main/README.md):
 
 ```go
 type Person struct {
@@ -64,7 +64,7 @@ var p Person
 _ = json.Unmarshal(out, &p)                          // shape guaranteed, not magnitude
 ```
 
-`generate`, `toks` (each token's bytes) and `eos` (the token ids that end generation) are stand-ins there. The real calls are in [`apps/examples/confidence`](https://github.com/townsendmerino/goinfer/blob/main/apps/examples/confidence/main.go). It uses a hand-written schema instead of a struct, and it also turns on per-field confidence, which [How sure was it?](/different/02-how-sure-was-it/) covers. This is its generation half, unchanged:
+`generate`, `toks` (each token's bytes) and `eos` (the token ids that end generation) are stand-ins there. The real calls are in [`apps/examples/confidence`](https://github.com/pkieltyka/goinfer/blob/main/apps/examples/confidence/main.go). It uses a hand-written schema instead of a struct, and it also turns on per-field confidence, which [How sure was it?](/different/02-how-sure-was-it/) covers. This is its generation half, unchanged:
 
 ```go
 g, err := constrain.JSONSchema([]byte(schema))
@@ -109,7 +109,7 @@ No record in the repo measures a parse rate on a real model. Nothing was counted
 </tbody>
 </table>
 
-The cost of the mask was measured once, on 2026-09-02. It is recorded in the project's work queue, [`docs/QUEUE.md`](https://github.com/townsendmerino/goinfer/blob/main/docs/QUEUE.md), in the entry on the cost of constrained decoding. The mask work is the same size whatever the model is. Timed at every step of a 17-token JSON document, with a 151,936-token vocabulary, it averaged 1.299 ms/step.
+The cost of the mask was measured once, on 2026-09-02. It is recorded in the project's work queue, [`docs/QUEUE.md`](https://github.com/pkieltyka/goinfer/blob/main/docs/QUEUE.md), in the entry on the cost of constrained decoding. The mask work is the same size whatever the model is. Timed at every step of a 17-token JSON document, with a 151,936-token vocabulary, it averaged 1.299 ms/step.
 
 The record compares that with a decode step, the time to produce one token, for a 1.5B model (Qwen2.5-Coder-1.5B, 8-bit weights) held on the GPU of the Linux PC (Ryzen 7 3700X, RTX 2070 SUPER 8 GB). The record does not say which machine timed the mask itself. That step took 6.2 ms at the 64th token of context and 7.4 ms at the 512th. With the mask, constrained decoding took 1.21× the unconstrained time at 6.2 ms per step, and 1.18× at 7.4 ms. The slowest single grammar state would give at most 1.72×. That is an upper bound, not a typical step.
 
@@ -120,10 +120,10 @@ The record also says where this stops holding. One PC, one vocabulary and one sm
 ## Use it
 
 ```sh
-go get github.com/townsendmerino/goinfer/decoder@latest github.com/townsendmerino/goinfer/tokenizer@latest
+go get github.com/pkieltyka/goinfer/decoder@latest github.com/pkieltyka/goinfer/tokenizer@latest
 ```
 
-Then import `github.com/townsendmerino/goinfer/constrain` beside `decoder`, `tokenizer` and `chat`. The complete program to copy is `apps/examples/confidence`. From a clone of the repo:
+Then import `github.com/pkieltyka/goinfer/constrain` beside `decoder`, `tokenizer` and `chat`. The complete program to copy is `apps/examples/confidence`. From a clone of the repo:
 
 ```sh
 go run ./apps/examples/confidence ~/models/qwen2.5-coder-1.5b-instruct-q4_k_m.gguf "I was charged twice for order #123. - Ann"

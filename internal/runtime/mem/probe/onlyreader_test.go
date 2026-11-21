@@ -84,7 +84,7 @@ func repoRoot(t *testing.T) string {
 	for {
 		if b, err := os.ReadFile(filepath.Join(dir, "go.mod")); err == nil {
 			sc := bufio.NewScanner(strings.NewReader(string(b)))
-			if sc.Scan() && strings.TrimSpace(sc.Text()) == "module github.com/townsendmerino/goinfer" {
+			if sc.Scan() && strings.TrimSpace(sc.Text()) == "module github.com/pkieltyka/goinfer" {
 				return dir
 			}
 		}

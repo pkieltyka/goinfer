@@ -444,8 +444,8 @@ def modcache_root():
     return _MODCACHE
 
 
-# `\tgithub.com/townsendmerino/aikit v1.2.3` inside a require block, or the single-line `require github.com/... v1.2.3` form.
-_REQUIRE_RE = re.compile(r"^\s*(?:require\s+)?(github\.com/townsendmerino/aikit(?:/gpu)?)\s+(v[0-9][^\s]*)\s*$", re.M)
+# `\tgithub.com/pkieltyka/aikit v1.2.3` inside a require block, or the single-line `require github.com/... v1.2.3` form.
+_REQUIRE_RE = re.compile(r"^\s*(?:require\s+)?(github\.com/pkieltyka/aikit(?:/gpu)?)\s+(v[0-9][^\s]*)\s*$", re.M)
 
 
 def required_modules():
@@ -460,8 +460,8 @@ def required_modules():
     # SEPARATE modules with separate tag series (B7, E6), so gpu/ is not inside aikit@vX's module
     # cache directory — reading only the root go.mod left every `gpu/...` citation unresolvable and
     # reddened CI on a reference that was perfectly correct.
-    for mod_file, want in ((ROOT / "go.mod", "github.com/townsendmerino/aikit"),
-                           (ROOT / "backend" / "cuda" / "go.mod", "github.com/townsendmerino/aikit/gpu")):
+    for mod_file, want in ((ROOT / "go.mod", "github.com/pkieltyka/aikit"),
+                           (ROOT / "backend" / "cuda" / "go.mod", "github.com/pkieltyka/aikit/gpu")):
         try:
             text = mod_file.read_text()
         except OSError:
@@ -532,7 +532,7 @@ def repo_name(path) -> str:
     a directory matching the repo, so it was correct there and wrong anywhere else — one more verdict
     that depended on the environment rather than on the citations.
 
-    `module github.com/townsendmerino/goinfer` is in go.mod regardless of what the checkout is
+    `module github.com/pkieltyka/goinfer` is in go.mod regardless of what the checkout is
     called, so the last element of the module path is the stable answer. Directory name remains the
     fallback for a root with no go.mod (the aikit module cache directory is `aikit@v1.17.1`, and its
     own go.mod names it, so it resolves correctly too).
@@ -922,9 +922,9 @@ def _git_show(commit: str, rel: str):
 def modules_at(commit: str):
     """{module: version} the aikit modules goinfer required AT that commit — what the record's aikit paths were about."""
     out = {}
-    for mod_file, want in (("go.mod", "github.com/townsendmerino/aikit"),
-                           ("cuda/go.mod", "github.com/townsendmerino/aikit/gpu"),
-                           ("backend/cuda/go.mod", "github.com/townsendmerino/aikit/gpu")):
+    for mod_file, want in (("go.mod", "github.com/pkieltyka/aikit"),
+                           ("cuda/go.mod", "github.com/pkieltyka/aikit/gpu"),
+                           ("backend/cuda/go.mod", "github.com/pkieltyka/aikit/gpu")):
         t = _git_show(commit, mod_file)
         if t is None:
             continue

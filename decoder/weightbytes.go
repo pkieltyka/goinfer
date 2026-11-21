@@ -3,9 +3,9 @@ package decoder
 import (
 	"unsafe"
 
-	"github.com/townsendmerino/aikit/linalg"
+	"github.com/pkieltyka/aikit/linalg"
 
-	"github.com/townsendmerino/goinfer/internal/runtime/program"
+	"github.com/pkieltyka/goinfer/internal/runtime/program"
 )
 
 // mmapAliasedBytes is wmBytes' quantized-kind sum counting only bytes that alias m's .giw mmap region (MmapByteOffset): a

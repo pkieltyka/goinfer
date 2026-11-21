@@ -7,8 +7,8 @@ import (
 	"testing"
 	"unsafe"
 
-	"github.com/townsendmerino/aikit/embed"
-	"github.com/townsendmerino/aikit/linalg"
+	"github.com/pkieltyka/aikit/embed"
+	"github.com/pkieltyka/aikit/linalg"
 )
 
 // TestLoadFusedExperts_perExpertSlicing exercises loadFusedExperts directly

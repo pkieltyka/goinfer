@@ -7,7 +7,7 @@ import (
 	"os"
 	"testing"
 
-	"github.com/townsendmerino/goinfer/internal/diag/towerid"
+	"github.com/pkieltyka/goinfer/internal/diag/towerid"
 )
 
 // TestTowerIdentity_webgpu is AX2a-T on WebGPU: every tower WebGPU declares

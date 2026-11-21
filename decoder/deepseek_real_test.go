@@ -29,10 +29,10 @@ import (
 	"testing"
 	"time"
 
-	"github.com/townsendmerino/goinfer/tokenizer"
+	"github.com/pkieltyka/goinfer/tokenizer"
 
-	"github.com/townsendmerino/goinfer/internal/runtime/sampling"
-	"github.com/townsendmerino/goinfer/internal/testgate"
+	"github.com/pkieltyka/goinfer/internal/runtime/sampling"
+	"github.com/pkieltyka/goinfer/internal/testgate"
 )
 
 // deepseekRealGate loads a real DeepSeek MLA checkpoint at int8 and matches it against an

@@ -159,7 +159,7 @@ func DepFiles(m *Manifest, fam Family) []string {
 	return out
 }
 
-var aikitPinRE = regexp.MustCompile(`(?m)^\s*github\.com/townsendmerino/aikit (v[0-9][^\s]*)`)
+var aikitPinRE = regexp.MustCompile(`(?m)^\s*github\.com/pkieltyka/aikit (v[0-9][^\s]*)`)
 
 // AikitPin reads the root go.mod's aikit requirement.
 func AikitPin(src Source) (string, error) {
@@ -169,7 +169,7 @@ func AikitPin(src Source) (string, error) {
 	}
 	m := aikitPinRE.FindSubmatch(b)
 	if m == nil {
-		return "", fmt.Errorf("root go.mod does not require github.com/townsendmerino/aikit")
+		return "", fmt.Errorf("root go.mod does not require github.com/pkieltyka/aikit")
 	}
 	return string(m[1]), nil
 }

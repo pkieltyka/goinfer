@@ -7,7 +7,7 @@ import (
 	"sort"
 	"testing"
 
-	"github.com/townsendmerino/goinfer/backend/webgpu/internal/kernels"
+	"github.com/pkieltyka/goinfer/backend/webgpu/internal/kernels"
 )
 
 // refRoute is the nGroup==1 reference for the GPU router top-k kernel — the same

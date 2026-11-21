@@ -5,7 +5,7 @@ package metal
 import (
 	"testing"
 
-	"github.com/townsendmerino/goinfer/decoder"
+	"github.com/pkieltyka/goinfer/decoder"
 )
 
 // TestSetAdapter_partialBindErrorReleasesBuffers pins C-04 (docs/audit-metal-2026-09-12.md): a failed SetAdapter must release

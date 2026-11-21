@@ -8,7 +8,7 @@ import (
 	"os"
 	"testing"
 
-	"github.com/townsendmerino/goinfer/decoder"
+	"github.com/pkieltyka/goinfer/decoder"
 )
 
 // pipelineProbBar is the end-to-end probability bar, pre-registered at 1e-4 absolute against the reference. It is looser

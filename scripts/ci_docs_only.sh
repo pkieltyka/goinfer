@@ -16,7 +16,7 @@
 #       docs     the rest of docs/**, RELEASING.md, .claude/**, changelog.d/**, a top-level *.md other than README.md,
 #                and apps/site content (anything under apps/site/ that is not Go, go.mod/go.sum, wrangler.jsonc or cmd/)
 #       version  a go.mod or go.sum (any module except apps/site) whose diff changes only lines for
-#                github.com/townsendmerino/goinfer or goinfer/backend/* module versions
+#                github.com/pkieltyka/goinfer or goinfer/backend/* module versions
 #     backend  (not quick: a narrower suite) every file is in a backend module (backend/webgpu, backend/cuda,
 #              backend/metal) or on the quick path, and at least one is in a backend module. The root module cannot
 #              import a backend module, so only root tests that READ backend files can change; those run in
@@ -106,7 +106,7 @@ class_of() {
   esac
 }
 
-mod_re='github\.com/townsendmerino/goinfer(/[A-Za-z0-9._/-]+)?'
+mod_re='github\.com/pkieltyka/goinfer(/[A-Za-z0-9._/-]+)?'
 gomod_line_re="^[+-][[:space:]]*(require[[:space:]]+)?${mod_re}[[:space:]]+v[0-9][^[:space:]]*([[:space:]]+//.*)?\$"
 gosum_line_re="^[+-]${mod_re}[[:space:]]+v[0-9][^[:space:]]*(/go\\.mod)?[[:space:]]+h1:[A-Za-z0-9+/=]+\$"
 

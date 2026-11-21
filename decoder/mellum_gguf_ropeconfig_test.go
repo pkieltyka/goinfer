@@ -5,7 +5,7 @@ import (
 	"maps"
 	"testing"
 
-	"github.com/townsendmerino/aikit/embed"
+	"github.com/pkieltyka/aikit/embed"
 )
 
 // TestGGUFMellumConfig_attentionFactorSentinelOmitted is N-69 (docs/audit-2026-09-10.md):

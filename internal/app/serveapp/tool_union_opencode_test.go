@@ -5,7 +5,7 @@ import (
 	"os"
 	"testing"
 
-	"github.com/townsendmerino/goinfer/chat"
+	"github.com/pkieltyka/goinfer/chat"
 )
 
 // agentToolsModel is a model with Mellum2.1's template (the chatml <tool_call> form) and the scripted tokenizer, and

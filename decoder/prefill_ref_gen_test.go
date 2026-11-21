@@ -14,7 +14,7 @@ import (
 	"testing"
 	"time"
 
-	"github.com/townsendmerino/goinfer/tokenizer"
+	"github.com/pkieltyka/goinfer/tokenizer"
 )
 
 // TestPrefillGateReference is Phase A L1 re-run: it builds the CPU

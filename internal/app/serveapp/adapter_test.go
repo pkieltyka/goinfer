@@ -4,7 +4,7 @@ import (
 	"context"
 	"encoding/binary"
 	"encoding/json"
-	"github.com/townsendmerino/goinfer/internal/app/loadflags"
+	"github.com/pkieltyka/goinfer/internal/app/loadflags"
 	"math"
 	"os"
 	"path/filepath"
@@ -13,7 +13,7 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/townsendmerino/goinfer/decoder"
+	"github.com/pkieltyka/goinfer/decoder"
 )
 
 func TestAdapterFlag_parse(t *testing.T) {

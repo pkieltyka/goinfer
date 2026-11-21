@@ -15,10 +15,10 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/townsendmerino/goinfer/backend/metal/kernels"
-	"github.com/townsendmerino/goinfer/decoder"
+	"github.com/pkieltyka/goinfer/backend/metal/kernels"
+	"github.com/pkieltyka/goinfer/decoder"
 
-	"github.com/townsendmerino/goinfer/internal/testgate"
+	"github.com/pkieltyka/goinfer/internal/testgate"
 )
 
 // r17Kernels is the graded attention_fa_blk, rebuilt from the shipped section of allKernels into the standalone library form the R17

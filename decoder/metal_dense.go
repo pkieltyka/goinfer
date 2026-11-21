@@ -1,6 +1,6 @@
 package decoder
 
-import "github.com/townsendmerino/goinfer/internal/runtime/program"
+import "github.com/pkieltyka/goinfer/internal/runtime/program"
 
 // metalDerivedDenseBytes is what a Metal resident build of m leases on the dense line beyond the tensors the dense sum counts
 // (residentWeightBytesSplit): the buffers the build derives from the weights and the geometry, by the build's own rules.

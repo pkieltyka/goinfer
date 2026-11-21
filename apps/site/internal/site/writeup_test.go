@@ -214,7 +214,7 @@ func TestCheckLinks_findsABrokenInternalLink(t *testing.T) {
 }
 
 func TestCheckWriteups_repoLinksMustResolve(t *testing.T) {
-	body := goodWriteup + "\nSee [the record](https://github.com/townsendmerino/goinfer/blob/main/docs/rec.md#part) and [gone](https://github.com/townsendmerino/goinfer/blob/main/docs/moved.md).\n"
+	body := goodWriteup + "\nSee [the record](https://github.com/pkieltyka/goinfer/blob/main/docs/rec.md#part) and [gone](https://github.com/pkieltyka/goinfer/blob/main/docs/moved.md).\n"
 	root := writeupRoot(t, map[string]string{"07-a-title.md": body, "docs/rec.md": "1.83\n"})
 	ws, err := LoadWriteups(root)
 	if err != nil {

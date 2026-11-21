@@ -7,7 +7,7 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/townsendmerino/goinfer/decoder"
+	"github.com/pkieltyka/goinfer/decoder"
 )
 
 // TestLoRAAdapterCacheCUDA gates audit P-10's adapter device cache through the real resident:

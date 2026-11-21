@@ -5,7 +5,7 @@ package kernels
 import (
 	"testing"
 
-	"github.com/townsendmerino/goinfer/internal/vision"
+	"github.com/pkieltyka/goinfer/internal/vision"
 )
 
 // refusesAll runs each misrouted op through walk; a walker with no device panics on anything it queues or allocates.

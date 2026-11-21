@@ -10,7 +10,7 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/townsendmerino/goinfer/decoder"
+	"github.com/pkieltyka/goinfer/decoder"
 )
 
 // R2 gate (docs/measurements/cold-user-2026-09-06.md, finding #3): `serve --version` must report which
@@ -53,7 +53,7 @@ func TestServeVersionFlag_reportsOnlyCPUForTheRootBinary(t *testing.T) {
 	if runtime.GOOS == "windows" {
 		bin += ".exe"
 	}
-	build := exec.Command("go", "build", "-o", bin, "github.com/townsendmerino/goinfer/cmd/serve")
+	build := exec.Command("go", "build", "-o", bin, "github.com/pkieltyka/goinfer/cmd/serve")
 	build.Dir = ".."
 	if out, err := build.CombinedOutput(); err != nil {
 		t.Skipf("cannot build cmd/serve here: %v\n%s", err, out)
@@ -99,7 +99,7 @@ func TestServeUnknownPositional_namesTheSubcommands(t *testing.T) {
 	if runtime.GOOS == "windows" {
 		bin += ".exe"
 	}
-	build := exec.Command("go", "build", "-o", bin, "github.com/townsendmerino/goinfer/cmd/serve")
+	build := exec.Command("go", "build", "-o", bin, "github.com/pkieltyka/goinfer/cmd/serve")
 	build.Dir = ".."
 	if out, err := build.CombinedOutput(); err != nil {
 		t.Skipf("cannot build cmd/serve here: %v\n%s", err, out)
@@ -152,7 +152,7 @@ func TestHelpHeader_isSkimmableAndNamesTheFlagThatMattered(t *testing.T) {
 	if runtime.GOOS == "windows" {
 		bin += ".exe"
 	}
-	build := exec.Command("go", "build", "-o", bin, "github.com/townsendmerino/goinfer/cmd/serve")
+	build := exec.Command("go", "build", "-o", bin, "github.com/pkieltyka/goinfer/cmd/serve")
 	build.Dir = ".."
 	if out, err := build.CombinedOutput(); err != nil {
 		t.Skipf("cannot build cmd/serve here: %v\n%s", err, out)

@@ -7,8 +7,8 @@ import (
 	"os"
 	"path/filepath"
 
-	"github.com/townsendmerino/aikit/embed"
-	"github.com/townsendmerino/aikit/linalg"
+	"github.com/pkieltyka/aikit/embed"
+	"github.com/pkieltyka/aikit/linalg"
 )
 
 // Gemma4AudioConfig is the audio_config fields the tower reads.

@@ -11,7 +11,7 @@ import (
 	"testing"
 	"time"
 
-	"github.com/townsendmerino/goinfer/decoder"
+	"github.com/pkieltyka/goinfer/decoder"
 )
 
 // TestCUDADeltaNetPrefill_matchesPerToken is gate 1: the batched

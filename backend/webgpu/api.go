@@ -2,7 +2,7 @@
 
 package webgpu
 
-import "github.com/townsendmerino/goinfer/backend/webgpu/internal/kernels"
+import "github.com/pkieltyka/goinfer/backend/webgpu/internal/kernels"
 
 // gpu's public names. The kernel layer lives in gpu/internal/kernels; each type here is an alias of its type there,
 // and each function forwards to its function there, so a program written against gpu compiles unchanged.

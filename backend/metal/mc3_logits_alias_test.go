@@ -9,7 +9,7 @@ import (
 	"testing"
 	"time"
 
-	"github.com/townsendmerino/goinfer/decoder"
+	"github.com/pkieltyka/goinfer/decoder"
 )
 
 // TestMC3_soloLogitsSurviveAnotherGeneration pins E-C01 (docs/audit-metal-2026-09-30.md). metalResident.Forward returns the

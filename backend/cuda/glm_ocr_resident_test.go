@@ -10,7 +10,7 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/townsendmerino/goinfer/decoder"
+	"github.com/pkieltyka/goinfer/decoder"
 )
 
 // glmOcrMRopeGolden is the subset of testdata/glm_ocr_tiny_mrope_golden.json this gate reads: the

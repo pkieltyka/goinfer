@@ -7,7 +7,7 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/townsendmerino/goinfer/decoder"
+	"github.com/pkieltyka/goinfer/decoder"
 )
 
 // TestPagedMoE_forwardEntryPointsDecline gates C-02 (audit-metal-2026-09-12.md): encodeMoEFFN (the

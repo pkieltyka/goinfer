@@ -8,7 +8,7 @@ import (
 	"testing"
 
 	gc "github.com/eitamring/gocudrv/cuda"
-	"github.com/townsendmerino/goinfer/decoder"
+	"github.com/pkieltyka/goinfer/decoder"
 )
 
 // TestPrefillLast_qwen3 extends the bit-identity gate to a QK-NORM family: Qwen3 is the dense batched lane

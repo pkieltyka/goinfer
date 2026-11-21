@@ -13,11 +13,11 @@ import (
 	"testing"
 	"time"
 
-	"github.com/townsendmerino/goinfer/internal/vision"
+	"github.com/pkieltyka/goinfer/internal/vision"
 
-	"github.com/townsendmerino/goinfer/multimodal"
+	"github.com/pkieltyka/goinfer/multimodal"
 
-	"github.com/townsendmerino/goinfer/internal/testgate"
+	"github.com/pkieltyka/goinfer/internal/testgate"
 )
 
 // g4vTinyTower loads the committed tiny Gemma 4 tower (finite ClippableLinear bounds) with random position tables and

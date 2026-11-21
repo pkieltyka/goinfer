@@ -6,7 +6,7 @@ import (
 	"encoding/binary"
 	"testing"
 
-	gpu "github.com/townsendmerino/goinfer/backend/metal/internal/gpudev"
+	gpu "github.com/pkieltyka/goinfer/backend/metal/internal/gpudev"
 )
 
 // holdsInPool reports whether slot s (a view returned by pool) holds expert e's bytes. Reads

@@ -6,7 +6,7 @@ import (
 	"net/http/httptest"
 	"testing"
 
-	"github.com/townsendmerino/goinfer/engine"
+	"github.com/pkieltyka/goinfer/engine"
 )
 
 // reuseEngine streams ids with a report whose reuse is rep's (KV4's §5.16 vendor extension reads it).

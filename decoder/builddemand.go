@@ -4,7 +4,7 @@ import (
 	"slices"
 	"sync"
 
-	"github.com/townsendmerino/goinfer/internal/runtime/program"
+	"github.com/pkieltyka/goinfer/internal/runtime/program"
 )
 
 // BuildQuery is a load as the fit guard sees it before the build: the options, the facts decoder resolves from the config,

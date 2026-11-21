@@ -10,7 +10,7 @@ import (
 	"fmt"
 	"os"
 
-	"github.com/townsendmerino/goinfer/internal/guard/testcmdtags"
+	"github.com/pkieltyka/goinfer/internal/guard/testcmdtags"
 )
 
 func main() {

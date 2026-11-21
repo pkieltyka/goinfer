@@ -5,7 +5,7 @@ import (
 	"sync/atomic"
 	"testing"
 
-	"github.com/townsendmerino/aikit/linalg"
+	"github.com/pkieltyka/aikit/linalg"
 )
 
 // blockspecStubHost is a minimal ResidentForward + ResidentDrafterHost for testing the R-00

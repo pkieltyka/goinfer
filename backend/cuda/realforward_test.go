@@ -9,12 +9,12 @@ import (
 	"testing"
 
 	gc "github.com/eitamring/gocudrv/cuda"
-	"github.com/townsendmerino/aikit/linalg"
-	gpu "github.com/townsendmerino/goinfer/backend/cuda/internal/gpudev"
-	"github.com/townsendmerino/goinfer/decoder"
+	"github.com/pkieltyka/aikit/linalg"
+	gpu "github.com/pkieltyka/goinfer/backend/cuda/internal/gpudev"
+	"github.com/pkieltyka/goinfer/decoder"
 
-	"github.com/townsendmerino/goinfer/backend/cuda/internal/wpack"
-	"github.com/townsendmerino/goinfer/internal/testgate"
+	"github.com/pkieltyka/goinfer/backend/cuda/internal/wpack"
+	"github.com/pkieltyka/goinfer/internal/testgate"
 )
 
 // gemvFwdPTX and gluePTX are defined in kernels.go (shared with the production backend).

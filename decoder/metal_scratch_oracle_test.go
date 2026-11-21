@@ -4,9 +4,9 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/townsendmerino/aikit/linalg"
-	"github.com/townsendmerino/goinfer/internal/diag/sb2census"
-	"github.com/townsendmerino/goinfer/internal/runtime/program"
+	"github.com/pkieltyka/aikit/linalg"
+	"github.com/pkieltyka/goinfer/internal/diag/sb2census"
+	"github.com/pkieltyka/goinfer/internal/runtime/program"
 )
 
 // metalDecodeScratchByFamily is the family-keyed price of Metal's decode scratch that the operations' per-row declarations replace:

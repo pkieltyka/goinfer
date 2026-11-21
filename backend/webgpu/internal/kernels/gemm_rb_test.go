@@ -7,7 +7,7 @@ import (
 	"testing"
 	"time"
 
-	"github.com/townsendmerino/aikit/linalg"
+	"github.com/pkieltyka/aikit/linalg"
 )
 
 // rbShapes covers aligned tiles, ragged edges in every dimension, and the real 1.5B/0.5B

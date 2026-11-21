@@ -85,20 +85,20 @@ Two other ways to halt, with no HTTP client: `-halt-file <path>` (checked every 
 
 Every generation registers its cancel function under its id, in a registry of running generations. A cancel cancels that generation's Go context. The token loop already checks the context on every token, so the generation stops at the next token. Nothing asks the model to stop.
 
-A halt does three things in order: set a flag, cancel every registered generation, and wait (up to 30 seconds) until the registry is empty. The flag is checked before the cap on concurrent requests (`-max-inflight`), so a halt does not wait for a free slot. It is checked again when a queued request is finally let in. Without that second check, requests queued for the model's one decode worker (the loop that generates tokens) would have started after the halt. The [design notes](https://github.com/townsendmerino/goinfer/blob/main/docs/tasks/task-halt-2026-09.md) record this as a bug found while building it.
+A halt does three things in order: set a flag, cancel every registered generation, and wait (up to 30 seconds) until the registry is empty. The flag is checked before the cap on concurrent requests (`-max-inflight`), so a halt does not wait for a free slot. It is checked again when a queued request is finally let in. Without that second check, requests queued for the model's one decode worker (the loop that generates tokens) would have started after the halt. The [design notes](https://github.com/pkieltyka/goinfer/blob/main/docs/tasks/task-halt-2026-09.md) record this as a bug found while building it.
 
 Control lives on its own socket for a plain reason: a client that can reach `/v1` should not also be able to reach the stop. Set `-admin-socket` and `/admin/*` is not registered on the TCP listener at all. A request there gets a 404, not a 403, so it does not confirm the routes exist. The socket has no API key; its file permissions (mode 0600, owner only) are the check. Without a socket, `--allow-admin` puts the routes on the TCP listener behind the API key, and the server refuses to start without a key.
 
 ## What was measured
 
-One record, dated 2026-09-12: [the halt-time record](https://github.com/townsendmerino/goinfer/blob/main/docs/measurements/kill-switch-quiescence-2026-09-12.md).
+One record, dated 2026-09-12: [the halt-time record](https://github.com/pkieltyka/goinfer/blob/main/docs/measurements/kill-switch-quiescence-2026-09-12.md).
 
 | | |
 |---|---|
 | Machine | A MacBook, Apple Silicon (arm64), CPU backend |
 | Model | Qwen2.5-Coder-0.5B-Instruct: a 4-bit Q4_K_M file, converted at load to 8-bit weights and 8-bit activations (int8int8) |
 | Build | goinfer [`4b979d0`](https://github.com/townsendmerino/goinfer/commit/4b979d0) |
-| Test | [`TestServe_haltUnderLoad`](https://github.com/townsendmerino/goinfer/blob/main/internal/app/serveapp/halt_test.go): 32 concurrent streaming chats, `-max-inflight 32 -max-queue 32`, then `POST /admin/halt` |
+| Test | [`TestServe_haltUnderLoad`](https://github.com/pkieltyka/goinfer/blob/main/internal/app/serveapp/halt_test.go): 32 concurrent streaming chats, `-max-inflight 32 -max-queue 32`, then `POST /admin/halt` |
 | Time from halt to every cancelled generation stopped | ~10ms, with and without `-race` (Go's race detector) |
 | Outcome | 1 of 32 cancelled mid-stream; 31 of 32 refused with 503 before starting |
 
@@ -106,7 +106,7 @@ Only one request streams at a time, because this build runs one generation per m
 
 The ~10ms is coarse. The server checks for an empty registry every 10 ms, so a reading of 10 means "within about one check". The record calls it a single-machine sample, not a pass/fail bar.
 
-Two tests check behaviour, not time. [`TestServe_cancelByID`](https://github.com/townsendmerino/goinfer/blob/main/internal/app/serveapp/cancel_test.go) needs a real `.gguf` model file. It cancels a 4096-token stream by id and checks the `cancelled` finish, the `goinfer_cancelled` event, and that the id leaves the registry. It then checks that the next greedy request (greedy: always take the most likely next token, so a repeat gives the same text) matches one made before the cancel. That shows the cancel left the model's state clean. [`TestServe_adminSocket`](https://github.com/townsendmerino/goinfer/blob/main/internal/app/serveapp/admin_socket_test.go) needs no model: halt, status and resume work over the socket without a key, and `/admin/halt` on TCP returns 404. The model-backed tests skip unless `GOINFER_SERVE_MODEL` names a model file. The halt-file and signal triggers have no test; the design notes say they were tried by hand.
+Two tests check behaviour, not time. [`TestServe_cancelByID`](https://github.com/pkieltyka/goinfer/blob/main/internal/app/serveapp/cancel_test.go) needs a real `.gguf` model file. It cancels a 4096-token stream by id and checks the `cancelled` finish, the `goinfer_cancelled` event, and that the id leaves the registry. It then checks that the next greedy request (greedy: always take the most likely next token, so a repeat gives the same text) matches one made before the cancel. That shows the cancel left the model's state clean. [`TestServe_adminSocket`](https://github.com/pkieltyka/goinfer/blob/main/internal/app/serveapp/admin_socket_test.go) needs no model: halt, status and resume work over the socket without a key, and `/admin/halt` on TCP returns 404. The model-backed tests skip unless `GOINFER_SERVE_MODEL` names a model file. The halt-file and signal triggers have no test; the design notes say they were tried by hand.
 
 ## Use it
 
@@ -114,4 +114,4 @@ Two tests check behaviour, not time. [`TestServe_cancelByID`](https://github.com
 - `--allow-admin` puts `/admin/*` on the TCP listener. It needs `--api-key`, and is ignored when `-admin-socket` is set.
 - `-halt-file <path>` halts while the file exists. If you `resume` while the file is still there, the next check (within 250 ms) halts again.
 - `-halt-exit-code N` exits the process with code N after a halt, so a restarter can be told not to undo it.
-- These shipped in v0.18.0 ([CHANGELOG](https://github.com/townsendmerino/goinfer/blob/main/CHANGELOG.md), dated 2026-09-13). The server guide, [docs/server.md](https://github.com/townsendmerino/goinfer/blob/main/docs/server.md), does not describe these routes yet. The [design notes](https://github.com/townsendmerino/goinfer/blob/main/docs/tasks/task-halt-2026-09.md) and the Serving section of [docs/ARCHITECTURE.md](https://github.com/townsendmerino/goinfer/blob/main/docs/ARCHITECTURE.md), under Control, do.
+- These shipped in v0.18.0 ([CHANGELOG](https://github.com/pkieltyka/goinfer/blob/main/CHANGELOG.md), dated 2026-09-13). The server guide, [docs/server.md](https://github.com/pkieltyka/goinfer/blob/main/docs/server.md), does not describe these routes yet. The [design notes](https://github.com/pkieltyka/goinfer/blob/main/docs/tasks/task-halt-2026-09.md) and the Serving section of [docs/ARCHITECTURE.md](https://github.com/pkieltyka/goinfer/blob/main/docs/ARCHITECTURE.md), under Control, do.

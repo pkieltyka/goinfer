@@ -10,8 +10,8 @@ import (
 	"sort"
 	"strings"
 
-	"github.com/townsendmerino/goinfer/internal/guard/paritykey"
-	"github.com/townsendmerino/goinfer/tokenizer"
+	"github.com/pkieltyka/goinfer/internal/guard/paritykey"
+	"github.com/pkieltyka/goinfer/tokenizer"
 )
 
 // `gate identity`'s ASSETS: which checkpoint and which prompt each parity-manifest family is run on.

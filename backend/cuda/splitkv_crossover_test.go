@@ -9,7 +9,7 @@ import (
 	"time"
 
 	gc "github.com/eitamring/gocudrv/cuda"
-	"github.com/townsendmerino/goinfer/decoder"
+	"github.com/pkieltyka/goinfer/decoder"
 )
 
 // TestSplitKVCrossover measures split-KV vs attn_batched(M=1) at several KV depths on the real 1.5B

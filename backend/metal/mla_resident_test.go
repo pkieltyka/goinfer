@@ -9,7 +9,7 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/townsendmerino/goinfer/decoder"
+	"github.com/pkieltyka/goinfer/decoder"
 )
 
 // TestMLAResident_tinyAgainstControl is OP2a's gate M as first registered, kept as a diagnostic that logs and asserts

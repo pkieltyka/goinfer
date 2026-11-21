@@ -13,7 +13,7 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/townsendmerino/goinfer/decoder"
+	"github.com/pkieltyka/goinfer/decoder"
 )
 
 // The two Criticals of docs/audit-metal-2026-09-30.md. Both were silent: nothing errored, the prompt's KV was simply wrong

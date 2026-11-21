@@ -8,7 +8,7 @@ import (
 	"testing"
 	"time"
 
-	"github.com/townsendmerino/goinfer/decoder"
+	"github.com/pkieltyka/goinfer/decoder"
 )
 
 // M6 (docs/measurements/library-surface-2026-10-09.md): Model.Close during a generation released the device under an open decode chain. This is

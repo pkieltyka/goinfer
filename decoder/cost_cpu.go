@@ -3,7 +3,7 @@ package decoder
 import (
 	"time"
 
-	"github.com/townsendmerino/goinfer/internal/cost"
+	"github.com/pkieltyka/goinfer/internal/cost"
 )
 
 // The CPU's cost counters (internal/cost). They are keyed by the program's operation kinds, so a program walker can record

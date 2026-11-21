@@ -37,7 +37,7 @@ func baseFiles() map[string]string {
 		"internal/app/serveapp/routes_test.go": `package serveapp; func x(m *mux) { m.HandleFunc("GET /v1/only-in-a-test", nil) }`,
 		"docs/flags.meta.json":                 `{"flags":[{"name":"model"},{"name":"old-flag"}]}`,
 		"docs/capability-matrix.json":          `[{"name":"llama","display_name":"Llama","model_types":["llama"]}]`,
-		"go.mod":                               "module x\n\nrequire (\n\tgithub.com/townsendmerino/aikit v1.60.0\n)\n",
+		"go.mod":                               "module x\n\nrequire (\n\tgithub.com/pkieltyka/aikit v1.60.0\n)\n",
 	}
 }
 
@@ -95,7 +95,7 @@ func (s *server) more(mux *mux) {
 `
 	h2["docs/flags.meta.json"] = `{"flags":[{"name":"model"},{"name":"windowed-kv"}]}`
 	h2["docs/capability-matrix.json"] = `[{"name":"llama","display_name":"Llama","model_types":["llama"]},{"name":"qwen3_asr","display_name":"Qwen3-ASR","model_types":["qwen3_asr"]}]`
-	h2["go.mod"] = "module x\n\nrequire (\n\tgithub.com/townsendmerino/aikit v1.69.0\n)\n"
+	h2["go.mod"] = "module x\n\nrequire (\n\tgithub.com/pkieltyka/aikit v1.69.0\n)\n"
 	root2 := t.TempDir()
 	writeTree(t, root2, h2)
 	h, err := readClState(dirSource{root2})

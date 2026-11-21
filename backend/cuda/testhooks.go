@@ -9,9 +9,9 @@ package cuda
 import (
 	"fmt"
 
-	gpu "github.com/townsendmerino/goinfer/backend/cuda/internal/gpudev"
-	"github.com/townsendmerino/goinfer/decoder"
-	"github.com/townsendmerino/goinfer/internal/runtime/mem"
+	gpu "github.com/pkieltyka/goinfer/backend/cuda/internal/gpudev"
+	"github.com/pkieltyka/goinfer/decoder"
+	"github.com/pkieltyka/goinfer/internal/runtime/mem"
 )
 
 // ArgmaxForTest runs the resident's on-device argmax_reduce over caller-supplied logits and returns the chosen index,

@@ -6,7 +6,7 @@ import (
 	"slices"
 	"testing"
 
-	"github.com/townsendmerino/goinfer/tokenizer"
+	"github.com/pkieltyka/goinfer/tokenizer"
 )
 
 // TestQwenASRPromptOpenLanguage_realTokenizer is G-S14c4d's prompt control: on the real Qwen3-ASR tokenizer the opened prompt is the

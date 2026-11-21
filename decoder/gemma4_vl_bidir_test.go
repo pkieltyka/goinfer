@@ -8,7 +8,7 @@ import (
 	"os"
 	"testing"
 
-	"github.com/townsendmerino/goinfer/internal/runtime/sampling"
+	"github.com/pkieltyka/goinfer/internal/runtime/sampling"
 )
 
 // TestGemma4VLBidir_textParity is the P0 invariant for the batched path, mirroring TestGemma4VL_textParity's shape: on

@@ -4,13 +4,13 @@ package cuda
 
 import (
 	"context"
-	"github.com/townsendmerino/goinfer/internal/runtime/mem"
+	"github.com/pkieltyka/goinfer/internal/runtime/mem"
 	"math"
 	"path/filepath"
 	"testing"
 
-	gpu "github.com/townsendmerino/goinfer/backend/cuda/internal/gpudev"
-	"github.com/townsendmerino/goinfer/decoder"
+	gpu "github.com/pkieltyka/goinfer/backend/cuda/internal/gpudev"
+	"github.com/pkieltyka/goinfer/decoder"
 )
 
 // windowedKVTestSlack and windowedKVTestStep are the slack and step the windowed-KV tests run with: the fixture's window is 16 and its context

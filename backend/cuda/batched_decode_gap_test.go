@@ -8,7 +8,7 @@ import (
 	"testing"
 
 	gc "github.com/eitamring/gocudrv/cuda"
-	"github.com/townsendmerino/goinfer/decoder"
+	"github.com/pkieltyka/goinfer/decoder"
 )
 
 // TestBatchedVsDecodeGap documents a latent numerics gap surfaced by D1 (speculative decode). The

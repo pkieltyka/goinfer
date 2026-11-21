@@ -11,8 +11,8 @@
 package main
 
 import (
-	_ "github.com/townsendmerino/goinfer/backend/cuda"
-	"github.com/townsendmerino/goinfer/internal/app/serveapp"
+	_ "github.com/pkieltyka/goinfer/backend/cuda"
+	"github.com/pkieltyka/goinfer/internal/app/serveapp"
 )
 
 func main() { serveapp.Main() }

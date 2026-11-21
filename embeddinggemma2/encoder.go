@@ -9,7 +9,7 @@ import (
 	"strings"
 	"time"
 
-	"github.com/townsendmerino/goinfer/tokenizer"
+	"github.com/pkieltyka/goinfer/tokenizer"
 )
 
 // MaxTokens is the context the model card gives for every modality (8,192). An input longer than this is refused,

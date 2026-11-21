@@ -19,8 +19,8 @@ import (
 	"testing"
 	"time"
 
-	"github.com/townsendmerino/goinfer/decoder"
-	"github.com/townsendmerino/goinfer/internal/runtime/mem/probe"
+	"github.com/pkieltyka/goinfer/decoder"
+	"github.com/pkieltyka/goinfer/internal/runtime/mem/probe"
 )
 
 // mc3Resident is the resident the MC3 identity checks run on, with `slots` resident KV slots at a ctx-token resident

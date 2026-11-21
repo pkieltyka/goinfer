@@ -11,8 +11,8 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/townsendmerino/goinfer/chat"
-	"github.com/townsendmerino/goinfer/tokenizer"
+	"github.com/pkieltyka/goinfer/chat"
+	"github.com/pkieltyka/goinfer/tokenizer"
 )
 
 // A thinking model can write its tool call inside its reasoning block and end its turn there (the call is then read from

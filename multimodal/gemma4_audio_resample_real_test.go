@@ -11,7 +11,7 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/townsendmerino/goinfer/internal/audio"
+	"github.com/pkieltyka/goinfer/internal/audio"
 )
 
 // TestGemma4AudioResample is G-S5e: the LibriSpeech clip at 44.1 kHz mono and at 48 kHz stereo (made offline by

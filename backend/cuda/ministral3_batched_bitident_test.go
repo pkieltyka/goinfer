@@ -6,7 +6,7 @@ import (
 	"math"
 	"testing"
 
-	"github.com/townsendmerino/goinfer/decoder"
+	"github.com/pkieltyka/goinfer/decoder"
 )
 
 // TestMinistral3BatchedPrefillMatchesSequentialCUDA gates audit-2026-09-10 G-11's numeric half.

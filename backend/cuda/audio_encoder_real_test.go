@@ -15,9 +15,9 @@ import (
 	"testing"
 	"time"
 
-	"github.com/townsendmerino/goinfer/internal/audio"
-	"github.com/townsendmerino/goinfer/internal/runtime/whisper"
-	"github.com/townsendmerino/goinfer/multimodal"
+	"github.com/pkieltyka/goinfer/internal/audio"
+	"github.com/pkieltyka/goinfer/internal/runtime/whisper"
+	"github.com/pkieltyka/goinfer/multimodal"
 )
 
 // G-S14t4 on the real checkpoints: the device encoder against the CPU encoder, whole-window, every position, on Whisper-small

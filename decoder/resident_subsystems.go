@@ -4,7 +4,7 @@ import (
 	"context"
 	"errors"
 
-	"github.com/townsendmerino/goinfer/internal/cost"
+	"github.com/pkieltyka/goinfer/internal/cost"
 )
 
 var errSubsystemUnavailable = errors.New("decoder: resident subsystem capability not implemented")

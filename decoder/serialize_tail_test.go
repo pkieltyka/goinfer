@@ -4,7 +4,7 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/townsendmerino/aikit/linalg"
+	"github.com/pkieltyka/aikit/linalg"
 )
 
 // mat builds a zeroed [rows, cols] f32 weight — WrapF32 requires the exact backing length.

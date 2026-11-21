@@ -11,7 +11,7 @@ import (
 	"testing"
 	"time"
 
-	"github.com/townsendmerino/aikit/linalg"
+	"github.com/pkieltyka/aikit/linalg"
 )
 
 // TestGEMVNSweep times the GEMV at ONE N per process (GOINFER_GEMV_SWEEP_N), so each reading

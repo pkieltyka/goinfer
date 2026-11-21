@@ -11,7 +11,7 @@ import (
 	"testing"
 	"time"
 
-	"github.com/townsendmerino/goinfer/decoder"
+	"github.com/pkieltyka/goinfer/decoder"
 )
 
 // TestGemma4_26B_s10DumpCUDA is the separating test the 26B's near-tie read proposed: the CUDA resident's full logits at every position of the

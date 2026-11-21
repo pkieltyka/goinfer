@@ -21,8 +21,8 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/townsendmerino/goinfer/internal/runtime/sampling"
-	"github.com/townsendmerino/goinfer/tokenizer"
+	"github.com/pkieltyka/goinfer/internal/runtime/sampling"
+	"github.com/pkieltyka/goinfer/tokenizer"
 )
 
 // ReadGoldenJSONForTest decodes a real-checkpoint golden fixture into v, gunzipping transparently when path ends in

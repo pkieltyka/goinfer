@@ -7,9 +7,9 @@ import (
 	"time"
 	"unsafe"
 
-	"github.com/townsendmerino/aikit/linalg"
+	"github.com/pkieltyka/aikit/linalg"
 
-	"github.com/townsendmerino/goinfer/internal/testgate"
+	"github.com/pkieltyka/goinfer/internal/testgate"
 )
 
 // TestRow4_coldTouchLatency measures what two earlier probes (mmap-vs-heap; row4-vs-canonical on gemma4 shapes) could

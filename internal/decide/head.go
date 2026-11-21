@@ -11,8 +11,8 @@ import (
 	"sort"
 	"strings"
 
-	"github.com/townsendmerino/aikit/embed"
-	"github.com/townsendmerino/goinfer/decoder"
+	"github.com/pkieltyka/aikit/embed"
+	"github.com/pkieltyka/goinfer/decoder"
 )
 
 // Route names, as a Result and the CLI's output lines report them.

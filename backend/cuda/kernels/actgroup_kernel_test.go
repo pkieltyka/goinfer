@@ -9,9 +9,9 @@ import (
 	"testing"
 
 	gc "github.com/eitamring/gocudrv/cuda"
-	"github.com/townsendmerino/aikit/linalg"
+	"github.com/pkieltyka/aikit/linalg"
 
-	"github.com/townsendmerino/goinfer/backend/cuda/internal/wpack"
+	"github.com/pkieltyka/goinfer/backend/cuda/internal/wpack"
 )
 
 // actGroupHarness loads actgroup.ptx and returns a launcher for its kernels.

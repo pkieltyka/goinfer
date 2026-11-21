@@ -292,7 +292,7 @@ arithmetic equivalence, is what fast-math contraction keys off.
 Moved from `backend/metal/device.go` (the comment above `package metal`) on 2026-10-09.
 
 ```text
-Metal device layer — now aikit's native-GPU substrate (github.com/townsendmerino/aikit/gpu),
+Metal device layer — now aikit's native-GPU substrate (github.com/pkieltyka/aikit/gpu),
 lifted verbatim from what used to be this package's metal.go. goinfer keeps its tuned kernels
 here and builds them on these device types — the GPU analogue of the linalg relationship. Only
 the device TYPES moved; nothing about the decode path changed, so it must stay bit-identical

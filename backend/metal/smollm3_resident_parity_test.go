@@ -5,7 +5,7 @@ package metal
 import (
 	"testing"
 
-	"github.com/townsendmerino/goinfer/decoder"
+	"github.com/pkieltyka/goinfer/decoder"
 )
 
 // TestSmolLM3ResidentSmokeMetal is the smoke gate for FeatNoPE: the model goes resident

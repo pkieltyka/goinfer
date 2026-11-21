@@ -9,7 +9,7 @@ import (
 	"time"
 
 	gc "github.com/eitamring/gocudrv/cuda"
-	"github.com/townsendmerino/goinfer/decoder"
+	"github.com/pkieltyka/goinfer/decoder"
 )
 
 // TestB2DenseFlagship measures a fitting dense flagship (qwen2.5-7B int4, resident on the 2070 SUPER

@@ -5,7 +5,7 @@ package cuda
 import (
 	"errors"
 
-	"github.com/townsendmerino/goinfer/decoder"
+	"github.com/pkieltyka/goinfer/decoder"
 )
 
 // The CUDA build's allocation rounding over a loaded model's weight buffers, for decoder.Model.Plan: the driver rounds every

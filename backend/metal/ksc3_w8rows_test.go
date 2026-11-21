@@ -13,7 +13,7 @@ import (
 	"testing"
 	"time"
 
-	"github.com/townsendmerino/goinfer/decoder"
+	"github.com/pkieltyka/goinfer/decoder"
 )
 
 // TestKSC3_w8RowsMatchShipped is C3-G1's kernel half: each int8

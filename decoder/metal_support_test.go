@@ -4,7 +4,7 @@ import (
 	"os"
 	"testing"
 
-	"github.com/townsendmerino/goinfer/internal/runtime/program"
+	"github.com/pkieltyka/goinfer/internal/runtime/program"
 )
 
 // TestMetalPricing_followsThePathThatRuns: the fit guard prices a Metal

@@ -6,7 +6,7 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/townsendmerino/goinfer/internal/runtime/giw"
+	"github.com/pkieltyka/goinfer/internal/runtime/giw"
 )
 
 // TestSerializedInt4Weights_kind5RepackedOnly_matchesCanonical is L2's round-trip

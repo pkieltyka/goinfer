@@ -10,8 +10,8 @@ import (
 	"sync"
 	"testing"
 
-	"github.com/townsendmerino/goinfer/backend/webgpu"
-	"github.com/townsendmerino/goinfer/decoder"
+	"github.com/pkieltyka/goinfer/backend/webgpu"
+	"github.com/pkieltyka/goinfer/decoder"
 )
 
 // TestSpeculative_C03_concurrentResidentClaim pins audit C-03: GenerateSpeculative must claim the

@@ -6,7 +6,7 @@ import (
 	"math"
 	"testing"
 
-	"github.com/townsendmerino/aikit/embed"
+	"github.com/pkieltyka/aikit/embed"
 )
 
 // goinfer's INTERPRETATION of a GGUF (metadata -> Config synthesis) must turn a hostile header into a typed error,

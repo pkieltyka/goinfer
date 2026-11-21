@@ -7,8 +7,8 @@ import (
 	"testing"
 	"time"
 
-	"github.com/townsendmerino/goinfer/constrain"
-	"github.com/townsendmerino/goinfer/decoder"
+	"github.com/pkieltyka/goinfer/constrain"
+	"github.com/pkieltyka/goinfer/decoder"
 )
 
 // The toy: one token per byte (ids 0..255) and EOS (256).

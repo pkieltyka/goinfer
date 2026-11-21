@@ -3,7 +3,7 @@ package serveapp
 import (
 	"context"
 	"encoding/json"
-	"github.com/townsendmerino/goinfer/internal/app/loadflags"
+	"github.com/pkieltyka/goinfer/internal/app/loadflags"
 	"os"
 	"path/filepath"
 	"regexp"
@@ -11,8 +11,8 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/townsendmerino/goinfer/chat"
-	"github.com/townsendmerino/goinfer/tokenizer"
+	"github.com/pkieltyka/goinfer/chat"
+	"github.com/pkieltyka/goinfer/tokenizer"
 	"go/ast"
 	"go/parser"
 	"go/printer"

@@ -7,7 +7,7 @@ import (
 	"fmt"
 	"math"
 
-	"github.com/townsendmerino/goinfer/internal/vision"
+	"github.com/pkieltyka/goinfer/internal/vision"
 )
 
 // visProj is one projection in whichever form the tower was uploaded (VisionEncoder.ForwardPatches' proj).

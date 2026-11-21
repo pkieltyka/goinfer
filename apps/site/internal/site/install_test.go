@@ -7,7 +7,7 @@ import (
 	"testing"
 )
 
-const readmeGoGet = "go get github.com/townsendmerino/goinfer/decoder@latest github.com/townsendmerino/goinfer/tokenizer@latest"
+const readmeGoGet = "go get github.com/pkieltyka/goinfer/decoder@latest github.com/pkieltyka/goinfer/tokenizer@latest"
 
 func TestReadmeInstallLines(t *testing.T) {
 	needRepo(t)
@@ -18,26 +18,26 @@ func TestReadmeInstallLines(t *testing.T) {
 	if !goGet[readmeGoGet] {
 		t.Errorf("the README's smoke-marked go get line is not %q; got %v", readmeGoGet, goGet)
 	}
-	if goGet["go get github.com/townsendmerino/goinfer"] {
+	if goGet["go get github.com/pkieltyka/goinfer"] {
 		t.Error("the bare-module go get counts as a smoke-marked README line")
 	}
-	if !goInstall["go install github.com/townsendmerino/goinfer/cmd/serve@latest"] {
+	if !goInstall["go install github.com/pkieltyka/goinfer/cmd/serve@latest"] {
 		t.Errorf("the CPU go install is missing: %v", goInstall)
 	}
 }
 
 func TestSiteInstallLines(t *testing.T) {
-	page := `<p>go get github.com/townsendmerino/goinfer in prose is not a command</p>
+	page := `<p>go get github.com/pkieltyka/goinfer in prose is not a command</p>
 <pre>chmod +x x
 go get github.com/
-  townsendmerino/goinfer</pre>
-<code>go install -tags cuda  github.com/townsendmerino/goinfer/backend/cuda/cmd/serve@latest    # Linux + NVIDIA</code>
-<code>CGO_ENABLED=0 go install github.com/townsendmerino/goinfer/cmd/serve@latest</code>`
+  pkieltyka/goinfer</pre>
+<code>go install -tags cuda  github.com/pkieltyka/goinfer/backend/cuda/cmd/serve@latest    # Linux + NVIDIA</code>
+<code>CGO_ENABLED=0 go install github.com/pkieltyka/goinfer/cmd/serve@latest</code>`
 	got := SiteInstallLines(page)
 	want := []string{
-		"go get github.com/townsendmerino/goinfer",
-		"go install -tags cuda github.com/townsendmerino/goinfer/backend/cuda/cmd/serve@latest",
-		"go install github.com/townsendmerino/goinfer/cmd/serve@latest",
+		"go get github.com/pkieltyka/goinfer",
+		"go install -tags cuda github.com/pkieltyka/goinfer/backend/cuda/cmd/serve@latest",
+		"go install github.com/pkieltyka/goinfer/cmd/serve@latest",
 	}
 	if strings.Join(got, "|") != strings.Join(want, "|") {
 		t.Errorf("got %q\nwant %q", got, want)
@@ -53,11 +53,11 @@ func TestCheckInstallLines_goesRed(t *testing.T) {
 		ok   bool
 	}{
 		{"<pre>" + readmeGoGet + "</pre>", true},
-		{"<pre>go install github.com/townsendmerino/goinfer/backend/metal/cmd/serve@latest</pre>", true},
-		{"<pre>go get github.com/townsendmerino/goinfer</pre>", false},                // the download page until 2026-09-30
-		{"<pre>go get github.com/\n  townsendmerino/goinfer</pre>", false},            // the home page's wrapped copy
-		{"<pre>go get github.com/townsendmerino/goinfer/decoder@latest</pre>", false}, // not the README's line
-		{"<pre>go install github.com/townsendmerino/goinfer/cmd/chat@latest</pre>", false},
+		{"<pre>go install github.com/pkieltyka/goinfer/backend/metal/cmd/serve@latest</pre>", true},
+		{"<pre>go get github.com/pkieltyka/goinfer</pre>", false},                // the download page until 2026-09-30
+		{"<pre>go get github.com/\n  pkieltyka/goinfer</pre>", false},            // the home page's wrapped copy
+		{"<pre>go get github.com/pkieltyka/goinfer/decoder@latest</pre>", false}, // not the README's line
+		{"<pre>go install github.com/pkieltyka/goinfer/cmd/chat@latest</pre>", false},
 	} {
 		out := t.TempDir()
 		if err := os.WriteFile(filepath.Join(out, "index.html"), []byte(c.page), 0o644); err != nil {

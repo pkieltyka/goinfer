@@ -10,10 +10,10 @@ import (
 	"math"
 
 	"github.com/oliverbestmann/webgpu/wgpu"
-	"github.com/townsendmerino/aikit/linalg"
-	"github.com/townsendmerino/goinfer/backend/webgpu/internal/kernels"
-	"github.com/townsendmerino/goinfer/backend/webgpu/internal/kvdecl"
-	"github.com/townsendmerino/goinfer/decoder"
+	"github.com/pkieltyka/aikit/linalg"
+	"github.com/pkieltyka/goinfer/backend/webgpu/internal/kernels"
+	"github.com/pkieltyka/goinfer/backend/webgpu/internal/kvdecl"
+	"github.com/pkieltyka/goinfer/decoder"
 )
 
 // newRunLayer is layer i's RunLayer before any upload: its sliding-window flag, RoPE scale, scalar, and the per-layer attention

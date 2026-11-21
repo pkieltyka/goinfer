@@ -9,7 +9,7 @@ import (
 	"path/filepath"
 	"testing"
 
-	"github.com/townsendmerino/goinfer/decoder"
+	"github.com/pkieltyka/goinfer/decoder"
 )
 
 // nemotronMoEParityPrompt is an arbitrary fixed token sequence, not tied to the fixture's

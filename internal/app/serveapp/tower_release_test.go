@@ -5,8 +5,8 @@ import (
 	"math"
 	"testing"
 
-	"github.com/townsendmerino/goinfer/internal/vision"
-	"github.com/townsendmerino/goinfer/multimodal"
+	"github.com/pkieltyka/goinfer/internal/vision"
+	"github.com/pkieltyka/goinfer/multimodal"
 )
 
 // oomGridTower is a device tower whose every call fails for want of device memory, so deviceFallback moves the tower to

@@ -16,11 +16,11 @@ import (
 	"slices"
 	"testing"
 
-	"github.com/townsendmerino/goinfer/chat"
-	"github.com/townsendmerino/goinfer/internal/app/loadflags"
-	"github.com/townsendmerino/goinfer/internal/testpath"
+	"github.com/pkieltyka/goinfer/chat"
+	"github.com/pkieltyka/goinfer/internal/app/loadflags"
+	"github.com/pkieltyka/goinfer/internal/testpath"
 
-	"github.com/townsendmerino/goinfer/internal/testgate"
+	"github.com/pkieltyka/goinfer/internal/testgate"
 )
 
 // TestServe_glmOcrImage_O3 is gate O3's serve half, on the real GLM-OCR checkpoint at f32 on the CPU backend, through the

@@ -10,7 +10,7 @@ pure-Go CPU/WebGPU; CUDA is never the default.
 ```sh
 # build the cuda submodule entrypoint (since v0.10.0 the root cmd/serve builds no backend —
 # a -tags cuda on it fails the build; see the README build section)
-CGO_ENABLED=0 go build -tags cuda -o goinfer-cuda github.com/townsendmerino/goinfer/backend/cuda/cmd/serve   # or …/backend/cuda/cmd/chat
+CGO_ENABLED=0 go build -tags cuda -o goinfer-cuda github.com/pkieltyka/goinfer/backend/cuda/cmd/serve   # or …/backend/cuda/cmd/chat
 
 # select it at runtime
 ./goinfer-cuda --backend cuda --model qwen2.5-coder-1.5b-instruct-q4_k_m.gguf
@@ -290,12 +290,12 @@ full module path; nothing else is needed:
 
 ```bash
 # CUDA server / REPL
-CGO_ENABLED=0 go build -tags cuda github.com/townsendmerino/goinfer/backend/cuda/cmd/serve
-CGO_ENABLED=0 go build -tags cuda github.com/townsendmerino/goinfer/backend/cuda/cmd/chat
+CGO_ENABLED=0 go build -tags cuda github.com/pkieltyka/goinfer/backend/cuda/cmd/serve
+CGO_ENABLED=0 go build -tags cuda github.com/pkieltyka/goinfer/backend/cuda/cmd/chat
 # WebGPU (cgo)
-go build -tags gpu   github.com/townsendmerino/goinfer/backend/webgpu/cmd/serve
+go build -tags gpu   github.com/pkieltyka/goinfer/backend/webgpu/cmd/serve
 # Metal (darwin; the module is darwin-gated, so no -tags)
-go build             github.com/townsendmerino/goinfer/backend/metal/cmd/serve
+go build             github.com/pkieltyka/goinfer/backend/metal/cmd/serve
 ```
 
 **In-tree** (a checkout) — run straight from the submodule; its `go.mod` resolves the root

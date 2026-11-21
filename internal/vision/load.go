@@ -4,7 +4,7 @@ import (
 	"os"
 	"path/filepath"
 
-	"github.com/townsendmerino/aikit/embed"
+	"github.com/pkieltyka/aikit/embed"
 )
 
 // openWeights mmaps a checkpoint's safetensors: the multi-shard set named by

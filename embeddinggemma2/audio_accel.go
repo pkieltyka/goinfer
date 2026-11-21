@@ -4,7 +4,7 @@ import (
 	"fmt"
 	"sort"
 
-	"github.com/townsendmerino/goinfer/internal/audio"
+	"github.com/pkieltyka/goinfer/internal/audio"
 )
 
 // The audio tower on another device (Phase A's AM: Metal). An AudioAccelerator

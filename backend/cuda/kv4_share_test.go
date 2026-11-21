@@ -9,7 +9,7 @@ import (
 	"path/filepath"
 	"testing"
 
-	"github.com/townsendmerino/goinfer/decoder"
+	"github.com/pkieltyka/goinfer/decoder"
 )
 
 // kv4LongFixture writes a copy of llama-attnfa-tiny with a context of maxPos positions and returns its directory.

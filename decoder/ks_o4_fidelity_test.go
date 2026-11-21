@@ -14,9 +14,9 @@ import (
 	"testing"
 	"time"
 
-	"github.com/townsendmerino/goinfer/chat"
-	"github.com/townsendmerino/goinfer/internal/fidelity"
-	"github.com/townsendmerino/goinfer/tokenizer"
+	"github.com/pkieltyka/goinfer/chat"
+	"github.com/pkieltyka/goinfer/internal/fidelity"
+	"github.com/pkieltyka/goinfer/tokenizer"
 )
 
 // TestKSO4_gptossFidelity is KS-O4's G-FID (docs/measurements/ks-o4-2026-10/README.md, which registers it): gpt-oss-20b on the CPU,

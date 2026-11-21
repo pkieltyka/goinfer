@@ -7,8 +7,8 @@ import (
 	"path/filepath"
 	"sync"
 
-	"github.com/townsendmerino/goinfer/internal/vision"
-	"github.com/townsendmerino/goinfer/multimodal"
+	"github.com/pkieltyka/goinfer/internal/vision"
+	"github.com/pkieltyka/goinfer/multimodal"
 )
 
 // Qwen3.5+ image serving (docs/multimodal.md, "Qwen3.x-VL image path + GGUF mmproj"). The route is the Qwen2.5-VL one (preprocess, tower,

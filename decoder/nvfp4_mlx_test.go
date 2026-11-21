@@ -13,9 +13,9 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/townsendmerino/aikit/embed"
-	"github.com/townsendmerino/goinfer/decoder/fit"
-	"github.com/townsendmerino/goinfer/decoder/quant"
+	"github.com/pkieltyka/aikit/embed"
+	"github.com/pkieltyka/goinfer/decoder/fit"
+	"github.com/pkieltyka/goinfer/decoder/quant"
 )
 
 const flintTinyCkptDir = "../testdata/flint-tiny"

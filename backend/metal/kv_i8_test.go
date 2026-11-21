@@ -7,7 +7,7 @@ import (
 	"math/rand"
 	"testing"
 
-	"github.com/townsendmerino/goinfer/decoder"
+	"github.com/pkieltyka/goinfer/decoder"
 )
 
 func cosineV(a, b []float32) float64 {

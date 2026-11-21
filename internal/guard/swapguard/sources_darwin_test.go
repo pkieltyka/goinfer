@@ -7,7 +7,7 @@ import (
 	"testing"
 	"time"
 
-	"github.com/townsendmerino/goinfer/internal/runtime/mem/probe"
+	"github.com/pkieltyka/goinfer/internal/runtime/mem/probe"
 )
 
 // TestSelect_darwinTwoSources: on macOS the guard watches the server's own compressed pages at the threshold and system swap at

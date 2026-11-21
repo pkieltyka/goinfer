@@ -8,7 +8,7 @@ import (
 	"path/filepath"
 	"testing"
 
-	"github.com/townsendmerino/goinfer/internal/runtime/sampling"
+	"github.com/pkieltyka/goinfer/internal/runtime/sampling"
 )
 
 // TestInternLM3_textParity gates the ONE thing that makes internlm3 its own model_type.

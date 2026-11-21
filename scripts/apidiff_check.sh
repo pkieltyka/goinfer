@@ -23,7 +23,7 @@ set -u
 ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 cd "$ROOT"
 PKGS="decoder tokenizer chat constrain"
-MOD="github.com/townsendmerino/goinfer"
+MOD="github.com/pkieltyka/goinfer"
 HARD="${APIDIFF_HARD:-$ROOT/testdata/apidiff/hard_tier.txt}"
 ALIASES="${APIDIFF_ALIASES:-$ROOT/testdata/apidiff/hard_tier_aliases.txt}"
 

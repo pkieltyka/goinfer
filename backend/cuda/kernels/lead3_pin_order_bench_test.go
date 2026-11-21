@@ -8,7 +8,7 @@ import (
 	"time"
 
 	gc "github.com/eitamring/gocudrv/cuda"
-	gpu "github.com/townsendmerino/goinfer/backend/cuda/internal/gpudev"
+	gpu "github.com/pkieltyka/goinfer/backend/cuda/internal/gpudev"
 )
 
 // TestLead3_pinOrderMicrobench is Lead 3's own "cheap,

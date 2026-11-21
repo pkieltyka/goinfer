@@ -5,7 +5,7 @@ import (
 	"net/http"
 	"sort"
 
-	"github.com/townsendmerino/goinfer/decoder"
+	"github.com/pkieltyka/goinfer/decoder"
 )
 
 // GET /health is goinfer's operator surface, deliberately not an OpenAI-compatible one.

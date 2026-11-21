@@ -7,7 +7,7 @@ import (
 	"math/rand"
 	"testing"
 
-	"github.com/townsendmerino/goinfer/decoder"
+	"github.com/pkieltyka/goinfer/decoder"
 )
 
 // TestResidentPrefillSeed_metalKVOnly_byteIdentical is decoder.residentPrefillSeed's own gate for

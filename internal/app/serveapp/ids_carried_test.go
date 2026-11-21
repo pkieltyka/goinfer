@@ -19,8 +19,8 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/townsendmerino/goinfer/chat"
-	"github.com/townsendmerino/goinfer/internal/app/loadflags"
+	"github.com/pkieltyka/goinfer/chat"
+	"github.com/pkieltyka/goinfer/internal/app/loadflags"
 )
 
 // The v2 blob's format: every field survives a round trip, and a blob that is cut short or garbled does not parse.

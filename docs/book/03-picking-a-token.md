@@ -157,9 +157,9 @@ curl -s localhost:8080/v1/chat/completions -H 'content-type: application/json' -
 `top_logprobs` holds natural-log probabilities from the model's own distribution, before any temperature. On an Apple
 Silicon CPU you should see `Paris` at 82.84% (e raised to its logprob), then `London` and `Br` near 2.3% each; on other
 hardware the last digits can differ. Divide the three logprobs by 0.2 and renormalise to see what a temperature of 0.2
-does to them. Measured on 2026-10-02 with the v0.20.0 release ([record](https://github.com/townsendmerino/goinfer/blob/main/docs/measurements/book-try-it-2026-10.md), chapter 3).
+does to them. Measured on 2026-10-02 with the v0.20.0 release ([record](https://github.com/pkieltyka/goinfer/blob/main/docs/measurements/book-try-it-2026-10.md), chapter 3).
 
 ---
 
-*Sources: [`decoder/spec_optfwd.go`](https://github.com/townsendmerino/goinfer/blob/main/decoder/spec_optfwd.go), the open-work queue (kept privately) (G26 ladder, sampler-share and crossover
-measurements, the prompt-confound retraction), [`scripts/prompts.json`](https://github.com/townsendmerino/goinfer/blob/main/scripts/prompts.json).*
+*Sources: [`decoder/spec_optfwd.go`](https://github.com/pkieltyka/goinfer/blob/main/decoder/spec_optfwd.go), the open-work queue (kept privately) (G26 ladder, sampler-share and crossover
+measurements, the prompt-confound retraction), [`scripts/prompts.json`](https://github.com/pkieltyka/goinfer/blob/main/scripts/prompts.json).*

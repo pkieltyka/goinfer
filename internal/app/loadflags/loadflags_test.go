@@ -7,8 +7,8 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/townsendmerino/goinfer/decoder"
-	"github.com/townsendmerino/goinfer/internal/config"
+	"github.com/pkieltyka/goinfer/decoder"
+	"github.com/pkieltyka/goinfer/internal/config"
 )
 
 func parse(t *testing.T, app App, args ...string) (*flag.FlagSet, *Flags) {

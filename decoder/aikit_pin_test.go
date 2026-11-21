@@ -8,7 +8,7 @@ import (
 )
 
 // TestAikitPinsAgree pins every module's aikit require to the ROOT's. Each Go module has its own go.mod and
-// pins github.com/townsendmerino/aikit independently, and nothing else checks that they agree. It matters
+// pins github.com/pkieltyka/aikit independently, and nothing else checks that they agree. It matters
 // for two reasons: the release binaries (backend/metal/cmd/serve, backend/cuda/cmd/serve) are built from the submodules, so
 // one pinning an older aikit ships older numerics to users; and the parity manifest's aikit_version tracks
 // only the ROOT's pin, so a submodule on a different aikit is numerics the staleness gate cannot see.
@@ -23,7 +23,7 @@ func TestAikitPinsAgree(t *testing.T) {
 
 // testAikitRootPinsAgree pins every module's aikit require to the ROOT's.
 func testAikitRootPinsAgree(t *testing.T) {
-	req := regexp.MustCompile(`(?m)^\s*github\.com/townsendmerino/aikit (v[0-9][^\s]*)`)
+	req := regexp.MustCompile(`(?m)^\s*github\.com/pkieltyka/aikit (v[0-9][^\s]*)`)
 
 	read := func(mod string) string {
 		b, err := os.ReadFile(filepath.Join("..", mod, "go.mod"))

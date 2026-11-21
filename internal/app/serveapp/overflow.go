@@ -5,8 +5,8 @@ import (
 	"fmt"
 	"net/http"
 
-	"github.com/townsendmerino/goinfer/chat"
-	"github.com/townsendmerino/goinfer/internal/codec"
+	"github.com/pkieltyka/goinfer/chat"
+	"github.com/pkieltyka/goinfer/internal/codec"
 )
 
 // contextOverflowError is a prompt that fills or exceeds the context window it was sent to. It has two readings,

@@ -10,8 +10,8 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/townsendmerino/goinfer/decoder"
-	"github.com/townsendmerino/goinfer/internal/clef"
+	"github.com/pkieltyka/goinfer/decoder"
+	"github.com/pkieltyka/goinfer/internal/clef"
 )
 
 // Route C of /v1/systemone (D13), end to end through the HTTP handler on the committed tiny Clef pipeline (a tiny qwen3_5 backbone and a tiny head, the same

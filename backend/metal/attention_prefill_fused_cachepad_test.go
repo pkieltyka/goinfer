@@ -8,7 +8,7 @@ import (
 	"math/rand"
 	"testing"
 
-	"github.com/townsendmerino/goinfer/decoder"
+	"github.com/pkieltyka/goinfer/decoder"
 )
 
 // TestAttentionPrefillFused_ctxCapNotMultipleOf8 pins that the resident kc/vc are allocated rounded up to a multiple of 8 rows

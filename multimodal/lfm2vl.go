@@ -11,8 +11,8 @@ import (
 	"sort"
 	"strings"
 
-	"github.com/townsendmerino/aikit/linalg"
-	"github.com/townsendmerino/goinfer/internal/vision"
+	"github.com/pkieltyka/aikit/linalg"
+	"github.com/pkieltyka/goinfer/internal/vision"
 )
 
 // LFM2-VL's image path: the

@@ -8,7 +8,7 @@ import (
 	"os"
 	"testing"
 
-	"github.com/townsendmerino/goinfer/embeddinggemma2"
+	"github.com/pkieltyka/goinfer/embeddinggemma2"
 )
 
 const eg2TinyDir = "../../testdata/embeddinggemma2-tiny"

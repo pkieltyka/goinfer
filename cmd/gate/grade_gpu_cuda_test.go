@@ -94,7 +94,7 @@ func TestGradeCUDACells_plants(t *testing.T) {
 // library fails, listing the line, and still counts as ran; a dynamic binary linking none passes; a static one (ldd exits 1
 // with "not a dynamic executable") and ldd not run pass on the build alone.
 func TestGradeCUDACgoFree_plants(t *testing.T) {
-	v := gradeCUDACgoFree(cgoFreeInput{BuildOut: "# github.com/townsendmerino/goinfer/cuda/cmd/serve\nmain.go:3:2: undefined: x\n"})
+	v := gradeCUDACgoFree(cgoFreeInput{BuildOut: "# github.com/pkieltyka/goinfer/cuda/cmd/serve\nmain.go:3:2: undefined: x\n"})
 	if v.State != groupFail || !strings.Contains(strings.Join(v.Lines, "\n"), "undefined: x") {
 		t.Errorf("a failed build: state %d lines %q, want FAIL with the build's line", v.State, v.Lines)
 	}

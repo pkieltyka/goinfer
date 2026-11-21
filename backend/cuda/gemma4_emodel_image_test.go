@@ -8,7 +8,7 @@ import (
 	"strconv"
 	"testing"
 
-	"github.com/townsendmerino/goinfer/decoder"
+	"github.com/pkieltyka/goinfer/decoder"
 )
 
 // S9 on CUDA, part B: the Gemma 4 E-model image turn prefilled on the resident in one batched pass, from rows the decoder builds.

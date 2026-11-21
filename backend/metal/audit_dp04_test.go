@@ -11,7 +11,7 @@ import (
 	"testing"
 	"time"
 
-	"github.com/townsendmerino/goinfer/decoder"
+	"github.com/pkieltyka/goinfer/decoder"
 )
 
 // TestDP04_routeSGDecode is D-P04's whole-token check (docs/audit-metal-2026-09-30.md, "D-P04"): resident MoE decode

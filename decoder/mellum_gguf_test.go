@@ -7,8 +7,8 @@ import (
 	"os"
 	"testing"
 
-	"github.com/townsendmerino/goinfer/internal/runtime/sampling"
-	"github.com/townsendmerino/goinfer/internal/testgate"
+	"github.com/pkieltyka/goinfer/internal/runtime/sampling"
+	"github.com/pkieltyka/goinfer/internal/testgate"
 )
 
 // TestMellumGGUF_runs is the end-to-end smoke test for Mellum2 from a bare GGUF:

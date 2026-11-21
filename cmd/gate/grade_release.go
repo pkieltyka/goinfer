@@ -260,10 +260,10 @@ func rowPins(e *relEnv) relRow {
 		if err != nil {
 			return owed(name, m+"/go.mod", err.Error())
 		}
-		if v := modRequire(b, "github.com/townsendmerino/aikit"); v != "" {
+		if v := modRequire(b, "github.com/pkieltyka/aikit"); v != "" {
 			aikit[m] = v
 		}
-		if v := modRequire(b, "github.com/townsendmerino/aikit/gpu"); v != "" {
+		if v := modRequire(b, "github.com/pkieltyka/aikit/gpu"); v != "" {
 			gpuReq = append(gpuReq, m+" "+v)
 		}
 	}

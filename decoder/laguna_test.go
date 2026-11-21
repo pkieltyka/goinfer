@@ -9,7 +9,7 @@ import (
 	"path/filepath"
 	"testing"
 
-	"github.com/townsendmerino/goinfer/internal/runtime/sampling"
+	"github.com/pkieltyka/goinfer/internal/runtime/sampling"
 )
 
 // TestLaguna_textParity is the T1 tiny-golden gate for Laguna, run against THREE

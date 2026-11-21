@@ -14,8 +14,8 @@ import (
 	"time"
 	"unsafe"
 
-	"github.com/townsendmerino/goinfer/decoder"
-	"github.com/townsendmerino/goinfer/internal/runtime/modelload"
+	"github.com/pkieltyka/goinfer/decoder"
+	"github.com/pkieltyka/goinfer/internal/runtime/modelload"
 )
 
 // TestG4LayerMajor_M26AB is 4b's grade: on M26, a fresh

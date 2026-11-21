@@ -3,7 +3,7 @@ package decoder
 import (
 	"testing"
 
-	"github.com/townsendmerino/goinfer/internal/testgate"
+	"github.com/pkieltyka/goinfer/internal/testgate"
 )
 
 // TestMellum2SliceShape reports which FFN path the sliced checkpoint actually

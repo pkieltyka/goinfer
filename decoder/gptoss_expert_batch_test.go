@@ -5,7 +5,7 @@ import (
 	"math/rand/v2"
 	"testing"
 
-	"github.com/townsendmerino/aikit/linalg"
+	"github.com/pkieltyka/aikit/linalg"
 )
 
 // TestGptOssExpertBatch_tinyLogitsBitIdentical decodes the committed tiny gpt-oss at int4 on the CPU with the expert gate/up

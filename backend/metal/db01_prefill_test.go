@@ -10,8 +10,8 @@ import (
 	"path/filepath"
 	"testing"
 
-	"github.com/townsendmerino/goinfer/decoder"
-	"github.com/townsendmerino/goinfer/tokenizer"
+	"github.com/pkieltyka/goinfer/decoder"
+	"github.com/pkieltyka/goinfer/tokenizer"
 )
 
 // TestDB01_prefillAgreesWithSequential (D-B01): a Gated-DeltaNet hybrid's batched prefill pass against the sequential

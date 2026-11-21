@@ -9,7 +9,7 @@ import (
 	"os"
 	"testing"
 
-	"github.com/townsendmerino/goinfer/decoder"
+	"github.com/pkieltyka/goinfer/decoder"
 )
 
 // G-IP2 (S17's Metal image prefill): gemma3-vl-tiny's image turn through the

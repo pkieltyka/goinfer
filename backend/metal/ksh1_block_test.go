@@ -15,7 +15,7 @@ import (
 
 	"context"
 
-	"github.com/townsendmerino/goinfer/decoder"
+	"github.com/pkieltyka/goinfer/decoder"
 )
 
 // ksh1Window copies a fixture directory with its position window raised to n (the weights do not depend on it).

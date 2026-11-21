@@ -6,7 +6,7 @@ import (
 	"testing"
 	"time"
 
-	"github.com/townsendmerino/aikit/linalg"
+	"github.com/pkieltyka/aikit/linalg"
 )
 
 // qkvShapes mimics a GQA qkv projection: q full width, k/v narrower, shared K.

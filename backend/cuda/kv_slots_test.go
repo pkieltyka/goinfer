@@ -13,9 +13,9 @@ import (
 	"testing"
 	"time"
 
-	gpu "github.com/townsendmerino/goinfer/backend/cuda/internal/gpudev"
-	"github.com/townsendmerino/goinfer/internal/cost"
-	"github.com/townsendmerino/goinfer/internal/runtime/mem"
+	gpu "github.com/pkieltyka/goinfer/backend/cuda/internal/gpudev"
+	"github.com/pkieltyka/goinfer/internal/cost"
+	"github.com/pkieltyka/goinfer/internal/runtime/mem"
 
 	"compress/gzip"
 	"crypto/sha256"
@@ -27,8 +27,8 @@ import (
 	"strings"
 
 	gc "github.com/eitamring/gocudrv/cuda"
-	"github.com/townsendmerino/goinfer/decoder"
-	"github.com/townsendmerino/goinfer/decoder/fit"
+	"github.com/pkieltyka/goinfer/decoder"
+	"github.com/pkieltyka/goinfer/decoder/fit"
 )
 
 // kvSlotTurn is one generation of the MC1 identity scenario: its token ids and PrefillReused.

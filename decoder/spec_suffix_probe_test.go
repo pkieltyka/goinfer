@@ -10,7 +10,7 @@ import (
 	"testing"
 	"time"
 
-	"github.com/townsendmerino/goinfer/tokenizer"
+	"github.com/pkieltyka/goinfer/tokenizer"
 )
 
 // 02 "next step", Step 1: instrument the SHIPPED NgramDrafter on realistic agentic/code traffic. (Step 2, in

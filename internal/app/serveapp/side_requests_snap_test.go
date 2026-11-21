@@ -14,8 +14,8 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/townsendmerino/goinfer/internal/runtime/modelload"
-	"github.com/townsendmerino/goinfer/internal/testpath"
+	"github.com/pkieltyka/goinfer/internal/runtime/modelload"
+	"github.com/pkieltyka/goinfer/internal/testpath"
 )
 
 // TestSideRequests_snapshotPrefixes checks a run's restored prefixes against the ids the run itself wrote (KV7 step 2, the night rerun with bodies kept,

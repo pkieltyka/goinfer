@@ -8,7 +8,7 @@ import (
 	"strconv"
 	"testing"
 
-	"github.com/townsendmerino/goinfer/decoder"
+	"github.com/pkieltyka/goinfer/decoder"
 )
 
 // slotQuantum is the CUDA driver's allocation granularity on this class of device, measured rather

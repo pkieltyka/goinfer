@@ -2,7 +2,7 @@
 
 package metal
 
-import "github.com/townsendmerino/goinfer/decoder"
+import "github.com/pkieltyka/goinfer/decoder"
 
 // The Metal build's account of a load, before the build, for the fit guard (decoder.BuildDemand): resident when the load is
 // Metal's and the architecture is covered (decoder's feature table). Its KV is unified memory, which the fit guard prices as

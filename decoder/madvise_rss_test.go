@@ -9,7 +9,7 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/townsendmerino/aikit/mmap"
+	"github.com/pkieltyka/aikit/mmap"
 )
 
 // vmRSSKB returns this process's total resident set (VmRSS) in KB. VmRSS counts

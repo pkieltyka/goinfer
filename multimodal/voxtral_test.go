@@ -9,7 +9,7 @@ import (
 	"path/filepath"
 	"testing"
 
-	"github.com/townsendmerino/goinfer/tokenizer"
+	"github.com/pkieltyka/goinfer/tokenizer"
 )
 
 // G-S14e1, the prompt half: the transcription-request ids mistral_common 1.12.0 builds for 2 s, 35 s and 65 s clips (1, 2 and 3 thirty-second

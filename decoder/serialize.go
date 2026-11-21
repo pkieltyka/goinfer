@@ -10,9 +10,9 @@ import (
 	"math"
 	"unsafe"
 
-	"github.com/townsendmerino/aikit/linalg"
+	"github.com/pkieltyka/aikit/linalg"
 
-	"github.com/townsendmerino/goinfer/internal/runtime/logs"
+	"github.com/pkieltyka/goinfer/internal/runtime/logs"
 )
 
 // This file defines the binary format of an already-quantized *Weights bundle (a ".giw", goinfer weights), so the

@@ -8,7 +8,7 @@ import (
 	"slices"
 	"testing"
 
-	"github.com/townsendmerino/goinfer/decoder"
+	"github.com/pkieltyka/goinfer/decoder"
 )
 
 func loadOptFwdModel(t *testing.T) *decoder.Model {

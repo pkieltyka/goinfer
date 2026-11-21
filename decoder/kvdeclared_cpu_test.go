@@ -3,7 +3,7 @@ package decoder
 import (
 	"testing"
 
-	"github.com/townsendmerino/goinfer/internal/runtime/program"
+	"github.com/pkieltyka/goinfer/internal/runtime/program"
 )
 
 // kvBytesForCtxOracle is the CPU cache's K/V price as it was written from the architecture alone, before the price read the

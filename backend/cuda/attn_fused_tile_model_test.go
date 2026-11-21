@@ -8,7 +8,7 @@ import (
 	"os"
 	"testing"
 
-	"github.com/townsendmerino/goinfer/decoder"
+	"github.com/pkieltyka/goinfer/decoder"
 )
 
 // TestAttnFusedTile_defaultBitIdenticalWholeModel is gate 2 of attn-fused-tile128-default-PREREGISTERED.md: a whole chunked

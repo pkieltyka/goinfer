@@ -3,9 +3,9 @@
 package cuda
 
 import (
-	"github.com/townsendmerino/goinfer/backend/cuda/internal/fitdecide"
-	"github.com/townsendmerino/goinfer/backend/cuda/internal/launchgeom"
-	"github.com/townsendmerino/goinfer/decoder"
+	"github.com/pkieltyka/goinfer/backend/cuda/internal/fitdecide"
+	"github.com/pkieltyka/goinfer/backend/cuda/internal/launchgeom"
+	"github.com/pkieltyka/goinfer/decoder"
 )
 
 // The context margin computed from its parts: what the build allocates

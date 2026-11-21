@@ -7,11 +7,11 @@ import (
 	"os"
 	"testing"
 
-	"github.com/townsendmerino/goinfer/chat"
-	"github.com/townsendmerino/goinfer/tokenizer"
+	"github.com/pkieltyka/goinfer/chat"
+	"github.com/pkieltyka/goinfer/tokenizer"
 
-	"github.com/townsendmerino/goinfer/internal/runtime/sampling"
-	"github.com/townsendmerino/goinfer/internal/testgate"
+	"github.com/pkieltyka/goinfer/internal/runtime/sampling"
+	"github.com/pkieltyka/goinfer/internal/testgate"
 )
 
 // TestDFlashGemma4_diag localizes why the Gemma-4 pairing's mean acceptance was exactly 0.00 (477 rounds): a merely

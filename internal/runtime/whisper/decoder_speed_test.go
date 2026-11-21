@@ -8,8 +8,8 @@ import (
 	"testing"
 	"time"
 
-	"github.com/townsendmerino/goinfer/internal/audio"
-	"github.com/townsendmerino/goinfer/multimodal"
+	"github.com/pkieltyka/goinfer/internal/audio"
+	"github.com/pkieltyka/goinfer/multimodal"
 )
 
 // TestDecoderSpeed_record prints one timed greedy decode on a held encoder output, for G-S14t3's interleaved old/new record. It is a record, not a gate:

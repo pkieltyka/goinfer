@@ -9,7 +9,7 @@ import (
 	"testing"
 
 	gc "github.com/eitamring/gocudrv/cuda"
-	"github.com/townsendmerino/goinfer/decoder"
+	"github.com/pkieltyka/goinfer/decoder"
 )
 
 // TestMoEExpertMajorCUDA_bitIdentical is R11/P20's gate (docs/measurements/p20-expert-locality-2026-09-21.md):

@@ -5,7 +5,7 @@ import (
 	"fmt"
 	"math"
 
-	"github.com/townsendmerino/goinfer/internal/vision"
+	"github.com/pkieltyka/goinfer/internal/vision"
 )
 
 // Gemma4AudioProgram is Gemma 4 audio's conformer block (spec §2.3): a half-step feed-forward (RMSNorm, the up linear,

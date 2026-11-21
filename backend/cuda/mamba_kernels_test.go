@@ -11,7 +11,7 @@ import (
 	"testing"
 
 	gc "github.com/eitamring/gocudrv/cuda"
-	"github.com/townsendmerino/goinfer/decoder"
+	"github.com/pkieltyka/goinfer/decoder"
 )
 
 // OP2b on CUDA, gate K: the Mamba-2 kernels against the CPU's own computation

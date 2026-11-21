@@ -8,7 +8,7 @@ import (
 	"fmt"
 	"os"
 
-	"github.com/townsendmerino/goinfer/site/internal/site"
+	"github.com/pkieltyka/goinfer/site/internal/site"
 )
 
 func main() {

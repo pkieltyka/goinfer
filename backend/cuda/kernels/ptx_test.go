@@ -7,7 +7,7 @@ import (
 	"os"
 	"path/filepath"
 
-	gpu "github.com/townsendmerino/goinfer/backend/cuda/internal/gpudev"
+	gpu "github.com/pkieltyka/goinfer/backend/cuda/internal/gpudev"
 )
 
 type (

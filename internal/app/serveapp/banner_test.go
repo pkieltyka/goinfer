@@ -2,9 +2,9 @@ package serveapp
 
 import (
 	"fmt"
-	"github.com/townsendmerino/goinfer/decoder"
-	"github.com/townsendmerino/goinfer/internal/app/loadflags"
-	"github.com/townsendmerino/goinfer/internal/runtime/mem"
+	"github.com/pkieltyka/goinfer/decoder"
+	"github.com/pkieltyka/goinfer/internal/app/loadflags"
+	"github.com/pkieltyka/goinfer/internal/runtime/mem"
 	"os"
 	"path/filepath"
 	"strings"

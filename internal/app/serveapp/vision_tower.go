@@ -4,8 +4,8 @@ import (
 	"fmt"
 	"sync"
 
-	"github.com/townsendmerino/goinfer/internal/vision"
-	"github.com/townsendmerino/goinfer/multimodal"
+	"github.com/pkieltyka/goinfer/internal/vision"
+	"github.com/pkieltyka/goinfer/multimodal"
 )
 
 // visionTower is one family's image input: its preprocessing, its tower and the placeholder its block carries. An entry

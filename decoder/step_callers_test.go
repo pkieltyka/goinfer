@@ -6,7 +6,7 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/townsendmerino/goinfer/internal/runtime/sampling"
+	"github.com/pkieltyka/goinfer/internal/runtime/sampling"
 )
 
 // callLogResident is fakeResident with the decode and verify shapes RF1-5 moves behind step (GreedyAvailable, TopKAvailable,

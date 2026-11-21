@@ -3,8 +3,8 @@ package resident
 import (
 	"context"
 
-	"github.com/townsendmerino/goinfer/internal/cost"
-	"github.com/townsendmerino/goinfer/internal/runtime/adapter"
+	"github.com/pkieltyka/goinfer/internal/cost"
+	"github.com/pkieltyka/goinfer/internal/runtime/adapter"
 )
 
 // SubsystemProvider is implemented by GPU resident runners (cuda, metal, webgpu) to expose their capabilities

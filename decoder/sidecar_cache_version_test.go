@@ -10,7 +10,7 @@ import (
 	"testing"
 	"time"
 
-	"github.com/townsendmerino/goinfer/internal/runtime/giw"
+	"github.com/pkieltyka/goinfer/internal/runtime/giw"
 )
 
 // stampWeightsVersion overwrites the format version of the weights blob inside the bundle at path, in place and

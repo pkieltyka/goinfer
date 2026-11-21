@@ -4,7 +4,7 @@ import (
 	"math"
 	"testing"
 
-	"github.com/townsendmerino/goinfer/internal/vision"
+	"github.com/pkieltyka/goinfer/internal/vision"
 )
 
 // tinyGemma4AudioBlock is one block of hidden 8, two heads, a window of 2 and a depthwise kernel of 3, with every

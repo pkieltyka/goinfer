@@ -6,8 +6,8 @@ import (
 	"runtime"
 	"strings"
 
-	"github.com/townsendmerino/goinfer/decoder"
-	"github.com/townsendmerino/goinfer/internal/app/cliutil"
+	"github.com/pkieltyka/goinfer/decoder"
+	"github.com/pkieltyka/goinfer/internal/app/cliutil"
 )
 
 // injectedVersion is set via `-ldflags -X` on a release-built binary, because the release workflow's own path stamps

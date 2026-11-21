@@ -5,7 +5,7 @@ package cuda
 import (
 	"testing"
 
-	"github.com/townsendmerino/goinfer/decoder"
+	"github.com/pkieltyka/goinfer/decoder"
 )
 
 // This smoke gate passed while every decode token's final norm was the wrong kind (audit-2026-09-10

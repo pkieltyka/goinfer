@@ -4,8 +4,8 @@ import (
 	"context"
 	"sync/atomic"
 
-	"github.com/townsendmerino/goinfer/constrain"
-	"github.com/townsendmerino/goinfer/decoder"
+	"github.com/pkieltyka/goinfer/constrain"
+	"github.com/pkieltyka/goinfer/decoder"
 )
 
 // lazyPhase starts one phase of a lazy-union turn over prompt with at most max tokens (0: the request's own unbounded budget) and

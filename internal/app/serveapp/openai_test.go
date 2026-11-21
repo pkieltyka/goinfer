@@ -4,7 +4,7 @@ import (
 	"bufio"
 	"bytes"
 	"encoding/json"
-	"github.com/townsendmerino/goinfer/internal/app/loadflags"
+	"github.com/pkieltyka/goinfer/internal/app/loadflags"
 	"net/http"
 	"net/http/httptest"
 	"os"
@@ -12,8 +12,8 @@ import (
 	"testing"
 	"time"
 
-	"github.com/townsendmerino/goinfer/chat"
-	"github.com/townsendmerino/goinfer/tokenizer"
+	"github.com/pkieltyka/goinfer/chat"
+	"github.com/pkieltyka/goinfer/tokenizer"
 )
 
 func TestParseStop(t *testing.T) {

@@ -5,11 +5,11 @@ package webgpu
 import (
 	"context"
 	"fmt"
-	"github.com/townsendmerino/goinfer/backend/webgpu/internal/kernels"
+	"github.com/pkieltyka/goinfer/backend/webgpu/internal/kernels"
 	"os"
 	"testing"
 
-	"github.com/townsendmerino/goinfer/decoder"
+	"github.com/pkieltyka/goinfer/decoder"
 )
 
 // TestKV3_prefillScratchBytes_boundsThePass (docs/measurements/kv3-webgpu-2026-10-13.md §2): the figure admission trusts is never under

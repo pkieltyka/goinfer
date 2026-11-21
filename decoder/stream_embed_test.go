@@ -11,7 +11,7 @@ import (
 	"sync"
 	"testing"
 
-	"github.com/townsendmerino/aikit/linalg"
+	"github.com/pkieltyka/aikit/linalg"
 )
 
 // TestForRowRanges: the ranges cover every row once, each starts on a multiple of align, each gets a reader of its own,

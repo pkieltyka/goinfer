@@ -4,7 +4,7 @@ import (
 	"encoding/json"
 	"fmt"
 
-	"github.com/townsendmerino/aikit/embed"
+	"github.com/pkieltyka/aikit/embed"
 )
 
 // GGUF loading for the qwen3_5_moe (Qwen3.6-35B-A3B) architecture

@@ -7,7 +7,7 @@ import (
 	"math/rand"
 	"testing"
 
-	"github.com/townsendmerino/goinfer/decoder"
+	"github.com/pkieltyka/goinfer/decoder"
 )
 
 // TestMoEW8_X1_kernelsMatchReference is MoE int8's gate X1: gemv_w8a8_moe (overwrite) and gemv_w8a8_moe_wacc (weighted accumulate) against a Go reference, bit for bit,

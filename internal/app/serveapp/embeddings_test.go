@@ -12,7 +12,7 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/townsendmerino/aikit/encoder"
+	"github.com/pkieltyka/aikit/encoder"
 )
 
 func TestParseEmbedInput(t *testing.T) {

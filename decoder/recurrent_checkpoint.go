@@ -4,7 +4,7 @@ import (
 	"slices"
 	"time"
 
-	"github.com/townsendmerino/goinfer/internal/runtime/kvmgr"
+	"github.com/pkieltyka/goinfer/internal/runtime/kvmgr"
 )
 
 // One recurrent checkpoint for the one resident slot a hybrid model has.

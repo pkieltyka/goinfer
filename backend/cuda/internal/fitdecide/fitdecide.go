@@ -7,7 +7,7 @@ import (
 	"errors"
 	"fmt"
 
-	"github.com/townsendmerino/goinfer/internal/runtime/mem"
+	"github.com/pkieltyka/goinfer/internal/runtime/mem"
 )
 
 // AllocQuantumBytes is the driver's allocation granularity; package cuda holds it equal to gpudev's by a compile-time check.

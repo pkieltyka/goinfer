@@ -7,7 +7,7 @@ import (
 	"slices"
 	"sync/atomic"
 
-	"github.com/townsendmerino/goinfer/internal/runtime/sampling"
+	"github.com/pkieltyka/goinfer/internal/runtime/sampling"
 )
 
 // Drafter is the cheap half of speculative decoding: it proposes continuation tokens for a context, which the target

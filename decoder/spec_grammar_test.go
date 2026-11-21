@@ -3,8 +3,8 @@ package decoder
 import (
 	"testing"
 
-	"github.com/townsendmerino/goinfer/constrain"
-	"github.com/townsendmerino/goinfer/tokenizer"
+	"github.com/pkieltyka/goinfer/constrain"
+	"github.com/pkieltyka/goinfer/tokenizer"
 )
 
 // TestGrammarForcedFraction is the 01 increment-2 go/no-go: with a REAL BPE

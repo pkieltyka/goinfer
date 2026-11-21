@@ -5,9 +5,9 @@ package webgpu
 import (
 	"testing"
 
-	"github.com/townsendmerino/goinfer/decoder"
+	"github.com/pkieltyka/goinfer/decoder"
 
-	"github.com/townsendmerino/goinfer/internal/testgate"
+	"github.com/pkieltyka/goinfer/internal/testgate"
 )
 
 // TestP0a_webgpuBuildFollowsResolveKV is WebGPU's half of the resolver gate:

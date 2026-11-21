@@ -13,7 +13,7 @@ import (
 	"testing"
 )
 
-const aikit = "github.com/townsendmerino/aikit/"
+const aikit = "github.com/pkieltyka/aikit/"
 
 // moved reports whether an import path is one Track AX moved: aikit's vision and audio packages, and its gpu module
 // with everything under it. The goinfer copies are internal/vision, internal/audio and the backends' internal/gpudev.
@@ -23,7 +23,7 @@ func moved(path string) bool {
 }
 
 // movedModule matches a go.mod or go.sum line naming aikit's gpu module or one of its sub-modules.
-var movedModule = regexp.MustCompile(`github\.com/townsendmerino/aikit/gpu(/[^\s@]+)?[\s@]`)
+var movedModule = regexp.MustCompile(`github\.com/pkieltyka/aikit/gpu(/[^\s@]+)?[\s@]`)
 
 func TestNoMovedAikitPath(t *testing.T) {
 	var goFiles, modFiles int

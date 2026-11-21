@@ -3,8 +3,8 @@ package metal
 import (
 	"os"
 
-	"github.com/townsendmerino/goinfer/internal/runtime/logs"
-	"github.com/townsendmerino/goinfer/internal/runtime/program"
+	"github.com/pkieltyka/goinfer/internal/runtime/logs"
+	"github.com/pkieltyka/goinfer/internal/runtime/program"
 )
 
 // The attention step's segments, in the order a layer runs them: the input norm, the q/k/v projection, the QK-norm, Gemma 4's

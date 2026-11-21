@@ -7,7 +7,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"github.com/oliverbestmann/webgpu/wgpu"
-	"github.com/townsendmerino/goinfer/internal/runtime/mem"
+	"github.com/pkieltyka/goinfer/internal/runtime/mem"
 	"go/ast"
 	"go/importer"
 	"go/parser"
@@ -202,7 +202,7 @@ func wgpuCalls(t *testing.T, fset *token.FileSet, path string, files []*ast.File
 // through the ledger's wrappers, so every buffer is a lease and every free closes one. Typed, so a pipeline's or a bind group's
 // Release is not mistaken for a buffer's; it goes red on a planted call of each kind.
 func TestLedger_everyBufferIsLeased(t *testing.T) {
-	pkgs := []string{"github.com/townsendmerino/goinfer/backend/webgpu/internal/kernels", "github.com/townsendmerino/goinfer/backend/webgpu"}
+	pkgs := []string{"github.com/pkieltyka/goinfer/backend/webgpu/internal/kernels", "github.com/pkieltyka/goinfer/backend/webgpu"}
 	out, err := exec.Command("go", append([]string{"list", "-export", "-deps", "-json", "-tags", "gpu goinfer_testhooks"}, pkgs...)...).Output()
 	if err != nil {
 		t.Fatalf("go list -export: %v", err)

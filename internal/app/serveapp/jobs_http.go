@@ -1,11 +1,11 @@
 package serveapp
 
 import (
-	"github.com/townsendmerino/goinfer/internal/app/serveapp/jobs"
+	"github.com/pkieltyka/goinfer/internal/app/serveapp/jobs"
 	"net/http"
 	"time"
 
-	"github.com/townsendmerino/goinfer/internal/runtime/scheduler"
+	"github.com/pkieltyka/goinfer/internal/runtime/scheduler"
 )
 
 // POST /v1/jobs submits a generation and returns its id immediately; GET /v1/jobs/{id} polls state and result; GET

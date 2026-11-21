@@ -4,7 +4,7 @@ package webgpu
 
 import (
 	"fmt"
-	"github.com/townsendmerino/goinfer/backend/webgpu/internal/kernels"
+	"github.com/pkieltyka/goinfer/backend/webgpu/internal/kernels"
 	"math"
 	"math/rand"
 	"os"
@@ -13,9 +13,9 @@ import (
 	"time"
 
 	"github.com/oliverbestmann/webgpu/wgpu"
-	"github.com/townsendmerino/goinfer/decoder"
+	"github.com/pkieltyka/goinfer/decoder"
 
-	"github.com/townsendmerino/goinfer/internal/testgate"
+	"github.com/pkieltyka/goinfer/internal/testgate"
 )
 
 // TestDecodeArgmaxHeadroom bounds what an on-device argmax for the greedy path could recover.

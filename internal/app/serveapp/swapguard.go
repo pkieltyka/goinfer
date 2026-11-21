@@ -6,8 +6,8 @@ import (
 	"sync"
 	"testing"
 
-	"github.com/townsendmerino/goinfer/decoder"
-	"github.com/townsendmerino/goinfer/internal/guard/swapguard"
+	"github.com/pkieltyka/goinfer/decoder"
+	"github.com/pkieltyka/goinfer/internal/guard/swapguard"
 )
 
 // Both halves of the swap tripwire.

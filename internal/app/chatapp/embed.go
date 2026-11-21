@@ -7,7 +7,7 @@ import (
 	"fmt"
 	"os"
 
-	"github.com/townsendmerino/goinfer/decoder"
+	"github.com/pkieltyka/goinfer/decoder"
 )
 
 // loadEmbedded loads the baked-in GGUF: in-memory by default (parsed straight

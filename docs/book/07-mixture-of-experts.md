@@ -66,7 +66,7 @@ rescue dense models.
 *Routing, animated. A run of Go tokens keeps reusing the experts already in memory; a French word routes elsewhere
 and the fetches come back. The routing is illustrative, not a recording of a real model, and the cache is drawn
 with no capacity limit
-([video](./07-anim-moe-routing.mp4), [scene source](https://github.com/townsendmerino/goinfer/blob/main/docs/book/07-anim-moe-routing.py)).*
+([video](./07-anim-moe-routing.mp4), [scene source](https://github.com/pkieltyka/goinfer/blob/main/docs/book/07-anim-moe-routing.py)).*
 
 ---
 
@@ -179,7 +179,7 @@ generation are two different performance problems.
 
 ---
 
-*Sources: [`docs/deltanet-residency-plan.md`](https://github.com/townsendmerino/goinfer/blob/main/docs/deltanet-residency-plan.md) (35B-A3B CUDA figures, expert DMA share),
-[`docs/completed/task-moe-streaming.md`](https://github.com/townsendmerino/goinfer/blob/main/docs/completed/task-moe-streaming.md), [`decoder/moepaging.go`](https://github.com/townsendmerino/goinfer/blob/main/decoder/moepaging.go), [`CLAUDE.md`](https://github.com/townsendmerino/goinfer/blob/main/CLAUDE.md) (tests, measurement
-discipline), [`docs/completed/task-metal-expert-streaming-at-scale.md`](https://github.com/townsendmerino/goinfer/blob/main/docs/completed/task-metal-expert-streaming-at-scale.md),
-[`docs/measurements/mellum2-moe-prefill-split-RESULT.md`](https://github.com/townsendmerino/goinfer/blob/main/docs/measurements/mellum2-moe-prefill-split-RESULT.md) (the under-5% batching bound).*
+*Sources: [`docs/deltanet-residency-plan.md`](https://github.com/pkieltyka/goinfer/blob/main/docs/deltanet-residency-plan.md) (35B-A3B CUDA figures, expert DMA share),
+[`docs/completed/task-moe-streaming.md`](https://github.com/pkieltyka/goinfer/blob/main/docs/completed/task-moe-streaming.md), [`decoder/moepaging.go`](https://github.com/pkieltyka/goinfer/blob/main/decoder/moepaging.go), [`CLAUDE.md`](https://github.com/pkieltyka/goinfer/blob/main/CLAUDE.md) (tests, measurement
+discipline), [`docs/completed/task-metal-expert-streaming-at-scale.md`](https://github.com/pkieltyka/goinfer/blob/main/docs/completed/task-metal-expert-streaming-at-scale.md),
+[`docs/measurements/mellum2-moe-prefill-split-RESULT.md`](https://github.com/pkieltyka/goinfer/blob/main/docs/measurements/mellum2-moe-prefill-split-RESULT.md) (the under-5% batching bound).*

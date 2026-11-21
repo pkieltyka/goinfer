@@ -11,7 +11,7 @@ import (
 	"sync"
 	"testing"
 
-	"github.com/townsendmerino/goinfer/decoder"
+	"github.com/pkieltyka/goinfer/decoder"
 )
 
 // G3-C, schedule independence on a CUDA resident through Generate (docs/measurements/kv2-cuda-2026-10-15.md): three

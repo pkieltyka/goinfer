@@ -6,7 +6,7 @@ import (
 	"reflect"
 
 	"github.com/oliverbestmann/webgpu/wgpu"
-	"github.com/townsendmerino/goinfer/internal/cost"
+	"github.com/pkieltyka/goinfer/internal/cost"
 )
 
 // The decode runners' cost counters (internal/cost). The Context counts, always, the dispatches in each command buffer a

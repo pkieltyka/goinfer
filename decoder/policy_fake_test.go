@@ -8,9 +8,9 @@ import (
 	"slices"
 	"testing"
 
-	"github.com/townsendmerino/goinfer/constrain"
-	"github.com/townsendmerino/goinfer/internal/runtime/kvmgr"
-	"github.com/townsendmerino/goinfer/internal/runtime/sampling"
+	"github.com/pkieltyka/goinfer/constrain"
+	"github.com/pkieltyka/goinfer/internal/runtime/kvmgr"
+	"github.com/pkieltyka/goinfer/internal/runtime/sampling"
 )
 
 // scriptedForward is a fake Forward (SB5): the logits after a history are a pure function of that history, so a policy

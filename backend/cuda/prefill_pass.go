@@ -7,12 +7,12 @@ import (
 	"fmt"
 	"time"
 
-	"github.com/townsendmerino/aikit/linalg"
-	gpu "github.com/townsendmerino/goinfer/backend/cuda/internal/gpudev"
-	"github.com/townsendmerino/goinfer/decoder"
-	"github.com/townsendmerino/goinfer/internal/runtime/program"
+	"github.com/pkieltyka/aikit/linalg"
+	gpu "github.com/pkieltyka/goinfer/backend/cuda/internal/gpudev"
+	"github.com/pkieltyka/goinfer/decoder"
+	"github.com/pkieltyka/goinfer/internal/runtime/program"
 
-	"github.com/townsendmerino/goinfer/backend/cuda/internal/launchgeom"
+	"github.com/pkieltyka/goinfer/backend/cuda/internal/launchgeom"
 )
 
 // prefillPass is one prefillCore pass's state, shared by its phases: the call's inputs, the scratch it allocates and the

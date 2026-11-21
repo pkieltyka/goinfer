@@ -5,7 +5,7 @@ import (
 	"fmt"
 	"math"
 
-	"github.com/townsendmerino/goinfer/internal/vision"
+	"github.com/pkieltyka/goinfer/internal/vision"
 )
 
 // QwenASRProgram is Qwen3-ASR's encoder layer, pre-LayerNorm (eps 1e-5): LayerNorm, the q, k and v linears, attention

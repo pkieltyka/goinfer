@@ -4,7 +4,7 @@ import (
 	"slices"
 	"testing"
 
-	"github.com/townsendmerino/goinfer/internal/runtime/program"
+	"github.com/pkieltyka/goinfer/internal/runtime/program"
 )
 
 // TestCUDATable_plantedGapGoesRed is OP4cu-c2's C2-3: CUDA's

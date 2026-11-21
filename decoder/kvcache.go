@@ -4,9 +4,9 @@ import (
 	"slices"
 	"sync/atomic"
 
-	"github.com/townsendmerino/aikit/linalg"
-	"github.com/townsendmerino/goinfer/internal/cost"
-	"github.com/townsendmerino/goinfer/internal/runtime/kvmgr"
+	"github.com/pkieltyka/aikit/linalg"
+	"github.com/pkieltyka/goinfer/internal/cost"
+	"github.com/pkieltyka/goinfer/internal/runtime/kvmgr"
 )
 
 // kvQuant selects the CPU KV-cache storage precision. kvF32 (default) is

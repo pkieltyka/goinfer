@@ -5,7 +5,7 @@ package cuda
 import (
 	"fmt"
 
-	"github.com/townsendmerino/goinfer/decoder"
+	"github.com/pkieltyka/goinfer/decoder"
 )
 
 // Every path that writes a slot's rows (a prefill or decode step, an upload, a copy, a restore or promotion) goes through kvWriteBegin and ends in

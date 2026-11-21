@@ -13,7 +13,7 @@ import (
 	"testing"
 	"time"
 
-	"github.com/townsendmerino/goinfer/internal/app/loadflags"
+	"github.com/pkieltyka/goinfer/internal/app/loadflags"
 )
 
 // R25 gate: with the flag on, a request through the real chat handler writes one line naming the route, the model, the status,

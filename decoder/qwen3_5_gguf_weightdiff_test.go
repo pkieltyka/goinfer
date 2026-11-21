@@ -31,7 +31,7 @@ import (
 	"runtime"
 	"testing"
 
-	"github.com/townsendmerino/goinfer/internal/testgate"
+	"github.com/pkieltyka/goinfer/internal/testgate"
 )
 
 func TestQwen38GGUF_weightDiff(t *testing.T) {

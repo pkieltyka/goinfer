@@ -55,7 +55,7 @@ func TestParityManifest_loadersClosed(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	const modPath = "github.com/townsendmerino/goinfer"
+	const modPath = "github.com/pkieltyka/goinfer"
 
 	fset := token.NewFileSet()
 	imp := importer.ForCompiler(fset, "source", nil)

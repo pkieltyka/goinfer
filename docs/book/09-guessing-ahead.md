@@ -46,7 +46,7 @@ candidates from somewhere, you could check all five in a single pass.
 
 *The same round, animated. The drafter proposes; the model decides, so the output is the same either way. The
 tokens are the example above, not a recorded run
-([video](./09-anim-speculative.mp4), [scene source](https://github.com/townsendmerino/goinfer/blob/main/docs/book/09-anim-speculative.py)).*
+([video](./09-anim-speculative.mp4), [scene source](https://github.com/pkieltyka/goinfer/blob/main/docs/book/09-anim-speculative.py)).*
 
 If the drafter guessed 4 of 5 correctly, you produced 4 tokens for roughly the price of 1. If
 the drafter guessed none correctly, you paid slightly more than a normal step and got one
@@ -58,14 +58,14 @@ The drafter proposes; the model decides. A bad drafter costs speed and never cos
 If you've written optimistic concurrency, this is that. Guess, do the work, validate, roll
 back on conflict. Chapter 3's optimistic forward was a one-token version of the same bet.
 
-In this repo it's the `docs/spec/` series, with [`decoder/speculative.go`](https://github.com/townsendmerino/goinfer/blob/main/decoder/speculative.go) and
-[`decoder/blockspec.go`](https://github.com/townsendmerino/goinfer/blob/main/decoder/blockspec.go) as the implementation.
+In this repo it's the `docs/spec/` series, with [`decoder/speculative.go`](https://github.com/pkieltyka/goinfer/blob/main/decoder/speculative.go) and
+[`decoder/blockspec.go`](https://github.com/pkieltyka/goinfer/blob/main/decoder/blockspec.go) as the implementation.
 
 ---
 
 ## Where drafts come from
 
-[`docs/spec/00-core.md`](https://github.com/townsendmerino/goinfer/blob/main/docs/spec/00-core.md) treats the drafter as a plugin behind one interface — grammar, n-gram,
+[`docs/spec/00-core.md`](https://github.com/pkieltyka/goinfer/blob/main/docs/spec/00-core.md) treats the drafter as a plugin behind one interface — grammar, n-gram,
 model, head are all just different sources of a proposal.
 
 **A smaller model.** Run a 0.5B model to draft for a 7B model. Simple, and a smaller model pays
@@ -145,7 +145,7 @@ people stop reading the gate. Three limits, all recorded before the measurement:
   this would require the state-checkpoint work first, which is a materially larger build than
   wiring up a drafter.
 
-This is also why [`docs/spec/README.md`](https://github.com/townsendmerino/goinfer/blob/main/docs/spec/README.md) states the scheme as a scorecard rather than a
+This is also why [`docs/spec/README.md`](https://github.com/pkieltyka/goinfer/blob/main/docs/spec/README.md) states the scheme as a scorecard rather than a
 recommendation: a model drafter translates only when the target step is expensive enough.
 Chapter 3's rule shows up again — the fraction is set by the denominator.
 
@@ -208,18 +208,18 @@ echo "Write a Go function that reverses a string." | goinfer-chat --model hf:Qwe
 
 The last line reads `[spec: 95% accepted, 4.6 tok/pass]` on an Apple Silicon CPU: four tokens proposed per pass, and
 on average 4.6 of a possible 5 kept, the drafted ones plus the one the target adds. Code this predictable is the
-drafter's best case; try a question with no single right answer and watch both numbers fall. Measured on 2026-10-02 with the v0.20.0 release ([record](https://github.com/townsendmerino/goinfer/blob/main/docs/measurements/book-try-it-2026-10.md), chapter 9).
+drafter's best case; try a question with no single right answer and watch both numbers fall. Measured on 2026-10-02 with the v0.20.0 release ([record](https://github.com/pkieltyka/goinfer/blob/main/docs/measurements/book-try-it-2026-10.md), chapter 9).
 
 Now the `tok/s` on the same line. Run the command again without `--draft` and compare: on an M1 Pro CPU the drafted
 run read 46.7 tok/s and the plain one 51.3 tok/s (medians of three), so drafting was **slower**, 0.91× plain, even
 at 95% acceptance. On a CPU the 0.5B's own passes are not cheap next to the 1.5B's, and for a 64-token reply what they
 cost outweighs the verify passes they save. That is the do-nothing arm this chapter keeps returning to: acceptance is
 not speed, and the only way to know is to time the plain run beside it. Your machine's numbers will differ
-([record](https://github.com/townsendmerino/goinfer/blob/main/docs/measurements/book-try-it-2026-10.md), timed figures).
+([record](https://github.com/pkieltyka/goinfer/blob/main/docs/measurements/book-try-it-2026-10.md), timed figures).
 
 ---
 
-*Sources: `docs/spec/00-core.md`, [`docs/spec/02-cache-ngram.md`](https://github.com/townsendmerino/goinfer/blob/main/docs/spec/02-cache-ngram.md), [`docs/spec/05-eagle3-head.md`](https://github.com/townsendmerino/goinfer/blob/main/docs/spec/05-eagle3-head.md),
-[`docs/spec/09-mtp-heads.md`](https://github.com/townsendmerino/goinfer/blob/main/docs/spec/09-mtp-heads.md) §"Gate 1 result" (the MTP numbers, their pre-registered reading, and
-the precision caveats), [`decoder/mtp_head_test.go`](https://github.com/townsendmerino/goinfer/blob/972d2ed5/decoder/mtp_head_test.go) (`TestMTP_acceptedLength`; the adapter was removed 2026-09-25, this is its last version),
-`decoder/speculative.go:Model.GenerateSpeculative`, `decoder/deltanet.go:deltaState`, [`CLAUDE.md`](https://github.com/townsendmerino/goinfer/blob/main/CLAUDE.md) (do-nothing arm).*
+*Sources: `docs/spec/00-core.md`, [`docs/spec/02-cache-ngram.md`](https://github.com/pkieltyka/goinfer/blob/main/docs/spec/02-cache-ngram.md), [`docs/spec/05-eagle3-head.md`](https://github.com/pkieltyka/goinfer/blob/main/docs/spec/05-eagle3-head.md),
+[`docs/spec/09-mtp-heads.md`](https://github.com/pkieltyka/goinfer/blob/main/docs/spec/09-mtp-heads.md) §"Gate 1 result" (the MTP numbers, their pre-registered reading, and
+the precision caveats), [`decoder/mtp_head_test.go`](https://github.com/pkieltyka/goinfer/blob/972d2ed5/decoder/mtp_head_test.go) (`TestMTP_acceptedLength`; the adapter was removed 2026-09-25, this is its last version),
+`decoder/speculative.go:Model.GenerateSpeculative`, `decoder/deltanet.go:deltaState`, [`CLAUDE.md`](https://github.com/pkieltyka/goinfer/blob/main/CLAUDE.md) (do-nothing arm).*

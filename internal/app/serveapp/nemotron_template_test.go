@@ -11,7 +11,7 @@ import (
 	"strconv"
 	"testing"
 
-	"github.com/townsendmerino/goinfer/internal/app/loadflags"
+	"github.com/pkieltyka/goinfer/internal/app/loadflags"
 )
 
 // nemotronCheckpoint is tinyChatCheckpoint with the markers in its vocabulary and Nemotron-H 4B's own chat template, read

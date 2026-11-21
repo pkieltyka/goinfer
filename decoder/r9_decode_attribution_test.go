@@ -11,8 +11,8 @@ import (
 	"testing"
 	"time"
 
-	"github.com/townsendmerino/aikit/linalg"
-	"github.com/townsendmerino/goinfer/tokenizer"
+	"github.com/pkieltyka/aikit/linalg"
+	"github.com/pkieltyka/goinfer/tokenizer"
 )
 
 // TestR9_w4a8BatchAt7B asks whether R-06 (GOINFER_W4A8_BATCH's fused q/k/v and

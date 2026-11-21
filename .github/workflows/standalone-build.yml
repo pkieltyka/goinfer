@@ -56,7 +56,7 @@ jobs:
       # No X11/GL packages for the gpu module's cgo build: see ci.yml's gpu job (removed 2026-09-25).
 
       # NO `go work init`. That is the whole point: this must resolve the goinfer root from the
-      # proxy, the way `go install github.com/townsendmerino/goinfer/<module>@<tag>` does for a
+      # proxy, the way `go install github.com/pkieltyka/goinfer/<module>@<tag>` does for a
       # user. GOWORK=off also defends against a stray go.work in the runner image.
       - name: standalone build (GOWORK=off)
         env:

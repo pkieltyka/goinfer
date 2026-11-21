@@ -10,8 +10,8 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/townsendmerino/goinfer/chat"
-	"github.com/townsendmerino/goinfer/internal/runtime/modelload"
+	"github.com/pkieltyka/goinfer/chat"
+	"github.com/pkieltyka/goinfer/internal/runtime/modelload"
 )
 
 // TestKV0_tokenizeBodies turns recorded request bodies into the token ids the server would prefill, for KV0's traffic study

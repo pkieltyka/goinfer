@@ -1,7 +1,7 @@
 package decoder
 
 import (
-	"github.com/townsendmerino/aikit/linalg"
+	"github.com/pkieltyka/aikit/linalg"
 	"math/rand"
 	"testing"
 )

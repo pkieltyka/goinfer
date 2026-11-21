@@ -72,8 +72,8 @@
         ]
       },
       "allow_external": [
-        "github.com/townsendmerino/aikit/linalg",
-        "github.com/townsendmerino/aikit/embed"
+        "github.com/pkieltyka/aikit/linalg",
+        "github.com/pkieltyka/aikit/embed"
       ],
       "why": "The towers moved from aikit (AX) as model semantics over aikit's kernels: no goinfer package, and from outside the standard library only aikit's linalg and embed. One exception: internal/audio may import internal/vision, whose tower program type the audio towers walk (Francis, 2026-10-29)."
     },
@@ -125,15 +125,15 @@
         "backend/webgpu"
       ],
       "forbid_external": [
-        "github.com/townsendmerino/aikit/gpu",
+        "github.com/pkieltyka/aikit/gpu",
         "github.com/ebitengine/purego",
         "github.com/eitamring/gocudrv"
       ],
       "gomod_forbid": [
-        "github.com/townsendmerino/goinfer/backend/cuda",
-        "github.com/townsendmerino/goinfer/backend/metal",
-        "github.com/townsendmerino/goinfer/backend/webgpu",
-        "github.com/townsendmerino/aikit/gpu",
+        "github.com/pkieltyka/goinfer/backend/cuda",
+        "github.com/pkieltyka/goinfer/backend/metal",
+        "github.com/pkieltyka/goinfer/backend/webgpu",
+        "github.com/pkieltyka/aikit/gpu",
         "github.com/ebitengine/purego",
         "github.com/eitamring/gocudrv"
       ],

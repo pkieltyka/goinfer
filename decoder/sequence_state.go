@@ -3,7 +3,7 @@ package decoder
 import (
 	"fmt"
 
-	"github.com/townsendmerino/goinfer/internal/runtime/kvmgr"
+	"github.com/pkieltyka/goinfer/internal/runtime/kvmgr"
 )
 
 // Compile-time assertions that both CPU Session KV and GPU resident KV slots implement kvmgr.SequenceState.

@@ -10,10 +10,10 @@ import (
 	"testing"
 	"time"
 
-	"github.com/townsendmerino/goinfer/chat"
-	"github.com/townsendmerino/goinfer/decoder"
-	"github.com/townsendmerino/goinfer/internal/runtime/giw"
-	"github.com/townsendmerino/goinfer/tokenizer"
+	"github.com/pkieltyka/goinfer/chat"
+	"github.com/pkieltyka/goinfer/decoder"
+	"github.com/pkieltyka/goinfer/internal/runtime/giw"
+	"github.com/pkieltyka/goinfer/tokenizer"
 )
 
 // TestQwen36_35B_cache decodes Qwen3.6-35B-A3B, whose ~20 GB of int4 experts do NOT fit the 8 GB 2070, RESIDENT via C′

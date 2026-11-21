@@ -8,8 +8,8 @@ import (
 	"testing"
 	"unsafe"
 
-	"github.com/townsendmerino/aikit/linalg"
-	"github.com/townsendmerino/aikit/mmap"
+	"github.com/pkieltyka/aikit/linalg"
+	"github.com/pkieltyka/aikit/mmap"
 )
 
 // gemma4OverlapFixture builds a small, real (not synthetic-zero) gemma4MoEWeights: dense

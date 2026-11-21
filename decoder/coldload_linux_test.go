@@ -8,9 +8,9 @@ import (
 	"syscall"
 	"testing"
 
-	"github.com/townsendmerino/aikit/mmap"
+	"github.com/pkieltyka/aikit/mmap"
 
-	"github.com/townsendmerino/goinfer/internal/runtime/mem/probe"
+	"github.com/pkieltyka/goinfer/internal/runtime/mem/probe"
 )
 
 // TestColdLoad_linuxProbesAndActions runs the real kernel calls on a real file: a file written, synced and dropped

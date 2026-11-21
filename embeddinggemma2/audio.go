@@ -7,8 +7,8 @@ import (
 	"path/filepath"
 	"time"
 
-	"github.com/townsendmerino/goinfer/internal/audio"
-	"github.com/townsendmerino/goinfer/multimodal"
+	"github.com/pkieltyka/goinfer/internal/audio"
+	"github.com/pkieltyka/goinfer/multimodal"
 )
 
 // Audio. EmbeddingGemma 2's audio tower is gemma4_audio, which aikit's

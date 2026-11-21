@@ -6,7 +6,7 @@ import (
 	"context"
 	"testing"
 
-	"github.com/townsendmerino/goinfer/decoder"
+	"github.com/pkieltyka/goinfer/decoder"
 )
 
 // hiddenLastResidentBarCUDA mirrors metal/hiddenlast_resident_parity_test.go's own bar exactly —

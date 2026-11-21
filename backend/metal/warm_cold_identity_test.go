@@ -9,7 +9,7 @@ import (
 	"slices"
 	"testing"
 
-	"github.com/townsendmerino/goinfer/decoder"
+	"github.com/pkieltyka/goinfer/decoder"
 )
 
 // TestPrefillLast_tailContinuationMatchesCold (decoder.PrefillTailExact): a PrefillLast of 1, 2, 7 or 8 tokens that

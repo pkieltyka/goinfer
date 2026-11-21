@@ -5,7 +5,7 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/townsendmerino/goinfer/internal/runtime/program"
+	"github.com/pkieltyka/goinfer/internal/runtime/program"
 )
 
 // gatedActBackends are the resident backends whose gated kernels select the activation by GatedAct's ordinal.

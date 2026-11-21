@@ -9,8 +9,8 @@ import (
 	"sync"
 	"sync/atomic"
 
-	gpu "github.com/townsendmerino/goinfer/backend/cuda/internal/gpudev"
-	"github.com/townsendmerino/goinfer/decoder"
+	gpu "github.com/pkieltyka/goinfer/backend/cuda/internal/gpudev"
+	"github.com/pkieltyka/goinfer/decoder"
 )
 
 // Prefix snapshots: a slot's KV rows in host memory, and back. It is CopyKV with

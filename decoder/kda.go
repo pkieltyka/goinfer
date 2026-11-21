@@ -3,9 +3,9 @@ package decoder
 import (
 	"math"
 
-	"github.com/townsendmerino/aikit/linalg"
+	"github.com/pkieltyka/aikit/linalg"
 
-	"github.com/townsendmerino/goinfer/internal/runtime/hybridattn"
+	"github.com/pkieltyka/goinfer/internal/runtime/hybridattn"
 )
 
 // kdaWeights holds one Bailing Hybrid (Ling 3.0) Kimi Delta Attention layer's parameters,

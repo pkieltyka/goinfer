@@ -4,13 +4,13 @@ package metal
 
 import (
 	"fmt"
-	"github.com/townsendmerino/goinfer/internal/runtime/mem"
-	"github.com/townsendmerino/goinfer/internal/runtime/program"
+	"github.com/pkieltyka/goinfer/internal/runtime/mem"
+	"github.com/pkieltyka/goinfer/internal/runtime/program"
 	"math"
 	"strconv"
 
-	"github.com/townsendmerino/aikit/linalg"
-	"github.com/townsendmerino/goinfer/decoder"
+	"github.com/pkieltyka/aikit/linalg"
+	"github.com/pkieltyka/goinfer/decoder"
 )
 
 // Gated-DeltaNet mixer (Qwen3.5/3.6-MoE, Qwen3-Next, Qwen3.8) — the resident-runner wiring on top

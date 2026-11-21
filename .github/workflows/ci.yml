@@ -379,7 +379,7 @@ jobs:
       # binding it exists to keep out. Any WebGPU binding in the root is a leak, whoever wrote it.
       - name: cleanliness guard (no webgpu / cuda / metal in root)
         run: |
-          leak='webgpu|eitamring/gocudrv|ebitengine/purego|townsendmerino/aikit/gpu|townsendmerino/goinfer/(backend/(webgpu|cuda|metal)|gpu|cuda|metal)'
+          leak='webgpu|eitamring/gocudrv|ebitengine/purego|pkieltyka/aikit/gpu|pkieltyka/goinfer/(backend/(webgpu|cuda|metal)|gpu|cuda|metal)'
           if go list -deps ./... | grep -Eiq "$leak"; then
             echo "::error::an opt-in backend dep leaked into the compiled root package set"
             go list -deps ./... | grep -Ei "$leak"
@@ -756,7 +756,7 @@ jobs:
       - name: test (everything but decoder)
         id: test
         run: |
-          pkgs=$(go list ./... | grep -v -e '^github.com/townsendmerino/goinfer/decoder$' -e '^github.com/townsendmerino/goinfer/internal/runtime/sampling$')
+          pkgs=$(go list ./... | grep -v -e '^github.com/pkieltyka/goinfer/decoder$' -e '^github.com/pkieltyka/goinfer/internal/runtime/sampling$')
           go test -race -timeout 25m -tags goinfer_testhooks -json $pkgs > test.json
       - name: test summary
         if: always() && steps.test.outcome != 'skipped'
@@ -783,7 +783,7 @@ jobs:
         with: { go-version-file: 'go.mod' }
       # Runs the README's <!-- smoke --> commands in a temp dir OUTSIDE the checkout with
       # GOWORK=off, then BUILDS against what they installed. The build step is the one that
-      # matters: `go get github.com/townsendmerino/goinfer` exits 0 and still leaves you unable
+      # matters: `go get github.com/pkieltyka/goinfer` exits 0 and still leaves you unable
       # to compile, which is how v0.16.0 shipped an install line that did not work
       # (docs/measurements/cold-user-2026-09-06.md, scenario C). Verified to go red on that line.
       - name: readme-smoke

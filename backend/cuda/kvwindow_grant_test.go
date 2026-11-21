@@ -7,7 +7,7 @@ import (
 	"path/filepath"
 	"testing"
 
-	"github.com/townsendmerino/goinfer/decoder"
+	"github.com/pkieltyka/goinfer/decoder"
 )
 
 func loadResident(t *testing.T, fx string, opts decoder.Options) (*decoder.Model, *cudaResident) {

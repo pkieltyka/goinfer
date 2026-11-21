@@ -10,8 +10,8 @@ import (
 	"testing"
 	"time"
 
-	gpu "github.com/townsendmerino/goinfer/backend/cuda/internal/gpudev"
-	"github.com/townsendmerino/goinfer/decoder"
+	gpu "github.com/pkieltyka/goinfer/backend/cuda/internal/gpudev"
+	"github.com/pkieltyka/goinfer/decoder"
 )
 
 // TestFlashDecodeKernelLadder times ONE layer's decode attention, exact split-KV (3 launches) versus the flash-decode

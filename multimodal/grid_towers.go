@@ -5,7 +5,7 @@ import (
 	"sort"
 	"sync"
 
-	"github.com/townsendmerino/goinfer/internal/vision"
+	"github.com/pkieltyka/goinfer/internal/vision"
 )
 
 // Device towers for the grid-based vision encoders, Qwen3.5+ and GLM-OCR,

@@ -4,12 +4,12 @@ package webgpu
 
 import (
 	"fmt"
-	"github.com/townsendmerino/goinfer/backend/webgpu/internal/kernels"
+	"github.com/pkieltyka/goinfer/backend/webgpu/internal/kernels"
 	"sync"
 
-	"github.com/townsendmerino/aikit/encoder"
-	"github.com/townsendmerino/aikit/linalg"
-	"github.com/townsendmerino/goinfer/decoder"
+	"github.com/pkieltyka/aikit/encoder"
+	"github.com/pkieltyka/aikit/linalg"
+	"github.com/pkieltyka/goinfer/decoder"
 )
 
 // init registers the WebGPU backend under the name "webgpu" with BOTH the

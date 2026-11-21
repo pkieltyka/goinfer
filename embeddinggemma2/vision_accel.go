@@ -4,8 +4,8 @@ import (
 	"fmt"
 	"slices"
 
-	"github.com/townsendmerino/goinfer/internal/vision"
-	"github.com/townsendmerino/goinfer/multimodal"
+	"github.com/pkieltyka/goinfer/internal/vision"
+	"github.com/pkieltyka/goinfer/multimodal"
 )
 
 // The vision tower on another device (Phase VM: Metal). A VisionAccelerator runs

@@ -13,7 +13,7 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/townsendmerino/goinfer/internal/app/inproc"
+	"github.com/pkieltyka/goinfer/internal/app/inproc"
 )
 
 // uploadBody is a multipart/form-data body with one file part.

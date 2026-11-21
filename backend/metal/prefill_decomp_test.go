@@ -14,7 +14,7 @@ import (
 	"testing"
 	"time"
 
-	"github.com/townsendmerino/goinfer/decoder"
+	"github.com/pkieltyka/goinfer/decoder"
 )
 
 // TestMetalPrefillDecomp is S0 of the Metal prefill GEMM scoping: where does the fast prefill's GPU time go, by kernel

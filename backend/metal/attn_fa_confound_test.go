@@ -9,7 +9,7 @@ import (
 	"strconv"
 	"testing"
 
-	"github.com/townsendmerino/goinfer/decoder"
+	"github.com/pkieltyka/goinfer/decoder"
 )
 
 // TestAttentionFA_positionSweep is a diagnostic sweep (no assertion) that separates "third decode call" from a position-linked

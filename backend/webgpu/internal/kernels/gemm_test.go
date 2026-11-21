@@ -6,7 +6,7 @@ import (
 	"testing"
 	"time"
 
-	"github.com/townsendmerino/aikit/linalg"
+	"github.com/pkieltyka/aikit/linalg"
 )
 
 // TestTiled_parity checks the shared-memory tiled GEMM against the integer

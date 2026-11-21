@@ -8,8 +8,8 @@ import (
 	"os"
 	"testing"
 
-	gpu "github.com/townsendmerino/goinfer/backend/cuda/internal/gpudev"
-	"github.com/townsendmerino/goinfer/decoder"
+	gpu "github.com/pkieltyka/goinfer/backend/cuda/internal/gpudev"
+	"github.com/pkieltyka/goinfer/decoder"
 )
 
 // fusedQKVRowsFixture builds random int4 Q/K/V weights (+ f16 group scales, optional biases) and an activation for one geometry, and runs either the original

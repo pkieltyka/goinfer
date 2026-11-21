@@ -9,12 +9,12 @@ import (
 	"strconv"
 	"testing"
 
-	"github.com/townsendmerino/aikit/embed"
+	"github.com/pkieltyka/aikit/embed"
 	"path/filepath"
 	"strings"
 
-	"github.com/townsendmerino/goinfer/internal/runtime/sampling"
-	"github.com/townsendmerino/goinfer/internal/testgate"
+	"github.com/pkieltyka/goinfer/internal/runtime/sampling"
+	"github.com/pkieltyka/goinfer/internal/testgate"
 )
 
 // P10 kill-gate 1 (docs/spec/08): the Go DFlash trunk must match the upstream reference on dumped fixtures BEFORE any

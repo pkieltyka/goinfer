@@ -108,12 +108,12 @@ class UnstubTests(unittest.TestCase):
         )
 
     def test_github_blob_url(self):
-        self._write("README.md", "https://github.com/townsendmerino/goinfer/blob/main/docs/tasks/task-alpha.md\n")
+        self._write("README.md", "https://github.com/pkieltyka/goinfer/blob/main/docs/tasks/task-alpha.md\n")
         self._commit_all()
         self._run_unstub("--apply")
         self.assertEqual(
             (self.root / "README.md").read_text(encoding="utf-8"),
-            "https://github.com/townsendmerino/goinfer/blob/main/docs/completed/task-alpha.md\n",
+            "https://github.com/pkieltyka/goinfer/blob/main/docs/completed/task-alpha.md\n",
         )
 
     def test_longer_filename_and_bare_filename_must_not_change(self):

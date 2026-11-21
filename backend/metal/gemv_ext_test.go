@@ -7,7 +7,7 @@ import (
 	"path/filepath"
 	"testing"
 
-	"github.com/townsendmerino/goinfer/decoder"
+	"github.com/pkieltyka/goinfer/decoder"
 )
 
 // TestGemvExt_bitIdentical is D-B04's identity gate (docs/audit-metal-2026-09-30.md): teacher-forced decode on the tiny

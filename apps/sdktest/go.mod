@@ -1,7 +1,7 @@
 // sdktest is a separate module so the SDKs it drives never enter goinfer's go.mod, which lists two requirements.
 // It holds only tests: the official OpenAI and Anthropic Go SDKs against the server served in process
 // (package server). It is not tagged or published.
-module github.com/townsendmerino/goinfer/sdktest
+module github.com/pkieltyka/goinfer/sdktest
 
 go 1.27.0
 
@@ -21,7 +21,7 @@ require (
 	github.com/tidwall/match v1.1.1 // indirect
 	github.com/tidwall/pretty v1.2.1 // indirect
 	github.com/tidwall/sjson v1.2.5 // indirect
-	github.com/townsendmerino/goinfer v0.22.0
+	github.com/pkieltyka/goinfer v0.22.0
 	go.yaml.in/yaml/v4 v4.0.0-rc.2 // indirect
 	golang.org/x/sync v0.23.0 // indirect
 )

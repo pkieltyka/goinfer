@@ -12,9 +12,9 @@
 package codec
 
 import (
-	"github.com/townsendmerino/goinfer/chat"
-	"github.com/townsendmerino/goinfer/multimodal"
-	"github.com/townsendmerino/goinfer/tokenizer"
+	"github.com/pkieltyka/goinfer/chat"
+	"github.com/pkieltyka/goinfer/multimodal"
+	"github.com/pkieltyka/goinfer/tokenizer"
 )
 
 // Template is the chat template tk's checkpoint declares: chat.Detect over its chat template, with its vocabulary as the

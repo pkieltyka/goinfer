@@ -5,7 +5,7 @@ package kernels
 import (
 	"testing"
 
-	"github.com/townsendmerino/aikit/linalg"
+	"github.com/pkieltyka/aikit/linalg"
 )
 
 // TestF16ScaleRoundTrip_exhaustive is why C-P01 (docs/audit-metal-2026-09-30.md) is bit-identical on every checkpoint,

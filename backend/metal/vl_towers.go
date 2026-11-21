@@ -5,8 +5,8 @@ package metal
 import (
 	"fmt"
 
-	"github.com/townsendmerino/goinfer/internal/vision"
-	"github.com/townsendmerino/goinfer/multimodal"
+	"github.com/pkieltyka/goinfer/internal/vision"
+	"github.com/pkieltyka/goinfer/multimodal"
 )
 
 // Gemma 3's SigLIP tower and Qwen2.5-VL's tower on Metal, on the

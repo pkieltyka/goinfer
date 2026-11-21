@@ -4,15 +4,15 @@ package kernels
 
 import (
 	"fmt"
-	"github.com/townsendmerino/goinfer/internal/runtime/mem"
+	"github.com/pkieltyka/goinfer/internal/runtime/mem"
 	"math"
 	"sync"
 	"time"
 
 	"github.com/oliverbestmann/webgpu/wgpu"
-	"github.com/townsendmerino/goinfer/internal/vision"
+	"github.com/pkieltyka/goinfer/internal/vision"
 
-	"github.com/townsendmerino/goinfer/multimodal"
+	"github.com/pkieltyka/goinfer/multimodal"
 )
 
 // The Gemma 4 vision tower on WebGPU: aikit's Gemma4Encoder.Forward up to its pool, in float32, from aikit's export

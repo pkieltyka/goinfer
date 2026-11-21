@@ -4,10 +4,10 @@ package kernels
 
 import (
 	"fmt"
-	"github.com/townsendmerino/goinfer/internal/runtime/mem"
+	"github.com/pkieltyka/goinfer/internal/runtime/mem"
 
 	"github.com/oliverbestmann/webgpu/wgpu"
-	"github.com/townsendmerino/goinfer/internal/runtime/adapter"
+	"github.com/pkieltyka/goinfer/internal/runtime/adapter"
 )
 
 // loraRMax bounds the LoRA rank this backend accepts — generous against real adapters

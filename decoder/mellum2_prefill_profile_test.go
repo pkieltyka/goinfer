@@ -11,7 +11,7 @@ import (
 	"testing"
 	"time"
 
-	"github.com/townsendmerino/goinfer/internal/testgate"
+	"github.com/pkieltyka/goinfer/internal/testgate"
 )
 
 // Mellum2 long-prefill profiler: the ATTENTION-vs-MoE-FFN split of a batched MoE prefill at a chosen prompt

@@ -3,10 +3,10 @@ package decoder
 import (
 	"sync"
 
-	"github.com/townsendmerino/aikit/linalg"
-	"github.com/townsendmerino/goinfer/internal/runtime/mamba2"
+	"github.com/pkieltyka/aikit/linalg"
+	"github.com/pkieltyka/goinfer/internal/runtime/mamba2"
 
-	"github.com/townsendmerino/goinfer/internal/runtime/hybridattn"
+	"github.com/pkieltyka/goinfer/internal/runtime/hybridattn"
 )
 
 // Mamba-2 selective state-space sequence mixer (Granite-4.0 hybrid). Like Gated DeltaNet (deltanet.go) it is an

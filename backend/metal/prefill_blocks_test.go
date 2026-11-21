@@ -14,9 +14,9 @@ import (
 	"testing"
 	"time"
 
-	"github.com/townsendmerino/goinfer/decoder"
-	"github.com/townsendmerino/goinfer/internal/runtime/program"
-	"github.com/townsendmerino/goinfer/tokenizer"
+	"github.com/pkieltyka/goinfer/decoder"
+	"github.com/pkieltyka/goinfer/internal/runtime/program"
+	"github.com/pkieltyka/goinfer/tokenizer"
 )
 
 // i8Passes is the cut the decoder makes of an n-token prompt with a block of B rows: the rows of each pass, in order.

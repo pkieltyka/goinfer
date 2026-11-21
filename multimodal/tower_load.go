@@ -3,7 +3,7 @@ package multimodal
 import (
 	"fmt"
 
-	"github.com/townsendmerino/goinfer/internal/vision"
+	"github.com/pkieltyka/goinfer/internal/vision"
 )
 
 // SiglipTower is Gemma 3's SigLIP vision tower, for programs outside goinfer's own packages (the vision package is

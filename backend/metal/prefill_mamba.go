@@ -2,7 +2,7 @@
 
 package metal
 
-import "github.com/townsendmerino/goinfer/internal/runtime/mem"
+import "github.com/pkieltyka/goinfer/internal/runtime/mem"
 
 // A Mamba-2 layer in the batched prefill pass, in
 // the Gated-DeltaNet layer's shape (prefill_deltanet.go). in_proj and out_proj run as int8 prefill GEMMs over all M rows (gemm_w8f16_*, on the int8 codes and per-row

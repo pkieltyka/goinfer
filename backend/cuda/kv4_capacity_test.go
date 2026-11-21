@@ -9,8 +9,8 @@ import (
 	"math/rand"
 	"testing"
 
-	"github.com/townsendmerino/goinfer/decoder"
-	"github.com/townsendmerino/goinfer/internal/wrappedupload"
+	"github.com/pkieltyka/goinfer/decoder"
+	"github.com/pkieltyka/goinfer/internal/wrappedupload"
 )
 
 // KV4a-3's capacity gates at tier 0 (docs/measurements/kv4-cuda-2026-10-21.md §2, G3a and G3d), on a copy of llama-attnfa-tiny whose

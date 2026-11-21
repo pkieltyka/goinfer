@@ -1,7 +1,7 @@
 package decoder
 
 import (
-	"github.com/townsendmerino/aikit/linalg"
+	"github.com/pkieltyka/aikit/linalg"
 )
 
 // decodeScratch holds the per-stream float buffers the single-token forward reuses across decode steps, so steady-state decode

@@ -8,8 +8,8 @@ import (
 	"strings"
 	"time"
 
-	"github.com/townsendmerino/goinfer/decoder"
-	"github.com/townsendmerino/goinfer/internal/diag/hwreport"
+	"github.com/pkieltyka/goinfer/decoder"
+	"github.com/pkieltyka/goinfer/internal/diag/hwreport"
 )
 
 const usage = `%s check — drive a running goinfer server the way a harness would

@@ -6,8 +6,8 @@ import (
 	"strconv"
 	"testing"
 
-	"github.com/townsendmerino/goinfer/internal/runtime/sampling"
-	"github.com/townsendmerino/goinfer/internal/testgate"
+	"github.com/pkieltyka/goinfer/internal/runtime/sampling"
+	"github.com/pkieltyka/goinfer/internal/testgate"
 )
 
 // TestGemma4_12B_trace drives the 12B GGUF over the HF trace's prompt and dumps a last-position per-layer residual trace and

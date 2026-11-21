@@ -3,10 +3,10 @@
 package cuda
 
 import (
-	"github.com/townsendmerino/goinfer/internal/runtime/mem"
+	"github.com/pkieltyka/goinfer/internal/runtime/mem"
 	"slices"
 
-	gpu "github.com/townsendmerino/goinfer/backend/cuda/internal/gpudev"
+	gpu "github.com/pkieltyka/goinfer/backend/cuda/internal/gpudev"
 )
 
 // Gemma-4 extension of moe_expert_major.go's expert-major restructuring (docs/measurements/p20-expert-major-2026-09-21.md).

@@ -8,8 +8,8 @@ import (
 	"path/filepath"
 	"unsafe"
 
-	"github.com/townsendmerino/aikit/linalg"
-	"github.com/townsendmerino/goinfer/decoder"
+	"github.com/pkieltyka/aikit/linalg"
+	"github.com/pkieltyka/goinfer/decoder"
 )
 
 // weightAlias binds a dense int4 weight in place instead of copying it a second time. Without it a weight is copied twice at

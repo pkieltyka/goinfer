@@ -5,7 +5,7 @@ package cuda
 import (
 	"testing"
 
-	gpu "github.com/townsendmerino/goinfer/backend/cuda/internal/gpudev"
+	gpu "github.com/pkieltyka/goinfer/backend/cuda/internal/gpudev"
 )
 
 // TestCUDA_graphLiveNoSyncOrdering is the VALID inter-operation ordering test: no sync between the

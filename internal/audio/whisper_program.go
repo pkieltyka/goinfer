@@ -4,7 +4,7 @@ import (
 	"fmt"
 	"math"
 
-	"github.com/townsendmerino/goinfer/internal/vision"
+	"github.com/pkieltyka/goinfer/internal/vision"
 )
 
 // WhisperProgram is the Whisper encoder's pre-norm block, which Voxtral's tower shares: LayerNorm (eps 1e-5), the q, k

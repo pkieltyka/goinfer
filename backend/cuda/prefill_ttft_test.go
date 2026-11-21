@@ -12,7 +12,7 @@ import (
 	"time"
 
 	gc "github.com/eitamring/gocudrv/cuda"
-	"github.com/townsendmerino/goinfer/decoder"
+	"github.com/pkieltyka/goinfer/decoder"
 )
 
 // TestPrefillTTFT measures the batched PrefillLast vs the sequential ForwardNoLogits loop on a real dense model, at the

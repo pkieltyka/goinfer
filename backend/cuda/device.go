@@ -1,6 +1,6 @@
 //go:build cuda
 
-// CUDA device layer: aikit's native-GPU substrate (github.com/townsendmerino/aikit/gpu), the CUDA analogue of
+// CUDA device layer: aikit's native-GPU substrate (github.com/pkieltyka/aikit/gpu), the CUDA analogue of
 // metal/device.go. goinfer keeps its tuned decode kernels here and builds them on these device types, as it builds on
 // linalg. Only the device types moved; the decode path is unchanged and must stay bit-identical (the CUDA device-parity
 // suite is the tripwire).
@@ -11,8 +11,8 @@
 package cuda
 
 import (
-	gpu "github.com/townsendmerino/goinfer/backend/cuda/internal/gpudev"
-	"github.com/townsendmerino/goinfer/internal/runtime/mem"
+	gpu "github.com/pkieltyka/goinfer/backend/cuda/internal/gpudev"
+	"github.com/pkieltyka/goinfer/internal/runtime/mem"
 )
 
 type (

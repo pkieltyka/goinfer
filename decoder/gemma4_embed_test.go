@@ -4,7 +4,7 @@ import (
 	"os"
 	"testing"
 
-	"github.com/townsendmerino/goinfer/internal/testgate"
+	"github.com/pkieltyka/goinfer/internal/testgate"
 )
 
 // TestGemma4RunLayersFromEmbed_matchesTokenPath proves runLayersFromEmbedPLE (the embed-by-vector seam, P7) is

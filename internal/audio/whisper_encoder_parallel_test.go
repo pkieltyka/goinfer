@@ -6,7 +6,7 @@ import (
 	"sync/atomic"
 	"testing"
 
-	"github.com/townsendmerino/aikit/linalg"
+	"github.com/pkieltyka/aikit/linalg"
 )
 
 // parallelRows must hand every index to exactly one block, whatever the core count or n.

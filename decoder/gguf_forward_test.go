@@ -8,7 +8,7 @@ import (
 	"os"
 	"testing"
 
-	"github.com/townsendmerino/goinfer/internal/runtime/sampling"
+	"github.com/pkieltyka/goinfer/internal/runtime/sampling"
 )
 
 // G7 GGUF parity. Loads quantized TinyLlama GGUFs (Q8_0, Q4_0, and the K-quants

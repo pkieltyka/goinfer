@@ -6,8 +6,8 @@ import (
 	"fmt"
 	"math"
 
-	gpu "github.com/townsendmerino/goinfer/backend/cuda/internal/gpudev"
-	"github.com/townsendmerino/goinfer/decoder"
+	gpu "github.com/pkieltyka/goinfer/backend/cuda/internal/gpudev"
+	"github.com/pkieltyka/goinfer/decoder"
 )
 
 // topkMaxK is the largest K the top-K returns (TK_KMAX in topk.cu); topkCap is the fast path's candidate capacity (TK_CAP)

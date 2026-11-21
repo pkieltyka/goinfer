@@ -5,7 +5,7 @@ import (
 	"math/rand"
 	"testing"
 
-	"github.com/townsendmerino/goinfer/internal/runtime/sampling"
+	"github.com/pkieltyka/goinfer/internal/runtime/sampling"
 )
 
 func benchFloatSlice(n int, seed int64) []float32 {

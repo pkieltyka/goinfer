@@ -3,7 +3,7 @@ package decoder
 import (
 	"testing"
 
-	"github.com/townsendmerino/aikit/linalg"
+	"github.com/pkieltyka/aikit/linalg"
 )
 
 func tinyPhi3Logits(t *testing.T, m *Model, ids []int) [][]float32 {

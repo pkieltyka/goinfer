@@ -3,7 +3,7 @@ package decoder
 import (
 	"testing"
 
-	"github.com/townsendmerino/aikit/embed"
+	"github.com/pkieltyka/aikit/embed"
 )
 
 func kvI32Arr(k string, vs []int32) ggufKV {

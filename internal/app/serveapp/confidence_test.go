@@ -9,8 +9,8 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/townsendmerino/goinfer/internal/app/loadflags"
-	"github.com/townsendmerino/goinfer/internal/testpath"
+	"github.com/pkieltyka/goinfer/internal/app/loadflags"
+	"github.com/pkieltyka/goinfer/internal/testpath"
 )
 
 // goinfer_confidence is refused wherever it would be dropped: on a route that does not write it back, and without a

@@ -16,7 +16,7 @@ import (
 	"testing"
 	"time"
 
-	"github.com/townsendmerino/goinfer/decoder"
+	"github.com/pkieltyka/goinfer/decoder"
 )
 
 // TestKSD8_seqKernelsMatchDecode is D8-G1: mamba_conv_seq,

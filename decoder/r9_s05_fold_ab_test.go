@@ -12,8 +12,8 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/townsendmerino/aikit/linalg"
-	"github.com/townsendmerino/goinfer/tokenizer"
+	"github.com/pkieltyka/aikit/linalg"
+	"github.com/pkieltyka/goinfer/tokenizer"
 )
 
 // TestR9_s05FoldAB is the end-to-end arm of aikit S-05 (docs/task-simd-audit.md: the -8 centering folded into the SDOT

@@ -4,8 +4,8 @@ import (
 	"math"
 	"testing"
 
-	"github.com/townsendmerino/goinfer/constrain"
-	"github.com/townsendmerino/goinfer/tokenizer"
+	"github.com/pkieltyka/goinfer/constrain"
+	"github.com/pkieltyka/goinfer/tokenizer"
 )
 
 // TestSchemaMasker_reusesCachedTokenBytes pins that schemaMasker reads the token-to-bytes table newSession builds once

@@ -4,8 +4,8 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/townsendmerino/goinfer/decoder"
-	"github.com/townsendmerino/goinfer/internal/app/loadflags"
+	"github.com/pkieltyka/goinfer/decoder"
+	"github.com/pkieltyka/goinfer/internal/app/loadflags"
 )
 
 // TestRequireAutoBackend (R17): under -require-backend, a -backend auto that passed over a GPU backend this binary has

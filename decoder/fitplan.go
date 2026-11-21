@@ -3,8 +3,8 @@ package decoder
 import (
 	"fmt"
 
-	"github.com/townsendmerino/goinfer/internal/runtime/mem"
-	"github.com/townsendmerino/goinfer/internal/runtime/program"
+	"github.com/pkieltyka/goinfer/internal/runtime/mem"
+	"github.com/pkieltyka/goinfer/internal/runtime/program"
 )
 
 // ctxPlanFloor is the smallest context Plan will shrink to before giving up (shrink context

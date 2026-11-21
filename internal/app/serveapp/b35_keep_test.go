@@ -9,8 +9,8 @@ import (
 	"slices"
 	"testing"
 
-	"github.com/townsendmerino/goinfer/chat"
-	"github.com/townsendmerino/goinfer/tokenizer"
+	"github.com/pkieltyka/goinfer/chat"
+	"github.com/pkieltyka/goinfer/tokenizer"
 )
 
 // B35 at the serve layer: for a model whose snapshots carry its recurrent state, every chat route hands

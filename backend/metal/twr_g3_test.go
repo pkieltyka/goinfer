@@ -8,9 +8,9 @@ import (
 	"runtime"
 	"testing"
 
-	"github.com/townsendmerino/goinfer/internal/vision"
+	"github.com/pkieltyka/goinfer/internal/vision"
 
-	"github.com/townsendmerino/goinfer/internal/testgate"
+	"github.com/pkieltyka/goinfer/internal/testgate"
 )
 
 // TestTWRG3_qwen3VLHostHeap is TWR-G3: the Qwen3-VL-2B tower

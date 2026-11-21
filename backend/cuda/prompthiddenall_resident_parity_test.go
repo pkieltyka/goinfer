@@ -7,7 +7,7 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/townsendmerino/goinfer/decoder"
+	"github.com/pkieltyka/goinfer/decoder"
 )
 
 // decoder.Model.PromptHiddenAll on a CUDA-resident Qwen3.5 answers from the device through the ResidentPrefillSubsystem seam,

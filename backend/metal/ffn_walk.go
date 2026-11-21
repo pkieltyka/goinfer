@@ -3,7 +3,7 @@ package metal
 import (
 	"fmt"
 
-	"github.com/townsendmerino/goinfer/internal/runtime/program"
+	"github.com/pkieltyka/goinfer/internal/runtime/program"
 )
 
 // ffnWalkPlantForTest plants test-only defects in the FFN and tail step walk: ffnWalkPlantResidual emits an extra residual add

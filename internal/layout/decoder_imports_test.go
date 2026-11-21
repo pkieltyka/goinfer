@@ -16,7 +16,7 @@ import (
 
 const (
 	repoRoot    = "../.."
-	modulePath  = "github.com/townsendmerino/goinfer"
+	modulePath  = "github.com/pkieltyka/goinfer"
 	decoderPath = modulePath + "/decoder"
 )
 

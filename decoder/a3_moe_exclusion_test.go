@@ -9,7 +9,7 @@ import (
 	"testing"
 	"time"
 
-	"github.com/townsendmerino/goinfer/internal/testgate"
+	"github.com/pkieltyka/goinfer/internal/testgate"
 )
 
 // What was the MoE exclusion in A3/G24 worth? Measures both halves of the trade on a MoE checkpoint:

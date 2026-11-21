@@ -3,7 +3,7 @@ package pull
 import (
 	"testing"
 
-	"github.com/townsendmerino/goinfer/tokenizer"
+	"github.com/pkieltyka/goinfer/tokenizer"
 )
 
 // R8 (docs/measurements/cold-user-2026-09-06-nobara-pc.md): a registry entry backed by parity gates

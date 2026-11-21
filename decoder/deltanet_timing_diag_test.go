@@ -4,7 +4,7 @@ import (
 	"os"
 	"testing"
 
-	"github.com/townsendmerino/goinfer/internal/testgate"
+	"github.com/pkieltyka/goinfer/internal/testgate"
 )
 
 // TestDeltaNetTiming_gate0Split is Gate D0's sixth-outing split:

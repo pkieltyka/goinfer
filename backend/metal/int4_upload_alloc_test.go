@@ -9,9 +9,9 @@ import (
 	"slices"
 	"testing"
 
-	"github.com/townsendmerino/aikit/linalg"
-	"github.com/townsendmerino/goinfer/backend/metal/kernels"
-	"github.com/townsendmerino/goinfer/decoder"
+	"github.com/pkieltyka/aikit/linalg"
+	"github.com/pkieltyka/goinfer/backend/metal/kernels"
+	"github.com/pkieltyka/goinfer/decoder"
 )
 
 // stagedW4A8 is the int4 lane's upload as it was before the no-staging change, kept as the reference the new one must

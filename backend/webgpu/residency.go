@@ -9,12 +9,12 @@ import (
 	"fmt"
 	"slices"
 
-	"github.com/townsendmerino/goinfer/backend/webgpu/internal/kernels"
-	"github.com/townsendmerino/goinfer/internal/runtime/program"
+	"github.com/pkieltyka/goinfer/backend/webgpu/internal/kernels"
+	"github.com/pkieltyka/goinfer/internal/runtime/program"
 
 	"github.com/oliverbestmann/webgpu/wgpu"
-	"github.com/townsendmerino/aikit/linalg"
-	"github.com/townsendmerino/goinfer/decoder"
+	"github.com/pkieltyka/aikit/linalg"
+	"github.com/pkieltyka/goinfer/decoder"
 )
 
 // GPU full-residency bridge: builds a resident DecodeRunner from a loaded decoder.Model so decoder.Generate's per-token

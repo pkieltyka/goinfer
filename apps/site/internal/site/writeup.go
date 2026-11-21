@@ -69,7 +69,7 @@ func (w *Writeup) Card() string {
 var (
 	slugRE     = regexp.MustCompile(`^(\d{2})-[a-z0-9]+(?:-[a-z0-9]+)*$`)
 	dateRE     = regexp.MustCompile(`^\d{4}-\d{2}-\d{2}$`)
-	repoLinkRE = regexp.MustCompile(`https://github\.com/townsendmerino/goinfer/(?:blob|tree)/main/([^)"#\s?]+)`)
+	repoLinkRE = regexp.MustCompile(`https://github\.com/pkieltyka/goinfer/(?:blob|tree)/main/([^)"#\s?]+)`)
 	doesntRE   = regexp.MustCompile(`(?im)(^#{1,6}\s*|<h[1-6][^>]*>\s*)what it doesn.?t do`)
 )
 

@@ -10,8 +10,8 @@ import (
 	"runtime"
 	"sync"
 
-	"github.com/townsendmerino/aikit/embed"
-	"github.com/townsendmerino/aikit/linalg"
+	"github.com/pkieltyka/aikit/embed"
+	"github.com/pkieltyka/aikit/linalg"
 )
 
 // The Whisper audio encoder, float32 on the CPU: transformers 5.15.0's WhisperEncoder, which Voxtral's audio tower also is (VoxtralEncoder, same modules; its projector is separate).

@@ -3,7 +3,7 @@
 package webgpu
 
 import (
-	"github.com/townsendmerino/goinfer/backend/webgpu/internal/kernels"
+	"github.com/pkieltyka/goinfer/backend/webgpu/internal/kernels"
 	"math"
 	"math/rand"
 	"os"
@@ -12,9 +12,9 @@ import (
 	"time"
 
 	"github.com/oliverbestmann/webgpu/wgpu"
-	"github.com/townsendmerino/goinfer/decoder"
+	"github.com/pkieltyka/goinfer/decoder"
 
-	"github.com/townsendmerino/goinfer/internal/testgate"
+	"github.com/pkieltyka/goinfer/internal/testgate"
 )
 
 // TestDecodeTWE_split runs the DecodeRunner's TWrite/TEncode/TSync instrumentation on

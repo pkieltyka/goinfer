@@ -86,7 +86,7 @@ What would kill the tool was set in writing before it was built (pre-registered)
 </tbody>
 </table>
 
-The figures come from the project's [test-efficiency task record](https://github.com/townsendmerino/goinfer/blob/main/docs/completed/task-test-efficiency-2026-09.md) and match the message of the commit that added the command, [`ce97d5ef`](https://github.com/townsendmerino/goinfer/commit/ce97d5ef). The record does not name the machine for each backend; only the timing run above names the MacBook. Metal runs only on Apple hardware, so the Metal counts come from a Mac. The record also lists three checks of the tool itself, run on scratch copies of the repo:
+The figures come from the project's [test-efficiency task record](https://github.com/pkieltyka/goinfer/blob/main/docs/completed/task-test-efficiency-2026-09.md) and match the message of the commit that added the command, [`ce97d5ef`](https://github.com/townsendmerino/goinfer/commit/ce97d5ef). The record does not name the machine for each backend; only the timing run above names the MacBook. Metal runs only on Apple hardware, so the Metal counts come from a Mac. The record also lists three checks of the tool itself, run on scratch copies of the repo:
 
 - a comment-only edit gives all IDENTICAL;
 - a one-ulp change (the smallest step a float can take) in one residual path flags exactly the two families that use it, cohere and cohere2;
@@ -100,4 +100,4 @@ The figures come from the project's [test-efficiency task record](https://github
 - `-assets tiny|real` (default `tiny`: the small test models the repo's own parity tests use; `real` uses small real checkpoints under `~/models`).
 - `-families a,b` and `-only <asset name>` narrow the run; `-quant q,...` and `-steps N` change what is compared.
 - `-keep` keeps the dumps, binaries and logs. `-timeout` bounds each dump process (default 15 minutes).
-- `-record <file>` writes candidate rows for the parity record, for families that qualify. Without it the record is never written. The rules are in the [parity coverage policy](https://github.com/townsendmerino/goinfer/blob/main/docs/parity-coverage-policy.md).
+- `-record <file>` writes candidate rows for the parity record, for families that qualify. Without it the record is never written. The rules are in the [parity coverage policy](https://github.com/pkieltyka/goinfer/blob/main/docs/parity-coverage-policy.md).

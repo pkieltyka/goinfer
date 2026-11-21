@@ -9,8 +9,8 @@ import (
 	"os"
 	"testing"
 
-	"github.com/townsendmerino/goinfer/internal/runtime/sampling"
-	"github.com/townsendmerino/goinfer/internal/vision"
+	"github.com/pkieltyka/goinfer/internal/runtime/sampling"
+	"github.com/pkieltyka/goinfer/internal/vision"
 )
 
 // TestQwen25VL_e2eChain runs the REAL goinfer pipeline end-to-end: the aikit ViT

@@ -3,8 +3,8 @@ package decoder
 import (
 	"math"
 
-	"github.com/townsendmerino/aikit/linalg"
-	"github.com/townsendmerino/goinfer/internal/runtime/logs"
+	"github.com/pkieltyka/aikit/linalg"
+	"github.com/pkieltyka/goinfer/internal/runtime/logs"
 )
 
 // BackendModelView is the narrow, read-only subsystem interface a GPU resident

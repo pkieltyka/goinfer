@@ -3,7 +3,7 @@
 package webgpu
 
 import (
-	"github.com/townsendmerino/goinfer/backend/webgpu/internal/kernels"
+	"github.com/pkieltyka/goinfer/backend/webgpu/internal/kernels"
 	"math"
 	"math/rand"
 	"os"
@@ -11,7 +11,7 @@ import (
 	"testing"
 
 	"github.com/oliverbestmann/webgpu/wgpu"
-	"github.com/townsendmerino/goinfer/decoder"
+	"github.com/pkieltyka/goinfer/decoder"
 )
 
 // TestLocalize_BiasEpilogue is a localization step: does production's FUSED gemvBias kernel (dst

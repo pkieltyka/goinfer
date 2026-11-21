@@ -23,8 +23,8 @@ import (
 	"syscall"
 	"time"
 
-	"github.com/townsendmerino/goinfer/decoder"
-	"github.com/townsendmerino/goinfer/internal/runtime/prequant"
+	"github.com/pkieltyka/goinfer/decoder"
+	"github.com/pkieltyka/goinfer/internal/runtime/prequant"
 )
 
 func main() { os.Exit(run()) }

@@ -5,8 +5,8 @@ import (
 	"fmt"
 	"time"
 
-	"github.com/townsendmerino/goinfer/constrain"
-	"github.com/townsendmerino/goinfer/internal/runtime/kvmgr"
+	"github.com/pkieltyka/goinfer/constrain"
+	"github.com/pkieltyka/goinfer/internal/runtime/kvmgr"
 )
 
 // Session couples a KVCache with the token sequence currently materialized in

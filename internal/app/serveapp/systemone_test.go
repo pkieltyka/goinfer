@@ -11,9 +11,9 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/townsendmerino/goinfer/internal/app/loadflags"
-	"github.com/townsendmerino/goinfer/internal/decide"
-	"github.com/townsendmerino/goinfer/internal/testpath"
+	"github.com/pkieltyka/goinfer/internal/app/loadflags"
+	"github.com/pkieltyka/goinfer/internal/decide"
+	"github.com/pkieltyka/goinfer/internal/testpath"
 )
 
 // sysOneTok gives every verbalizer its own single id (noul, digits, letters) and any prompt three ids.

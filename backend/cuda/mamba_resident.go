@@ -6,10 +6,10 @@ import (
 	"fmt"
 	"math"
 
-	"github.com/townsendmerino/aikit/linalg"
-	gpu "github.com/townsendmerino/goinfer/backend/cuda/internal/gpudev"
-	"github.com/townsendmerino/goinfer/decoder"
-	"github.com/townsendmerino/goinfer/internal/runtime/mem"
+	"github.com/pkieltyka/aikit/linalg"
+	gpu "github.com/pkieltyka/goinfer/backend/cuda/internal/gpudev"
+	"github.com/pkieltyka/goinfer/decoder"
+	"github.com/pkieltyka/goinfer/internal/runtime/mem"
 )
 
 // The Mamba-2 mixer (Nemotron-H) and the non-gated squared-ReLU MLP on the resident runner. A Nemotron-H block carries ONE operation (cudaMixerOf, from the program): the Mamba-2 mixer, attention, or the MLP, each behind

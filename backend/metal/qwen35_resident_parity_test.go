@@ -7,7 +7,7 @@ import (
 	"strconv"
 	"testing"
 
-	"github.com/townsendmerino/goinfer/decoder"
+	"github.com/pkieltyka/goinfer/decoder"
 )
 
 // TestQwen35ResidentParityMetal is the Metal twin of cuda's TestQwen35ResidentParityCUDA — the

@@ -8,8 +8,8 @@ import (
 	"sort"
 	"time"
 
-	"github.com/townsendmerino/goinfer/decoder"
-	"github.com/townsendmerino/goinfer/internal/runtime/scheduler"
+	"github.com/pkieltyka/goinfer/decoder"
+	"github.com/pkieltyka/goinfer/internal/runtime/scheduler"
 )
 
 // sessionLRU keeps up to size prefilled KV sessions and hands each request the one that already holds its prompt as a

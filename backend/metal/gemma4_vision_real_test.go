@@ -13,7 +13,7 @@ import (
 	"testing"
 	"time"
 
-	"github.com/townsendmerino/goinfer/embeddinggemma2"
+	"github.com/pkieltyka/goinfer/embeddinggemma2"
 )
 
 func g4vReadF32(t *testing.T, path string) []float32 {

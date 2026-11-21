@@ -4,7 +4,7 @@ import (
 	"slices"
 	"testing"
 
-	"github.com/townsendmerino/goinfer/internal/runtime/program"
+	"github.com/pkieltyka/goinfer/internal/runtime/program"
 )
 
 // TestGptOss_webgpuDecline asserts the load-bearing guarantee: a backend that

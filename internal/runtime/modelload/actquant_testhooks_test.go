@@ -6,7 +6,7 @@ import (
 	"path/filepath"
 	"testing"
 
-	"github.com/townsendmerino/goinfer/decoder"
+	"github.com/pkieltyka/goinfer/decoder"
 )
 
 // TestActivationSafeQuant_ggufBackend: a Phi-3 .gguf (Phi-4's too: llama.cpp files both as phi3) defaults to q4k on the CPU, CUDA

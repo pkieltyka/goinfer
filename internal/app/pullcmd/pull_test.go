@@ -4,7 +4,7 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/townsendmerino/goinfer/pull"
+	"github.com/pkieltyka/goinfer/pull"
 )
 
 // R15 (docs/measurements/cold-user-2026-09-07-macbook-arm64.md): `pull` and `--model` take the same reference forms,

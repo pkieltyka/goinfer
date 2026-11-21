@@ -5,7 +5,7 @@ import (
 	"fmt"
 	"sync/atomic"
 
-	"github.com/townsendmerino/goinfer/internal/runtime/sampling"
+	"github.com/pkieltyka/goinfer/internal/runtime/sampling"
 )
 
 // SpecStats accumulates CPU speculative-decoding telemetry for one Generate run. The GPU backend's batched-verify

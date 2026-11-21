@@ -9,7 +9,7 @@ import (
 	"sync"
 	"testing"
 
-	"github.com/townsendmerino/goinfer/decoder"
+	"github.com/pkieltyka/goinfer/decoder"
 )
 
 // kv2Turn is one served turn: its prompt, what it emitted, and where its reuse came from.

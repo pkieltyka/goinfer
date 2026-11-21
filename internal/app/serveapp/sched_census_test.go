@@ -15,9 +15,9 @@ import (
 	"testing"
 	"time"
 
-	"github.com/townsendmerino/goinfer/decoder"
-	"github.com/townsendmerino/goinfer/internal/app/serveapp/jobs"
-	"github.com/townsendmerino/goinfer/internal/runtime/scheduler"
+	"github.com/pkieltyka/goinfer/decoder"
+	"github.com/pkieltyka/goinfer/internal/app/serveapp/jobs"
+	"github.com/pkieltyka/goinfer/internal/runtime/scheduler"
 )
 
 // The scheduling census: today's scheduling

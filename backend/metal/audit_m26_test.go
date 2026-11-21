@@ -11,7 +11,7 @@ import (
 	"testing"
 	"time"
 
-	"github.com/townsendmerino/goinfer/decoder"
+	"github.com/pkieltyka/goinfer/decoder"
 )
 
 // TestAuditM26_pagedProbe serves T1.8 (C-P01) and T1.9 (D-P02, M-11) on

@@ -5,8 +5,8 @@ package cuda
 import (
 	"context"
 
-	"github.com/townsendmerino/goinfer/decoder"
-	"github.com/townsendmerino/goinfer/internal/cost"
+	"github.com/pkieltyka/goinfer/decoder"
+	"github.com/pkieltyka/goinfer/internal/cost"
 )
 
 // Compile-time pins for the CUDA resident runner's four subsystem interfaces. Kept on wrapper types rather than on

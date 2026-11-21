@@ -3,7 +3,7 @@ package jobs
 import (
 	"time"
 
-	"github.com/townsendmerino/goinfer/internal/cost"
+	"github.com/pkieltyka/goinfer/internal/cost"
 )
 
 // VendorOptions is a request body's "goinfer" object: goinfer's own request options, ignored by every other server

@@ -4,12 +4,12 @@ goinfer is a Go module. You import it, and the model runs inside your own proces
 daemon, no Python, and it cross-compiles like any other Go program. This page is the path for
 that use. The HTTP server is covered separately in [server.md](server.md).
 
-Package documentation is on [pkg.go.dev](https://pkg.go.dev/github.com/townsendmerino/goinfer).
+Package documentation is on [pkg.go.dev](https://pkg.go.dev/github.com/pkieltyka/goinfer).
 The packages this page uses are `decoder` (load and generate), `tokenizer`, `chat` (prompt
 templates) and `constrain` (structured output).
 
 Every code block below is copied from a program under
-[`apps/examples/`](https://github.com/townsendmerino/goinfer/tree/main/apps/examples). CI builds and vets
+[`apps/examples/`](https://github.com/pkieltyka/goinfer/tree/main/apps/examples). CI builds and vets
 those programs, and a test fails if a block here stops matching its source, so what you read
 here compiles.
 
@@ -18,7 +18,7 @@ here compiles.
 Requires Go 1.27 or newer. From inside your own module (`go mod init …` first):
 
 ```bash
-go get github.com/townsendmerino/goinfer/decoder@latest github.com/townsendmerino/goinfer/tokenizer@latest
+go get github.com/pkieltyka/goinfer/decoder@latest github.com/pkieltyka/goinfer/tokenizer@latest
 ```
 
 Name the packages you import, as above. A `go get` of the bare module path, with no package,

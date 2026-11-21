@@ -1,6 +1,6 @@
 # site — goinfer.dev, generated from the repo
 
-A Go program that writes plain static files. Its own module (`github.com/townsendmerino/goinfer/site`), so nothing it
+A Go program that writes plain static files. Its own module (`github.com/pkieltyka/goinfer/site`), so nothing it
 needs ever enters goinfer's own dependency graph. Rules: "Policy" below. Plan, design and record: `docs/completed/task-site-2026-09.md`.
 
 ```sh

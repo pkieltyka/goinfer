@@ -4,8 +4,8 @@ import (
 	"fmt"
 	"os"
 
-	"github.com/townsendmerino/goinfer/internal/vision"
-	"github.com/townsendmerino/goinfer/multimodal"
+	"github.com/pkieltyka/goinfer/internal/vision"
+	"github.com/pkieltyka/goinfer/multimodal"
 )
 
 // pixtralTower is Ministral 3's image path: aikit's Pixtral tower, the multimodal projector, the processor's settings and the

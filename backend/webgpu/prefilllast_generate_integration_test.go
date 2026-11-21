@@ -8,7 +8,7 @@ import (
 	"path/filepath"
 	"testing"
 
-	"github.com/townsendmerino/goinfer/decoder"
+	"github.com/pkieltyka/goinfer/decoder"
 )
 
 // TestGenerate_batchedPrefillMatchesSequential is the integration gate for batched prefill

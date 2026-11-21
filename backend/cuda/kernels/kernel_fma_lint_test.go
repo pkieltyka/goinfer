@@ -8,7 +8,7 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/townsendmerino/goinfer/backend/cuda/internal/launchgeom"
+	"github.com/pkieltyka/goinfer/backend/cuda/internal/launchgeom"
 )
 
 // lintedKernels is the contracted-kernel list TestKernelFMALint checks, and the list

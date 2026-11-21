@@ -6,7 +6,7 @@ import (
 	"os"
 	"testing"
 
-	"github.com/townsendmerino/aikit/linalg"
+	"github.com/pkieltyka/aikit/linalg"
 )
 
 // Audit R-15: the int8-KV widen is split by rows across goroutines. It is elementwise, so the split must change no bit; these tests say so on random shapes and on whole

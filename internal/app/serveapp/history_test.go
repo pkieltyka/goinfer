@@ -5,7 +5,7 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/townsendmerino/goinfer/chat"
+	"github.com/pkieltyka/goinfer/chat"
 )
 
 func TestMessagesToTurns_reasoning(t *testing.T) {

@@ -6,7 +6,7 @@ import (
 	"slices"
 	"testing"
 
-	"github.com/townsendmerino/goinfer/internal/cost"
+	"github.com/pkieltyka/goinfer/internal/cost"
 )
 
 // generateCounted runs gen on llama-tiny with c on the context (nil: off) and returns the emitted tokens.

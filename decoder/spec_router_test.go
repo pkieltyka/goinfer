@@ -5,8 +5,8 @@ import (
 	"slices"
 	"testing"
 
-	"github.com/townsendmerino/goinfer/constrain"
-	"github.com/townsendmerino/goinfer/tokenizer"
+	"github.com/pkieltyka/goinfer/constrain"
+	"github.com/pkieltyka/goinfer/tokenizer"
 )
 
 // TestGrammarRouterSpec gates 03 increment 1 (priority router): fusing a grammar

@@ -3,7 +3,7 @@ package vision
 import (
 	"fmt"
 
-	"github.com/townsendmerino/aikit/linalg"
+	"github.com/pkieltyka/aikit/linalg"
 )
 
 // GPU export: the resident GPU encoder lives in the goinfer/backend/webgpu module (cgo,

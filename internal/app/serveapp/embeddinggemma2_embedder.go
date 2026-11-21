@@ -9,7 +9,7 @@ import (
 	"strings"
 	"time"
 
-	"github.com/townsendmerino/goinfer/embeddinggemma2"
+	"github.com/pkieltyka/goinfer/embeddinggemma2"
 )
 
 // isEmbeddingGemma2 reports whether dir is an EmbeddingGemma 2 checkpoint (config.json's model_type).

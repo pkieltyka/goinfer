@@ -10,7 +10,7 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/townsendmerino/goinfer/internal/vision"
+	"github.com/pkieltyka/goinfer/internal/vision"
 )
 
 // TestTowerIdentity_cpu is AX2a-T for the CPU: every tower family's record, twice, agreeing.

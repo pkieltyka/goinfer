@@ -7,7 +7,7 @@ import (
 	"sync"
 	"sync/atomic"
 
-	"github.com/townsendmerino/aikit/linalg"
+	"github.com/pkieltyka/aikit/linalg"
 )
 
 // cpuFastAttention reports whether the live environment enables f32 prefill attention (GOINFER_CPU_FAST_ATTENTION; on unless

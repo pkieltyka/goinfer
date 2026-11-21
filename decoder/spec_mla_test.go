@@ -4,9 +4,9 @@ import (
 	"slices"
 	"testing"
 
-	"github.com/townsendmerino/goinfer/tokenizer"
+	"github.com/pkieltyka/goinfer/tokenizer"
 
-	"github.com/townsendmerino/goinfer/internal/testgate"
+	"github.com/pkieltyka/goinfer/internal/testgate"
 )
 
 // TestNgramSpecMLA_parity flips the MLA foundation gate (00-core §6 / experiments §0):
