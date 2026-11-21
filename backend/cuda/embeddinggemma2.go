@@ -256,24 +256,28 @@ func (a *eg2Accel) ForwardBatch(ids [][]int) ([][]float32, error) {
 	if len(ids) == 0 {
 		return nil, fmt.Errorf("cuda: an empty batch")
 	}
+	// Every check runs before the gather buffer is allocated, so a refused batch costs no more than its lengths.
 	lens, T := make([]int, len(ids)), 0
 	for b, in := range ids {
 		if len(in) == 0 {
 			return nil, fmt.Errorf("cuda: batch input %d has no ids", b)
 		}
-		lens[b], T = len(in), T+len(in)
+		if lens[b], T = len(in), T+len(in); T > eg2MaxTokens {
+			return nil, fmt.Errorf("cuda: a batch of more than %d positions, over the accelerator's %d", eg2MaxTokens, eg2MaxTokens)
+		}
 	}
-	if T > eg2MaxTokens {
-		return nil, fmt.Errorf("cuda: a batch of %d positions, over the accelerator's %d", T, eg2MaxTokens)
-	}
-	x := make([]float32, T*H)
-	scale := float32(math.Sqrt(float64(H)))
-	t := 0
 	for b, in := range ids {
 		for _, id := range in {
 			if id < 0 || id >= c.VocabSize {
 				return nil, fmt.Errorf("cuda: batch input %d: token id %d out of range [0, %d)", b, id, c.VocabSize)
 			}
+		}
+	}
+	x := make([]float32, T*H)
+	scale := float32(math.Sqrt(float64(H)))
+	t := 0
+	for _, in := range ids {
+		for _, id := range in {
 			for j, v := range a.embed[id*H : (id+1)*H] {
 				x[t*H+j] = v * scale
 			}

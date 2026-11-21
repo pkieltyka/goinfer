@@ -10,6 +10,7 @@ import (
 	"math/rand/v2"
 	"os"
 	"path/filepath"
+	"runtime"
 	"slices"
 	"strings"
 	"sync"
@@ -444,6 +445,17 @@ func TestEG2CUDA_batchContract(t *testing.T) {
 		if err == nil || n != (eg2Counts{}) {
 			t.Errorf("%s: error %v, device work %+v; want a refusal and none", bad.name, err, n)
 		}
+	}
+	// Refused before the gather too: an out-of-vocabulary id at the end of a batch at the cap allocates far less host
+	// memory than the gather buffer would take.
+	capBatch := [][]int{eg2SeqIDs(eg2MaxTokens-5, 5, V), append(eg2SeqIDs(4, 6, V), V)}
+	var ms0, ms1 runtime.MemStats
+	runtime.ReadMemStats(&ms0)
+	_, cerr := a.ForwardBatch(capBatch)
+	runtime.ReadMemStats(&ms1)
+	if gather := uint64(eg2MaxTokens * c.Hidden * 4); cerr == nil || ms1.TotalAlloc-ms0.TotalAlloc >= gather/2 {
+		t.Errorf("an out-of-vocabulary id at the cap: error %v, %d host bytes allocated (the gather buffer is %d)", cerr,
+			ms1.TotalAlloc-ms0.TotalAlloc, gather)
 	}
 	single := eg2Count(t, a, func() {
 		if _, _, err := a.Forward(in[2], false); err != nil {
