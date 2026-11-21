@@ -212,6 +212,7 @@
       "backend/cuda/internal/wpack",
       "decoder",
       "decoder/fit",
+      "embeddinggemma2",
       "internal/audio",
       "internal/cost",
       "internal/runtime/logs",
