@@ -16,6 +16,7 @@ const (
 	TraceCopyDevice                     // CopyDevice, CopyDeviceBatch per pair (before coalescing)
 	TraceAlloc                          // a device allocation (MustBufOn, MustBufSplitOn): Dst is its base, Line its plan line
 	TraceFree                           // ReleaseBuf of a whole allocation: Dst is its base
+	TraceCopy2D                         // Queue.Copy2DAsync: Dst and SrcPtr its first rows, Bytes its total
 )
 
 // TraceEvent is one operation as issued, or an allocation as made. Launch fills Pipe (the pipeline's Ptr), Cfg and Args (a copy:
