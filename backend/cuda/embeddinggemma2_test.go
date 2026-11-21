@@ -550,6 +550,122 @@ func TestEG2CUDA_failedDrain(t *testing.T) {
 	}
 }
 
+// TestEG2CUDA_realBatchParity: on the real checkpoint (GOINFER_HEAVY_TESTS=1, GOINFER_EG2_DIR), ForwardBatch gives every
+// input bit for bit what Forward gives it alone: nine inputs of 1 to 2,048 tokens around the 512-radius window in one
+// batch (6,673 rows); a 1,025-token input beside neighbours of 1, 512, 513 and 1,500 tokens; and the golden's 48 texts
+// in batches of up to 8,192 rows, each pooled embedding at cosine >= 0.9999 with the sentence-transformers reference.
+// Two inputs alone are also checked against the CPU forward.
+func TestEG2CUDA_realBatchParity(t *testing.T) {
+	if os.Getenv("GOINFER_HEAVY_TESTS") != "1" || os.Getenv("GOINFER_EG2_DIR") == "" {
+		t.Skip("set GOINFER_HEAVY_TESTS=1 and GOINFER_EG2_DIR (loads the real checkpoint)")
+	}
+	dir := os.Getenv("GOINFER_EG2_DIR")
+	if strings.HasPrefix(dir, "/Volumes/") || strings.HasPrefix(dir, "/srv/models") {
+		t.Fatalf("%s is on the archive, not local disk (CLAUDE.md)", dir)
+	}
+	m, err := embeddinggemma2.Load(dir)
+	if err != nil {
+		t.Fatal(err)
+	}
+	acc, err := m.NewAccelerator("cuda")
+	if err != nil {
+		t.Fatalf("the cuda accelerator: %v", err)
+	}
+	defer acc.Close()
+	a := acc.(*eg2Accel)
+	var name string
+	if err := a.ops.do(func() error { name = a.ops.dev.Name(); return nil }); err != nil {
+		t.Fatal(err)
+	}
+	c := m.Config()
+	V, E := c.VocabSize, m.Dim()
+	t.Logf("device %q; %s; window radius %d", name, dir, c.SlidingWindow)
+	single := map[string][]float32{}
+	alone := func(key string, ids []int) []float32 {
+		if h, ok := single[key]; ok {
+			return h
+		}
+		h, _, err := a.Forward(ids, false)
+		if err != nil {
+			t.Fatalf("%s alone: %v", key, err)
+		}
+		single[key] = h
+		return h
+	}
+	check := func(what string, batch [][]int, keys []string) {
+		t.Helper()
+		got, err := a.ForwardBatch(batch)
+		if err != nil {
+			t.Fatalf("%s: %v", what, err)
+		}
+		for i, ids := range batch {
+			if d := eg2FirstDiff(got[i], alone(keys[i], ids), E); d != "" {
+				t.Fatalf("%s, input %d (%d tokens): differs from the input alone at %s", what, i, len(ids), d)
+			}
+		}
+	}
+	lens := []int{1, 13, 511, 512, 513, 1024, 1025, 1026, 2048}
+	var mixed [][]int
+	var keys []string
+	for i, n := range lens {
+		mixed = append(mixed, eg2SeqIDs(n, 7+i, V))
+		keys = append(keys, fmt.Sprintf("len%d", n))
+	}
+	check("nine lengths around the window", mixed, keys)
+	target := mixed[6] // 1,025 tokens
+	for _, n := range []int{1, 512, 513, 1500} {
+		other := eg2SeqIDs(n, 500+n, V)
+		on := fmt.Sprintf("nb%d", n)
+		check(fmt.Sprintf("1,025 tokens after %d", n), [][]int{other, target}, []string{on, "len1025"})
+		check(fmt.Sprintf("1,025 tokens before %d", n), [][]int{target, other}, []string{"len1025", on})
+	}
+	for _, i := range []int{4, 6} { // 513 and 1,025 tokens alone, against the CPU
+		cpu, _, err := m.ForwardCPU(mixed[i], false)
+		if err != nil {
+			t.Fatal(err)
+		}
+		if cs := eg2Cos(single[keys[i]], cpu); !(cs >= 0.9999) {
+			t.Fatalf("%d tokens alone: cosine %.9f with the CPU", lens[i], cs)
+		}
+	}
+	raw, err := os.ReadFile("../../testdata/embeddinggemma2-real/golden.json")
+	if err != nil {
+		t.Fatal(err)
+	}
+	var g struct {
+		Items []eg2GoldenItem `json:"items"`
+	}
+	if err := json.Unmarshal(raw, &g); err != nil {
+		t.Fatal(err)
+	}
+	worst, groups := 1.0, 0
+	for i := 0; i < len(g.Items); {
+		var batch [][]int
+		var bk []string
+		total := 0
+		start := i
+		for ; i < len(g.Items) && total+len(g.Items[i].IDs) <= eg2MaxTokens; i++ {
+			batch, bk, total = append(batch, g.Items[i].IDs), append(bk, fmt.Sprintf("golden%d", i)), total+len(g.Items[i].IDs)
+		}
+		got, err := a.ForwardBatch(batch)
+		if err != nil {
+			t.Fatal(err)
+		}
+		groups++
+		for j, ids := range batch {
+			if d := eg2FirstDiff(got[j], alone(bk[j], ids), E); d != "" {
+				t.Fatalf("golden item %d in a batch: differs from the item alone at %s", start+j, d)
+			}
+			cs := eg2Cos(eg2PoolNorm(got[j], len(ids), E, E), g.Items[start+j].Embedding)
+			worst = min(worst, cs)
+			if !(cs >= 0.9999) {
+				t.Errorf("golden item %d: cosine %.9f with the reference", start+j, cs)
+			}
+		}
+	}
+	t.Logf("RESULT bit-identical to singletons in every batch; golden: %d texts in %d batches, worst cosine %.12f", len(g.Items), groups, worst)
+}
+
 // TestEG2CUDA_bounds: a sliding row's key range is every key within the radius, the radius itself included, clipped to
 // the input; a full row's is the whole input.
 func TestEG2CUDA_bounds(t *testing.T) {
