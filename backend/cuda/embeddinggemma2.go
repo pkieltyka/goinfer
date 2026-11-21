@@ -172,7 +172,7 @@ func (a *eg2Accel) rope(T, hd int, theta float64) (Buffer, Buffer) {
 	return r.cos, r.sin
 }
 
-// bounds is each query row's key range [lo, hi) on a sliding layer of radius W (|i - j| <= W) or, with W < 0, a full one.
+// eg2Bounds is each query row's key range [lo, hi) on a sliding layer of radius W (|i - j| <= W) or, with W < 0, a full one.
 func eg2Bounds(T, W int) (lo, hi []int32) {
 	lo, hi = make([]int32, T), make([]int32, T)
 	for i := range T {
