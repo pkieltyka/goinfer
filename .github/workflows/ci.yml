@@ -220,11 +220,11 @@ jobs:
       # descriptors and drafters are named Experimental in that document precisely because they
       # move as families land; a gate that failed on those would be switched off within a minor,
       # and a switched-off gate is worse than none.
-      # v0.13.0 is a deliberately FROZEN baseline (the pre-1.0 API-freeze point), not "the last
-      # release" — several tags have shipped since (N-54, docs/audit-2026-09-10.md: this step's
-      # own name used to claim otherwise).
-      - name: apidiff (Hard tier vs the v0.13.0 API-freeze baseline)
-        run: scripts/apidiff_check.sh v0.13.0
+      # v0.1.0 is a deliberately FROZEN baseline: this fork's first tag under
+      # github.com/pkieltyka/goinfer, with the API of the original's later releases. The original's
+      # freeze point, v0.13.0, is a tag of the old module path and does not exist in this fork.
+      - name: apidiff (Hard tier vs the v0.1.0 API-freeze baseline)
+        run: scripts/apidiff_check.sh v0.1.0
       - name: apidiff_check.sh's classification (the alias list's two licensed lines, and plants that stay fatal)
         run: python3 -B scripts/test_apidiff_check.py
 

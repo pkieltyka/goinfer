@@ -10,10 +10,10 @@
 # Francis's call); scripts/test_apidiff_check.py holds those rules and the plants that must stay fatal.
 #
 # Usage:
-#   scripts/apidiff_check.sh                 # baseline v0.13.0 (deliberately frozen — the
-#                                             # pre-1.0 API-freeze point, not "the last released
-#                                             # tag" (N-54, docs/audit-2026-09-10.md) — several
-#                                             # tags have shipped since)
+#   scripts/apidiff_check.sh                 # baseline v0.1.0 (deliberately frozen: this fork's
+#                                             # first tag under github.com/pkieltyka/goinfer; the
+#                                             # original's v0.13.0 freeze point is a tag of the old
+#                                             # module path)
 #   scripts/apidiff_check.sh v0.14.0         # baseline an explicit tag
 #
 # Needs: apidiff (auto-installed to a temp GOBIN if absent) and the baseline TAG present locally
@@ -99,7 +99,7 @@ if [ "${1:-}" = "--classify" ]; then
 	exit "$bad"
 fi
 
-BASE="${1:-v0.13.0}"
+BASE="${1:-v0.1.0}"
 
 if ! git rev-parse -q --verify "refs/tags/$BASE" >/dev/null; then
 	echo "apidiff_check: baseline tag $BASE not present locally (shallow clone?). Cannot compare." >&2
