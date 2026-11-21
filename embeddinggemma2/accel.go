@@ -91,9 +91,10 @@ type Weights struct {
 	Projection []float32 // [embedding_dim, hidden]
 }
 
-// Weights returns the model's weights for an accelerator.
+// Weights returns the model's weights for an accelerator. On a model built by NewModel the token table is widened to
+// float32 the first time this is called, which the CPU path never needs.
 func (m *Model) Weights() Weights {
-	w := Weights{Config: m.cfg, Embed: m.embed, PLEProj: m.pleProj, PLENorm: m.pleNorm, FinalNorm: m.finalNorm,
+	w := Weights{Config: m.cfg, Embed: m.embedF32(), PLEProj: m.pleProj, PLENorm: m.pleNorm, FinalNorm: m.finalNorm,
 		Projection: m.projection, Layers: make([]LayerWeights, len(m.layers))}
 	for i := range m.layers {
 		l := &m.layers[i]
