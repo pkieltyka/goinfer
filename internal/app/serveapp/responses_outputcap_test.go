@@ -8,8 +8,8 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/townsendmerino/goinfer/internal/app/connect"
-	"github.com/townsendmerino/goinfer/internal/app/loadflags"
+	"github.com/pkieltyka/goinfer/internal/app/connect"
+	"github.com/pkieltyka/goinfer/internal/app/loadflags"
 )
 
 // A /v1/responses request that names no output cap gets the limit `connect` writes into an agent's configuration, not

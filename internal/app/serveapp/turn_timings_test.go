@@ -13,8 +13,8 @@ import (
 	"testing"
 	"time"
 
-	"github.com/townsendmerino/goinfer/internal/app/serveapp/jobs"
-	"github.com/townsendmerino/goinfer/internal/cost"
+	"github.com/pkieltyka/goinfer/internal/app/serveapp/jobs"
+	"github.com/pkieltyka/goinfer/internal/cost"
 )
 
 var sb11bUpdate = flag.Bool("sb11b.update", false, "rewrite testdata/wire/sb11b_turn.golden.json from this run")

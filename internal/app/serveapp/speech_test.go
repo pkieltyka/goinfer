@@ -9,7 +9,7 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/townsendmerino/goinfer/internal/runtime/whisper"
+	"github.com/pkieltyka/goinfer/internal/runtime/whisper"
 )
 
 // G-S14i1: the shapes of POST /v1/audio/transcriptions and its refusals, on a stub engine.

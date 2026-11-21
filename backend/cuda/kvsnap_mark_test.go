@@ -8,7 +8,7 @@ import (
 	"slices"
 	"testing"
 
-	"github.com/townsendmerino/goinfer/decoder"
+	"github.com/pkieltyka/goinfer/decoder"
 )
 
 // KV7 step 2 on CUDA: a snapshot taken between two passes of a cold prefill is the

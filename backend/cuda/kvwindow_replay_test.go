@@ -5,7 +5,7 @@ package cuda
 import (
 	"testing"
 
-	"github.com/townsendmerino/goinfer/decoder"
+	"github.com/pkieltyka/goinfer/decoder"
 )
 
 // i3CodexMellum is every /v1/responses request of the I3 night's Codex x Mellum2.1 cell (serve --backend cuda --ctx 16384, window 1024), in

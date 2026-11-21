@@ -11,8 +11,8 @@ import (
 	"strings"
 	"testing"
 
-	gpu "github.com/townsendmerino/goinfer/backend/cuda/internal/gpudev"
-	"github.com/townsendmerino/goinfer/decoder"
+	gpu "github.com/pkieltyka/goinfer/backend/cuda/internal/gpudev"
+	"github.com/pkieltyka/goinfer/decoder"
 )
 
 // KV8a's CUDA gates 1 and 2(a) (docs/measurements/kv8a-2026-10/README.md), on qwen3next-tiny (DeltaNet) and nemotron-tiny (Mamba-2).

@@ -27,8 +27,8 @@ import (
 	"fmt"
 	"strings"
 
-	"github.com/townsendmerino/goinfer/chat"
-	"github.com/townsendmerino/goinfer/internal/codec"
+	"github.com/pkieltyka/goinfer/chat"
+	"github.com/pkieltyka/goinfer/internal/codec"
 )
 
 type reasoningFormat uint8

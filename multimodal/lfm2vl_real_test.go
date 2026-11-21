@@ -10,7 +10,7 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/townsendmerino/goinfer/internal/vision"
+	"github.com/pkieltyka/goinfer/internal/vision"
 )
 
 // S10, LFM2.5-VL, G-S10l-a and G-S10l-b ( registered 2026-10-09 before any

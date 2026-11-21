@@ -354,7 +354,7 @@ func TestTodayTail_pinOutOfKey(t *testing.T) {
 		}
 	}
 	gomod := func(pin string) {
-		write("go.mod", "module m\n\nrequire (\n\tgithub.com/townsendmerino/aikit "+pin+"\n)\n")
+		write("go.mod", "module m\n\nrequire (\n\tgithub.com/pkieltyka/aikit "+pin+"\n)\n")
 	}
 	write(SharedSetsFile, `{"core": ["decoder/attention.go"]}`)
 	write(RecordsDir+"/f.json", `{"uses": ["core"], "own": [], "deps_hash": "", "status": "validated"}`)

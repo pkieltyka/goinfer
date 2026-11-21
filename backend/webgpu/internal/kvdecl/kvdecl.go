@@ -5,7 +5,7 @@ package kvdecl
 import (
 	"fmt"
 
-	"github.com/townsendmerino/goinfer/internal/runtime/program"
+	"github.com/pkieltyka/goinfer/internal/runtime/program"
 )
 
 // Check holds layer l's declared per-position rows (decoder.Model.LayerBuffers) to what its build allocates, before the caches are sized

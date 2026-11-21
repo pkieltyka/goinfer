@@ -20,7 +20,7 @@ import (
 	"net/http"
 	"strings"
 
-	"github.com/townsendmerino/goinfer/internal/decide"
+	"github.com/pkieltyka/goinfer/internal/decide"
 )
 
 // maxSystemOneQuestions bounds one request: each question is one prefill of the state. TypeSafe documents no limit;

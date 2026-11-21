@@ -8,7 +8,7 @@ import (
 	"testing"
 	"time"
 
-	"github.com/townsendmerino/goinfer/internal/fidelity"
+	"github.com/pkieltyka/goinfer/internal/fidelity"
 )
 
 func fakeCheckpoint(t *testing.T, content string) string {

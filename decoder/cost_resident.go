@@ -1,6 +1,6 @@
 package decoder
 
-import "github.com/townsendmerino/goinfer/internal/cost"
+import "github.com/pkieltyka/goinfer/internal/cost"
 
 // residentCostFor is the resident's CostAvailable for a generation that counts into c, nil when it does not count (c nil, a
 // shared resident, or a resident without the interface).

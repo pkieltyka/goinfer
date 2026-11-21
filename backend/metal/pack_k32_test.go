@@ -6,7 +6,7 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/townsendmerino/aikit/linalg"
+	"github.com/pkieltyka/aikit/linalg"
 )
 
 // TestInt4Pack_declinesNonMultipleOf32K is the gate for audit M-10: the W4A8 pack layout and its

@@ -8,8 +8,8 @@ import (
 	"slices"
 	"testing"
 
-	"github.com/townsendmerino/goinfer/decoder"
-	"github.com/townsendmerino/goinfer/internal/runtime/scheduler"
+	"github.com/pkieltyka/goinfer/decoder"
+	"github.com/pkieltyka/goinfer/internal/runtime/scheduler"
 )
 
 // TestPickSessionFor_ownRollback: with room in the LRU, a request that keeps its candidate's whole first prompt but its

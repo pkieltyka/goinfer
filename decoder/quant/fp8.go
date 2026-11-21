@@ -4,7 +4,7 @@ import (
 	"fmt"
 	"math"
 
-	"github.com/townsendmerino/aikit/embed"
+	"github.com/pkieltyka/aikit/embed"
 )
 
 const (

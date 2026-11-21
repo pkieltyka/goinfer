@@ -2,7 +2,7 @@ package serveapp
 
 import (
 	"encoding/json"
-	"github.com/townsendmerino/goinfer/internal/app/loadflags"
+	"github.com/pkieltyka/goinfer/internal/app/loadflags"
 	"net/http"
 	"net/http/httptest"
 	"os"

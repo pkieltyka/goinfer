@@ -6,7 +6,7 @@ import (
 	"sort"
 	"strings"
 
-	"github.com/townsendmerino/aikit/embed"
+	"github.com/pkieltyka/aikit/embed"
 )
 
 // archAdapter resolves a parsed config.json into the family-agnostic

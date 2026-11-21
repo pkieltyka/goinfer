@@ -9,8 +9,8 @@ import (
 	"path/filepath"
 	"testing"
 
-	gpu "github.com/townsendmerino/goinfer/backend/cuda/internal/gpudev"
-	"github.com/townsendmerino/goinfer/decoder"
+	gpu "github.com/pkieltyka/goinfer/backend/cuda/internal/gpudev"
+	"github.com/pkieltyka/goinfer/decoder"
 )
 
 // requireCUDAResidentHybridVL loads the tiny Qwen3.5 vision-language fixture (a Gated-DeltaNet hybrid with an interleaved m-RoPE

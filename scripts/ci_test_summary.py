@@ -172,7 +172,7 @@ def main(argv):
 
 
 def short(pkg):
-    prefix = "github.com/townsendmerino/goinfer"
+    prefix = "github.com/pkieltyka/goinfer"
     if pkg == prefix:
         return "."
     if pkg.startswith(prefix + "/"):

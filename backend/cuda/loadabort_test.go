@@ -10,8 +10,8 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/townsendmerino/goinfer/decoder"
-	"github.com/townsendmerino/goinfer/internal/runtime/modelload"
+	"github.com/pkieltyka/goinfer/decoder"
+	"github.com/pkieltyka/goinfer/internal/runtime/modelload"
 )
 
 // The swap tripwire's consumer in the CUDA build (B33): Options.LoadAbort, reached through decoder.Model.LoadAbort, stops the build during planning,

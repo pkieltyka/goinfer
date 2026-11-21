@@ -9,7 +9,7 @@ import (
 	"path/filepath"
 	"testing"
 
-	"github.com/townsendmerino/goinfer/decoder"
+	"github.com/pkieltyka/goinfer/decoder"
 )
 
 // TestMoEKSlots_bitIdentical (D-P03): resident MoE decode with the k selected experts in four dispatches (k-slot

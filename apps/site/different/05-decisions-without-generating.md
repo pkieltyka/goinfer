@@ -56,7 +56,7 @@ goinfer can already [force a reply into a JSON schema](/different/04-a-go-struct
 
 ## What goinfer does
 
-`POST /v1/systemone` takes a state (the text to judge) and named questions, each with a closed set of answers. It returns a probability for every option. The request and response follow the shape of TypeSafe's decisions API; TypeSafe is a hosted decisions service. So clients written for it, such as jevx (a Go command-line tool) and TypeSafe's SDKs, can be pointed at goinfer. None of them has been run against goinfer end to end yet, as [the integration guide](https://github.com/townsendmerino/goinfer/blob/main/docs/integrations/typesafe-jevx.md) says. The values below are illustrative, in the shape [the server docs](https://github.com/townsendmerino/goinfer/blob/main/docs/server.md) show, not a recorded run.
+`POST /v1/systemone` takes a state (the text to judge) and named questions, each with a closed set of answers. It returns a probability for every option. The request and response follow the shape of TypeSafe's decisions API; TypeSafe is a hosted decisions service. So clients written for it, such as jevx (a Go command-line tool) and TypeSafe's SDKs, can be pointed at goinfer. None of them has been run against goinfer end to end yet, as [the integration guide](https://github.com/pkieltyka/goinfer/blob/main/docs/integrations/typesafe-jevx.md) says. The values below are illustrative, in the shape [the server docs](https://github.com/pkieltyka/goinfer/blob/main/docs/server.md) show, not a recorded run.
 
 ```json
 {"model": "local", "state": "Help! My payouts have been failing for 3 days.",

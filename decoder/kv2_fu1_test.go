@@ -7,7 +7,7 @@ import (
 	"slices"
 	"testing"
 
-	"github.com/townsendmerino/goinfer/internal/runtime/kvmgr"
+	"github.com/pkieltyka/goinfer/internal/runtime/kvmgr"
 )
 
 // twoClassFake is copyFake with a second kernel class, as Metal's and CUDA's residents have: a batched pass

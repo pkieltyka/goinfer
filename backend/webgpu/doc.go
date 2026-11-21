@@ -10,7 +10,7 @@
 //
 // Usage: add a blank import of this package and build with `-tags gpu`:
 //
-//	import _ "github.com/townsendmerino/goinfer/backend/webgpu"
+//	import _ "github.com/pkieltyka/goinfer/backend/webgpu"
 //
 // then select the backend (decoder.Options{Backend: "webgpu"} /
 // encoder NewBackend("webgpu")). Without the tag this module's

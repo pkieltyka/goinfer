@@ -8,7 +8,7 @@ import (
 	"slices"
 	"testing"
 
-	"github.com/townsendmerino/goinfer/internal/runtime/mem/probe"
+	"github.com/pkieltyka/goinfer/internal/runtime/mem/probe"
 )
 
 // useProbe installs r behind every machine reading the decoder takes (the fit guard's, the prefill budget's, the cold

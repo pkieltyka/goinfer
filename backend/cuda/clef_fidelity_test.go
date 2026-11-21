@@ -14,9 +14,9 @@ import (
 	"testing"
 	"time"
 
-	"github.com/townsendmerino/goinfer/decoder"
-	"github.com/townsendmerino/goinfer/internal/clef"
-	"github.com/townsendmerino/goinfer/internal/runtime/modelload"
+	"github.com/pkieltyka/goinfer/decoder"
+	"github.com/pkieltyka/goinfer/internal/clef"
+	"github.com/pkieltyka/goinfer/internal/runtime/modelload"
 )
 
 // D13's CUDA-resident arm (docs/measurements/decisions-d13-clef-fidelity-2026-10-03.md, amendment 5b): the same run harness as internal/clef's TestFidelityArm_run, but with the

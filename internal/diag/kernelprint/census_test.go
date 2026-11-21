@@ -21,11 +21,11 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/townsendmerino/aikit/linalg"
+	"github.com/pkieltyka/aikit/linalg"
 )
 
 const (
-	aikitModule = "github.com/townsendmerino/aikit"
+	aikitModule = "github.com/pkieltyka/aikit"
 	censusPath  = "../../../docs/hardware-coverage.json"
 )
 

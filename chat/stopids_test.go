@@ -4,7 +4,7 @@ import (
 	"slices"
 	"testing"
 
-	"github.com/townsendmerino/goinfer/tokenizer"
+	"github.com/pkieltyka/goinfer/tokenizer"
 )
 
 // stopIDsTokenizer is a byte-level tokenizer whose vocabulary holds some turn markers and not others.

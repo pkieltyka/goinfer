@@ -8,7 +8,7 @@ import (
 	"strconv"
 	"testing"
 
-	"github.com/townsendmerino/goinfer/decoder"
+	"github.com/pkieltyka/goinfer/decoder"
 )
 
 // A prompt that restores a snapshot of its first `end` rows and prefills the rest must leave the cache and give the logits a cold prefill

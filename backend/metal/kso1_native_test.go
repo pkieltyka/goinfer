@@ -14,11 +14,11 @@ import (
 	"testing"
 	"time"
 
-	"github.com/townsendmerino/aikit/linalg"
-	"github.com/townsendmerino/goinfer/chat"
-	"github.com/townsendmerino/goinfer/decoder"
-	"github.com/townsendmerino/goinfer/internal/runtime/mem/probe"
-	"github.com/townsendmerino/goinfer/tokenizer"
+	"github.com/pkieltyka/aikit/linalg"
+	"github.com/pkieltyka/goinfer/chat"
+	"github.com/pkieltyka/goinfer/decoder"
+	"github.com/pkieltyka/goinfer/internal/runtime/mem/probe"
+	"github.com/pkieltyka/goinfer/tokenizer"
 )
 
 // kso1Q6KGGUF is n rows of random GGUF Q6_K blocks over K (random codes and int8 scales, small positive f16 d).

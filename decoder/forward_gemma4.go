@@ -4,7 +4,7 @@ import (
 	"fmt"
 	"math"
 
-	"github.com/townsendmerino/aikit/linalg"
+	"github.com/pkieltyka/aikit/linalg"
 )
 
 // g4traceHidden, when non-nil, receives the residual stream after each layer

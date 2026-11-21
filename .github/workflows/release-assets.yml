@@ -73,7 +73,7 @@ jobs:
             ( cd "$root/$dir" \
                 && env "${env[@]}" \
                 go build ${tags:+-tags "$tags"} \
-                -ldflags="-s -w -X github.com/townsendmerino/goinfer/internal/app/chatapp.injectedVersion=$TAG" \
+                -ldflags="-s -w -X github.com/pkieltyka/goinfer/internal/app/chatapp.injectedVersion=$TAG" \
                 -trimpath -o "$out" "$subpath" )
           }
           build backend/metal metal darwin arm64  ./cmd/chat
@@ -92,11 +92,11 @@ jobs:
           # assets get below. This is what would have caught G1: every one of these greps fails on
           # a plain ./demo/chat build with no -tags.
           for t in darwin-arm64 darwin-amd64; do
-            go version -m "dist/goinfer-chat-$t" | grep -qE '^\s*mod\s+github.com/townsendmerino/goinfer/backend/metal\b' \
+            go version -m "dist/goinfer-chat-$t" | grep -qE '^\s*mod\s+github.com/pkieltyka/goinfer/backend/metal\b' \
               || { echo "dist/goinfer-chat-$t was NOT built from the metal entrypoint"; fail=1; }
           done
           for t in linux-amd64 linux-arm64; do
-            go version -m "dist/goinfer-chat-$t" | grep -qE '^\s*mod\s+github.com/townsendmerino/goinfer/backend/cuda\b' \
+            go version -m "dist/goinfer-chat-$t" | grep -qE '^\s*mod\s+github.com/pkieltyka/goinfer/backend/cuda\b' \
               || { echo "dist/goinfer-chat-$t was NOT built from the cuda entrypoint"; fail=1; }
             go version -m "dist/goinfer-chat-$t" | grep -q -- '-tags=cuda' \
               || { echo "dist/goinfer-chat-$t was NOT built with -tags cuda"; fail=1; }
@@ -105,7 +105,7 @@ jobs:
           # replace above did not take and this asset links a PREVIOUS release's root.
           for t in darwin-arm64 darwin-amd64 linux-amd64 linux-arm64; do
             if go version -m "dist/goinfer-chat-$t" \
-                 | grep -qE 'dep[[:space:]]+github.com/townsendmerino/goinfer[[:space:]]+\S+[[:space:]]+h1:'; then
+                 | grep -qE 'dep[[:space:]]+github.com/pkieltyka/goinfer[[:space:]]+\S+[[:space:]]+h1:'; then
               echo "dist/goinfer-chat-$t links the ROOT FROM THE PROXY (a previous release), not this tree"
               fail=1
             fi
@@ -162,12 +162,12 @@ jobs:
           # This workflow fires on the ROOT tag, and at that instant cuda/go.mod and metal/go.mod
           # still require the PREVIOUS root release (RELEASING.md's two-step tag bumps them
           # afterwards). go.work is gitignored, so a bare `go build` in the submodule resolves
-          # github.com/townsendmerino/goinfer from the proxy at that stale version -- and the
+          # github.com/pkieltyka/goinfer from the proxy at that stale version -- and the
           # Metal/CUDA serve assets for release N then contain release N-1's decoder and
           # serveapp, silently, while the windows asset (built from the root) is current.
           #
           # MEASURED 2026-09-06, not assumed: a `GOWORK=off` submodule build of this exact shape
-          # produced a binary whose `go version -m` read `dep github.com/townsendmerino/goinfer
+          # produced a binary whose `go version -m` read `dep github.com/pkieltyka/goinfer
           # v0.16.0 h1:...` and which did not have the --version flag that had just been added to
           # internal/serveapp. Found because the --version assertion below went red.
           #
@@ -196,7 +196,7 @@ jobs:
             ( cd "$root/$dir" \
                 && env "${env[@]}" \
                 go build ${tags:+-tags "$tags"} \
-                -ldflags="-s -w -X github.com/townsendmerino/goinfer/internal/app/serveapp.injectedVersion=$TAG" \
+                -ldflags="-s -w -X github.com/pkieltyka/goinfer/internal/app/serveapp.injectedVersion=$TAG" \
                 -trimpath -o "$out" ./cmd/serve )
           }
           build backend/metal metal darwin arm64
@@ -236,15 +236,15 @@ jobs:
           done
           # `go version -m` prints the binary's main module and build settings. The MAIN MODULE
           # is the load-bearing assertion: a darwin asset built from the root cmd/serve reports
-          # `mod github.com/townsendmerino/goinfer` and links no backend, which is exactly what
+          # `mod github.com/pkieltyka/goinfer` and links no backend, which is exactly what
           # v0.16.0 shipped. Nothing in `metal/` is gated on a `metal` build TAG (every file is
           # darwin-gated), so a tags grep there would pass on a binary with no Metal in it.
           for t in darwin-arm64 darwin-amd64; do
-            go version -m "dist/goinfer-serve-$t" | grep -qE '^\s*mod\s+github.com/townsendmerino/goinfer/backend/metal\b' \
+            go version -m "dist/goinfer-serve-$t" | grep -qE '^\s*mod\s+github.com/pkieltyka/goinfer/backend/metal\b' \
               || { echo "dist/goinfer-serve-$t was NOT built from the metal entrypoint"; fail=1; }
           done
           for t in linux-amd64 linux-arm64; do
-            go version -m "dist/goinfer-serve-$t" | grep -qE '^\s*mod\s+github.com/townsendmerino/goinfer/backend/cuda\b' \
+            go version -m "dist/goinfer-serve-$t" | grep -qE '^\s*mod\s+github.com/pkieltyka/goinfer/backend/cuda\b' \
               || { echo "dist/goinfer-serve-$t was NOT built from the cuda entrypoint"; fail=1; }
             go version -m "dist/goinfer-serve-$t" | grep -q -- '-tags=cuda' \
               || { echo "dist/goinfer-serve-$t was NOT built with -tags cuda"; fail=1; }
@@ -257,7 +257,7 @@ jobs:
           # the PASSING case and would abort the job.
           for t in darwin-arm64 darwin-amd64 linux-amd64 linux-arm64; do
             if go version -m "dist/goinfer-serve-$t" \
-                 | grep -qE 'dep[[:space:]]+github.com/townsendmerino/goinfer[[:space:]]+\S+[[:space:]]+h1:'; then
+                 | grep -qE 'dep[[:space:]]+github.com/pkieltyka/goinfer[[:space:]]+\S+[[:space:]]+h1:'; then
               echo "dist/goinfer-serve-$t links the ROOT FROM THE PROXY (a previous release), not this tree"
               fail=1
             fi
@@ -407,18 +407,18 @@ jobs:
           # THIS tree rather than a previous release.
           for t in darwin-arm64 darwin-amd64; do
             f="demo/chat/dist/goinfer-chat-${{ matrix.tier }}-$t"
-            go version -m "$f" | grep -qE '^\s*mod\s+github.com/townsendmerino/goinfer/backend/metal\b' \
+            go version -m "$f" | grep -qE '^\s*mod\s+github.com/pkieltyka/goinfer/backend/metal\b' \
               || { echo "$f was NOT built from the metal entrypoint"; fail=1; }
           done
           for t in linux-amd64 linux-arm64; do
             f="demo/chat/dist/goinfer-chat-${{ matrix.tier }}-$t"
-            go version -m "$f" | grep -qE '^\s*mod\s+github.com/townsendmerino/goinfer/backend/cuda\b' \
+            go version -m "$f" | grep -qE '^\s*mod\s+github.com/pkieltyka/goinfer/backend/cuda\b' \
               || { echo "$f was NOT built from the cuda entrypoint"; fail=1; }
           done
           for t in darwin-arm64 darwin-amd64 linux-amd64 linux-arm64; do
             f="demo/chat/dist/goinfer-chat-${{ matrix.tier }}-$t"
             if go version -m "$f" \
-                 | grep -qE 'dep[[:space:]]+github.com/townsendmerino/goinfer[[:space:]]+\S+[[:space:]]+h1:'; then
+                 | grep -qE 'dep[[:space:]]+github.com/pkieltyka/goinfer[[:space:]]+\S+[[:space:]]+h1:'; then
               echo "$f links the ROOT FROM THE PROXY (a previous release), not this tree"
               fail=1
             fi

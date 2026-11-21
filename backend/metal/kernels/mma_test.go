@@ -9,7 +9,7 @@ import (
 	"testing"
 	"time"
 
-	"github.com/townsendmerino/goinfer/internal/runtime/f16"
+	"github.com/pkieltyka/goinfer/internal/runtime/f16"
 )
 
 // TestMMAPrefill — the make-or-break for the prefill direction. Two questions: (1) does MSL

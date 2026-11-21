@@ -7,7 +7,7 @@ import (
 	"fmt"
 	"testing"
 
-	"github.com/townsendmerino/goinfer/decoder"
+	"github.com/pkieltyka/goinfer/decoder"
 )
 
 // readKVForTest reads positions [0, rows) of layer l's K and V in the bound slot, through its table, on the executor thread (an f16

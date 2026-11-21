@@ -7,7 +7,7 @@ import (
 	"testing"
 	"time"
 
-	"github.com/townsendmerino/goinfer/decoder"
+	"github.com/pkieltyka/goinfer/decoder"
 )
 
 // TestQwen35ResidentDecodeRateMetal is the Metal twin of cuda's TestQwen35ResidentDecodeRateCUDA.

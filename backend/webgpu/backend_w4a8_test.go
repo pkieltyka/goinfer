@@ -3,12 +3,12 @@
 package webgpu
 
 import (
-	"github.com/townsendmerino/goinfer/backend/webgpu/internal/kernels"
+	"github.com/pkieltyka/goinfer/backend/webgpu/internal/kernels"
 	"math"
 	"math/rand"
 	"testing"
 
-	"github.com/townsendmerino/aikit/linalg"
+	"github.com/pkieltyka/aikit/linalg"
 )
 
 // TestWebGPUBackend_MatmulW4A8_matchesCPU is the staged-int4 gate:

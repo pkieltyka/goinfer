@@ -4,7 +4,7 @@ import (
 	"fmt"
 	"strings"
 
-	"github.com/townsendmerino/aikit/embed"
+	"github.com/pkieltyka/aikit/embed"
 )
 
 var awqOrder = [8]uint{0, 4, 1, 5, 2, 6, 3, 7}

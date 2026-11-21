@@ -11,8 +11,8 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/townsendmerino/goinfer/decoder"
-	"github.com/townsendmerino/goinfer/internal/app/loadflags"
+	"github.com/pkieltyka/goinfer/decoder"
+	"github.com/pkieltyka/goinfer/internal/app/loadflags"
 )
 
 // The GPU-resident columns of the option grid (decoder/optiongrid.go), driven on Metal. Each test sets

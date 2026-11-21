@@ -14,8 +14,8 @@ import (
 	"testing"
 	"time"
 
-	"github.com/townsendmerino/goinfer/internal/app/connect"
-	"github.com/townsendmerino/goinfer/internal/app/inproc"
+	"github.com/pkieltyka/goinfer/internal/app/connect"
+	"github.com/pkieltyka/goinfer/internal/app/inproc"
 )
 
 func inprocHandler(t *testing.T, extra ...string) (*http.Client, io.Closer) {

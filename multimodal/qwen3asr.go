@@ -3,7 +3,7 @@ package multimodal
 import (
 	"fmt"
 
-	"github.com/townsendmerino/goinfer/tokenizer"
+	"github.com/pkieltyka/goinfer/tokenizer"
 )
 
 // QwenASRPrompt builds the token ids of a Qwen3-ASR transcription turn (system is the system message's text, usually empty: the template places it in the system turn and ignores any user text), the layout Qwen3ASRProcessor produces for one audio clip with the checkpoint's chat template (a fixed layout: the

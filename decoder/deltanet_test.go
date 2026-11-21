@@ -3,13 +3,13 @@ package decoder
 import (
 	"encoding/json"
 	"errors"
-	"github.com/townsendmerino/aikit/linalg"
+	"github.com/pkieltyka/aikit/linalg"
 	"io/fs"
 	"math"
 	"os"
 	"testing"
 
-	"github.com/townsendmerino/goinfer/internal/runtime/hybridattn"
+	"github.com/pkieltyka/goinfer/internal/runtime/hybridattn"
 )
 
 // TestGatedDeltaNet_parity checks goinfer's Gated DeltaNet primitive op-for-op

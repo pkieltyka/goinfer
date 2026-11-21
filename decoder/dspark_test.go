@@ -9,10 +9,10 @@ import (
 	"strconv"
 	"testing"
 
-	"github.com/townsendmerino/aikit/embed"
+	"github.com/pkieltyka/aikit/embed"
 
-	"github.com/townsendmerino/goinfer/internal/runtime/sampling"
-	"github.com/townsendmerino/goinfer/internal/testgate"
+	"github.com/pkieltyka/goinfer/internal/runtime/sampling"
+	"github.com/pkieltyka/goinfer/internal/testgate"
 )
 
 // P10 kill-gate 1 for DSpark (docs/spec/08): the Go DSpark forward must match DeepSpec's own implementation on dumped

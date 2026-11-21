@@ -6,7 +6,7 @@ import (
 	"context"
 	"testing"
 
-	"github.com/townsendmerino/goinfer/decoder"
+	"github.com/pkieltyka/goinfer/decoder"
 )
 
 // TestKVOnlyPrefill_byteIdentical_tiny is the gate for the no-logits (KV-only) prefill: greedy Generate

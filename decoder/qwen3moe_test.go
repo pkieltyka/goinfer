@@ -8,7 +8,7 @@ import (
 	"os"
 	"testing"
 
-	"github.com/townsendmerino/goinfer/internal/runtime/sampling"
+	"github.com/pkieltyka/goinfer/internal/runtime/sampling"
 )
 
 // F1 Qwen3-MoE parity (Qwen3-30B-A3B / Qwen3-Coder-30B-A3B-Instruct, model_type

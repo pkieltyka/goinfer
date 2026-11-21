@@ -15,8 +15,8 @@ import (
 	"sync"
 	"time"
 
-	"github.com/townsendmerino/goinfer/chat"
-	"github.com/townsendmerino/goinfer/decoder"
+	"github.com/pkieltyka/goinfer/chat"
+	"github.com/pkieltyka/goinfer/decoder"
 )
 
 // -log-requests: one line per generation request on stderr: route, model, status, prompt and completion tokens, time to first

@@ -4,7 +4,7 @@ package webgpu
 
 import (
 	"errors"
-	"github.com/townsendmerino/goinfer/backend/webgpu/internal/kernels"
+	"github.com/pkieltyka/goinfer/backend/webgpu/internal/kernels"
 	"strings"
 	"testing"
 )

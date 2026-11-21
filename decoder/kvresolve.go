@@ -5,7 +5,7 @@ import (
 	"slices"
 	"strings"
 
-	"github.com/townsendmerino/goinfer/internal/runtime/mem"
+	"github.com/pkieltyka/goinfer/internal/runtime/mem"
 )
 
 // The KV precision a load delivers. ResolveKV is the one answer every

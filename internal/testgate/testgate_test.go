@@ -90,7 +90,7 @@ func TestRequireModel_skipsAnAbsentAssetWithTheToken(t *testing.T) {
 // TestNoProductionImporter: only _test.go files import this package, in every module of the tree. That is what makes its
 // environment reads test-only, which TestEnvVars_docAndCodeAgree's exemption of this directory relies on.
 func TestNoProductionImporter(t *testing.T) {
-	const self = "github.com/townsendmerino/goinfer/internal/testgate"
+	const self = "github.com/pkieltyka/goinfer/internal/testgate"
 	root := filepath.Join("..", "..")
 	scanned, test := 0, 0
 	err := filepath.WalkDir(root, func(p string, d fs.DirEntry, err error) error {

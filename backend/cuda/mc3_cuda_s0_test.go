@@ -14,7 +14,7 @@ import (
 	"time"
 
 	gc "github.com/eitamring/gocudrv/cuda"
-	"github.com/townsendmerino/goinfer/decoder"
+	"github.com/pkieltyka/goinfer/decoder"
 )
 
 // TestMC3CUDAS0_batchedRowsVsDecode is an EXPLORATORY probe (not a gate) for an MC3 port to CUDA:

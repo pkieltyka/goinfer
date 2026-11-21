@@ -8,7 +8,7 @@ import (
 	"reflect"
 	"testing"
 
-	"github.com/townsendmerino/goinfer/tokenizer"
+	"github.com/pkieltyka/goinfer/tokenizer"
 )
 
 func TestBudgetRoom(t *testing.T) {

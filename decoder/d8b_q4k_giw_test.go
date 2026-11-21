@@ -16,9 +16,9 @@ import (
 	"time"
 	"unsafe"
 
-	"github.com/townsendmerino/aikit/linalg"
-	"github.com/townsendmerino/goinfer/internal/runtime/giw"
-	"github.com/townsendmerino/goinfer/internal/runtime/mem"
+	"github.com/pkieltyka/aikit/linalg"
+	"github.com/pkieltyka/goinfer/internal/runtime/giw"
+	"github.com/pkieltyka/goinfer/internal/runtime/mem"
 )
 
 // D8B-G: a q4k load's Q4_K tensors as .giw kind 8.

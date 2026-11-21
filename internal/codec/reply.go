@@ -4,7 +4,7 @@ import (
 	"errors"
 	"strings"
 
-	"github.com/townsendmerino/goinfer/chat"
+	"github.com/pkieltyka/goinfer/chat"
 )
 
 // NewReplySplitter is the splitter that separates a reply to a prompt rendered by tm from turns into reasoning and answer;

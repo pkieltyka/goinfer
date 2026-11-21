@@ -10,7 +10,7 @@ import (
 	"testing"
 	"time"
 
-	"github.com/townsendmerino/goinfer/multimodal"
+	"github.com/pkieltyka/goinfer/multimodal"
 )
 
 // TestGridTowersWebGPU_patchSweep is G-S12.3g: for one grid

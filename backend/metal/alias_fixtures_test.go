@@ -7,8 +7,8 @@ import (
 	"context"
 	"encoding/binary"
 	"fmt"
-	gpu "github.com/townsendmerino/goinfer/backend/metal/internal/gpudev"
-	"github.com/townsendmerino/goinfer/internal/runtime/mem"
+	gpu "github.com/pkieltyka/goinfer/backend/metal/internal/gpudev"
+	"github.com/pkieltyka/goinfer/internal/runtime/mem"
 	"io"
 	"maps"
 	"math"
@@ -21,8 +21,8 @@ import (
 	"sync"
 	"testing"
 
-	"github.com/townsendmerino/goinfer/decoder"
-	"github.com/townsendmerino/goinfer/internal/runtime/prequant"
+	"github.com/pkieltyka/goinfer/decoder"
+	"github.com/pkieltyka/goinfer/internal/runtime/prequant"
 )
 
 // S6's byte-identity gate over every resident-parity fixture, not just the two real checkpoints

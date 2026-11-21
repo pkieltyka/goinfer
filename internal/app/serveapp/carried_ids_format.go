@@ -3,7 +3,7 @@ package serveapp
 import (
 	"strings"
 
-	"github.com/townsendmerino/goinfer/chat"
+	"github.com/pkieltyka/goinfer/chat"
 )
 
 // idsFormat is the closed list of differences between a reply's own bytes and the template's render of its turn that are

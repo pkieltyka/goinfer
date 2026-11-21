@@ -3,7 +3,7 @@ package serveapp
 import (
 	"context"
 	"encoding/json"
-	"github.com/townsendmerino/goinfer/internal/app/serveapp/jobs"
+	"github.com/pkieltyka/goinfer/internal/app/serveapp/jobs"
 	"net/http"
 )
 

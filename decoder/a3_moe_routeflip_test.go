@@ -9,7 +9,7 @@ import (
 	"sort"
 	"testing"
 
-	"github.com/townsendmerino/goinfer/internal/testgate"
+	"github.com/pkieltyka/goinfer/internal/testgate"
 )
 
 // Does a router flip explain the A3 MoE divergence? The mechanism experiment for the f32-attention flag on a MoE:

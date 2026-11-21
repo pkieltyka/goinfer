@@ -5,7 +5,7 @@ import (
 	"sync"
 	"sync/atomic"
 
-	"github.com/townsendmerino/aikit/linalg"
+	"github.com/pkieltyka/aikit/linalg"
 )
 
 // int4FloatActForTest runs every int4 projection with f32 activations instead of the W4A8 kernels' int8 ones: each weight

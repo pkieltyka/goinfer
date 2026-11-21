@@ -2,15 +2,15 @@ package decoder
 
 import (
 	"fmt"
-	"github.com/townsendmerino/goinfer/internal/runtime/mem"
+	"github.com/pkieltyka/goinfer/internal/runtime/mem"
 	"runtime"
 	"sync"
 	"unsafe"
 
-	"github.com/townsendmerino/aikit/linalg"
-	"github.com/townsendmerino/aikit/mmap"
+	"github.com/pkieltyka/aikit/linalg"
+	"github.com/pkieltyka/aikit/mmap"
 
-	"github.com/townsendmerino/goinfer/internal/runtime/logs"
+	"github.com/pkieltyka/goinfer/internal/runtime/logs"
 )
 
 // expertPager bounds the resident RAM of a MoE model's expert weights by paging them on demand out of the read-only.

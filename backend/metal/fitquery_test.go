@@ -9,8 +9,8 @@ import (
 	"sync"
 	"testing"
 
-	"github.com/townsendmerino/goinfer/decoder"
-	"github.com/townsendmerino/goinfer/internal/runtime/giw"
+	"github.com/pkieltyka/goinfer/decoder"
+	"github.com/pkieltyka/goinfer/internal/runtime/giw"
 )
 
 // tinyMetalGIW writes the wide-window tiny model as a Metal-target .giw at quant.

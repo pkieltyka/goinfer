@@ -4,7 +4,7 @@ import (
 	"context"
 	"testing"
 
-	"github.com/townsendmerino/goinfer/engine"
+	"github.com/pkieltyka/goinfer/engine"
 )
 
 func TestScripted_streamsItsIDsWithinTheBudget(t *testing.T) {

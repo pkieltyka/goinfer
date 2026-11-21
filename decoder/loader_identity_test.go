@@ -18,8 +18,8 @@ import (
 	"testing"
 	"unsafe"
 
-	"github.com/townsendmerino/aikit/embed"
-	"github.com/townsendmerino/aikit/linalg"
+	"github.com/pkieltyka/aikit/embed"
+	"github.com/pkieltyka/aikit/linalg"
 )
 
 const loaderIdentityPath = "../testdata/loader_identity.json"

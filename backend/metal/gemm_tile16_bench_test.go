@@ -13,7 +13,7 @@ import (
 	"testing"
 	"time"
 
-	"github.com/townsendmerino/goinfer/decoder"
+	"github.com/pkieltyka/goinfer/decoder"
 )
 
 // TestGemmTile16_probe (D-B02): GPU time of one gemm_w4f16_tile dispatch at each tile, over pass sizes 8-256 rows, at the

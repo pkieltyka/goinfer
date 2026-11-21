@@ -9,7 +9,7 @@ import (
 	"testing"
 	"time"
 
-	"github.com/townsendmerino/goinfer/decoder"
+	"github.com/pkieltyka/goinfer/decoder"
 )
 
 // D11's follow-up on Metal (docs/measurements/decisions-d11-resident-hidden-2026-10-03.md): decoder.Model.PromptHiddenAll on a Metal-resident Qwen3.5 answers from

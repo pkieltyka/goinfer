@@ -4,8 +4,8 @@ import (
 	"errors"
 	"fmt"
 
-	"github.com/townsendmerino/aikit/embed"
-	"github.com/townsendmerino/aikit/linalg"
+	"github.com/pkieltyka/aikit/embed"
+	"github.com/pkieltyka/aikit/linalg"
 )
 
 // ggufBuild is the state buildWeightsFromGGUF hands a family builder: the load's inputs, the weight bundle it fills, and the

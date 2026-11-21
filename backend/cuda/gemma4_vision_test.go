@@ -11,9 +11,9 @@ import (
 	"testing"
 	"time"
 
-	"github.com/townsendmerino/goinfer/internal/vision"
+	"github.com/pkieltyka/goinfer/internal/vision"
 
-	"github.com/townsendmerino/goinfer/internal/testgate"
+	"github.com/pkieltyka/goinfer/internal/testgate"
 )
 
 // S4's Gemma 4 vision tower on CUDA, the twin of metal/gemma4_vision_test.go: the tower followed by aikit's tail

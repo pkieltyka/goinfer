@@ -5,9 +5,9 @@ import (
 	"slices"
 	"testing"
 
-	"github.com/townsendmerino/goinfer/internal/runtime/program"
+	"github.com/pkieltyka/goinfer/internal/runtime/program"
 
-	"github.com/townsendmerino/goinfer/internal/testgate"
+	"github.com/pkieltyka/goinfer/internal/testgate"
 )
 
 // TestGemma4EModel_realDeclinesResident confirms on the REAL E2B GGUF (not a synthetic arch) that a Gemma-4 E-model resolves

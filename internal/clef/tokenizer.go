@@ -1,6 +1,6 @@
 package clef
 
-import "github.com/townsendmerino/goinfer/tokenizer"
+import "github.com/pkieltyka/goinfer/tokenizer"
 
 // TokenizerFunc adapts a goinfer tokenizer to Tokenize: a fragment is tokenized one fragment at a time, without BOS, and parsed for special-token text only
 // when the encoder says so (the two fixed templates), so request text stays literal (the parse_special split serve's own prompts use;

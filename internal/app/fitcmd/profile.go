@@ -3,13 +3,13 @@ package fitcmd
 import (
 	"encoding/json"
 	"fmt"
-	"github.com/townsendmerino/goinfer/internal/runtime/mem"
+	"github.com/pkieltyka/goinfer/internal/runtime/mem"
 	"io"
 	"os"
 	"strings"
 
-	"github.com/townsendmerino/goinfer/decoder"
-	"github.com/townsendmerino/goinfer/decoder/fit"
+	"github.com/pkieltyka/goinfer/decoder"
+	"github.com/pkieltyka/goinfer/decoder/fit"
 )
 
 // ExitRefused is fit -profile's exit code for a load the recorded machine would refuse; 0 is a load that proceeds (it fits,

@@ -22,8 +22,8 @@ import (
 	"testing"
 	"time"
 
-	"github.com/townsendmerino/goinfer/multimodal"
-	"github.com/townsendmerino/goinfer/tokenizer"
+	"github.com/pkieltyka/goinfer/multimodal"
+	"github.com/pkieltyka/goinfer/tokenizer"
 )
 
 // The codec census (task-subsystems-2026-10.md §8 SB8): for every template source, what the serving routes render and

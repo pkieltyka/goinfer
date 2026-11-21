@@ -5,7 +5,7 @@ package cuda
 import (
 	"testing"
 
-	"github.com/townsendmerino/goinfer/decoder"
+	"github.com/pkieltyka/goinfer/decoder"
 )
 
 // TestGraphsSafeGate verifies the "byte-identical or decline, never silently mis-run" gate for CUDA

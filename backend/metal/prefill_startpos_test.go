@@ -8,7 +8,7 @@ import (
 	"math/rand"
 	"testing"
 
-	"github.com/townsendmerino/goinfer/decoder"
+	"github.com/pkieltyka/goinfer/decoder"
 )
 
 // TestPrefillLast_startPosGreaterThanZero pins PrefillLast at startPos > 0. Every resident-prefix-reuse turn (residentPrefillSeed's

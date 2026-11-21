@@ -6,7 +6,7 @@ import (
 	"slices"
 	"testing"
 
-	"github.com/townsendmerino/goinfer/internal/runtime/scheduler"
+	"github.com/pkieltyka/goinfer/internal/runtime/scheduler"
 )
 
 func TestCommonPrefix(t *testing.T) {

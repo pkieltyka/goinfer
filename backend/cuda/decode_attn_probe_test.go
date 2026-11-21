@@ -8,7 +8,7 @@ import (
 	"testing"
 
 	gc "github.com/eitamring/gocudrv/cuda"
-	"github.com/townsendmerino/goinfer/decoder"
+	"github.com/pkieltyka/goinfer/decoder"
 )
 
 // TestDecodeAttn2048Probe drives the DECODE (M=1) attention kernel at ~2048 KV depth on the real 1.5B, so ncu

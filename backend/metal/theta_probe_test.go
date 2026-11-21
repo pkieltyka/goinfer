@@ -8,7 +8,7 @@ import (
 	"testing"
 	"time"
 
-	"github.com/townsendmerino/goinfer/decoder"
+	"github.com/pkieltyka/goinfer/decoder"
 )
 
 // TestThetaProbe_Metal measures Theta, the marginal cost of one extra verify node in units of one single-token target step, on

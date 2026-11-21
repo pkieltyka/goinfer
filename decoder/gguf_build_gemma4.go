@@ -3,7 +3,7 @@ package decoder
 import (
 	"fmt"
 
-	"github.com/townsendmerino/aikit/linalg"
+	"github.com/pkieltyka/aikit/linalg"
 )
 
 // Gemma 4 (E-models): a dedicated layer loader. Per-layer head_dim/FFN, the

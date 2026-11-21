@@ -5,7 +5,7 @@
   <h1>Run an open-weight LLM inside your Go program.</h1>
   <p class="lede">Import it and call it, then cross-compile it like anything else: no cgo, no daemon, no C toolchain. Constrain the output to a Go struct, and a token that would break the struct is never sampled.</p>
   <div class="cta">
-    <div class="copy getline"><code>go get github.com/townsendmerino/goinfer/decoder@latest github.com/townsendmerino/goinfer/tokenizer@latest</code><button type="button">copy</button></div>
+    <div class="copy getline"><code>go get github.com/pkieltyka/goinfer/decoder@latest github.com/pkieltyka/goinfer/tokenizer@latest</code><button type="button">copy</button></div>
     <p class="cta-links"><a class="go" href="/docs/use-from-go/">Use it from Go →</a> <span class="sep">or</span> <a href="/download/">download a binary</a></p>
   </div>
   <figure class="herocode">
@@ -78,7 +78,7 @@ check(json.Unmarshal([]byte(raw), &amp;p), "unmarshal") // the shape is guarante
 <section id="doors" aria-labelledby="doors-h">
   <div class="s-head"><div><h2 class="s" id="doors-h">What are you here to do?</h2></div></div>
   <div class="doors">
-    <div class="door lead"><h3>Embed it</h3><p>A Go library. Ask a question, get a filled-in struct back. The <a href="/docs/use-from-go/">Use it from Go</a> page walks through the smallest program, struct and schema constraints, and per-field confidence.</p><pre>go get github.com/townsendmerino/goinfer/decoder@latest github.com/townsendmerino/goinfer/tokenizer@latest</pre></div>
+    <div class="door lead"><h3>Embed it</h3><p>A Go library. Ask a question, get a filled-in struct back. The <a href="/docs/use-from-go/">Use it from Go</a> page walks through the smallest program, struct and schema constraints, and per-field confidence.</p><pre>go get github.com/pkieltyka/goinfer/decoder@latest github.com/pkieltyka/goinfer/tokenizer@latest</pre></div>
     <div class="door"><h3>Try it</h3><p>One file with a model inside. Download, run, ask. Nothing to install.</p><pre>./goinfer-chat-0.5b-&lt;os&gt;-&lt;arch&gt;</pre></div>
     <div class="door"><h3>Connect your tools</h3><p>OpenAI- and Anthropic-compatible. Setup notes for Claude Code, opencode and jevx.</p><pre>goinfer-serve -web -model
   ~/models/model.gguf</pre></div>

@@ -42,7 +42,7 @@ BOOK = ROOT / "docs" / "book"
 
 # Links into this repo's source, as written by the book.
 SELF_BLOB = re.compile(
-    r"\]\(https://github\.com/townsendmerino/goinfer/blob/main/([^)#\s]+)(?:#[^)\s]*)?\)"
+    r"\]\(https://github\.com/pkieltyka/goinfer/blob/main/([^)#\s]+)(?:#[^)\s]*)?\)"
 )
 # Relative links and images: ![alt](./fig.svg) and [text](./other.md).
 RELATIVE = re.compile(r"\]\((\./[^)\s]+)\)")

@@ -3,7 +3,7 @@ package decoder
 import (
 	"fmt"
 
-	"github.com/townsendmerino/goinfer/internal/runtime/program"
+	"github.com/pkieltyka/goinfer/internal/runtime/program"
 )
 
 // StateSpec is one buffer of a recurrent or conv mixer's state, for one KV slot, before any allocator's rounding.

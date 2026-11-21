@@ -8,8 +8,8 @@ import (
 	"sync"
 	"time"
 
-	"github.com/townsendmerino/goinfer/internal/vision"
-	"github.com/townsendmerino/goinfer/multimodal"
+	"github.com/pkieltyka/goinfer/internal/vision"
+	"github.com/pkieltyka/goinfer/multimodal"
 )
 
 // Images. EmbeddingGemma 2's vision tower is gemma4_vision, the same

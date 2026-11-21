@@ -1,9 +1,9 @@
 package decoder
 
 import (
-	"github.com/townsendmerino/aikit/embed"
-	"github.com/townsendmerino/aikit/linalg"
-	"github.com/townsendmerino/goinfer/decoder/quant"
+	"github.com/pkieltyka/aikit/embed"
+	"github.com/pkieltyka/aikit/linalg"
+	"github.com/pkieltyka/goinfer/decoder/quant"
 )
 
 // MLX quantized safetensors checkpoints (mlx-lm).

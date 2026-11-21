@@ -9,8 +9,8 @@ import (
 	"slices"
 	"testing"
 
-	"github.com/townsendmerino/goinfer/internal/runtime/sampling"
-	"github.com/townsendmerino/goinfer/internal/vision"
+	"github.com/pkieltyka/goinfer/internal/runtime/sampling"
+	"github.com/pkieltyka/goinfer/internal/vision"
 )
 
 // P8a gate G1 (docs/measurements/p8a-qwen35-vl-2026-09/preregistration.md): the tiny Qwen3.5 image

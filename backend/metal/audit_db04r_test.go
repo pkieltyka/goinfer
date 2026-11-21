@@ -11,7 +11,7 @@ import (
 	"testing"
 	"time"
 
-	"github.com/townsendmerino/goinfer/decoder"
+	"github.com/pkieltyka/goinfer/decoder"
 )
 
 // TestDB04R_expertRowsAB is D-B04's routed-expert half's speed read: the routed-expert GEMVs one row per simdgroup

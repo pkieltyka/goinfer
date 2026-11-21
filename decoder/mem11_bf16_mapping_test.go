@@ -9,7 +9,7 @@ import (
 	"sort"
 	"testing"
 
-	"github.com/townsendmerino/aikit/linalg"
+	"github.com/pkieltyka/aikit/linalg"
 )
 
 // writeBF16Checkpoint copies the F32 checkpoint in src to dst with every tensor's values rounded to bf16: stored as BF16 when

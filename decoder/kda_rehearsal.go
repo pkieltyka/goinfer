@@ -3,7 +3,7 @@ package decoder
 import (
 	"math"
 
-	"github.com/townsendmerino/goinfer/internal/runtime/hybridattn"
+	"github.com/pkieltyka/goinfer/internal/runtime/hybridattn"
 )
 
 // KDA (Kimi Delta Attention) recurrence for the linear-attention mixer of Ling-3.0-tiny / Kimi K3.

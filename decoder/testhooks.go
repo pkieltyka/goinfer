@@ -14,14 +14,14 @@ import (
 	"sync/atomic"
 	"time"
 
-	"github.com/townsendmerino/aikit/linalg"
-	"github.com/townsendmerino/goinfer/chat"
-	"github.com/townsendmerino/goinfer/internal/runtime/hybridattn"
-	"github.com/townsendmerino/goinfer/internal/runtime/kvmgr"
-	"github.com/townsendmerino/goinfer/internal/runtime/mamba2"
-	"github.com/townsendmerino/goinfer/internal/runtime/program"
-	"github.com/townsendmerino/goinfer/internal/runtime/sampling"
-	"github.com/townsendmerino/goinfer/tokenizer"
+	"github.com/pkieltyka/aikit/linalg"
+	"github.com/pkieltyka/goinfer/chat"
+	"github.com/pkieltyka/goinfer/internal/runtime/hybridattn"
+	"github.com/pkieltyka/goinfer/internal/runtime/kvmgr"
+	"github.com/pkieltyka/goinfer/internal/runtime/mamba2"
+	"github.com/pkieltyka/goinfer/internal/runtime/program"
+	"github.com/pkieltyka/goinfer/internal/runtime/sampling"
+	"github.com/pkieltyka/goinfer/tokenizer"
 )
 
 // ForwardSubCaptureLogitsForTest is ForwardSubCapture plus the token's logits from the same forward: the gpu package's

@@ -55,14 +55,14 @@ Each of those is one more thing that can be the wrong version on someone else's 
 The default build is pure Go, built with `CGO_ENABLED=0`. Building the CPU server needs Go and nothing else:
 
 ```sh
-go install github.com/townsendmerino/goinfer/cmd/serve@latest
+go install github.com/pkieltyka/goinfer/cmd/serve@latest
 ```
 
-For a GPU you build the backend's own entry point. These are also pure Go, and the [README](https://github.com/townsendmerino/goinfer/blob/main/README.md) lists them:
+For a GPU you build the backend's own entry point. These are also pure Go, and the [README](https://github.com/pkieltyka/goinfer/blob/main/README.md) lists them:
 
 ```sh
-go install github.com/townsendmerino/goinfer/backend/metal/cmd/serve@latest              # macOS
-go install -tags cuda  github.com/townsendmerino/goinfer/backend/cuda/cmd/serve@latest    # Linux + NVIDIA
+go install github.com/pkieltyka/goinfer/backend/metal/cmd/serve@latest              # macOS
+go install -tags cuda  github.com/pkieltyka/goinfer/backend/cuda/cmd/serve@latest    # Linux + NVIDIA
 ```
 
 Because there is no C code, cross-compiling is an ordinary Go cross-compile. The README's example for a Raspberry Pi, run from a clone of the repo, is `GOOS=linux GOARCH=arm64 CGO_ENABLED=0 go build -o goinfer-serve ./cmd/serve`.
@@ -79,7 +79,7 @@ Because there is no C code, cross-compiling is an ordinary Go cross-compile. The
 
 ## What was measured
 
-On 2026-09-18, a first-time-user run timed the install of v0.18.0 ([the record](https://github.com/townsendmerino/goinfer/blob/main/docs/measurements/cold-user-2026-09-18-nobara-pc.md)). Go's module cache was pointed at an empty directory, so every dependency came over the network.
+On 2026-09-18, a first-time-user run timed the install of v0.18.0 ([the record](https://github.com/pkieltyka/goinfer/blob/main/docs/measurements/cold-user-2026-09-18-nobara-pc.md)). Go's module cache was pointed at an empty directory, so every dependency came over the network.
 
 | Step | Time | Note |
 |---|---|---|
@@ -89,12 +89,12 @@ On 2026-09-18, a first-time-user run timed the install of v0.18.0 ([the record](
 
 The machine was a Linux PC (Ryzen 7 3700X, RTX 2070 SUPER 8 GB, Nobara Linux 44, NVIDIA driver 595.91.07) with Go 1.27.0. The run timed the builds, not the GPU generating text. It shows that the CUDA build needs no extra compiler step, not how fast the card is.
 
-Two older figures come from the project's [CUDA backend notes](https://github.com/townsendmerino/goinfer/blob/main/docs/cuda-backend.md). The CUDA server is a 14.6 MB binary. Its start-up was timed on the same RTX 2070 SUPER, on the driver in use before 2026-08-25 (595.58.03), with Qwen2.5-Coder 0.5B. From process start to ready took 4.94 s with the driver's cache of compiled kernels cleared, and 4.09 s with it warm (median of three). The notes say that table must be re-measured after the driver change.
+Two older figures come from the project's [CUDA backend notes](https://github.com/pkieltyka/goinfer/blob/main/docs/cuda-backend.md). The CUDA server is a 14.6 MB binary. Its start-up was timed on the same RTX 2070 SUPER, on the driver in use before 2026-08-25 (595.58.03), with Qwen2.5-Coder 0.5B. From process start to ready took 4.94 s with the driver's cache of compiled kernels cleared, and 4.09 s with it warm (median of three). The notes say that table must be re-measured after the driver change.
 
 ## Use it
 
-- CPU server: `go install github.com/townsendmerino/goinfer/cmd/serve@latest`. The binary is named `serve`, after its directory.
-- CUDA: `CGO_ENABLED=0 go install -tags cuda github.com/townsendmerino/goinfer/backend/cuda/cmd/serve@latest`, then run with `--backend cuda`. (A plain `go build` of that path works only inside a checkout of the repo.)
-- WebGPU (needs cgo, so a C compiler): `go build -tags gpu github.com/townsendmerino/goinfer/backend/webgpu/cmd/serve`.
+- CPU server: `go install github.com/pkieltyka/goinfer/cmd/serve@latest`. The binary is named `serve`, after its directory.
+- CUDA: `CGO_ENABLED=0 go install -tags cuda github.com/pkieltyka/goinfer/backend/cuda/cmd/serve@latest`, then run with `--backend cuda`. (A plain `go build` of that path works only inside a checkout of the repo.)
+- WebGPU (needs cgo, so a C compiler): `go build -tags gpu github.com/pkieltyka/goinfer/backend/webgpu/cmd/serve`.
 - To see what a binary carries, run it with `--version` (`serve --version`, or `goinfer-serve --version` for a downloaded release binary). The CUDA build in the run above printed `serve v0.18.0 / backends: cpu cuda / go: go1.27.1 linux/amd64`.
 - `-tags cuda` on the root `cmd/serve` does not work. It fails the build and points you to the module path above.

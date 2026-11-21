@@ -10,7 +10,7 @@ import (
 	"sort"
 	"testing"
 
-	"github.com/townsendmerino/goinfer/internal/runtime/sampling"
+	"github.com/pkieltyka/goinfer/internal/runtime/sampling"
 )
 
 // Q1(c): the int4 forward goldens. int4 is the runtime's documented default quantization, so it needs a golden of its own: an

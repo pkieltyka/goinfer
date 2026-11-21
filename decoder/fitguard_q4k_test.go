@@ -7,7 +7,7 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/townsendmerino/goinfer/decoder/fit"
+	"github.com/pkieltyka/goinfer/decoder/fit"
 )
 
 // q4kFitModels are the real q4_k_m GGUFs the q4k price is checked on: the lane's own 0.5B, the 1.5B, and Phi-3 mini, the

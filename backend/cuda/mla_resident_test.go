@@ -6,7 +6,7 @@ import (
 	"math"
 	"testing"
 
-	"github.com/townsendmerino/goinfer/decoder"
+	"github.com/pkieltyka/goinfer/decoder"
 )
 
 // TestMLAResidentParityCUDA verifies that deepseek-tiny (DeepSeek-V2 / V3 architecture with MLA

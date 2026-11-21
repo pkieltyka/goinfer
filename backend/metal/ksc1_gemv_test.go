@@ -14,7 +14,7 @@ import (
 	"testing"
 	"time"
 
-	"github.com/townsendmerino/goinfer/decoder"
+	"github.com/pkieltyka/goinfer/decoder"
 )
 
 // ksc1Q4KRaw is n rows of random Q4_K super-blocks over K: d and dmin small positive f16, random scales and quants.

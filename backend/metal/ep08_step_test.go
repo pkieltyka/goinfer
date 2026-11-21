@@ -10,7 +10,7 @@ import (
 	"testing"
 	"time"
 
-	"github.com/townsendmerino/goinfer/decoder"
+	"github.com/pkieltyka/goinfer/decoder"
 )
 
 // TestMC3Step_deviceArgmaxMatchesHost is E-P08's step gate on the MC3 fixture: the batched step's argmax-only ids, and a

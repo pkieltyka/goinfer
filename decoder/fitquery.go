@@ -8,8 +8,8 @@ import (
 	"slices"
 	"strings"
 
-	"github.com/townsendmerino/goinfer/internal/runtime/giw"
-	"github.com/townsendmerino/goinfer/internal/runtime/mem"
+	"github.com/pkieltyka/goinfer/internal/runtime/giw"
+	"github.com/pkieltyka/goinfer/internal/runtime/mem"
 )
 
 // FitQuery answers FitAnswer for path and opts. An error is a load that would fail before its memory check, for a reason

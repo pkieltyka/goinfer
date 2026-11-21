@@ -10,7 +10,7 @@ import (
 	"runtime/debug"
 	"testing"
 
-	"github.com/townsendmerino/goinfer/decoder"
+	"github.com/pkieltyka/goinfer/decoder"
 )
 
 // The MC3 identity fixture (E-G01 and F-G02, docs/audit-metal-2026-09-30.md): a generated qwen2 with Qwen2.5-1.5B's

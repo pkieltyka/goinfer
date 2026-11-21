@@ -1,9 +1,9 @@
 package decoder
 
 import (
-	"github.com/townsendmerino/aikit/linalg"
+	"github.com/pkieltyka/aikit/linalg"
 
-	"github.com/townsendmerino/goinfer/internal/runtime/hybridattn"
+	"github.com/pkieltyka/goinfer/internal/runtime/hybridattn"
 )
 
 // mlaProjInt8 reports whether a load at q holds MLA's q (or q-LoRA pair), kv-A and o projections as per-row int8. No production

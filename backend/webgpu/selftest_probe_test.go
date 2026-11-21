@@ -8,7 +8,7 @@ import (
 	"testing"
 	"time"
 
-	"github.com/townsendmerino/goinfer/decoder"
+	"github.com/pkieltyka/goinfer/decoder"
 )
 
 // H2 on WebGPU: the resident self-test on a real adapter. A green probe on healthy code, and the same probe going RED when the resident's inputs are

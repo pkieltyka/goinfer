@@ -8,7 +8,7 @@ import (
 	"sort"
 	"testing"
 
-	"github.com/townsendmerino/goinfer/internal/testgate"
+	"github.com/pkieltyka/goinfer/internal/testgate"
 )
 
 // SPIKE (docs/ideas-weight-memory.md, idea #2: MoE expert demand-paging viability). The make-or-break number: on

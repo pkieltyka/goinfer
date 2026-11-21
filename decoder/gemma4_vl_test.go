@@ -8,7 +8,7 @@ import (
 	"os"
 	"testing"
 
-	"github.com/townsendmerino/goinfer/internal/runtime/sampling"
+	"github.com/pkieltyka/goinfer/internal/runtime/sampling"
 )
 
 // TestGemma4VL_textParity loads the tiny Gemma 4 VL checkpoint (scripts/pin_gemma4_vl_tiny.py) through goinfer's loader and

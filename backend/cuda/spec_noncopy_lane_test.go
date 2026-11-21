@@ -10,8 +10,8 @@ import (
 	"testing"
 	"time"
 
-	"github.com/townsendmerino/goinfer/decoder"
-	"github.com/townsendmerino/goinfer/tokenizer"
+	"github.com/pkieltyka/goinfer/decoder"
+	"github.com/pkieltyka/goinfer/tokenizer"
 )
 
 // TestSpecNonCopyLane measures what n-gram speculation and the flash-decode lane are worth as the traffic stops being copy-heavy, and records the

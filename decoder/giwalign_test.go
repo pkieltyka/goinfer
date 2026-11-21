@@ -7,9 +7,9 @@ import (
 	"testing"
 	"unsafe"
 
-	"github.com/townsendmerino/aikit/linalg"
-	"github.com/townsendmerino/aikit/mmap"
-	"github.com/townsendmerino/goinfer/internal/runtime/giw"
+	"github.com/pkieltyka/aikit/linalg"
+	"github.com/pkieltyka/aikit/mmap"
+	"github.com/pkieltyka/goinfer/internal/runtime/giw"
 )
 
 // A .giw's int4/int8 group SCALES must alias the mapping, not be copied to the Go heap on every load (giwReader.f32

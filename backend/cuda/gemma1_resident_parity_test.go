@@ -5,7 +5,7 @@ package cuda
 import (
 	"testing"
 
-	"github.com/townsendmerino/goinfer/decoder"
+	"github.com/pkieltyka/goinfer/decoder"
 )
 
 // TestGemma1ResidentParityCUDA: Gemma 1 / CodeGemma (model_type gemma) is admitted to CUDA by feature (embed scale,

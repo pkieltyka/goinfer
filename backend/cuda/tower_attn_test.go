@@ -10,7 +10,7 @@ import (
 	"testing"
 	"time"
 
-	gpu "github.com/townsendmerino/goinfer/backend/cuda/internal/gpudev"
+	gpu "github.com/pkieltyka/goinfer/backend/cuda/internal/gpudev"
 )
 
 // S17 lever A's kernel gate: the fused float32 attention (tower_base.cu) against a float64 reference at the production shapes

@@ -8,8 +8,8 @@ import (
 	"testing"
 	"time"
 
-	"github.com/townsendmerino/goinfer/constrain"
-	"github.com/townsendmerino/goinfer/tokenizer"
+	"github.com/pkieltyka/goinfer/constrain"
+	"github.com/pkieltyka/goinfer/tokenizer"
 )
 
 // TestConfidenceCost_C1 prices CaptureConfidence against plain masking, per decode step, at three grammar states on

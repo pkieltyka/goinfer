@@ -5,9 +5,9 @@ package kernels
 import (
 	"fmt"
 
-	"github.com/townsendmerino/goinfer/internal/vision"
+	"github.com/pkieltyka/goinfer/internal/vision"
 
-	"github.com/townsendmerino/goinfer/multimodal"
+	"github.com/pkieltyka/goinfer/multimodal"
 )
 
 // Qwen2.5-VL's vision tower on WebGPU, on the grid engine (grid_vision.go), in float32 from aikit's GPUWeights. It

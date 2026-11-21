@@ -1,6 +1,6 @@
 package decoder
 
-import "github.com/townsendmerino/goinfer/decoder/resident"
+import "github.com/pkieltyka/goinfer/decoder/resident"
 
 // The resident contract a backend implements lives in decoder/resident, a leaf over internal/cost and internal/adapter, so a
 // caller can name it without importing the loader. These are its names in decoder.

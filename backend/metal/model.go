@@ -12,13 +12,13 @@ import (
 	"sync"
 	"unsafe"
 
-	"github.com/townsendmerino/goinfer/internal/runtime/mem"
-	"github.com/townsendmerino/goinfer/internal/runtime/program"
+	"github.com/pkieltyka/goinfer/internal/runtime/mem"
+	"github.com/pkieltyka/goinfer/internal/runtime/program"
 
-	"github.com/townsendmerino/aikit/linalg"
-	gpu "github.com/townsendmerino/goinfer/backend/metal/internal/gpudev"
-	"github.com/townsendmerino/goinfer/backend/metal/kernels"
-	"github.com/townsendmerino/goinfer/decoder"
+	"github.com/pkieltyka/aikit/linalg"
+	gpu "github.com/pkieltyka/goinfer/backend/metal/internal/gpudev"
+	"github.com/pkieltyka/goinfer/backend/metal/kernels"
+	"github.com/pkieltyka/goinfer/decoder"
 )
 
 // metalCtxCapDefault is the resident KV capacity in positions an unpinned load never goes under of its own accord (4096), and

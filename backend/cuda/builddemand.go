@@ -3,8 +3,8 @@
 package cuda
 
 import (
-	gpu "github.com/townsendmerino/goinfer/backend/cuda/internal/gpudev"
-	"github.com/townsendmerino/goinfer/decoder"
+	gpu "github.com/pkieltyka/goinfer/backend/cuda/internal/gpudev"
+	"github.com/pkieltyka/goinfer/decoder"
 )
 
 // The CUDA build's account of a load, before the build, for the fit guard (decoder.BuildDemand). Which architectures run

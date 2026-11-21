@@ -9,7 +9,7 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/townsendmerino/goinfer/internal/app/loadflags"
+	"github.com/pkieltyka/goinfer/internal/app/loadflags"
 )
 
 // TestLogitBias_reachesTheSamplerOnEveryRoute: logit_bias on /v1/chat/completions, /v1/completions and /v1/responses (OpenAI's

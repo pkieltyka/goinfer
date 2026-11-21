@@ -8,7 +8,7 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/townsendmerino/goinfer/decoder"
+	"github.com/pkieltyka/goinfer/decoder"
 )
 
 // TestMoESlotsViaOptions_engagesPaging is Phase 2's own gate: decoder.Options.MoECacheSlots (the SAME

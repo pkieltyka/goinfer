@@ -3,7 +3,7 @@ package serveapp
 import (
 	"testing"
 
-	"github.com/townsendmerino/goinfer/decoder"
+	"github.com/pkieltyka/goinfer/decoder"
 )
 
 // MEM13: the job store keeps a capped number of jobs, each with its prompt's token

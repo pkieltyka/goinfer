@@ -5,7 +5,7 @@ import (
 	"slices"
 	"testing"
 
-	"github.com/townsendmerino/goinfer/tokenizer"
+	"github.com/pkieltyka/goinfer/tokenizer"
 )
 
 // firstExisting returns the first path that exists, or "".

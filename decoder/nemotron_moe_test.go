@@ -9,8 +9,8 @@ import (
 	"os"
 	"testing"
 
-	"github.com/townsendmerino/aikit/linalg"
-	"github.com/townsendmerino/goinfer/internal/runtime/sampling"
+	"github.com/pkieltyka/aikit/linalg"
+	"github.com/pkieltyka/goinfer/internal/runtime/sampling"
 )
 
 // TestNemotron3NanoMoE_descriptor checks the nemotron_h adapter resolves a FOURTH

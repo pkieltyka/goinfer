@@ -18,7 +18,7 @@ import (
 	"sync"
 	"testing"
 
-	"github.com/townsendmerino/goinfer/internal/runtime/mem/probe"
+	"github.com/pkieltyka/goinfer/internal/runtime/mem/probe"
 )
 
 // The decision census: every memory decision the fit code

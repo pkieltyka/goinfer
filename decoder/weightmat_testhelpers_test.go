@@ -1,6 +1,6 @@
 package decoder
 
-import "github.com/townsendmerino/aikit/linalg"
+import "github.com/pkieltyka/aikit/linalg"
 
 // Test-only accessors that reach a linalg.WeightMat's stored arrays/flags through
 // its exported accessors — the tests inspect resident precision + raw arrays

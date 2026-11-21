@@ -5,7 +5,7 @@ import (
 	"slices"
 	"testing"
 
-	"github.com/townsendmerino/goinfer/internal/runtime/sampling"
+	"github.com/pkieltyka/goinfer/internal/runtime/sampling"
 )
 
 // P26: the Qwen3.5 image prefill runs every projection as one matmul over the prompt

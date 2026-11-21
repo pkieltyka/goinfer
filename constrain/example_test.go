@@ -3,7 +3,7 @@ package constrain_test
 import (
 	"fmt"
 
-	"github.com/townsendmerino/goinfer/constrain"
+	"github.com/pkieltyka/goinfer/constrain"
 )
 
 // Derive a JSON Schema straight from a Go struct's json tags — the basis of "a

@@ -4,7 +4,7 @@ import (
 	"math"
 	"testing"
 
-	"github.com/townsendmerino/aikit/linalg"
+	"github.com/pkieltyka/aikit/linalg"
 )
 
 // f16Value is the exact value of a finite binary16 bit pattern.

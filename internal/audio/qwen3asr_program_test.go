@@ -3,7 +3,7 @@ package audio
 import (
 	"testing"
 
-	"github.com/townsendmerino/goinfer/internal/vision"
+	"github.com/pkieltyka/goinfer/internal/vision"
 )
 
 // tinyQwenASRLayer is one layer of d_model 8, two heads and an FFN of 32, every weight shaped as the loader shapes it

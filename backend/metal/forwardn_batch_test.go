@@ -9,7 +9,7 @@ import (
 	"slices"
 	"testing"
 
-	"github.com/townsendmerino/goinfer/decoder"
+	"github.com/pkieltyka/goinfer/decoder"
 )
 
 // TestForwardN_BitIdenticalParity verifies that the single-command-buffer batched ForwardN

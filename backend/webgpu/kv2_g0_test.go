@@ -10,9 +10,9 @@ import (
 	"slices"
 	"testing"
 
-	"github.com/townsendmerino/goinfer/decoder"
+	"github.com/pkieltyka/goinfer/decoder"
 
-	"github.com/townsendmerino/goinfer/internal/testgate"
+	"github.com/pkieltyka/goinfer/internal/testgate"
 )
 
 // TestKV2_G0splitInvariance is G0 on the Mac's WebGPU (docs/measurements/kv2-2026-10-14.md), inside the tiny fixture's

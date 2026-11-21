@@ -5,7 +5,7 @@ package cuda
 import (
 	"sync/atomic"
 
-	"github.com/townsendmerino/goinfer/decoder"
+	"github.com/pkieltyka/goinfer/decoder"
 )
 
 // CUDA's f16 KV cache policy (docs/measurements/kv4-cuda-2026-10-21.md §2). Every kernel that reads or writes the

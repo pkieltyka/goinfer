@@ -7,7 +7,7 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/townsendmerino/goinfer/decoder"
+	"github.com/pkieltyka/goinfer/decoder"
 )
 
 // TestG44_deltaNetInt8Declines is G44's tier 0 gate: qwen35-tiny at int8int8 does not go

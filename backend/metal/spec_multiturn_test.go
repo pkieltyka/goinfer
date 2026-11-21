@@ -11,8 +11,8 @@ import (
 	"testing"
 	"time"
 
-	"github.com/townsendmerino/goinfer/decoder"
-	"github.com/townsendmerino/goinfer/tokenizer"
+	"github.com/pkieltyka/goinfer/decoder"
+	"github.com/pkieltyka/goinfer/tokenizer"
 )
 
 // TestSpecNgram_multiTurnMatchesPlain: served with `--spec ngram`, W7's chat turns after the first differed from plain

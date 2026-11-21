@@ -8,7 +8,7 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/townsendmerino/goinfer/decoder"
+	"github.com/pkieltyka/goinfer/decoder"
 )
 
 // TestPrefillFloor (A-G01, docs/audit-metal-2026-09-30.md): batched prefill declines a prompt shorter than the floor,

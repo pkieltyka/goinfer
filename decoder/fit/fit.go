@@ -9,7 +9,7 @@ import (
 	"errors"
 	"fmt"
 
-	"github.com/townsendmerino/goinfer/internal/runtime/mem"
+	"github.com/pkieltyka/goinfer/internal/runtime/mem"
 )
 
 // Each Placement equals internal/mem's of the same name, so Plan converts one to the other; a compile error here means they

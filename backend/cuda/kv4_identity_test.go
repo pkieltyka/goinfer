@@ -11,7 +11,7 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/townsendmerino/goinfer/decoder"
+	"github.com/pkieltyka/goinfer/decoder"
 )
 
 // KV4a's storage-identity gates (docs/measurements/kv4-cuda-2026-10-21.md §2, G1a and G1c): paged storage gives the same bits whatever

@@ -12,8 +12,8 @@ import (
 	"testing"
 	"time"
 
-	"github.com/townsendmerino/goinfer/internal/vision"
-	"github.com/townsendmerino/goinfer/multimodal"
+	"github.com/pkieltyka/goinfer/internal/vision"
+	"github.com/pkieltyka/goinfer/multimodal"
 )
 
 // G-S10f: the Qwen3-VL tower on CUDA with DeepStack, CUDA twin of metal/grid_vision_deepstack_test.go. The grid tower taps the

@@ -13,9 +13,9 @@ import (
 	"testing"
 	"unicode/utf8"
 
-	"github.com/townsendmerino/goinfer/chat"
-	"github.com/townsendmerino/goinfer/internal/runtime/modelload"
-	"github.com/townsendmerino/goinfer/internal/testpath"
+	"github.com/pkieltyka/goinfer/chat"
+	"github.com/pkieltyka/goinfer/internal/runtime/modelload"
+	"github.com/pkieltyka/goinfer/internal/testpath"
 )
 
 // G-ids-0 (docs/measurements/integration-harness-2026-10/id-roundtrip-step0-2026-10-15.md, §(c) and its Amendment 1): the

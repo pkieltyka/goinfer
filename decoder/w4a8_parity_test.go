@@ -5,8 +5,8 @@ import (
 	"os"
 	"testing"
 
-	"github.com/townsendmerino/goinfer/internal/runtime/giw"
-	"github.com/townsendmerino/goinfer/tokenizer"
+	"github.com/pkieltyka/goinfer/internal/runtime/giw"
+	"github.com/pkieltyka/goinfer/tokenizer"
 )
 
 // TestW4A8DecodeParity is the rewire gate: the CPU int4 decode now runs aikit's

@@ -8,7 +8,7 @@ import (
 	"testing"
 	"time"
 
-	"github.com/townsendmerino/goinfer/internal/runtime/giw"
+	"github.com/pkieltyka/goinfer/internal/runtime/giw"
 )
 
 // writeTinyGIW writes a small real .giw bundle and returns its path.

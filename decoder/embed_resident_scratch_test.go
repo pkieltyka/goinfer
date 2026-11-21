@@ -4,7 +4,7 @@ import (
 	"testing"
 	"unsafe"
 
-	"github.com/townsendmerino/aikit/linalg"
+	"github.com/pkieltyka/aikit/linalg"
 )
 
 // TestEmbedResidentInto_reusesBuffer is P-08 (audit-2026-09-10): embedResident allocated a fresh

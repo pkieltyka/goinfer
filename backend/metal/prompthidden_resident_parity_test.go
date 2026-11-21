@@ -6,7 +6,7 @@ import (
 	"context"
 	"testing"
 
-	"github.com/townsendmerino/goinfer/decoder"
+	"github.com/pkieltyka/goinfer/decoder"
 )
 
 // TestPromptHiddenResidentMetal: decoder.Model.PromptHidden on a Metal-resident Qwen3.5 (the JEV decision models' family)

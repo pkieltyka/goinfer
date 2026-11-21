@@ -21,7 +21,7 @@ import (
 	"errors"
 	"testing"
 
-	"github.com/townsendmerino/goinfer/internal/runtime/sampling"
+	"github.com/pkieltyka/goinfer/internal/runtime/sampling"
 )
 
 // realLogitOracle loads ckpt at int8, replays the golden's prompt ids, and gates

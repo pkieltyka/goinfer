@@ -9,10 +9,10 @@ import (
 	"slices"
 
 	"github.com/oliverbestmann/webgpu/wgpu"
-	"github.com/townsendmerino/aikit/linalg"
-	"github.com/townsendmerino/goinfer/backend/webgpu/internal/kernels"
-	"github.com/townsendmerino/goinfer/decoder"
-	"github.com/townsendmerino/goinfer/internal/runtime/mem"
+	"github.com/pkieltyka/aikit/linalg"
+	"github.com/pkieltyka/goinfer/backend/webgpu/internal/kernels"
+	"github.com/pkieltyka/goinfer/decoder"
+	"github.com/pkieltyka/goinfer/internal/runtime/mem"
 )
 
 // webgpuBuild is the state of one webgpuBackend.BuildResident: the model, the device context and the resident decoder being

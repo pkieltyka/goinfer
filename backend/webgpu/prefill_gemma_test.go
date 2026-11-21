@@ -4,13 +4,13 @@ package webgpu
 
 import (
 	"fmt"
-	"github.com/townsendmerino/goinfer/backend/webgpu/internal/kernels"
+	"github.com/pkieltyka/goinfer/backend/webgpu/internal/kernels"
 	"math/rand"
 	"os"
 	"path/filepath"
 	"testing"
 
-	"github.com/townsendmerino/goinfer/decoder"
+	"github.com/pkieltyka/goinfer/decoder"
 )
 
 // eModelImageRows is a prompt of an E-model's text rows with a run of image rows in the middle: random features

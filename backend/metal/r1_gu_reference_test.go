@@ -9,7 +9,7 @@ import (
 	"sort"
 	"testing"
 
-	"github.com/townsendmerino/goinfer/decoder"
+	"github.com/pkieltyka/goinfer/decoder"
 )
 
 // TestR1_guReference is experiment X1 of the R1 (W4F16 decode lane) re-investigation. The

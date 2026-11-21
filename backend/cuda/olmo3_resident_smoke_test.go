@@ -7,7 +7,7 @@ import (
 	"math"
 	"testing"
 
-	"github.com/townsendmerino/goinfer/decoder"
+	"github.com/pkieltyka/goinfer/decoder"
 )
 
 // TestOlmo3ResidentSmokeCUDA and TestOlmoHybridResidentSmokeCUDA are G5's FeatPostOnlyNorm +

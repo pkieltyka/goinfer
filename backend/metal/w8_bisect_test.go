@@ -8,8 +8,8 @@ import (
 	"os"
 	"testing"
 
-	"github.com/townsendmerino/goinfer/decoder"
-	"github.com/townsendmerino/goinfer/tokenizer"
+	"github.com/pkieltyka/goinfer/decoder"
+	"github.com/pkieltyka/goinfer/tokenizer"
 )
 
 // TestW8Native_perLayerBisect is the Metal int8 doc's next step after F3 and F2 failed: name where Metal's native int8int8 leaves the CPU's int8int8, layer by layer, on the 0.5B. F1 holds

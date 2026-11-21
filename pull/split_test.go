@@ -8,7 +8,7 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/townsendmerino/goinfer/decoder"
+	"github.com/pkieltyka/goinfer/decoder"
 )
 
 // splitRepo is testdata/gguf-split (glm-tiny.gguf split into four shards by llama-gguf-split) published the way

@@ -12,8 +12,8 @@ import (
 	"strings"
 	"testing/fstest"
 
-	"github.com/townsendmerino/aikit/embed"
-	"github.com/townsendmerino/aikit/linalg"
+	"github.com/pkieltyka/aikit/embed"
+	"github.com/pkieltyka/aikit/linalg"
 )
 
 // Config is the dispatch configuration a fingerprint holds for: two builds that agree on it run the same kernels.

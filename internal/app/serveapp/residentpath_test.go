@@ -7,7 +7,7 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/townsendmerino/goinfer/decoder"
+	"github.com/pkieltyka/goinfer/decoder"
 )
 
 // fakeResident is a minimal decoder.ResidentForward + decoder.ResidentSubsystemProvider (runtime contract only), built only from

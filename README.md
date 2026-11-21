@@ -1,6 +1,9 @@
 # goinfer
 
-[![Go Reference](https://pkg.go.dev/badge/github.com/townsendmerino/goinfer.svg)](https://pkg.go.dev/github.com/townsendmerino/goinfer)
+> A fork of [townsendmerino/goinfer](https://github.com/townsendmerino/goinfer), with the module path
+> `github.com/pkieltyka/goinfer`. The original copyright and MIT License are kept ([LICENSE](LICENSE), [NOTICE](NOTICE)).
+
+[![Go Reference](https://pkg.go.dev/badge/github.com/pkieltyka/goinfer.svg)](https://pkg.go.dev/github.com/pkieltyka/goinfer)
 [![codecov](https://codecov.io/gh/townsendmerino/goinfer/graph/badge.svg)](https://codecov.io/gh/townsendmerino/goinfer)
 
 **Run an open-weight LLM inside your Go program.** Pure Go, no cgo: `go get` it, import it,
@@ -86,10 +89,10 @@ Where things live (library packages, GPU backend modules, binaries, satellites, 
 
 ```bash
 # <!-- smoke --> from inside your own module (`go mod init …` first)
-go get github.com/townsendmerino/goinfer/decoder@latest github.com/townsendmerino/goinfer/tokenizer@latest
+go get github.com/pkieltyka/goinfer/decoder@latest github.com/pkieltyka/goinfer/tokenizer@latest
 ```
 
-Name the packages you import, as above. A bare `go get github.com/townsendmerino/goinfer` records
+Name the packages you import, as above. A bare `go get github.com/pkieltyka/goinfer` records
 the requirement but does not fetch enough to build against, and the next build fails with
 `missing go.sum entry for module providing package …`. One command like the one above is enough
 for every other package in the same module (`chat`, `constrain`, …).
@@ -208,15 +211,15 @@ layout can be loaded with `--model name=DIR,head=DIR`
 
 ```bash
 # <!-- smoke --> installs as `serve` (the directory name); rename it if you want
-go install github.com/townsendmerino/goinfer/cmd/serve@latest
+go install github.com/pkieltyka/goinfer/cmd/serve@latest
 ```
 
 That is the CPU server. Each GPU backend has its own entrypoint (`-tags metal` on `cmd/serve`
 fails the build and says so):
 
 ```bash
-go install github.com/townsendmerino/goinfer/backend/metal/cmd/serve@latest              # macOS
-go install -tags cuda  github.com/townsendmerino/goinfer/backend/cuda/cmd/serve@latest    # Linux + NVIDIA
+go install github.com/pkieltyka/goinfer/backend/metal/cmd/serve@latest              # macOS
+go install -tags cuda  github.com/pkieltyka/goinfer/backend/cuda/cmd/serve@latest    # Linux + NVIDIA
 ```
 
 The released `goinfer-serve` and `goinfer-chat` assets include Metal on macOS and CUDA on Linux,
@@ -371,7 +374,7 @@ in-process. Longer form: [docs/positioning.md](docs/positioning.md).
   drives the system's Vulkan, Metal or DX12 driver, so it needs a C toolchain and is not in the
   release binaries. Nothing that performs inference is loaded from outside the binary: no
   llama.cpp, no libllama, no Python runtime. The library's `go.mod` has two direct requirements,
-  `github.com/townsendmerino/aikit` and `golang.org/x/text`; each GPU backend is its own module.
+  `github.com/pkieltyka/aikit` and `golang.org/x/text`; each GPU backend is its own module.
   Dense and MoE models; anything unsupported declines at load and falls back to CPU. See [docs/cuda-backend.md](docs/cuda-backend.md)
   and [docs/gpu-residency-coverage.md](docs/gpu-residency-coverage.md). On CUDA, prompts of 512
   tokens or more use a fused FlashAttention-style kernel and a tensor-core int4 GEMM (3.9×
@@ -435,7 +438,7 @@ is the one to read if you read only one. Source: [docs/book/](docs/book).
 
 Demos: `demo/chat` (single-binary local chat), `demo/agent` (fully-local stdlib RAG coding agent).
 
-Built on [`aikit`](https://github.com/townsendmerino/aikit)'s embedding and tensor primitives.
+Built on [`aikit`](https://github.com/pkieltyka/aikit)'s embedding and tensor primitives.
 
 ## Status
 

@@ -10,7 +10,7 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/townsendmerino/goinfer/decoder"
+	"github.com/pkieltyka/goinfer/decoder"
 )
 
 var updateResolveGolden = flag.Bool("update-resolve-golden", false, "rewrite testdata/resolve.golden.json")

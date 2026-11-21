@@ -4,7 +4,7 @@ import (
 	"reflect"
 	"testing"
 
-	"github.com/townsendmerino/goinfer/decoder/resident"
+	"github.com/pkieltyka/goinfer/decoder/resident"
 )
 
 // TestResidentAlias_namesAreTheLeafTypes holds decoder's resident names to decoder/resident's types: a backend that names
@@ -27,7 +27,7 @@ func TestResidentAlias_namesAreTheLeafTypes(t *testing.T) {
 		if c.dec != c.leaf {
 			t.Errorf("decoder.%s is %v, the leaf's is %v", c.name, c.dec, c.leaf)
 		}
-		if c.dec.PkgPath() != "github.com/townsendmerino/goinfer/decoder/resident" {
+		if c.dec.PkgPath() != "github.com/pkieltyka/goinfer/decoder/resident" {
 			t.Errorf("decoder.%s is declared in %q, want decoder/resident", c.name, c.dec.PkgPath())
 		}
 	}

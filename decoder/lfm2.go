@@ -1,8 +1,8 @@
 package decoder
 
 import (
-	"github.com/townsendmerino/aikit/embed"
-	"github.com/townsendmerino/aikit/linalg"
+	"github.com/pkieltyka/aikit/embed"
+	"github.com/pkieltyka/aikit/linalg"
 )
 
 // shortConvWeights is one LFM2 gated short-convolution mixer.

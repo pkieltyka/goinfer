@@ -8,7 +8,7 @@ import (
 	"path/filepath"
 	"testing"
 
-	"github.com/townsendmerino/goinfer/decoder"
+	"github.com/pkieltyka/goinfer/decoder"
 )
 
 // TestQ4K_fusedG32ResidentBitIdentical: on a model the fused per-32 kernels serve (qwen2.5-coder-1.5b,

@@ -8,7 +8,7 @@ import (
 	"slices"
 	"testing"
 
-	"github.com/townsendmerino/goinfer/internal/audio"
+	"github.com/pkieltyka/goinfer/internal/audio"
 )
 
 // G-S14g2: timestamps and sequential long-form against transformers' generate(return_timestamps=True, return_segments=True) on a tiny random-weight Whisper

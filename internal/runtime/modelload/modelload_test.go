@@ -9,11 +9,11 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/townsendmerino/goinfer/decoder"
-	"github.com/townsendmerino/goinfer/decoder/fit"
-	"github.com/townsendmerino/goinfer/internal/runtime/prequant"
-	"github.com/townsendmerino/goinfer/internal/testpath"
-	"github.com/townsendmerino/goinfer/tokenizer"
+	"github.com/pkieltyka/goinfer/decoder"
+	"github.com/pkieltyka/goinfer/decoder/fit"
+	"github.com/pkieltyka/goinfer/internal/runtime/prequant"
+	"github.com/pkieltyka/goinfer/internal/testpath"
+	"github.com/pkieltyka/goinfer/tokenizer"
 )
 
 // TestTokenizerFromTok_reportsBothErrors (N-25): this is the one place all three apps read a .giw's tok half; when the

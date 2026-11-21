@@ -4,7 +4,7 @@ import (
 	"os"
 	"strings"
 
-	"github.com/townsendmerino/goinfer/decoder/fit"
+	"github.com/pkieltyka/goinfer/decoder/fit"
 )
 
 // embedInt4DefaultMaxParams is the model size, in total parameters, from which the default output head is int8 rather than

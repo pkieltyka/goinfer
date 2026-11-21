@@ -8,7 +8,7 @@ import (
 	"strconv"
 	"testing"
 
-	"github.com/townsendmerino/goinfer/decoder"
+	"github.com/pkieltyka/goinfer/decoder"
 )
 
 // TestA13_PrefillChurnPoisons measures the one shipped path that releases a large buffer inside a live

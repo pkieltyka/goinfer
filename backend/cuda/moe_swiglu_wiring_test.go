@@ -6,7 +6,7 @@ import (
 	"math"
 	"testing"
 
-	"github.com/townsendmerino/goinfer/decoder"
+	"github.com/pkieltyka/goinfer/decoder"
 )
 
 // TestMoeSwigluWiring_C15 is the dedicated bug-B gate that the e2e MoE parity cosine can no longer

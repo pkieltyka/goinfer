@@ -8,7 +8,7 @@ import (
 	"os"
 	"testing"
 
-	"github.com/townsendmerino/goinfer/internal/runtime/sampling"
+	"github.com/pkieltyka/goinfer/internal/runtime/sampling"
 )
 
 // TestAWQ_parity loads a real AWQ checkpoint (TheBloke/TinyLlama-1.1B-Chat-v1.0

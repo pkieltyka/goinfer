@@ -10,7 +10,7 @@ import (
 	"sync"
 	"testing"
 
-	"github.com/townsendmerino/goinfer/decoder"
+	"github.com/pkieltyka/goinfer/decoder"
 )
 
 // ksh6cModel is one of H6C-G2/G3's loads: a checkpoint under ~/models, a pinned context (0: unpinned) and the expert cache.

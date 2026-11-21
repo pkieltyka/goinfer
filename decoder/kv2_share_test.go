@@ -8,7 +8,7 @@ import (
 	"testing"
 	"time"
 
-	"github.com/townsendmerino/goinfer/internal/runtime/kvmgr"
+	"github.com/pkieltyka/goinfer/internal/runtime/kvmgr"
 )
 
 // copyFake is mc3Fake with a slot-to-slot copy (KVCopierAvailable). mc3Fake's rows are a hash of each position's input

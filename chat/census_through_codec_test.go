@@ -3,8 +3,8 @@ package chat_test
 import (
 	"testing"
 
-	"github.com/townsendmerino/goinfer/chat"
-	"github.com/townsendmerino/goinfer/internal/codec"
+	"github.com/pkieltyka/goinfer/chat"
+	"github.com/pkieltyka/goinfer/internal/codec"
 )
 
 // codecPath is the census's seam filled by internal/codec. Without a reply router, codec.SettleCalls is the template's

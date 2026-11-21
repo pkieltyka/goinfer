@@ -22,6 +22,7 @@ func TestRunRecord_plantsTurnTheReplayRed(t *testing.T) {
 			if err != nil {
 				t.Fatal(err)
 			}
+			// The recorded stream predates the module rename and names the original path.
 			const pass = `"Action":"pass","Package":"github.com/townsendmerino/goinfer/decoder","Test":"TestCacheStateGrid_rewindCellsOnRealCaches"`
 			if !strings.Contains(string(b), pass) {
 				t.Fatal("the recorded stream has no passing top-level test to plant")
@@ -102,6 +103,7 @@ func TestParityReplay_plants(t *testing.T) {
 		if err != nil {
 			t.Fatal(err)
 		}
+		// The recorded stream predates the module rename and names the original path.
 		pass := `"Action":"pass","Package":"github.com/townsendmerino/goinfer/decoder","Test":"` + passing + `"`
 		if !strings.Contains(string(b), pass) {
 			t.Fatalf("the recorded stream has no passing %s", passing)

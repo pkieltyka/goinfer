@@ -40,7 +40,7 @@ func TestChatVersionFlag_answersWithoutAModel(t *testing.T) {
 	if runtime.GOOS == "windows" {
 		bin += ".exe"
 	}
-	build := exec.Command("go", "build", "-o", bin, "github.com/townsendmerino/goinfer/demo/chat")
+	build := exec.Command("go", "build", "-o", bin, "github.com/pkieltyka/goinfer/demo/chat")
 	build.Dir = ".."
 	if out, err := build.CombinedOutput(); err != nil {
 		t.Skipf("cannot build demo/chat here: %v\n%s", err, out)
@@ -83,7 +83,7 @@ func TestChatUnknownPositional_namesTheSubcommands(t *testing.T) {
 	if runtime.GOOS == "windows" {
 		bin += ".exe"
 	}
-	build := exec.Command("go", "build", "-o", bin, "github.com/townsendmerino/goinfer/demo/chat")
+	build := exec.Command("go", "build", "-o", bin, "github.com/pkieltyka/goinfer/demo/chat")
 	build.Dir = ".."
 	if out, err := build.CombinedOutput(); err != nil {
 		t.Skipf("cannot build demo/chat here: %v\n%s", err, out)

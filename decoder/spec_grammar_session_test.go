@@ -5,8 +5,8 @@ import (
 	"slices"
 	"testing"
 
-	"github.com/townsendmerino/goinfer/constrain"
-	"github.com/townsendmerino/goinfer/tokenizer"
+	"github.com/pkieltyka/goinfer/constrain"
+	"github.com/pkieltyka/goinfer/tokenizer"
 )
 
 // TestGrammarSpec_sessionTwoTurnsMatchPlain: on a Session, a grammar-fused speculative turn that ends by reaching

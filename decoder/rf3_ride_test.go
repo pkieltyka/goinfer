@@ -11,7 +11,7 @@ import (
 	"testing"
 	"time"
 
-	"github.com/townsendmerino/goinfer/internal/runtime/sampling"
+	"github.com/pkieltyka/goinfer/internal/runtime/sampling"
 )
 
 // rideFake is mc3Fake plus a ragged step (RaggedStepperAvailable): a prefill chunk's rows write their positions as PrefillLast

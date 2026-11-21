@@ -4,7 +4,7 @@ import (
 	"fmt"
 	"slices"
 
-	"github.com/townsendmerino/goinfer/internal/runtime/program"
+	"github.com/pkieltyka/goinfer/internal/runtime/program"
 )
 
 // Metal's names for internal/program's sublayers: a layer's steps are its sublayers, each one of Metal's fused blocks.

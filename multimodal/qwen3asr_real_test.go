@@ -7,7 +7,7 @@ import (
 	"testing"
 	"time"
 
-	"github.com/townsendmerino/goinfer/internal/audio"
+	"github.com/pkieltyka/goinfer/internal/audio"
 )
 
 // G-S14b3: Qwen3-ASR-0.6B's audio encoder and projector, goinfer float32 on the CPU, against transformers

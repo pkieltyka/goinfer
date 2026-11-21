@@ -13,7 +13,7 @@ import (
 	"runtime"
 	"testing"
 
-	"github.com/townsendmerino/goinfer/decoder"
+	"github.com/pkieltyka/goinfer/decoder"
 )
 
 // mem6EModelLong is gemma4-emodel-tiny with its position window raised to 4,096 (the weights do not depend on it), so a prompt

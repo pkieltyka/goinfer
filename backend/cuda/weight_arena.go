@@ -6,8 +6,8 @@ import (
 	"reflect"
 	"unsafe"
 
-	gpu "github.com/townsendmerino/goinfer/backend/cuda/internal/gpudev"
-	"github.com/townsendmerino/goinfer/internal/runtime/mem"
+	gpu "github.com/pkieltyka/goinfer/backend/cuda/internal/gpudev"
+	"github.com/pkieltyka/goinfer/internal/runtime/mem"
 )
 
 // weightAlign is the byte alignment of each weight inside the arena: cuMemAlloc's own, so a kernel reads a sub-allocated weight

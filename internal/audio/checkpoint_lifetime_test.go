@@ -14,7 +14,7 @@ import (
 	"testing"
 	"weak"
 
-	"github.com/townsendmerino/aikit/embed"
+	"github.com/pkieltyka/aikit/embed"
 )
 
 // stTensor is one F32 tensor of a test checkpoint.

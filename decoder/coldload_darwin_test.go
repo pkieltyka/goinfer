@@ -10,7 +10,7 @@ import (
 	"time"
 	"unsafe"
 
-	"github.com/townsendmerino/goinfer/internal/runtime/mem/probe"
+	"github.com/pkieltyka/goinfer/internal/runtime/mem/probe"
 )
 
 // TestColdLoad_darwinProbesAndActions runs the real kernel calls on a real file: a file written and dropped from

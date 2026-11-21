@@ -71,7 +71,7 @@ Then type a message, or `/demos` to try canned prompts. `/demo json` shows
 - Model: **Qwen2.5-Coder-Instruct** (0.5B or 1.5B), run on the fast int8×int8 CPU
   kernel — interactive on a laptop, no GPU. The int8 weights are mapped straight
   from the binary image, so cold start is ~1 s and heap stays < 100 MB.
-- Runtime: [goinfer](https://github.com/townsendmerino/goinfer) — a pure-Go,
+- Runtime: [goinfer](https://github.com/pkieltyka/goinfer) — a pure-Go,
   no-cgo decoder-only LLM runtime with HuggingFace logit parity.
 
 ### Honest notes
@@ -81,4 +81,4 @@ structured extraction), not chat geniuses. And it's not a speed record — goinf
 trades llama.cpp's raw throughput for *portability*: one dependency-free file
 that runs anywhere Go runs. That's the trick.
 
-Full demo docs: [`demo/chat/README.md`](https://github.com/townsendmerino/goinfer/blob/main/demo/chat/README.md).
+Full demo docs: [`demo/chat/README.md`](https://github.com/pkieltyka/goinfer/blob/main/demo/chat/README.md).

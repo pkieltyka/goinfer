@@ -11,7 +11,7 @@ import (
 	"sync"
 	"time"
 
-	"github.com/townsendmerino/goinfer/internal/runtime/kvmgr"
+	"github.com/pkieltyka/goinfer/internal/runtime/kvmgr"
 )
 
 // Prefix snapshots in host memory. After a cold first prefill of a long prompt the

@@ -8,7 +8,7 @@ import (
 	"testing"
 
 	gc "github.com/eitamring/gocudrv/cuda"
-	"github.com/townsendmerino/goinfer/decoder"
+	"github.com/pkieltyka/goinfer/decoder"
 )
 
 // TestForwardMRoPE_constantShiftInvariance is the correctness test for ForwardMRoPE (decoder.ResidentDecodeSubsystem) and

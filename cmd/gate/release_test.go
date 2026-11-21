@@ -27,11 +27,11 @@ func fakeRun(outs map[string]string, errs map[string]error) func(dir, name strin
 }
 
 func TestModRequire(t *testing.T) {
-	gomod := "module x\n\nrequire (\n\tgithub.com/townsendmerino/aikit v1.69.0\n\tgithub.com/townsendmerino/aikit/gpu v0.33.5\n)\n\nrequire golang.org/x/sys v0.1.0\n"
-	if v := modRequire(gomod, "github.com/townsendmerino/aikit"); v != "v1.69.0" {
+	gomod := "module x\n\nrequire (\n\tgithub.com/pkieltyka/aikit v1.69.0\n\tgithub.com/pkieltyka/aikit/gpu v0.33.5\n)\n\nrequire golang.org/x/sys v0.1.0\n"
+	if v := modRequire(gomod, "github.com/pkieltyka/aikit"); v != "v1.69.0" {
 		t.Errorf("aikit = %q", v)
 	}
-	if v := modRequire(gomod, "github.com/townsendmerino/aikit/gpu"); v != "v0.33.5" {
+	if v := modRequire(gomod, "github.com/pkieltyka/aikit/gpu"); v != "v0.33.5" {
 		t.Errorf("aikit/gpu = %q", v)
 	}
 	if v := modRequire(gomod, "golang.org/x/sys"); v != "v0.1.0" {
@@ -47,10 +47,10 @@ func writeMods(t *testing.T, root string, aikit map[string]string, gpu map[strin
 	for _, m := range relModules {
 		c := "module " + m + "\n\nrequire (\n"
 		if v := aikit[m]; v != "" {
-			c += "\tgithub.com/townsendmerino/aikit " + v + "\n"
+			c += "\tgithub.com/pkieltyka/aikit " + v + "\n"
 		}
 		if v := gpu[m]; v != "" {
-			c += "\tgithub.com/townsendmerino/aikit/gpu " + v + "\n"
+			c += "\tgithub.com/pkieltyka/aikit/gpu " + v + "\n"
 		}
 		c += ")\n"
 		writeTree(t, root, map[string]string{m + "/go.mod": c})

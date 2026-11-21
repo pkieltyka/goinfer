@@ -5,7 +5,7 @@ package metal
 import (
 	"testing"
 
-	"github.com/townsendmerino/goinfer/decoder"
+	"github.com/pkieltyka/goinfer/decoder"
 )
 
 // TestP0a_metalBuildFollowsResolveKV is P0A-G1's Metal half:

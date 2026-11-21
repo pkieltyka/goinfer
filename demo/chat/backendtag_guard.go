@@ -4,9 +4,9 @@
 // is run against the ROOT demo/chat, which since v0.10.0 is pure-Go and imports
 // no backend — those tags silently produced a CPU binary. Build the submodule entrypoint:
 //
-//	go build -tags cuda  github.com/townsendmerino/goinfer/backend/cuda/cmd/chat    # CUDA
-//	go build -tags gpu   github.com/townsendmerino/goinfer/backend/webgpu/cmd/chat  # WebGPU
-//	go build             github.com/townsendmerino/goinfer/backend/metal/cmd/chat   # Metal (darwin)
+//	go build -tags cuda  github.com/pkieltyka/goinfer/backend/cuda/cmd/chat    # CUDA
+//	go build -tags gpu   github.com/pkieltyka/goinfer/backend/webgpu/cmd/chat  # WebGPU
+//	go build             github.com/pkieltyka/goinfer/backend/metal/cmd/chat   # Metal (darwin)
 
 package main
 

@@ -10,7 +10,7 @@ import (
 	"testing"
 	"time"
 
-	"github.com/townsendmerino/goinfer/decoder"
+	"github.com/pkieltyka/goinfer/decoder"
 )
 
 // TestM11_asyncPhase2AB is M-11's read (docs/audit-metal-2026-09-30.md, "M-11"): a paged MoE's decode with phase 2

@@ -10,7 +10,7 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/townsendmerino/goinfer/chat"
+	"github.com/pkieltyka/goinfer/chat"
 )
 
 // The fast alias (fast_alias.go) at tier 0, on the scripted Mellum2.1 server: a request under "<model>-fast" runs on the same

@@ -4,7 +4,7 @@ import (
 	"encoding/binary"
 	"fmt"
 
-	"github.com/townsendmerino/goinfer/internal/audio"
+	"github.com/pkieltyka/goinfer/internal/audio"
 )
 
 // WAV rates DecodeWAVAnyRate takes. Anything in range is resampled to 16 kHz; outside it is far more likely a broken

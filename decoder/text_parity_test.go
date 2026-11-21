@@ -11,7 +11,7 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/townsendmerino/goinfer/internal/runtime/sampling"
+	"github.com/pkieltyka/goinfer/internal/runtime/sampling"
 )
 
 // textParity is one family's tiny-fixture check against its HF golden: the last logits and the greedy continuation through

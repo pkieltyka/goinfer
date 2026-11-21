@@ -10,7 +10,7 @@ import (
 	"testing"
 
 	gc "github.com/eitamring/gocudrv/cuda"
-	"github.com/townsendmerino/goinfer/decoder"
+	"github.com/pkieltyka/goinfer/decoder"
 )
 
 // TestPrefillStartOffset asks whether a prompt's seed logits depend on WHERE its prefill starts: the question a

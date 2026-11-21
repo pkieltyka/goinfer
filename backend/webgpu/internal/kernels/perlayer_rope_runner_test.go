@@ -6,7 +6,7 @@ import (
 	"math"
 	"testing"
 
-	"github.com/townsendmerino/aikit/linalg"
+	"github.com/pkieltyka/aikit/linalg"
 )
 
 // TestDecodeRunnerPerLayerRoPE_parity pins the resident runner binding a DIFFERENT RoPE table +

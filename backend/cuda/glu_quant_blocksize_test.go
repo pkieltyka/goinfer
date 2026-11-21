@@ -8,8 +8,8 @@ import (
 	"os"
 	"testing"
 
-	gpu "github.com/townsendmerino/goinfer/backend/cuda/internal/gpudev"
-	"github.com/townsendmerino/goinfer/decoder"
+	gpu "github.com/pkieltyka/goinfer/backend/cuda/internal/gpudev"
+	"github.com/pkieltyka/goinfer/decoder"
 )
 
 // TestGluQuantBlockSizeInvariant pins the claim glueQuantThreads' comment rests on: glu_quant is ONE block whose only reduction is a max

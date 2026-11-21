@@ -165,7 +165,7 @@ func itoa(n int) string {
 
 func aikitDir(t *testing.T) string {
 	t.Helper()
-	out, err := exec.Command("go", "list", "-m", "-f", "{{.Dir}}", "github.com/townsendmerino/aikit").Output()
+	out, err := exec.Command("go", "list", "-m", "-f", "{{.Dir}}", "github.com/pkieltyka/aikit").Output()
 	if err != nil {
 		t.Fatalf("go list -m aikit: %v (the module cache must hold the pinned aikit; run `go mod download`)", err)
 	}

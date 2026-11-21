@@ -8,7 +8,7 @@ import (
 	"time"
 
 	"github.com/oliverbestmann/webgpu/wgpu"
-	"github.com/townsendmerino/aikit/linalg"
+	"github.com/pkieltyka/aikit/linalg"
 )
 
 // runTiledKernel dispatches ONE explicit tiled-GEMM WGSL variant (bypassing

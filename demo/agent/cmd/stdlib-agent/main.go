@@ -22,8 +22,8 @@ import (
 	"strings"
 	"time"
 
-	"github.com/townsendmerino/goinfer/demo/agent/agent"
-	"github.com/townsendmerino/goinfer/demo/agent/internal/embedmodel"
+	"github.com/pkieltyka/goinfer/demo/agent/agent"
+	"github.com/pkieltyka/goinfer/demo/agent/internal/embedmodel"
 )
 
 func main() {

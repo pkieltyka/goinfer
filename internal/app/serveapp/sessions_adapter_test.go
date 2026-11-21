@@ -3,7 +3,7 @@ package serveapp
 import (
 	"testing"
 
-	"github.com/townsendmerino/goinfer/decoder"
+	"github.com/pkieltyka/goinfer/decoder"
 )
 
 // TestSessionLRU_restoreBindsTheLRUsAdapter drives serve's -session-dir round trip with a compute-time

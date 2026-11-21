@@ -9,7 +9,7 @@ import (
 	"os"
 	"testing"
 
-	"github.com/townsendmerino/goinfer/internal/runtime/sampling"
+	"github.com/pkieltyka/goinfer/internal/runtime/sampling"
 )
 
 // Gemma 1 and Gemma 2 against HF f32 (eager) on seeded tiny checkpoints (scripts/pin_gemma_tiny.py), built so every

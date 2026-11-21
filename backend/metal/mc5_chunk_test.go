@@ -11,7 +11,7 @@ import (
 	"testing"
 	"time"
 
-	"github.com/townsendmerino/goinfer/decoder"
+	"github.com/pkieltyka/goinfer/decoder"
 )
 
 // TestMC5_chunkCost: EXPLORATORY. What chunking itself costs a long prefill, with no decoding in between: one

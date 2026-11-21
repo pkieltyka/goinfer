@@ -9,7 +9,7 @@ import tempfile
 import unittest
 
 HERE = os.path.dirname(os.path.abspath(__file__))
-PKG = "github.com/townsendmerino/goinfer/decoder"
+PKG = "github.com/pkieltyka/goinfer/decoder"
 
 
 def ev(action, test=None, **kw):

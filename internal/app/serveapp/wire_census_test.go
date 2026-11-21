@@ -18,7 +18,7 @@ import (
 	"testing"
 	"time"
 
-	"github.com/townsendmerino/goinfer/internal/app/inproc"
+	"github.com/pkieltyka/goinfer/internal/app/inproc"
 )
 
 // The wire census: what a client receives from each

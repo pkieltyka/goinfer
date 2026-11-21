@@ -7,7 +7,7 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/townsendmerino/aikit/linalg"
+	"github.com/pkieltyka/aikit/linalg"
 )
 
 // Hardware-coverage H1.3: CI builds this package with aikit's aikit_noavx512 / aikit_noavx2 / aikit_nopopcnt / aikit_nodotprod tags, which make the

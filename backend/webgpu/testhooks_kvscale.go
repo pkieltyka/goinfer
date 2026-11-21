@@ -4,7 +4,7 @@ package webgpu
 
 import (
 	"fmt"
-	"github.com/townsendmerino/goinfer/backend/webgpu/internal/kernels"
+	"github.com/pkieltyka/goinfer/backend/webgpu/internal/kernels"
 )
 
 // KScalesForTest reads back layer l's int8-KV K-scale buffer from a WebGPU resident decoder: one f32 per (position, KV head),

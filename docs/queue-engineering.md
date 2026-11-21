@@ -1076,8 +1076,8 @@ Three instances, one fact, and the third was inside the tool built to check the 
 with every green:
 
     CROSS-REPO RESOLUTION: ... answered from the MODULE CACHE at the version go.mod requires
-      github.com/townsendmerino/aikit      -> module cache @ v1.17.1
-      github.com/townsendmerino/aikit/gpu  -> module cache @ v0.28.0
+      github.com/pkieltyka/aikit      -> module cache @ v1.17.1
+      github.com/pkieltyka/aikit/gpu  -> module cache @ v0.28.0
 
 That is the right home because it is **derived rather than restated** — it reads the versions from
 the files that own them, so it cannot drift the way B7's hand-maintained field did, and it is

@@ -7,7 +7,7 @@ import (
 	"os"
 	"testing"
 
-	"github.com/townsendmerino/goinfer/decoder"
+	"github.com/pkieltyka/goinfer/decoder"
 )
 
 // gptOssParityPrompt is an arbitrary fixed token sequence, not tied to the fixture's tokenizer —

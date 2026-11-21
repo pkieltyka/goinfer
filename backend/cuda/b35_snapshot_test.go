@@ -8,8 +8,8 @@ import (
 	"path/filepath"
 	"testing"
 
-	gpu "github.com/townsendmerino/goinfer/backend/cuda/internal/gpudev"
-	"github.com/townsendmerino/goinfer/decoder"
+	gpu "github.com/pkieltyka/goinfer/backend/cuda/internal/gpudev"
+	"github.com/pkieltyka/goinfer/decoder"
 )
 
 // TestB35Snapshot_restoreEqualsCold is B35's CUDA gate: a Gated-DeltaNet model's prefix snapshot, taken

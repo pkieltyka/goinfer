@@ -4,7 +4,7 @@ import (
 	"fmt"
 	"strings"
 
-	"github.com/townsendmerino/aikit/embed"
+	"github.com/pkieltyka/aikit/embed"
 )
 
 // GPTQReconstruct dequantizes one GPTQ linear (named base, e.g.

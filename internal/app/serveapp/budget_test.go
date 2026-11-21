@@ -5,8 +5,8 @@ import (
 	"slices"
 	"testing"
 
-	"github.com/townsendmerino/goinfer/chat"
-	"github.com/townsendmerino/goinfer/decoder"
+	"github.com/pkieltyka/goinfer/chat"
+	"github.com/pkieltyka/goinfer/decoder"
 )
 
 func TestParseBudgetFlag(t *testing.T) {

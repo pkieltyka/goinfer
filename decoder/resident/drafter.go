@@ -1,6 +1,6 @@
 package resident
 
-import "github.com/townsendmerino/aikit/linalg"
+import "github.com/pkieltyka/aikit/linalg"
 
 // BlockDrafterWeights is the read-only view a backend needs to make a block drafter GPU-resident.
 //

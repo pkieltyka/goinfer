@@ -4,7 +4,7 @@ import (
 	"bytes"
 	"time"
 
-	"github.com/townsendmerino/goinfer/internal/batchio"
+	"github.com/pkieltyka/goinfer/internal/batchio"
 )
 
 // finalizeBatch waits for every line to finish (b.wg.Wait() — no polling, see batchRecord's own

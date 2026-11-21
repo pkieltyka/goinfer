@@ -24,7 +24,7 @@ import (
 	"runtime/debug"
 	"testing"
 
-	"github.com/townsendmerino/goinfer/internal/testgate"
+	"github.com/pkieltyka/goinfer/internal/testgate"
 )
 
 func TestQwen35GGUF_vsSafetensors(t *testing.T) {

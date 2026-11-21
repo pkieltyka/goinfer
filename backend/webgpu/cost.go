@@ -5,8 +5,8 @@ package webgpu
 import (
 	"time"
 
-	"github.com/townsendmerino/goinfer/backend/webgpu/internal/kernels"
-	"github.com/townsendmerino/goinfer/internal/cost"
+	"github.com/pkieltyka/goinfer/backend/webgpu/internal/kernels"
+	"github.com/pkieltyka/goinfer/internal/cost"
 )
 
 // costPlantForTest plants the cost counters' extra-sync defect: 2 adds a blocking poll after the token.

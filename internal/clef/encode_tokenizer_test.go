@@ -5,7 +5,7 @@ import (
 	"path/filepath"
 	"testing"
 
-	"github.com/townsendmerino/goinfer/tokenizer"
+	"github.com/pkieltyka/goinfer/tokenizer"
 )
 
 // clefTokenizer finds Clef-flash's tokenizer.json (20 MB, not in the tree): $CLEF_TOKENIZER (a directory), or ~/models/clef-flash. Under

@@ -18,10 +18,10 @@ import (
 	"runtime"
 	"testing"
 
-	"github.com/townsendmerino/aikit/embed"
-	"github.com/townsendmerino/aikit/linalg"
+	"github.com/pkieltyka/aikit/embed"
+	"github.com/pkieltyka/aikit/linalg"
 
-	"github.com/townsendmerino/goinfer/internal/testgate"
+	"github.com/pkieltyka/goinfer/internal/testgate"
 )
 
 // loadQwen35GGUFSlice loads embed + the first nLayer layers of the qwen35moe GGUF

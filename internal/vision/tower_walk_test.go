@@ -3,7 +3,7 @@ package vision
 import (
 	"testing"
 
-	"github.com/townsendmerino/aikit/linalg"
+	"github.com/pkieltyka/aikit/linalg"
 )
 
 type shapeOnlyBlock map[TowerWeight][2]int // a linear's [out, in]

@@ -9,8 +9,8 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/townsendmerino/goinfer/decoder"
-	"github.com/townsendmerino/goinfer/internal/decide"
+	"github.com/pkieltyka/goinfer/decoder"
+	"github.com/pkieltyka/goinfer/internal/decide"
 )
 
 const judgeTiny = "../../../testdata/decisions/judge-tiny"

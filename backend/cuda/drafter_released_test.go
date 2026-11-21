@@ -11,7 +11,7 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/townsendmerino/goinfer/decoder"
+	"github.com/pkieltyka/goinfer/decoder"
 )
 
 // writeTinyDrafter writes a 1-layer BF16 DFlash checkpoint (hidden 8) to a temp dir and returns the dir.

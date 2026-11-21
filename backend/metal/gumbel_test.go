@@ -8,7 +8,7 @@ import (
 	"os"
 	"testing"
 
-	"github.com/townsendmerino/goinfer/decoder"
+	"github.com/pkieltyka/goinfer/decoder"
 )
 
 // TestGumbelMSL_philoxKnownAnswers pins gb_philox (gumbel.go) to the same Random123 known-answer

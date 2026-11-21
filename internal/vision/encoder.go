@@ -9,8 +9,8 @@ import (
 	"runtime"
 	"sync"
 
-	"github.com/townsendmerino/aikit/embed"
-	"github.com/townsendmerino/aikit/linalg"
+	"github.com/pkieltyka/aikit/embed"
+	"github.com/pkieltyka/aikit/linalg"
 )
 
 // SigLIP / ViT vision encoder (the Gemma 3 vision tower) as a pure-Go forward —

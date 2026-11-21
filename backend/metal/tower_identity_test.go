@@ -9,8 +9,8 @@ import (
 	"syscall"
 	"testing"
 
-	"github.com/townsendmerino/goinfer/internal/diag/towerid"
-	"github.com/townsendmerino/goinfer/internal/vision"
+	"github.com/pkieltyka/goinfer/internal/diag/towerid"
+	"github.com/pkieltyka/goinfer/internal/vision"
 )
 
 // TestTowerIdentity_metal is AX2a-T on Metal: every tower Metal declares

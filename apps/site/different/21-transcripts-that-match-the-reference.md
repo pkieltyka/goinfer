@@ -107,4 +107,4 @@ The 73 clips took 225 s, 3.1 s a clip, on that machine's CPU. With `--backend cu
 - Download a Whisper checkpoint in HuggingFace's layout, for example `openai/whisper-small`, and start `goinfer-serve --model <that directory>`.
 - Send a WAV file to `/v1/audio/transcriptions`. Add `-F response_format=srt` or `vtt` for subtitles, and `-F language=en` to skip detection.
 - To give a chat model audio instead, serve Qwen3-ASR, Voxtral Mini or a small Gemma 4 and put an `input_audio` part in the message. The [Models page](/models/#speech) lists them.
-- The request fields, the limits and what is refused are in [the server docs](https://github.com/townsendmerino/goinfer/blob/main/docs/server.md), under "Speech to text".
+- The request fields, the limits and what is refused are in [the server docs](https://github.com/pkieltyka/goinfer/blob/main/docs/server.md), under "Speech to text".

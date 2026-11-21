@@ -10,7 +10,7 @@ import (
 	"testing"
 
 	gc "github.com/eitamring/gocudrv/cuda"
-	"github.com/townsendmerino/goinfer/decoder"
+	"github.com/pkieltyka/goinfer/decoder"
 )
 
 // emResidualRows loads dir on CUDA and returns every prompt row's f32 residual after the last layer (ResidualAll). slots != ""

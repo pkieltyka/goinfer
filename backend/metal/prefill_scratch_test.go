@@ -12,8 +12,8 @@ import (
 	"testing"
 	"time"
 
-	gpu "github.com/townsendmerino/goinfer/backend/metal/internal/gpudev"
-	"github.com/townsendmerino/goinfer/decoder"
+	gpu "github.com/pkieltyka/goinfer/backend/metal/internal/gpudev"
+	"github.com/pkieltyka/goinfer/decoder"
 )
 
 // TestPrefillScratch_zeroFilled: the pass's f16 scratch (prefillScratchU16) relies on Metal handing back a new buffer

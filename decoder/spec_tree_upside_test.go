@@ -5,8 +5,8 @@ import (
 	"slices"
 	"testing"
 
-	"github.com/townsendmerino/goinfer/constrain"
-	"github.com/townsendmerino/goinfer/tokenizer"
+	"github.com/pkieltyka/goinfer/constrain"
+	"github.com/pkieltyka/goinfer/tokenizer"
 )
 
 // TestTreeUpside is the 03 inc-2 (tree verification) go/no-go. A tree only beats the

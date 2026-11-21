@@ -9,8 +9,8 @@ import (
 	"slices"
 	"testing"
 
-	"github.com/townsendmerino/goinfer/decoder"
-	"github.com/townsendmerino/goinfer/internal/config"
+	"github.com/pkieltyka/goinfer/decoder"
+	"github.com/pkieltyka/goinfer/internal/config"
 )
 
 var updateRegisterGolden = flag.Bool("update-register-golden", false, "rewrite testdata/register.golden.json")

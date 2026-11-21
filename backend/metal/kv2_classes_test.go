@@ -7,7 +7,7 @@ import (
 	"slices"
 	"testing"
 
-	"github.com/townsendmerino/goinfer/decoder"
+	"github.com/pkieltyka/goinfer/decoder"
 )
 
 // TestKV2_recordedClassIsTheClassThatRan is G4(a) on Metal (docs/measurements/kv2-2026-10-14.md): for each pass a

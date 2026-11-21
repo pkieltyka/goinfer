@@ -18,7 +18,7 @@ import (
 	"testing"
 	"time"
 
-	"github.com/townsendmerino/goinfer/decoder"
+	"github.com/pkieltyka/goinfer/decoder"
 )
 
 // fakeHF serves a repo's tree, its files (with Range, as HF's resolve host does) and its metadata, counts requests per

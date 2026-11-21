@@ -16,7 +16,7 @@ import (
 	"time"
 	"unsafe"
 
-	gpu "github.com/townsendmerino/goinfer/backend/metal/internal/gpudev"
+	gpu "github.com/pkieltyka/goinfer/backend/metal/internal/gpudev"
 )
 
 // TestAliasSharedMappingProbe asks the question the M26 root cause left open

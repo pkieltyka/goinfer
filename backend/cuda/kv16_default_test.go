@@ -6,7 +6,7 @@ import (
 	"os"
 	"testing"
 
-	"github.com/townsendmerino/goinfer/decoder"
+	"github.com/pkieltyka/goinfer/decoder"
 )
 
 // The suite runs on the exact f32 cache unless a test asks otherwise (kvpolicy.go:kvF16Auto). init runs before TestMain, and after kvpolicy.go's own.

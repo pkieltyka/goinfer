@@ -2,7 +2,7 @@
 
 // Command serve is the WebGPU-accelerated build of goinfer's inference server.
 //
-// It is identical to the pure-Go root binary (github.com/townsendmerino/goinfer/cmd/serve)
+// It is identical to the pure-Go root binary (github.com/pkieltyka/goinfer/cmd/serve)
 // except that it blank-imports the opt-in WebGPU module first: that init() registers the
 // "webgpu" decoder backend (decoder.RegisterBackend) and the resident SigLIP vision encoder
 // (vision.RegisterResident). Living in the ./gpu submodule keeps cgo/webgpu OUT of the
@@ -10,8 +10,8 @@
 package main
 
 import (
-	_ "github.com/townsendmerino/goinfer/backend/webgpu"
-	"github.com/townsendmerino/goinfer/internal/app/serveapp"
+	_ "github.com/pkieltyka/goinfer/backend/webgpu"
+	"github.com/pkieltyka/goinfer/internal/app/serveapp"
 )
 
 func main() { serveapp.Main() }

@@ -11,7 +11,7 @@ import (
 	"testing"
 	"time"
 
-	"github.com/townsendmerino/goinfer/tokenizer"
+	"github.com/pkieltyka/goinfer/tokenizer"
 )
 
 // TestScriptedServe_forHarness serves the scripted model of empty_answer_test.go on a real port, for driving a real coding

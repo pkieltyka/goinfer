@@ -3,7 +3,7 @@ package decoder
 import (
 	"io/fs"
 
-	"github.com/townsendmerino/goinfer/decoder/config"
+	"github.com/pkieltyka/goinfer/decoder/config"
 )
 
 // Config is a checkpoint's config.json, parsed. The type, its validators and its loader live in decoder/config, which

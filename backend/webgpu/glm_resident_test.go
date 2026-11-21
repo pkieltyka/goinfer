@@ -7,8 +7,8 @@ import (
 	"os"
 	"testing"
 
-	"github.com/townsendmerino/goinfer/backend/webgpu"
-	"github.com/townsendmerino/goinfer/decoder"
+	"github.com/pkieltyka/goinfer/backend/webgpu"
+	"github.com/pkieltyka/goinfer/decoder"
 )
 
 // TestGLMResidency_matchesCPU is the end-to-end gate for partial RoPE on the resident path: the

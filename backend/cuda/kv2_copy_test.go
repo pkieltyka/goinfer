@@ -12,8 +12,8 @@ import (
 	"testing"
 	"time"
 
-	gpu "github.com/townsendmerino/goinfer/backend/cuda/internal/gpudev"
-	"github.com/townsendmerino/goinfer/decoder"
+	gpu "github.com/pkieltyka/goinfer/backend/cuda/internal/gpudev"
+	"github.com/pkieltyka/goinfer/decoder"
 )
 
 // KV2's copy gates on CUDA (docs/measurements/kv2-cuda-2026-10-15.md, G2-C): CopyKV moves exactly the rows it names, through

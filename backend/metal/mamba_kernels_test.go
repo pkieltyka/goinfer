@@ -10,8 +10,8 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/townsendmerino/goinfer/backend/metal/kernels"
-	"github.com/townsendmerino/goinfer/decoder"
+	"github.com/pkieltyka/goinfer/backend/metal/kernels"
+	"github.com/pkieltyka/goinfer/decoder"
 )
 
 // mambaFixture is one tiny SSM fixture's first Mamba-2 layer, its geometry, and its real per-token mixer inputs and outputs,

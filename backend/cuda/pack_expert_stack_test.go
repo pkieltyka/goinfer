@@ -8,9 +8,9 @@ import (
 	"runtime"
 	"testing"
 
-	"github.com/townsendmerino/aikit/linalg"
+	"github.com/pkieltyka/aikit/linalg"
 
-	"github.com/townsendmerino/goinfer/decoder"
+	"github.com/pkieltyka/goinfer/decoder"
 )
 
 // B36's gates: under the C' expert cache the routed experts are packed straight into their pinned host copy.

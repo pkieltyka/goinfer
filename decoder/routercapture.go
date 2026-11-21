@@ -3,7 +3,7 @@ package decoder
 import (
 	"sync"
 
-	"github.com/townsendmerino/goinfer/internal/runtime/logs"
+	"github.com/pkieltyka/goinfer/internal/runtime/logs"
 )
 
 // routerCapture is a test seam (default off; tests set it directly): when on, gemma4MoEFFN appends each MoE-layer call's

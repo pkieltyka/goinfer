@@ -2,9 +2,9 @@ package serveapp
 
 import (
 	"context"
-	"github.com/townsendmerino/goinfer/internal/app/serveapp/jobs"
+	"github.com/pkieltyka/goinfer/internal/app/serveapp/jobs"
 
-	"github.com/townsendmerino/goinfer/internal/runtime/scheduler"
+	"github.com/pkieltyka/goinfer/internal/runtime/scheduler"
 )
 
 // admissionRecord is a waiter's scheduler.Record: its prompt token ids, and the id position() names it by (a job's id;

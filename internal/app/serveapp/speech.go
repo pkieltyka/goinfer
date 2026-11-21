@@ -11,9 +11,9 @@ import (
 	"sync"
 	"time"
 
-	"github.com/townsendmerino/goinfer/internal/audio"
-	"github.com/townsendmerino/goinfer/internal/runtime/whisper"
-	"github.com/townsendmerino/goinfer/multimodal"
+	"github.com/pkieltyka/goinfer/internal/audio"
+	"github.com/pkieltyka/goinfer/internal/runtime/whisper"
+	"github.com/pkieltyka/goinfer/multimodal"
 )
 
 // A Whisper model is served as a speech model: it is not a decoder.Model, so it lives in server.speech and not in server.models, which everything

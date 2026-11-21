@@ -7,7 +7,7 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/townsendmerino/goinfer/decoder"
+	"github.com/pkieltyka/goinfer/decoder"
 )
 
 // TestAutoBackend_appleSilicon (R17): with this module linked, auto picks metal on Apple silicon, and on an Intel Mac

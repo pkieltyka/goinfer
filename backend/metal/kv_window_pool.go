@@ -3,7 +3,7 @@
 package metal
 
 import (
-	"github.com/townsendmerino/goinfer/decoder"
+	"github.com/pkieltyka/goinfer/decoder"
 )
 
 // The window group's bounded pool. A window group keeps only each sequence's

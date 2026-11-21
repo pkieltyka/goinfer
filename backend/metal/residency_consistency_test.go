@@ -6,7 +6,7 @@ import (
 	"strconv"
 	"testing"
 
-	"github.com/townsendmerino/goinfer/decoder"
+	"github.com/pkieltyka/goinfer/decoder"
 )
 
 // TestResidencySet_pinsExactlyTheLiveSlots guards the residency-set contract: the buffers pinned

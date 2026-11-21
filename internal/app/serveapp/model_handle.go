@@ -4,7 +4,7 @@ import (
 	"context"
 	"reflect"
 
-	"github.com/townsendmerino/goinfer/decoder"
+	"github.com/pkieltyka/goinfer/decoder"
 )
 
 // modelHandle is a loaded model as the serving shell calls it: every method of *decoder.Model the shell uses, so a test

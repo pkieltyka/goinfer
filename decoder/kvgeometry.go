@@ -1,6 +1,6 @@
 package decoder
 
-import "github.com/townsendmerino/goinfer/internal/runtime/kvmgr"
+import "github.com/pkieltyka/goinfer/internal/runtime/kvmgr"
 
 // The KV manager's types, under decoder names for a backend to use (the manager's own package is internal, so that
 // its tests run apart from decoder's).

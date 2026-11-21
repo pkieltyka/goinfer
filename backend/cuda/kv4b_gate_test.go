@@ -10,7 +10,7 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/townsendmerino/goinfer/decoder"
+	"github.com/pkieltyka/goinfer/decoder"
 )
 
 // KV4b's G4 (docs/measurements/kv4-cuda-2026-10-21.md §2, G5): TestKV16GateVsReference's instrument on one checkpoint per f16 family group,

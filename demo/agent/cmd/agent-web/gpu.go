@@ -7,4 +7,4 @@ package main
 // webgpu can run the tower on the device. Built only under `-tags gpu` (with the
 // go.work stitching the gpu submodule); the default agent-web binary stays
 // pure-Go (no cgo/webgpu).
-import _ "github.com/townsendmerino/goinfer/backend/webgpu"
+import _ "github.com/pkieltyka/goinfer/backend/webgpu"

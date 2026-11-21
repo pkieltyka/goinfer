@@ -6,7 +6,7 @@ import (
 	"fmt"
 	"sync"
 
-	"github.com/townsendmerino/goinfer/decoder"
+	"github.com/pkieltyka/goinfer/decoder"
 )
 
 // The link that keeps the guard armed. decoder.SpecDecodeConflict finds DecodeVerifyDivergence by

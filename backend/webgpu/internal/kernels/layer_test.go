@@ -7,7 +7,7 @@ import (
 	"testing"
 	"time"
 
-	"github.com/townsendmerino/aikit/linalg"
+	"github.com/pkieltyka/aikit/linalg"
 )
 
 func cpuMLP(x, rmsW []float32, gBQ, uBQ, dBQ []int8, gS, uS, dS []float32, H, I int, eps float32, addOne bool) []float32 {

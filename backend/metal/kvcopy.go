@@ -5,8 +5,8 @@ package metal
 import (
 	"fmt"
 
-	gpu "github.com/townsendmerino/goinfer/backend/metal/internal/gpudev"
-	"github.com/townsendmerino/goinfer/decoder"
+	gpu "github.com/pkieltyka/goinfer/backend/metal/internal/gpudev"
+	"github.com/pkieltyka/goinfer/decoder"
 )
 
 // CopyKV (decoder.ResidentKVSubsystem) makes rows [start, end) of slot dst those of slot src, by reference: each of dst's

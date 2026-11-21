@@ -8,7 +8,7 @@ import (
 	"testing"
 	"time"
 
-	"github.com/townsendmerino/goinfer/decoder"
+	"github.com/pkieltyka/goinfer/decoder"
 )
 
 // TestMC3Chain_newcomerJoinsLongPrompts and TestMC3Chain_stalledConsumerLongPrompts are the two TestMC3Chain_ scenarios with

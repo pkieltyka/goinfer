@@ -10,7 +10,7 @@ import (
 	"math/rand"
 	"testing"
 
-	gpu "github.com/townsendmerino/goinfer/backend/cuda/internal/gpudev"
+	gpu "github.com/pkieltyka/goinfer/backend/cuda/internal/gpudev"
 )
 
 // gluQuantBatchedDigest is the SHA-256 of the packed int8 rows and the row scales glu_quant_batched leaves for the fixed inputs below, recorded from main's

@@ -38,19 +38,19 @@ import (
 	"time"
 	"unicode/utf8"
 
-	"github.com/townsendmerino/goinfer/chat"
-	"github.com/townsendmerino/goinfer/constrain"
-	"github.com/townsendmerino/goinfer/decoder"
-	"github.com/townsendmerino/goinfer/internal/app/decidecmd"
-	"github.com/townsendmerino/goinfer/internal/app/fitcmd"
-	"github.com/townsendmerino/goinfer/internal/app/loadflags"
-	"github.com/townsendmerino/goinfer/internal/app/pullcmd"
-	"github.com/townsendmerino/goinfer/internal/codec"
-	"github.com/townsendmerino/goinfer/internal/diag/hwreport"
-	"github.com/townsendmerino/goinfer/internal/runtime/modelload"
-	"github.com/townsendmerino/goinfer/internal/runtime/prequant"
-	"github.com/townsendmerino/goinfer/pull"
-	"github.com/townsendmerino/goinfer/tokenizer"
+	"github.com/pkieltyka/goinfer/chat"
+	"github.com/pkieltyka/goinfer/constrain"
+	"github.com/pkieltyka/goinfer/decoder"
+	"github.com/pkieltyka/goinfer/internal/app/decidecmd"
+	"github.com/pkieltyka/goinfer/internal/app/fitcmd"
+	"github.com/pkieltyka/goinfer/internal/app/loadflags"
+	"github.com/pkieltyka/goinfer/internal/app/pullcmd"
+	"github.com/pkieltyka/goinfer/internal/codec"
+	"github.com/pkieltyka/goinfer/internal/diag/hwreport"
+	"github.com/pkieltyka/goinfer/internal/runtime/modelload"
+	"github.com/pkieltyka/goinfer/internal/runtime/prequant"
+	"github.com/pkieltyka/goinfer/pull"
+	"github.com/pkieltyka/goinfer/tokenizer"
 )
 
 // defaultSystem is a code-flavored system prompt — on-brand for the Coder model
@@ -230,9 +230,9 @@ func Main() {
 goinfer-chat is the single-shot chat runtime; the server (OpenAI/Anthropic routes, -web, model
 zoo, streaming) is a separate binary:
 
-    go install github.com/townsendmerino/goinfer/cmd/serve@latest      # CPU
-    go install github.com/townsendmerino/goinfer/backend/metal/cmd/serve@latest # macOS GPU
-    CGO_ENABLED=0 go install -tags cuda github.com/townsendmerino/goinfer/backend/cuda/cmd/serve@latest
+    go install github.com/pkieltyka/goinfer/cmd/serve@latest      # CPU
+    go install github.com/pkieltyka/goinfer/backend/metal/cmd/serve@latest # macOS GPU
+    CGO_ENABLED=0 go install -tags cuda github.com/pkieltyka/goinfer/backend/cuda/cmd/serve@latest
 
 or download goinfer-serve-<os>-<arch> from the latest release. It installs as `+"`serve`"+`.
 `, filepath.Base(os.Args[0]), serveOnly)

@@ -8,8 +8,8 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/townsendmerino/aikit/linalg"
-	"github.com/townsendmerino/goinfer/internal/runtime/sampling"
+	"github.com/pkieltyka/aikit/linalg"
+	"github.com/pkieltyka/goinfer/internal/runtime/sampling"
 )
 
 // TestLoRACompute_matchesMerge is the core correctness gate for compute-time LoRA

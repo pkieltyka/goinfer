@@ -8,7 +8,7 @@ import (
 	"os"
 	"testing"
 
-	"github.com/townsendmerino/goinfer/decoder"
+	"github.com/pkieltyka/goinfer/decoder"
 )
 
 // TestPrefillLast_tailContinuationMatchesCold_MoE is PrefillTailExact's gate for the generic resident MoE passes (the

@@ -17,7 +17,7 @@ import (
 	"github.com/openai/openai-go/v3/responses"
 	"github.com/openai/openai-go/v3/shared"
 
-	"github.com/townsendmerino/goinfer/server"
+	"github.com/pkieltyka/goinfer/server"
 )
 
 // tinyTemplate is a plain ChatML template, which goinfer reads as ChatML and can render tools for.

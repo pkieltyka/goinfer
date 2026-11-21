@@ -4,7 +4,7 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/townsendmerino/goinfer/internal/runtime/program"
+	"github.com/pkieltyka/goinfer/internal/runtime/program"
 )
 
 // TestCheck holds the build's check of a layer's declared rows (MM5's WebGPU half, G-MP2w's refusal half): the rows its caches are sized

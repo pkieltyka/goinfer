@@ -11,7 +11,7 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/townsendmerino/goinfer/decoder"
+	"github.com/pkieltyka/goinfer/decoder"
 )
 
 // loadEModelExact loads gemma4-emodel-tiny Metal-resident with fused attention off, so every attention layer runs the exact

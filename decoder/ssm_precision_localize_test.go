@@ -8,9 +8,9 @@ import (
 	"sort"
 	"testing"
 
-	"github.com/townsendmerino/goinfer/tokenizer"
+	"github.com/pkieltyka/goinfer/tokenizer"
 
-	"github.com/townsendmerino/goinfer/internal/testgate"
+	"github.com/pkieltyka/goinfer/internal/testgate"
 )
 
 // ssmLocHeldOut is the held-out text the SSM quality tests (this file and ssm_w8a16_test.go) score teacher-forced.

@@ -7,7 +7,7 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/townsendmerino/goinfer/decoder"
+	"github.com/pkieltyka/goinfer/decoder"
 )
 
 // TestPrefillInternal_refusesPastTheKVCap: the internal resident.PrefillLast fills the K/V cache up to its capacity and panics, naming the

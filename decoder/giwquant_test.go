@@ -6,7 +6,7 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/townsendmerino/goinfer/internal/runtime/giw"
+	"github.com/pkieltyka/goinfer/internal/runtime/giw"
 )
 
 // TestCheckGiwQuantMatch is the T1-7 gate: a --quant that cannot take effect on an already-baked

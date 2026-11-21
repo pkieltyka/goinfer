@@ -12,9 +12,9 @@ import (
 	"testing"
 	"time"
 
-	"github.com/townsendmerino/goinfer/chat"
-	"github.com/townsendmerino/goinfer/internal/app/chatapp"
-	"github.com/townsendmerino/goinfer/internal/app/loadflags"
+	"github.com/pkieltyka/goinfer/chat"
+	"github.com/pkieltyka/goinfer/internal/app/chatapp"
+	"github.com/pkieltyka/goinfer/internal/app/loadflags"
 )
 
 // TestBatch_cliAndServeAgree is J5's interchange gate: ONE input file, run through `goinfer-chat --batch`'s runner and through

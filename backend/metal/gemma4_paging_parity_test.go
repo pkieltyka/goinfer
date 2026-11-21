@@ -7,7 +7,7 @@ import (
 	"strconv"
 	"testing"
 
-	"github.com/townsendmerino/goinfer/decoder"
+	"github.com/pkieltyka/goinfer/decoder"
 )
 
 // TestGemma4Paging_bitExact is the PRIMARY gate for the synchronous expert-paging path: paging must

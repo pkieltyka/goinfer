@@ -70,7 +70,7 @@ The usual answer is CPU offload: some layers stay in the card's memory (VRAM) an
 
 With `-moe-cache-experts`, the small part of the model that every token needs stays on the GPU. The experts sit in host memory, and the experts each token needs are copied to the GPU before they run. Every expert still runs on the GPU, so no expert work is done on the CPU.
 
-This is the command that produced the number below. The benchmark script ([`scripts/bench_peer.py`](https://github.com/townsendmerino/goinfer/blob/main/scripts/bench_peer.py)) starts it, using the CUDA build of the server:
+This is the command that produced the number below. The benchmark script ([`scripts/bench_peer.py`](https://github.com/pkieltyka/goinfer/blob/main/scripts/bench_peer.py)) starts it, using the CUDA build of the server:
 
 ```sh
 goinfer-serve -model bench=$HOME/models/gemma4-26b-int4.giw -backend cuda -moe-cache-experts -ctx 2048
@@ -104,7 +104,7 @@ Three cautions from the record:
 
 - Every completion repeats the same greedy prompt, so the expert cache sees the same routing each time. The rates are flat across completions, but a benefit carried over from the discarded warm-up run cannot be ruled out.
 - The goinfer server was built from commit [`411e7fc4`](https://github.com/townsendmerino/goinfer/commit/411e7fc4). That is the commit where the plan for this run, and the rules for reading its result, were set in writing before the run (pre-registered). [Numbers with their receipts](/different/16-numbers-with-receipts/) explains the method.
-- The figure is dated. A re-run of this measurement, part of a re-run of the whole comparison table at one commit, is queued in [the 2026-09-29 sweep plan](https://github.com/townsendmerino/goinfer/blob/main/docs/measurements/peer-sweep-2026-09-29.md), and its result will replace this one.
+- The figure is dated. A re-run of this measurement, part of a re-run of the whole comparison table at one commit, is queued in [the 2026-09-29 sweep plan](https://github.com/pkieltyka/goinfer/blob/main/docs/measurements/peer-sweep-2026-09-29.md), and its result will replace this one.
 
 For context, the same model measured 16.12 tok/s at 30 slots and 17.62 tok/s at 40 slots on 2026-08-27, before the overlap. That was a Go test, not the server, and the GPU waited for every copy to finish. It is history, not a comparison.
 

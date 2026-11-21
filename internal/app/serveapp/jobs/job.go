@@ -9,7 +9,7 @@ import (
 	"sync"
 	"time"
 
-	"github.com/townsendmerino/goinfer/internal/cost"
+	"github.com/pkieltyka/goinfer/internal/cost"
 )
 
 // State is a job's lifecycle stage. interrupted is written ONLY by restart recovery

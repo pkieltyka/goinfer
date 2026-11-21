@@ -10,8 +10,8 @@ import (
 	"os"
 	"testing"
 
-	gpu "github.com/townsendmerino/goinfer/backend/cuda/internal/gpudev"
-	"github.com/townsendmerino/goinfer/decoder"
+	gpu "github.com/pkieltyka/goinfer/backend/cuda/internal/gpudev"
+	"github.com/pkieltyka/goinfer/decoder"
 )
 
 // flashRef is the float64 oracle for one decode-attention row: softmax over scale*q.k on [winStart, nKeys),

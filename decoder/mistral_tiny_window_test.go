@@ -6,7 +6,7 @@ import (
 	"os"
 	"testing"
 
-	"github.com/townsendmerino/goinfer/internal/runtime/sampling"
+	"github.com/pkieltyka/goinfer/internal/runtime/sampling"
 )
 
 // The CPU forward of testdata/mistral-tiny-window against HF (f32), with the sliding window ENGAGED: a 48-token prompt through a window of 16, so for

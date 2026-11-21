@@ -8,7 +8,7 @@ import (
 	"testing"
 	"time"
 
-	"github.com/townsendmerino/goinfer/decoder"
+	"github.com/pkieltyka/goinfer/decoder"
 )
 
 // The greedy and sampled chains (C-B01 / C-P02) under MC3: a generation alone on the batcher runs the chain with the resident

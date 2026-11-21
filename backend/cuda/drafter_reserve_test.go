@@ -2,7 +2,7 @@
 
 package cuda
 
-import "github.com/townsendmerino/goinfer/decoder"
+import "github.com/pkieltyka/goinfer/decoder"
 
 // withDrafterReserve is o for a target a block drafter attaches to AFTER the load, priced the way `serve --drafter` prices it (internal/serveapp/main.go loads the
 // drafter first and sets both fields): the plan then leaves the drafter's int8 weights and its per-position K/V out of the context it chooses. A test that loads the

@@ -353,8 +353,8 @@ func TestLayout_towersStandalone(t *testing.T) {
 			{"internal/audio", g("multimodal"), true},
 			{"internal/vision", g("internal/audio"), true},
 			{"internal/vision", g("decoder"), true},
-			{"internal/audio", "github.com/townsendmerino/aikit/linalg", false},
-			{"internal/audio", "github.com/townsendmerino/aikit/gpu", true},
+			{"internal/audio", "github.com/pkieltyka/aikit/linalg", false},
+			{"internal/audio", "github.com/pkieltyka/aikit/gpu", true},
 			{"internal/vision", "golang.org/x/sys/unix", true},
 		} {
 			if got := r.breaks(c.from, c.path, test, moduleOf); got != c.breaks {

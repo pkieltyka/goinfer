@@ -6,7 +6,7 @@ import (
 	"os"
 	"testing"
 
-	"github.com/townsendmerino/goinfer/tokenizer"
+	"github.com/pkieltyka/goinfer/tokenizer"
 )
 
 // TestPerRowScalePhase0b is §7's OUTPUT-quality gate, the follow-up to the weight-space Phase 0: does the weight-space

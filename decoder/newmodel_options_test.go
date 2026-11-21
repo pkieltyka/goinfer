@@ -6,7 +6,7 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/townsendmerino/goinfer/internal/runtime/giw"
+	"github.com/pkieltyka/goinfer/internal/runtime/giw"
 )
 
 // modelOptionFields is every Model field modelFromOptions derives from Options, plus a knob, so a

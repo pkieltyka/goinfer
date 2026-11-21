@@ -8,9 +8,9 @@ import (
 	"sort"
 	"testing"
 
-	"github.com/townsendmerino/goinfer/tokenizer"
+	"github.com/pkieltyka/goinfer/tokenizer"
 
-	"github.com/townsendmerino/goinfer/internal/testgate"
+	"github.com/pkieltyka/goinfer/internal/testgate"
 )
 
 // Control A (docs/ssm-int8-quality.md): does int8-WEIGHTS + f32-ACTIVATIONS (W8A16) beat the

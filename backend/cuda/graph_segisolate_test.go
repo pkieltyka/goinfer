@@ -5,7 +5,7 @@ package cuda
 import (
 	"testing"
 
-	gpu "github.com/townsendmerino/goinfer/backend/cuda/internal/gpudev"
+	gpu "github.com/pkieltyka/goinfer/backend/cuda/internal/gpudev"
 )
 
 // TestCUDA_graphSegAIsolated captures the REAL segA (a heterogeneous RAW chain: rms writes the

@@ -17,7 +17,7 @@ import (
 	"testing"
 	"time"
 
-	"github.com/townsendmerino/goinfer/internal/runtime/mem/probe"
+	"github.com/pkieltyka/goinfer/internal/runtime/mem/probe"
 )
 
 // The admission and routing census, layer D: every admission and routing decision the decoder makes, recorded so the pure function that replaces them can be held to

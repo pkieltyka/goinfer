@@ -3,7 +3,7 @@ package decoder
 import (
 	"fmt"
 
-	"github.com/townsendmerino/aikit/linalg"
+	"github.com/pkieltyka/aikit/linalg"
 )
 
 // The batched CPU decode: several CPU generations of one model decoding at once join their

@@ -4,8 +4,8 @@ import (
 	"fmt"
 	"os"
 
-	"github.com/townsendmerino/goinfer/internal/vision"
-	"github.com/townsendmerino/goinfer/multimodal"
+	"github.com/pkieltyka/goinfer/internal/vision"
+	"github.com/pkieltyka/goinfer/multimodal"
 )
 
 // lfm2vlTower is LFM2-VL's image path: aikit's SigLIP2 NaFlex tower,

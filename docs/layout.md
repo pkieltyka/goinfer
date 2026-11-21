@@ -4,9 +4,9 @@ A map of the tree. Paths are relative to the repository root; every row was chec
 
 ## Moved
 
-- `cuda/` -> `backend/cuda/` (`module github.com/townsendmerino/goinfer/cuda` -> `github.com/townsendmerino/goinfer/backend/cuda`)
-- `metal/` -> `backend/metal/` (`module github.com/townsendmerino/goinfer/metal` -> `github.com/townsendmerino/goinfer/backend/metal`)
-- `gpu/` -> `backend/webgpu/` (`module github.com/townsendmerino/goinfer/gpu` -> `github.com/townsendmerino/goinfer/backend/webgpu`, `package gpu` -> `package webgpu`)
+- `cuda/` -> `backend/cuda/` (`module github.com/pkieltyka/goinfer/cuda` -> `github.com/pkieltyka/goinfer/backend/cuda`)
+- `metal/` -> `backend/metal/` (`module github.com/pkieltyka/goinfer/metal` -> `github.com/pkieltyka/goinfer/backend/metal`)
+- `gpu/` -> `backend/webgpu/` (`module github.com/pkieltyka/goinfer/gpu` -> `github.com/pkieltyka/goinfer/backend/webgpu`, `package gpu` -> `package webgpu`)
 - `internal/{serveapp,chatapp,cliutil,fitcmd,decidecmd,pullcmd,inproc,connect,loadflags}` -> `internal/app/<pkg>` (package clause unchanged)
 - `internal/{swapguard,prezerolint,paritykey,movedpaths,servecheck,memgate}` -> `internal/guard/<pkg>` (package clause unchanged)
 - `internal/{hwcensus,hwreport,kernelprint,sb2census,towerid}` -> `internal/diag/<pkg>` (package clause unchanged)
@@ -19,7 +19,7 @@ Seven modules are developed together; an eighth `go.mod`, `.github/actions/stati
 
 | Path | Module path | Published |
 |---|---|---|
-| `.` | `github.com/townsendmerino/goinfer` | tagged `vX.Y.Z` |
+| `.` | `github.com/pkieltyka/goinfer` | tagged `vX.Y.Z` |
 | `backend/webgpu/` | `.../goinfer/backend/webgpu` | tagged `backend/webgpu/vX.Y.Z` (formerly `gpu/vX.Y.Z`) |
 | `backend/cuda/` | `.../goinfer/backend/cuda` | tagged `backend/cuda/vX.Y.Z` (formerly `cuda/vX.Y.Z`) |
 | `backend/metal/` | `.../goinfer/backend/metal` | tagged `backend/metal/vX.Y.Z` (formerly `metal/vX.Y.Z`) |
@@ -133,7 +133,7 @@ paths it names):
 - `demo/agent/cmd/` stays inside `demo/agent`. That module is published (tags `demo/agent/vX.Y.Z`) and keeps its MCP SDK
   out of the root `go.mod`; moving its binaries to the root would pull that dependency in.
 - `apps/site/cmd/build/` stays inside `apps/site`. The site is never tagged, and its generator imports its own packages.
-- `demo/chat/` stays. It is a root-module `main` package, and `go install github.com/townsendmerino/goinfer/demo/chat@latest`
+- `demo/chat/` stays. It is a root-module `main` package, and `go install github.com/pkieltyka/goinfer/demo/chat@latest`
   is a documented install path (README, the release template, and the readme-smoke check). Moving it changes that path for
   every installer; if it moves later, the install line changes with it.
 - `apps/examples/*` stays. Each example is linked from the docs and tested in place.

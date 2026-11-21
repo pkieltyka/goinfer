@@ -24,7 +24,7 @@ import (
 	"strings"
 	"time"
 
-	"github.com/townsendmerino/goinfer/internal/confidence"
+	"github.com/pkieltyka/goinfer/internal/confidence"
 )
 
 // Kinds, as autotrust's judge_config.json names them.

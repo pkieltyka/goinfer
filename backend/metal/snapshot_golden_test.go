@@ -15,7 +15,7 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/townsendmerino/goinfer/decoder"
+	"github.com/pkieltyka/goinfer/decoder"
 )
 
 // prodEmbedRow fills dst with token id's LAYER-0 INPUT exactly as production builds it: decoder.embedResident dequantizes the

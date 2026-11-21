@@ -5,7 +5,7 @@ import (
 	"sync/atomic"
 	"time"
 
-	"github.com/townsendmerino/aikit/linalg"
+	"github.com/pkieltyka/aikit/linalg"
 )
 
 // seamPlantForTest plants one defect in a hidden-state seam, so the seams' gates (decoder/seams_test.go) can show they go red.

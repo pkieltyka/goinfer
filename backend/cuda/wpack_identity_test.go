@@ -17,8 +17,8 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/townsendmerino/aikit/linalg"
-	"github.com/townsendmerino/goinfer/backend/cuda/internal/wpack"
+	"github.com/pkieltyka/aikit/linalg"
+	"github.com/pkieltyka/goinfer/backend/cuda/internal/wpack"
 )
 
 var updateWpackHashes = flag.Bool("wpack.update", false, "rewrite testdata/wpack_hashes.txt from this tree's packers")

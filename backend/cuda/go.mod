@@ -1,11 +1,11 @@
-module github.com/townsendmerino/goinfer/backend/cuda
+module github.com/pkieltyka/goinfer/backend/cuda
 
 go 1.27.0
 
 require (
 	github.com/eitamring/gocudrv v0.3.2
-	github.com/townsendmerino/aikit v1.78.0
-	github.com/townsendmerino/goinfer v0.24.1
+	github.com/pkieltyka/aikit v1.79.0
+	github.com/pkieltyka/goinfer v0.0.0-20261121021407-cd949d2e4777
 )
 
 require (

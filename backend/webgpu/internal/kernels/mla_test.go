@@ -6,7 +6,7 @@ import (
 	"math"
 	"testing"
 
-	"github.com/townsendmerino/aikit/linalg"
+	"github.com/pkieltyka/aikit/linalg"
 )
 
 // mlaRopeRef mirrors decoder.mlaRope: optional de-interleave (V3 GPT-J pairwise) then

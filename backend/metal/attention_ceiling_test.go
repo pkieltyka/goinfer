@@ -8,7 +8,7 @@ import (
 	"math/rand"
 	"testing"
 
-	"github.com/townsendmerino/goinfer/internal/testgate"
+	"github.com/pkieltyka/goinfer/internal/testgate"
 )
 
 // TestAttentionKernelsPastTileBound is what keeps metalCtxCapMax (32768) a fact for decode: the three decode attention

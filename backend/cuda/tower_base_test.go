@@ -9,7 +9,7 @@ import (
 	"os"
 	"testing"
 
-	gpu "github.com/townsendmerino/goinfer/backend/cuda/internal/gpudev"
+	gpu "github.com/pkieltyka/goinfer/backend/cuda/internal/gpudev"
 )
 
 // The CUDA vision-tower base against plain Go: every GEMM branch the towers reach (the register

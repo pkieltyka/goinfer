@@ -7,7 +7,7 @@ import (
 	"os"
 	"testing"
 
-	"github.com/townsendmerino/goinfer/decoder"
+	"github.com/pkieltyka/goinfer/decoder"
 )
 
 // TestPagedNoLogits_skipsHeadAndKeepsKV: on a paged MoE (the Gemma 4 pager, the one M26 runs, and the generic pager)

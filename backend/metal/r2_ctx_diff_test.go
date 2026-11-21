@@ -12,7 +12,7 @@ import (
 	"strconv"
 	"testing"
 
-	"github.com/townsendmerino/goinfer/decoder"
+	"github.com/pkieltyka/goinfer/decoder"
 )
 
 // TestR2_perLayerCtxDiff is the measurement R2's two prior investigations never took

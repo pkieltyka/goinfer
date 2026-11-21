@@ -5,7 +5,7 @@ package webgpu
 import (
 	"context"
 
-	"github.com/townsendmerino/goinfer/decoder"
+	"github.com/pkieltyka/goinfer/decoder"
 )
 
 // Compile-time pins for the WebGPU resident runner's four subsystem interfaces.

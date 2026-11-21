@@ -11,8 +11,8 @@ import (
 	"slices"
 	"testing"
 
-	"github.com/townsendmerino/goinfer/internal/audio"
-	"github.com/townsendmerino/goinfer/internal/runtime/sampling"
+	"github.com/pkieltyka/goinfer/internal/audio"
+	"github.com/pkieltyka/goinfer/internal/runtime/sampling"
 )
 
 // G-S14c1 and G-S14c2: Qwen3-ASR's decoder loads from the checkpoint's own layout (nested thinker_config,

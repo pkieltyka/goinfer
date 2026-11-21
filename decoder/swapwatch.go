@@ -4,7 +4,7 @@ import (
 	"context"
 	"time"
 
-	"github.com/townsendmerino/goinfer/internal/runtime/mem/probe"
+	"github.com/pkieltyka/goinfer/internal/runtime/mem/probe"
 )
 
 // SwapReader samples the machine's current swap-used bytes. ok is false when the figure could

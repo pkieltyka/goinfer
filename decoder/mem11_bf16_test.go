@@ -10,7 +10,7 @@ import (
 	"slices"
 	"testing"
 
-	"github.com/townsendmerino/aikit/linalg"
+	"github.com/pkieltyka/aikit/linalg"
 )
 
 // TestMEM11_lfm2ResidentBytes is B16-G0: LFM2.5-2.6B from

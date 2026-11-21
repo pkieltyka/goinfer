@@ -5,8 +5,8 @@ import (
 	"fmt"
 	"path/filepath"
 
-	"github.com/townsendmerino/goinfer/internal/audio"
-	"github.com/townsendmerino/goinfer/tokenizer"
+	"github.com/pkieltyka/goinfer/internal/audio"
+	"github.com/pkieltyka/goinfer/tokenizer"
 )
 
 // Transcriber is a whole short-form Whisper: aikit's log-mel front end and encoder, this package's decoder, and the checkpoint's tokenizer. One 30 s window per call.

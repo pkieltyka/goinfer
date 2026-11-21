@@ -7,7 +7,7 @@ import (
 	"slices"
 	"testing"
 
-	"github.com/townsendmerino/aikit/linalg"
+	"github.com/pkieltyka/aikit/linalg"
 )
 
 // loadInt4Model loads GOINFER_PREQUANT_GGUF as group-wise int4 — the W4A8 path,

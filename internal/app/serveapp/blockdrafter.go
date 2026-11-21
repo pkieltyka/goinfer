@@ -5,7 +5,7 @@ import (
 	"log"
 	"runtime/debug"
 
-	"github.com/townsendmerino/goinfer/decoder"
+	"github.com/pkieltyka/goinfer/decoder"
 )
 
 // minDrafterWidth is the narrowest -drafter-width serve takes. The acceptance guard (decoder/blockspec.go:breakEvenTokensPerRound)

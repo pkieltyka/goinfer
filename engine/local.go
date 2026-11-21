@@ -3,8 +3,8 @@ package engine
 import (
 	"context"
 
-	"github.com/townsendmerino/goinfer/decoder"
-	"github.com/townsendmerino/goinfer/internal/cost"
+	"github.com/pkieltyka/goinfer/decoder"
+	"github.com/pkieltyka/goinfer/internal/cost"
 )
 
 // SessionPool hands out the CPU sessions a Local engine generates on: Acquire checks out the session that best extends

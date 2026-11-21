@@ -6,7 +6,7 @@ import (
 	"path/filepath"
 	"testing"
 
-	"github.com/townsendmerino/goinfer/decoder"
+	"github.com/pkieltyka/goinfer/decoder"
 )
 
 // TestGemma1ResidentParityMetal: Gemma 1 / CodeGemma (model_type gemma) is admitted to Metal by feature (embed scale,

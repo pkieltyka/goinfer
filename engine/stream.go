@@ -3,7 +3,7 @@ package engine
 import (
 	"sync"
 
-	"github.com/townsendmerino/goinfer/decoder"
+	"github.com/pkieltyka/goinfer/decoder"
 )
 
 // Stream is one generation as Start returns it: its token ids, its report, and its close. Read Tokens to its end, then

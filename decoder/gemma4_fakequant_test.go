@@ -8,9 +8,9 @@ import (
 	"os"
 	"testing"
 
-	"github.com/townsendmerino/goinfer/tokenizer"
+	"github.com/pkieltyka/goinfer/tokenizer"
 
-	"github.com/townsendmerino/goinfer/internal/testgate"
+	"github.com/pkieltyka/goinfer/internal/testgate"
 )
 
 // TestGemma4FakeQuant drives the fakequant.go diagnostic against the real gemma-4-26b-a4b-it: it loads under a base quant

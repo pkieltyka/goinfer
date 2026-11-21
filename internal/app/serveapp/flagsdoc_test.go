@@ -11,7 +11,7 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/townsendmerino/goinfer/internal/app/loadflags"
+	"github.com/pkieltyka/goinfer/internal/app/loadflags"
 )
 
 var updateFlagsDoc = flag.Bool("update", false, "rewrite docs/flags.md from serve's flags instead of asserting it is fresh")

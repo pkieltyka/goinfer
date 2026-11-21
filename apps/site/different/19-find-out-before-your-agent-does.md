@@ -121,4 +121,4 @@ goinfer-chat fit <model> -ctx 32768
 
 If you pass `-ctx` and it does not fit, fit refuses it rather than shrinking it. `-measure` also times a short real generation on the best backend, which is a second load.
 
-The opencode config and the reasoning for the working setup are in [the opencode guide](https://github.com/townsendmerino/goinfer/blob/main/docs/integrations/opencode.md). [The Claude Code guide](https://github.com/townsendmerino/goinfer/blob/main/docs/integrations/claude-code.md) was measured separately, on 2026-09-02, before this row existed.
+The opencode config and the reasoning for the working setup are in [the opencode guide](https://github.com/pkieltyka/goinfer/blob/main/docs/integrations/opencode.md). [The Claude Code guide](https://github.com/pkieltyka/goinfer/blob/main/docs/integrations/claude-code.md) was measured separately, on 2026-09-02, before this row existed.

@@ -2,7 +2,7 @@
 
 package webgpu
 
-import "github.com/townsendmerino/goinfer/decoder"
+import "github.com/pkieltyka/goinfer/decoder"
 
 // The build unpacks decoder.ResidentSpec's family sub-structs into the positional locals its phases read; each returns zeros and ok=false
 // when the model's architecture carries no such subsystem.

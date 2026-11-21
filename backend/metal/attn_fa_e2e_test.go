@@ -8,7 +8,7 @@ import (
 	"os"
 	"testing"
 
-	"github.com/townsendmerino/goinfer/decoder"
+	"github.com/pkieltyka/goinfer/decoder"
 )
 
 // TestAttentionFA_endToEndReproduction is the KEEPER reproducer of the end-to-end signature that parked R2:

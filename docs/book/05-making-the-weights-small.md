@@ -61,9 +61,9 @@ arithmetic from the model's config, not measurements.)
 
 Here is the ceiling next to what was measured, at short context, where the weights are almost all of the traffic.
 The bytes are what goinfer actually streams per token at int4 with an 8-bit LM head, counted from its own kernels:
-on the CPU 1,053 MB for the 1.5B ([`cpu-decode-roofline-2026-09-23.md`](https://github.com/townsendmerino/goinfer/blob/main/docs/measurements/cpu-decode-roofline-2026-09-23.md)),
+on the CPU 1,053 MB for the 1.5B ([`cpu-decode-roofline-2026-09-23.md`](https://github.com/pkieltyka/goinfer/blob/main/docs/measurements/cpu-decode-roofline-2026-09-23.md)),
 and on Metal 970 MB for the 1.5B and 4,216 MB for the 7B, summed from each layer's matrix-vector kernels plus the LM
-head ([`metal-decode-gemv-s0-2026-09-26.md`](https://github.com/townsendmerino/goinfer/blob/main/docs/measurements/metal-decode-gemv-s0-2026-09-26.md)).
+head ([`metal-decode-gemv-s0-2026-09-26.md`](https://github.com/pkieltyka/goinfer/blob/main/docs/measurements/metal-decode-gemv-s0-2026-09-26.md)).
 
 | machine, model | bandwidth | ceiling | measured | share of the ceiling |
 |---|---|---|---|---|
@@ -72,16 +72,16 @@ head ([`metal-decode-gemv-s0-2026-09-26.md`](https://github.com/townsendmerino/g
 | M1 Pro GPU, 7B | the same | 42–43 tok/s | 30.2 tok/s (33.12 ms) | about 71% |
 
 The GPU rows are GPU time per token, taken from the command buffers' timestamps, so a served request adds a little
-host time on top ([`metal-decode-gemv-r18b-2026-09-26.md`](https://github.com/townsendmerino/goinfer/blob/main/docs/measurements/metal-decode-gemv-r18b-2026-09-26.md)).
+host time on top ([`metal-decode-gemv-r18b-2026-09-26.md`](https://github.com/pkieltyka/goinfer/blob/main/docs/measurements/metal-decode-gemv-r18b-2026-09-26.md)).
 
 **The ceiling tells you the best case, not where you are.** Before September 26 the 1.5B's token took 12.93 ms on the
 GPU. Its int4 matrix-vector kernels moved weights at 64–111 GB/s (the largest, gate/up, at 90 GB/s), while a kernel
 doing the same loads and nothing else reached 176–187 GB/s on the same shapes, and the 8-bit LM head, which does less
-work per byte, ran at 161 GB/s ([`metal-decode-gemv-s0-2026-09-26.md`](https://github.com/townsendmerino/goinfer/blob/main/docs/measurements/metal-decode-gemv-s0-2026-09-26.md)).
+work per byte, ran at 161 GB/s ([`metal-decode-gemv-s0-2026-09-26.md`](https://github.com/pkieltyka/goinfer/blob/main/docs/measurements/metal-decode-gemv-s0-2026-09-26.md)).
 So the bytes were not the limit; the work done on each weight was: unpacking the 4-bit values, applying their scales
 and accumulating. Rewriting those kernels in the shape MLX uses, several rows per SIMD group, took gate/up to 115–140
 GB/s and the token to 10.46 ms, with bit-identical output
-([`metal-decode-gemv-r18-2026-09-26.md`](https://github.com/townsendmerino/goinfer/blob/main/docs/measurements/metal-decode-gemv-r18-2026-09-26.md)). The bandwidth
+([`metal-decode-gemv-r18-2026-09-26.md`](https://github.com/pkieltyka/goinfer/blob/main/docs/measurements/metal-decode-gemv-r18-2026-09-26.md)). The bandwidth
 did not change. The kernel got closer to it.
 
 The same reading explains the CPU row. There Ollama moves its bytes at 23.5 GB/s on the 1.5B against goinfer's 20.4,
@@ -153,7 +153,7 @@ Measured after a fix to how the LM head is quantized:
 Silicon: the loader keeps a second, repacked copy of int4's nibbles alongside the canonical ones
 for the fast NEON kernel, so int4 actually costs *more* resident RAM there than int8int8, not
 less (`decoder/fitguard.go`). The current guidance in
-[`docs/benchmarks.md`](https://github.com/townsendmerino/goinfer/blob/main/docs/benchmarks.md) is
+[`docs/benchmarks.md`](https://github.com/pkieltyka/goinfer/blob/main/docs/benchmarks.md) is
 that int4 is the right default on Apple Silicon CPU decode for speed — reach for int8int8 instead
 if RAM, not speed, is the binding constraint.
 
@@ -237,9 +237,9 @@ goinfer-chat fit hf:Qwen/Qwen2.5-Coder-1.5B-Instruct-GGUF:q4_k_m -quant int8int8
 The CPU row reads `dense 1.66 GB`: every weight at one byte, plus its group scales and the embedding table. The default
 4-bit load is much smaller; `fit` prints that too, but from whichever converted copy of the model your machine has
 cached, so the exact figure depends on what you ran before (the record explains). Measured on 2026-10-02 with the
-v0.20.0 release ([record](https://github.com/townsendmerino/goinfer/blob/main/docs/measurements/book-try-it-2026-10.md), chapters 4 and 5).
+v0.20.0 release ([record](https://github.com/pkieltyka/goinfer/blob/main/docs/measurements/book-try-it-2026-10.md), chapters 4 and 5).
 
 ---
 
-*Sources: `docs/benchmarks.md` §int4/int8int8 comparison, [`docs/completed/task-w4a8-neon-bandwidth.md`](https://github.com/townsendmerino/goinfer/blob/main/docs/completed/task-w4a8-neon-bandwidth.md),
-`cmd/gate` (parity runner), [`docs/api-tiers.md`](https://github.com/townsendmerino/goinfer/blob/main/docs/api-tiers.md) (`.giw`).*
+*Sources: `docs/benchmarks.md` §int4/int8int8 comparison, [`docs/completed/task-w4a8-neon-bandwidth.md`](https://github.com/pkieltyka/goinfer/blob/main/docs/completed/task-w4a8-neon-bandwidth.md),
+`cmd/gate` (parity runner), [`docs/api-tiers.md`](https://github.com/pkieltyka/goinfer/blob/main/docs/api-tiers.md) (`.giw`).*

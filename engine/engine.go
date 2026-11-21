@@ -3,8 +3,8 @@ package engine
 import (
 	"context"
 
-	"github.com/townsendmerino/goinfer/constrain"
-	"github.com/townsendmerino/goinfer/decoder"
+	"github.com/pkieltyka/goinfer/constrain"
+	"github.com/pkieltyka/goinfer/decoder"
 )
 
 // Request is what an Engine needs to start a generation: the prompt, the budget, the sampling, an optional grammar

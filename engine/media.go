@@ -3,7 +3,7 @@ package engine
 import (
 	"context"
 
-	"github.com/townsendmerino/goinfer/decoder"
+	"github.com/pkieltyka/goinfer/decoder"
 )
 
 // MediaKind is the decoder generator a Media request takes, named after its entry point.

@@ -8,7 +8,7 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/townsendmerino/goinfer/decoder"
+	"github.com/pkieltyka/goinfer/decoder"
 )
 
 // headerOnlyGGUF writes a GGUF v3 whose tensor directory declares the given 2-D shapes and no data: enough for a

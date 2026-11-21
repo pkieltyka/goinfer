@@ -5,7 +5,7 @@ package cuda
 import (
 	"errors"
 
-	"github.com/townsendmerino/goinfer/decoder"
+	"github.com/pkieltyka/goinfer/decoder"
 )
 
 var _ decoder.ResidencyPricer = (*cudaBackend)(nil)

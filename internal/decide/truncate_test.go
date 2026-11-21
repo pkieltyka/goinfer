@@ -10,7 +10,7 @@ import (
 	"slices"
 	"testing"
 
-	"github.com/townsendmerino/goinfer/tokenizer"
+	"github.com/pkieltyka/goinfer/tokenizer"
 )
 
 // TestPyReplaceInvalidUTF8 holds the replacement to CPython's bytes.decode("utf-8", errors="replace"), the want column

@@ -1,6 +1,6 @@
 package serveapp
 
-import "github.com/townsendmerino/goinfer/decoder"
+import "github.com/pkieltyka/goinfer/decoder"
 
 // withRecommended fills each sampling field sm leaves out from the model's recommended sampling rs, and names the fields
 // it filled, for -log-requests. A field the client sent always wins. min_p has no request field, so a recommended one

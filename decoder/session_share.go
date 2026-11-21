@@ -4,7 +4,7 @@ import (
 	"errors"
 	"time"
 
-	"github.com/townsendmerino/goinfer/internal/runtime/kvmgr"
+	"github.com/pkieltyka/goinfer/internal/runtime/kvmgr"
 )
 
 // Sharing between CPU sessions:

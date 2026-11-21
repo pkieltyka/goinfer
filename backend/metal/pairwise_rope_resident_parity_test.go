@@ -12,7 +12,7 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/townsendmerino/goinfer/decoder"
+	"github.com/pkieltyka/goinfer/decoder"
 )
 
 // G-PR2 and G-PR3: the GPT-J pairwise families on the Metal resident

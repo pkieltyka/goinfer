@@ -33,11 +33,11 @@ import (
 	"syscall"
 	"time"
 
-	"github.com/townsendmerino/goinfer/chat"
-	"github.com/townsendmerino/goinfer/constrain"
-	"github.com/townsendmerino/goinfer/decoder"
-	"github.com/townsendmerino/goinfer/internal/batchio"
-	"github.com/townsendmerino/goinfer/internal/codec"
+	"github.com/pkieltyka/goinfer/chat"
+	"github.com/pkieltyka/goinfer/constrain"
+	"github.com/pkieltyka/goinfer/decoder"
+	"github.com/pkieltyka/goinfer/internal/batchio"
+	"github.com/pkieltyka/goinfer/internal/codec"
 )
 
 // apiDefaultMaxTokens is serve's default reply length for a request that names none (internal/serveapp defaultMaxTokens).

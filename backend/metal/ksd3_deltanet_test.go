@@ -9,7 +9,7 @@ import (
 	"os"
 	"testing"
 
-	"github.com/townsendmerino/goinfer/decoder"
+	"github.com/pkieltyka/goinfer/decoder"
 )
 
 // ksd3Run is a 40-token batched prefill of ckpt on the Metal resident at int4, then 8 greedy decode steps: the prefill's last

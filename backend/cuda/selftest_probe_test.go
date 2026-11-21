@@ -8,7 +8,7 @@ import (
 	"testing"
 	"time"
 
-	"github.com/townsendmerino/goinfer/decoder"
+	"github.com/pkieltyka/goinfer/decoder"
 )
 
 // H2: the resident self-test on a real device. A green probe on healthy code, and the same probe going RED when the resident's inputs are

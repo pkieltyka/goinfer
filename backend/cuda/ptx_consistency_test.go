@@ -11,7 +11,7 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/townsendmerino/goinfer/backend/cuda/internal/launchgeom"
+	"github.com/pkieltyka/goinfer/backend/cuda/internal/launchgeom"
 )
 
 // TestPTX_matchesSourcesAndBindings is PTX freshness without a device or an NVRTC. A .cu edit committed without

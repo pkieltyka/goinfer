@@ -10,7 +10,7 @@ import (
 	"slices"
 	"testing"
 
-	"github.com/townsendmerino/goinfer/decoder"
+	"github.com/pkieltyka/goinfer/decoder"
 )
 
 // TestGreedyChain_generateMatchesFullLogits is C-B01 through the decoder: greedy Generate on Metal with the chain

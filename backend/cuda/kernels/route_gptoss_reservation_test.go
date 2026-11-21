@@ -5,7 +5,7 @@ package kernels
 import (
 	"testing"
 
-	gpu "github.com/townsendmerino/goinfer/backend/cuda/internal/gpudev"
+	gpu "github.com/pkieltyka/goinfer/backend/cuda/internal/gpudev"
 )
 
 // TestRouteGptOssGrowsPoolPastMoERoute measures the gap G-13(b) (audit-2026-09-10) closed.

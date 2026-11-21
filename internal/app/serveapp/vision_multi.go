@@ -5,10 +5,10 @@ import (
 	"fmt"
 	"strings"
 
-	"github.com/townsendmerino/goinfer/chat"
-	"github.com/townsendmerino/goinfer/decoder"
-	"github.com/townsendmerino/goinfer/internal/codec"
-	"github.com/townsendmerino/goinfer/multimodal"
+	"github.com/pkieltyka/goinfer/chat"
+	"github.com/pkieltyka/goinfer/decoder"
+	"github.com/pkieltyka/goinfer/internal/codec"
+	"github.com/pkieltyka/goinfer/multimodal"
 )
 
 // Several images in one message. Each image is

@@ -4,7 +4,7 @@ import (
 	"math"
 	"unsafe"
 
-	"github.com/townsendmerino/goinfer/internal/runtime/hybridattn"
+	"github.com/pkieltyka/goinfer/internal/runtime/hybridattn"
 )
 
 // Llama 4 (llama4_text): the iRoPE text decoder. Its program is Architecture.llama4LayerOps: a pre-norm layer whose attention

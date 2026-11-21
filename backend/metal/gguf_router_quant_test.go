@@ -5,7 +5,7 @@ package metal
 import (
 	"testing"
 
-	"github.com/townsendmerino/goinfer/decoder"
+	"github.com/pkieltyka/goinfer/decoder"
 )
 
 // TestBuildResident_glmMoE_routerNotDeclined gates M-27's residency-side symptom: a GGUF MoE

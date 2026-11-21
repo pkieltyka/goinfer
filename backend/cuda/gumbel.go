@@ -5,8 +5,8 @@ package cuda
 import (
 	"math"
 
-	gpu "github.com/townsendmerino/goinfer/backend/cuda/internal/gpudev"
-	"github.com/townsendmerino/goinfer/backend/cuda/internal/launchgeom"
+	gpu "github.com/pkieltyka/goinfer/backend/cuda/internal/gpudev"
+	"github.com/pkieltyka/goinfer/backend/cuda/internal/launchgeom"
 )
 
 // SampleAvailable reports whether this resident can draw a temperature-only sample on-device: the same

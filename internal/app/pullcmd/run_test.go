@@ -14,7 +14,7 @@ import (
 	"sync"
 	"testing"
 
-	"github.com/townsendmerino/goinfer/pull"
+	"github.com/pkieltyka/goinfer/pull"
 )
 
 // hubFile is one file the fake hub serves: its bytes, and the sha256 its tree listing declares ("" for none, as HF lists a

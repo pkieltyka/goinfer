@@ -1,6 +1,6 @@
 package decoder
 
-import "github.com/townsendmerino/goinfer/internal/runtime/hybridattn"
+import "github.com/pkieltyka/goinfer/internal/runtime/hybridattn"
 
 // walkBatchPlantForTest plants one defect in the batched walker's qwen3.5 or Gemma 4 operations, so the bounds that cover them
 // can show they go red (walkbatch_plants_test.go). Zero in production.

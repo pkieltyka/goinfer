@@ -1,7 +1,7 @@
 package serveapp
 
 import (
-	"github.com/townsendmerino/goinfer/internal/app/serveapp/jobs"
+	"github.com/pkieltyka/goinfer/internal/app/serveapp/jobs"
 	"sync"
 	"time"
 )

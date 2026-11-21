@@ -7,7 +7,7 @@ import (
 	"net/http"
 	"time"
 
-	"github.com/townsendmerino/goinfer/internal/batchio"
+	"github.com/pkieltyka/goinfer/internal/batchio"
 )
 
 // The two batch APIs (OpenAI /v1/batches, Anthropic /v1/messages/batches): thin translations onto the job store.

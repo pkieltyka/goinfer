@@ -2,7 +2,7 @@
 
 package metal
 
-import "github.com/townsendmerino/goinfer/internal/runtime/mem"
+import "github.com/pkieltyka/goinfer/internal/runtime/mem"
 
 // The batched expert GEMM (docs/audit-metal-2026-09-30.md): a layer-major
 // paged Gemma 4 prefill runs one slot group's routed experts expert by expert, every (row, expert) pair the group routes to

@@ -8,7 +8,7 @@ import (
 	"os"
 	"testing"
 
-	"github.com/townsendmerino/goinfer/internal/runtime/sampling"
+	"github.com/pkieltyka/goinfer/internal/runtime/sampling"
 )
 
 // F3 dense Granite 4.2 parity (ibm-granite/granite-4.2-{3b,8b,30b}, model_type "granite"): a

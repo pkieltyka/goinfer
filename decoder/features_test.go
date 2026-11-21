@@ -5,7 +5,7 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/townsendmerino/goinfer/internal/runtime/program"
+	"github.com/pkieltyka/goinfer/internal/runtime/program"
 )
 
 // archFeatureProfile is the feature set each REGISTERED architecture is expected to require.

@@ -31,7 +31,7 @@ type Config struct {
 func DefaultConfig() Config {
 	return Config{
 		BookURL:   "/book/",
-		GitHubURL: "https://github.com/townsendmerino/goinfer",
+		GitHubURL: "https://github.com/pkieltyka/goinfer",
 	}
 }
 

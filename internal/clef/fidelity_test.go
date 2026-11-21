@@ -11,8 +11,8 @@ import (
 	"testing"
 	"time"
 
-	"github.com/townsendmerino/goinfer/decoder"
-	"github.com/townsendmerino/goinfer/internal/runtime/modelload"
+	"github.com/pkieltyka/goinfer/decoder"
+	"github.com/pkieltyka/goinfer/internal/runtime/modelload"
 )
 
 // D13's fidelity harness (docs/measurements/decisions-d13-clef-fidelity-2026-10-03.md): one ARM of goinfer's Clef pipeline over the 150 D10 records, loaded through

@@ -4,13 +4,13 @@ package metal
 
 import (
 	"fmt"
-	"github.com/townsendmerino/goinfer/internal/runtime/mem"
+	"github.com/pkieltyka/goinfer/internal/runtime/mem"
 	"math"
 	"sync"
 
-	"github.com/townsendmerino/goinfer/embeddinggemma2"
-	"github.com/townsendmerino/goinfer/internal/audio"
-	"github.com/townsendmerino/goinfer/internal/vision"
+	"github.com/pkieltyka/goinfer/embeddinggemma2"
+	"github.com/pkieltyka/goinfer/internal/audio"
+	"github.com/pkieltyka/goinfer/internal/vision"
 )
 
 // The Gemma 4 audio tower's conformer blocks on Metal (Phase A's AM): aikit's

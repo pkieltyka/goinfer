@@ -4,7 +4,7 @@ import (
 	"context"
 	"fmt"
 
-	"github.com/townsendmerino/goinfer/decoder"
+	"github.com/pkieltyka/goinfer/decoder"
 )
 
 // Model is the whole Clef decision pipeline: the record encoder, the backbone (a plain qwen3_5 model: the release's adapters are merged,

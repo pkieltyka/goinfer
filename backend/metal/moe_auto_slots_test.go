@@ -6,7 +6,7 @@ import (
 	"os"
 	"testing"
 
-	"github.com/townsendmerino/goinfer/decoder"
+	"github.com/pkieltyka/goinfer/decoder"
 )
 
 // TestAutoMoESlotsFor is the pure-formula gate for M-13 (audit-metal-2026-09-12.md): no real

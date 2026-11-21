@@ -7,7 +7,7 @@ import (
 	"os"
 	"testing"
 
-	"github.com/townsendmerino/goinfer/decoder"
+	"github.com/pkieltyka/goinfer/decoder"
 )
 
 // moePrefillPrompt mirrors TestPrefillParity/TestPrefillParityGemma's own shape: an arbitrary

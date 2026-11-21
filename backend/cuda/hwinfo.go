@@ -6,7 +6,7 @@ import (
 	"fmt"
 
 	gc "github.com/eitamring/gocudrv/cuda"
-	"github.com/townsendmerino/goinfer/decoder"
+	"github.com/pkieltyka/goinfer/decoder"
 )
 
 // ptxTargetMajor/Minor: every PTX file in this package targets sm_75 (Turing), JIT-compiled forward by the driver on a newer card. A card

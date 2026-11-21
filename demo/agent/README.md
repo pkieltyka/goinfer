@@ -30,7 +30,7 @@ Each project's marquee claim, exercised in one artifact:
 |---|---|
 | [goinfer](../..) | an LLM in one static binary; **constrained decoding** — the model *cannot* emit a malformed tool call |
 | [ken](https://github.com/townsendmerino/ken) | hybrid code search (BM25 + Model2Vec + RRF) with a 35K-chunk stdlib index **baked into the server binary** |
-| [aikit](https://github.com/townsendmerino/aikit) | the shared pure-Go primitives both are built on (`linalg`, `embed`, `bm25`, `fuse`, …) |
+| [aikit](https://github.com/pkieltyka/aikit) | the shared pure-Go primitives both are built on (`linalg`, `embed`, `bm25`, `fuse`, …) |
 
 The web UI is itself part of the pitch: the tool-call chip you expand *is*
 the logit mask, the citation card *is* ken's index — agent legibility as a

@@ -29,8 +29,8 @@ import (
 	"strings"
 	"sync"
 
-	"github.com/townsendmerino/aikit/embed"
-	"github.com/townsendmerino/aikit/linalg"
+	"github.com/pkieltyka/aikit/embed"
+	"github.com/pkieltyka/aikit/linalg"
 )
 
 // HeadConfig is joint_head_config.json. Every key is required and no other key is accepted.

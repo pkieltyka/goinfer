@@ -10,7 +10,7 @@ import (
 	"fmt"
 	"math"
 
-	"github.com/townsendmerino/aikit/linalg"
+	"github.com/pkieltyka/aikit/linalg"
 )
 
 // Packed is one packed weight: Kind is the device layout ("int4", "int8" or "q4k"; f32 and bf16 pack as "int8"), Wpk

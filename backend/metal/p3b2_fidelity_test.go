@@ -11,9 +11,9 @@ import (
 	"testing"
 	"time"
 
-	"github.com/townsendmerino/goinfer/decoder"
-	"github.com/townsendmerino/goinfer/internal/fidelity"
-	"github.com/townsendmerino/goinfer/tokenizer"
+	"github.com/pkieltyka/goinfer/decoder"
+	"github.com/pkieltyka/goinfer/internal/fidelity"
+	"github.com/pkieltyka/goinfer/tokenizer"
 )
 
 // TestP3b2_int8PassFidelity is the gate as first registered;

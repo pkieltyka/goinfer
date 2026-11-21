@@ -7,7 +7,7 @@ import (
 	"sort"
 	"testing"
 
-	"github.com/townsendmerino/aikit/linalg"
+	"github.com/pkieltyka/aikit/linalg"
 )
 
 // TestPerRowScalePhase0 is §7's cheap gate: measure how much PER-ROW int4 scales (one scale per output

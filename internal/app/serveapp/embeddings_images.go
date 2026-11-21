@@ -6,7 +6,7 @@ import (
 	"fmt"
 	"strings"
 
-	"github.com/townsendmerino/goinfer/embeddinggemma2"
+	"github.com/pkieltyka/goinfer/embeddinggemma2"
 )
 
 // Image inputs to /v1/embeddings. `input` is a string, an object, or an array

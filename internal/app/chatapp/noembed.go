@@ -5,7 +5,7 @@ package chatapp
 import (
 	"errors"
 
-	"github.com/townsendmerino/goinfer/decoder"
+	"github.com/pkieltyka/goinfer/decoder"
 )
 
 // hasEmbeddedModel is false in the default build: no baked-in model, so --model

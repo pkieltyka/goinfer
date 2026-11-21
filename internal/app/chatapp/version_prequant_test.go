@@ -6,7 +6,7 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/townsendmerino/goinfer/decoder"
+	"github.com/pkieltyka/goinfer/decoder"
 )
 
 // R6: the release's embedded-tier chat binaries are baked at a FIXED quant chosen at build time (cmd/prequant's own

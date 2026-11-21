@@ -3,7 +3,7 @@ package multimodal
 import (
 	"fmt"
 
-	"github.com/townsendmerino/goinfer/tokenizer"
+	"github.com/pkieltyka/goinfer/tokenizer"
 )
 
 // Voxtral Mini's audio constants.

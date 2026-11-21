@@ -14,8 +14,8 @@ import (
 	"time"
 	"unsafe"
 
-	"github.com/townsendmerino/goinfer/internal/vision"
-	"github.com/townsendmerino/goinfer/multimodal"
+	"github.com/pkieltyka/goinfer/internal/vision"
+	"github.com/pkieltyka/goinfer/multimodal"
 )
 
 // G-S3a for the Qwen2.5-VL tower on CUDA: every merged token at cosine >= 0.9999 against aikit's CPU tower, both

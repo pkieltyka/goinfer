@@ -6,7 +6,7 @@ import (
 	"testing"
 	"time"
 
-	gpu "github.com/townsendmerino/goinfer/backend/cuda/internal/gpudev"
+	gpu "github.com/pkieltyka/goinfer/backend/cuda/internal/gpudev"
 )
 
 // TestCUDA_launchCost bounds the per-launch host cost, the first question for the dispatch-overhead

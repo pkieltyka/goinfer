@@ -11,7 +11,7 @@ import (
 	"slices"
 	"testing"
 
-	"github.com/townsendmerino/goinfer/decoder"
+	"github.com/pkieltyka/goinfer/decoder"
 )
 
 // TestCUDAStepBatch_matchesForward is MC3-on-CUDA's step-identity gate. For B = 2, 3 and 4 sequences, each on its own KV slot at its own depth, one StepBatch row must

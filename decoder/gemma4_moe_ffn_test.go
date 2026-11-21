@@ -8,7 +8,7 @@ import (
 	"os"
 	"testing"
 
-	"github.com/townsendmerino/aikit/linalg"
+	"github.com/pkieltyka/aikit/linalg"
 )
 
 // TestGemma4MoEFFN_parity gates the Gemma 4 parallel dense+MoE FFN sub-block

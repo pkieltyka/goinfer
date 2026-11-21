@@ -10,7 +10,7 @@ import (
 	"sync/atomic"
 	"testing"
 
-	"github.com/townsendmerino/goinfer/internal/decide"
+	"github.com/pkieltyka/goinfer/internal/decide"
 )
 
 // D8 at the endpoint: a request's questions go to the model as ONE many-prompt call, and the response is the one the questions answered one at a time give. The

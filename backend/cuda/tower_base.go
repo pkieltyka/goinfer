@@ -6,8 +6,8 @@ import (
 	"fmt"
 	"runtime"
 
-	gpu "github.com/townsendmerino/goinfer/backend/cuda/internal/gpudev"
-	"github.com/townsendmerino/goinfer/internal/runtime/mem"
+	gpu "github.com/pkieltyka/goinfer/backend/cuda/internal/gpudev"
+	"github.com/pkieltyka/goinfer/internal/runtime/mem"
 )
 
 // The CUDA vision-tower base (// docs/measurements/multimodal-support-2026-10/s4-gate0-cuda-towers.md): aikit's gpu.ViT (f32 GEMMs with bias and

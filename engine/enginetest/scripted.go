@@ -3,7 +3,7 @@ package enginetest
 import (
 	"context"
 
-	"github.com/townsendmerino/goinfer/engine"
+	"github.com/pkieltyka/goinfer/engine"
 )
 
 // Scripted is an Engine that streams fixed token ids, at most each request's MaxTokens, and keeps no report: a fake

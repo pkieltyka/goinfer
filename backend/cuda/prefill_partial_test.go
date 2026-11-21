@@ -7,7 +7,7 @@ import (
 	"errors"
 	"testing"
 
-	"github.com/townsendmerino/goinfer/decoder"
+	"github.com/pkieltyka/goinfer/decoder"
 )
 
 func withPrefillDeclinePass(t *testing.T, pass int) {

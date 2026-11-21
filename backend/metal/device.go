@@ -1,13 +1,13 @@
 //go:build darwin
 
-// Metal device layer: aikit's native-GPU substrate (github.com/townsendmerino/aikit/gpu). goinfer keeps its tuned kernels
+// Metal device layer: aikit's native-GPU substrate (github.com/pkieltyka/aikit/gpu). goinfer keeps its tuned kernels
 // here and builds them on these device types, the GPU analogue of the linalg relationship. The decode path must stay
 // bit-identical across it (the Metal device-parity suite is the tripwire).
 package metal
 
 import (
-	gpu "github.com/townsendmerino/goinfer/backend/metal/internal/gpudev"
-	"github.com/townsendmerino/goinfer/internal/runtime/mem"
+	gpu "github.com/pkieltyka/goinfer/backend/metal/internal/gpudev"
+	"github.com/pkieltyka/goinfer/internal/runtime/mem"
 )
 
 // Every device created in a process that links this package leases its MTLBuffers to a mem.Ledger, whichever package

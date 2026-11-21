@@ -5,7 +5,7 @@ package metal
 import (
 	"context"
 
-	"github.com/townsendmerino/goinfer/decoder"
+	"github.com/pkieltyka/goinfer/decoder"
 )
 
 // Compile-time pins for the Metal resident runner's four subsystem interfaces. Kept on wrapper types rather than on

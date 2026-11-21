@@ -3,7 +3,7 @@
 package metal
 
 import (
-	"github.com/townsendmerino/goinfer/internal/runtime/mem"
+	"github.com/pkieltyka/goinfer/internal/runtime/mem"
 	"math"
 	"runtime"
 )

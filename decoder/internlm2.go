@@ -3,8 +3,8 @@ package decoder
 import (
 	"fmt"
 
-	"github.com/townsendmerino/aikit/embed"
-	"github.com/townsendmerino/aikit/linalg"
+	"github.com/pkieltyka/aikit/embed"
+	"github.com/pkieltyka/aikit/linalg"
 )
 
 // buildInternLM2Weights loads InternLM2 (model_type internlm2), which is a llama in every

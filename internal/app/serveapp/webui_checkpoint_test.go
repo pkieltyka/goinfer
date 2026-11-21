@@ -14,9 +14,9 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/townsendmerino/goinfer/decoder"
-	"github.com/townsendmerino/goinfer/decoder/fit"
-	"github.com/townsendmerino/goinfer/pull"
+	"github.com/pkieltyka/goinfer/decoder"
+	"github.com/pkieltyka/goinfer/decoder/fit"
+	"github.com/pkieltyka/goinfer/pull"
 )
 
 // tinyCheckpointFiles is testdata/llama-tiny as a checkpoint set, with the file list a plan would carry: the weights

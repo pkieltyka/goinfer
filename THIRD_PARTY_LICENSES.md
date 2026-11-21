@@ -106,7 +106,7 @@ THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT LIABILITY, OR TORT
 OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 ```
 
-### github.com/townsendmerino/aikit — MIT
+### github.com/pkieltyka/aikit — MIT
 
 This text also covers the aikit code copied into this repository: `internal/vision` and `internal/audio` (from aikit
 v1.75.0), and `cuda/internal/gpudev` and `metal/internal/gpudev` (from aikit `gpu/v0.35.0`).
@@ -565,8 +565,8 @@ SOFTWARE.
 
 The Metal module links `github.com/ebitengine/purego` (Apache-2.0 — full text under the CUDA
 backend above), `golang.org/x/sys` (BSD-3-Clause — full text in Core above; imported directly at
-`metal/gemma4_moe.go`), and `github.com/townsendmerino/aikit/gpu` (MIT — same text/author as
-`github.com/townsendmerino/aikit` in Core above). No additional license texts are unique to this
+`metal/gemma4_moe.go`), and `github.com/pkieltyka/aikit/gpu` (MIT — same text/author as
+`github.com/pkieltyka/aikit` in Core above). No additional license texts are unique to this
 backend.
 
 ---

@@ -72,7 +72,7 @@ vectors to the store, and run attention against the whole stored set:
 *The same eight rounds, animated. Without the cache the work per round grows; with it, one new position per round
 is computed and kept, and attention still reads all of them. The counts are arithmetic about eight rounds, not
 measurements
-([video](./04-anim-kv-cache.mp4), [scene source](https://github.com/townsendmerino/goinfer/blob/main/docs/book/04-anim-kv-cache.py)).*
+([video](./04-anim-kv-cache.mp4), [scene source](https://github.com/pkieltyka/goinfer/blob/main/docs/book/04-anim-kv-cache.py)).*
 
 Per-token cost stops growing with the number of tokens generated so far and starts growing
 only with the *comparison* against those tokens.
@@ -116,7 +116,7 @@ memory.
 
 **The KV cache can be quantized too.** Store keys and values in 8 bits instead of 16 and the
 KV cache halves. Quantizing the KV cache is an accuracy trade like any other, and — as
-[`docs/ollama-chase.md`](https://github.com/townsendmerino/goinfer/blob/main/docs/ollama-chase.md) notes — KV quantization is not compatible with this repo's bit-identical
+[`docs/ollama-chase.md`](https://github.com/pkieltyka/goinfer/blob/main/docs/ollama-chase.md) notes — KV quantization is not compatible with this repo's bit-identical
 determinism contract in the way some other optimizations are. Chapter 11 explains why that
 determinism contract is worth protecting.
 
@@ -141,7 +141,7 @@ first N entries of the list.
 
 Gated DeltaNet layers — used in several recent Qwen models — keep a **running total** instead.
 Each token folds into a single fixed-size matrix that is updated in place. `deltaState` in
-[`decoder/deltanet.go`](https://github.com/townsendmerino/goinfer/blob/main/decoder/deltanet.go) is that running total, and `deltaState`'s comment says plainly that the
+[`decoder/deltanet.go`](https://github.com/pkieltyka/goinfer/blob/main/decoder/deltanet.go) is that running total, and `deltaState`'s comment says plainly that the
 running total is fixed size, independent of sequence length, and *not position-truncatable*.
 
 ```
@@ -198,7 +198,7 @@ it is worth understanding why a Go engineer might choose it.
 generation needs a second KV cache, and it competes for the same weights and the same arithmetic
 units. Running two at once on one machine does not make either faster; it makes both slower and
 doubles the cache memory. So the parallelism gets spent *inside* one request instead —
-the six-worker prefill that shipped in [v0.15.0](https://github.com/townsendmerino/goinfer/blob/main/docs/releases/v0.15.0-release-notes.md) (3.28× at 3,020 tokens: 333.3 s to 101.6 s) is goroutines
+the six-worker prefill that shipped in [v0.15.0](https://github.com/pkieltyka/goinfer/blob/main/docs/releases/v0.15.0-release-notes.md) (3.28× at 3,020 tokens: 333.3 s to 101.6 s) is goroutines
 fanning out across one matrix multiply, not across six users.
 
 **A queue that accepts everything lies.** The alternative to a 429 is unbounded admission, where
@@ -240,9 +240,9 @@ goinfer-chat fit hf:Qwen/Qwen2.5-Coder-1.5B-Instruct-GGUF:q4_k_m
 
 The CPU row reads `KV@8192 0.44 GB`: 8,192 positions at this chapter's 56 KiB each, with the cache in f32. A Metal row
 reads `0.22 GB`, because Metal keeps the cache in f16. The rest of each line is your machine's free memory. Measured on
-2026-10-02 with the v0.20.0 release ([record](https://github.com/townsendmerino/goinfer/blob/main/docs/measurements/book-try-it-2026-10.md), chapters 4 and 5).
+2026-10-02 with the v0.20.0 release ([record](https://github.com/pkieltyka/goinfer/blob/main/docs/measurements/book-try-it-2026-10.md), chapters 4 and 5).
 
 ---
 
-*Sources: `internal/app/serveapp/openai.go` (the decode mutex, the bounded queue, the 429), `internal/app/serveapp/main.go` (`--max-queue`, `--max-inflight`), `decoder/deltanet.go:deltaState`, [`docs/completed/qwen3_5_moe.md`](https://github.com/townsendmerino/goinfer/blob/main/docs/completed/qwen3_5_moe.md), `docs/ollama-chase.md`,
-[`docs/api-tiers.md`](https://github.com/townsendmerino/goinfer/blob/main/docs/api-tiers.md) (`.giw-kv`), the performance queue (kept privately) (prefill baselines).*
+*Sources: `internal/app/serveapp/openai.go` (the decode mutex, the bounded queue, the 429), `internal/app/serveapp/main.go` (`--max-queue`, `--max-inflight`), `decoder/deltanet.go:deltaState`, [`docs/completed/qwen3_5_moe.md`](https://github.com/pkieltyka/goinfer/blob/main/docs/completed/qwen3_5_moe.md), `docs/ollama-chase.md`,
+[`docs/api-tiers.md`](https://github.com/pkieltyka/goinfer/blob/main/docs/api-tiers.md) (`.giw-kv`), the performance queue (kept privately) (prefill baselines).*

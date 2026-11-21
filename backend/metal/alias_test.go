@@ -10,7 +10,7 @@ import (
 	"os"
 	"testing"
 
-	"github.com/townsendmerino/goinfer/decoder"
+	"github.com/pkieltyka/goinfer/decoder"
 )
 
 // S6's first registered gate: logits byte-identical aliased vs copied — same bytes reach the same

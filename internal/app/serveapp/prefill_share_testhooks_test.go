@@ -7,7 +7,7 @@ import (
 	"errors"
 	"testing"
 
-	"github.com/townsendmerino/goinfer/decoder"
+	"github.com/pkieltyka/goinfer/decoder"
 )
 
 // loneThreshold is the least available memory at which a lone request of this size is admitted: found by bisection

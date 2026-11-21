@@ -10,7 +10,7 @@ import (
 	"os"
 	"strings"
 
-	"github.com/townsendmerino/goinfer/decoder"
+	"github.com/pkieltyka/goinfer/decoder"
 )
 
 // listenerFlags are the goinfer-serve flags that configure its listener, its process or its operator surfaces. They

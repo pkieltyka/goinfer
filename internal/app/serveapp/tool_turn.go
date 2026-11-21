@@ -6,8 +6,8 @@ import (
 	"fmt"
 	"strings"
 
-	"github.com/townsendmerino/goinfer/chat"
-	"github.com/townsendmerino/goinfer/internal/codec"
+	"github.com/pkieltyka/goinfer/chat"
+	"github.com/pkieltyka/goinfer/internal/codec"
 )
 
 // toolTurn is the outcome of one tool-bearing generation. /v1/chat/completions, /v1/responses and /v1/messages share

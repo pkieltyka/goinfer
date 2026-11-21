@@ -10,9 +10,9 @@ import (
 	"slices"
 	"testing"
 
-	"github.com/townsendmerino/aikit/linalg"
+	"github.com/pkieltyka/aikit/linalg"
 
-	"github.com/townsendmerino/goinfer/internal/testgate"
+	"github.com/pkieltyka/goinfer/internal/testgate"
 )
 
 // mlaMainF32Hash is main's deepseek-tiny f32 CPU logits over 32 positions, hashed, before MEM11-int8 (the f32 load must not move).

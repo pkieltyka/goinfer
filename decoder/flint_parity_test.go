@@ -10,8 +10,8 @@ import (
 	"path/filepath"
 	"testing"
 
-	"github.com/townsendmerino/aikit/embed"
-	"github.com/townsendmerino/goinfer/internal/runtime/sampling"
+	"github.com/pkieltyka/aikit/embed"
+	"github.com/pkieltyka/goinfer/internal/runtime/sampling"
 )
 
 type flintGolden struct {

@@ -5,7 +5,7 @@ package metal
 import (
 	"fmt"
 
-	"github.com/townsendmerino/goinfer/internal/vision"
+	"github.com/pkieltyka/goinfer/internal/vision"
 )
 
 // reg is a grid tower's activation buffer for a program register (vision.TowerReg): x is the residual stream, mid and

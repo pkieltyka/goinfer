@@ -76,7 +76,7 @@ nonsense, because ID 3797 means something different in each vocabulary.
 
 goinfer implements two tokenizer schemes, in the `tokenizer/` package:
 
-**Byte-level BPE** ([`bytelevel.go`](https://github.com/townsendmerino/goinfer/blob/main/tokenizer/bytelevel.go)) — used by the GPT-2 and Llama lineages. Byte-level BPE maps
+**Byte-level BPE** ([`bytelevel.go`](https://github.com/pkieltyka/goinfer/blob/main/tokenizer/bytelevel.go)) — used by the GPT-2 and Llama lineages. Byte-level BPE maps
 every input byte to a starting symbol, then applies a learned list of merge rules repeatedly:
 "these two adjacent symbols become this one symbol." The merge rules were learned during
 training by repeatedly merging whichever pair of symbols was most frequent in the training
@@ -96,12 +96,12 @@ The "byte-level" part matters: because byte-level BPE starts from raw bytes, not
 unrepresentable. Emoji, malformed UTF-8, a binary blob pasted into a prompt — all of it
 tokenizes, possibly into many tokens, but never into an error.
 
-**SentencePiece** ([`sentencepiece.go`](https://github.com/townsendmerino/goinfer/blob/main/tokenizer/sentencepiece.go)) — used by Google's Gemma family among others. Same
+**SentencePiece** ([`sentencepiece.go`](https://github.com/pkieltyka/goinfer/blob/main/tokenizer/sentencepiece.go)) — used by Google's Gemma family among others. Same
 outcome, different construction: SentencePiece scores candidate segmentations of the input
 against a learned unigram model and picks the best-scoring segmentation, rather than applying
 merge rules in a fixed order.
 
-The `tokenizer/` package also holds [`added.go`](https://github.com/townsendmerino/goinfer/blob/main/tokenizer/added.go), for tokens bolted on after training — the
+The `tokenizer/` package also holds [`added.go`](https://github.com/pkieltyka/goinfer/blob/main/tokenizer/added.go), for tokens bolted on after training — the
 special markers like `<|im_end|>` that chat templates use to delimit turns — and `gguf.go`,
 which reads a vocabulary out of a GGUF checkpoint, since GGUF files carry their tokenizer
 inside them.
@@ -189,12 +189,12 @@ curl -s localhost:8080/v1/messages/count_tokens -H 'content-type: application/js
 
 You should see `{"input_tokens":18}`: the sentence's tokens plus the chat template's wrapper around one user turn.
 Try a sentence of your own, or the same sentence in another language, and compare the count with its length in bytes.
-Measured on 2026-10-02 with the v0.20.0 release ([record](https://github.com/townsendmerino/goinfer/blob/main/docs/measurements/book-try-it-2026-10.md), chapter 1).
+Measured on 2026-10-02 with the v0.20.0 release ([record](https://github.com/pkieltyka/goinfer/blob/main/docs/measurements/book-try-it-2026-10.md), chapter 1).
 
 ---
 
 *Sources: `tokenizer/` (`bytelevel.go`, `sentencepiece.go`, `added.go`, `gguf.go`),
-[`docs/how-inference-works.md`](https://github.com/townsendmerino/goinfer/blob/main/docs/how-inference-works.md) §Step 1, [`internal/app/serveapp/openai.go`](https://github.com/townsendmerino/goinfer/blob/main/internal/app/serveapp/openai.go) and
-[`internal/app/serveapp/openai_stream_usage_test.go`](https://github.com/townsendmerino/goinfer/blob/main/internal/app/serveapp/openai_stream_usage_test.go) (streaming hold-back), [`CHANGELOG.md`](https://github.com/townsendmerino/goinfer/blob/main/CHANGELOG.md)
+[`docs/how-inference-works.md`](https://github.com/pkieltyka/goinfer/blob/main/docs/how-inference-works.md) §Step 1, [`internal/app/serveapp/openai.go`](https://github.com/pkieltyka/goinfer/blob/main/internal/app/serveapp/openai.go) and
+[`internal/app/serveapp/openai_stream_usage_test.go`](https://github.com/pkieltyka/goinfer/blob/main/internal/app/serveapp/openai_stream_usage_test.go) (streaming hold-back), [`CHANGELOG.md`](https://github.com/pkieltyka/goinfer/blob/main/CHANGELOG.md)
 (the 1.046 tokens-per-chunk measurement across 92 cells),
-the open-work queue (kept privately) and [`docs/spec/10-optfwd-gate.md`](https://github.com/townsendmerino/goinfer/blob/main/docs/spec/10-optfwd-gate.md) (sampler-share measurements).*
+the open-work queue (kept privately) and [`docs/spec/10-optfwd-gate.md`](https://github.com/pkieltyka/goinfer/blob/main/docs/spec/10-optfwd-gate.md) (sampler-share measurements).*

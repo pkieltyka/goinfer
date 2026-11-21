@@ -8,9 +8,9 @@ import (
 	"os"
 	"testing"
 
-	"github.com/townsendmerino/goinfer/decoder"
+	"github.com/pkieltyka/goinfer/decoder"
 
-	"github.com/townsendmerino/goinfer/internal/testgate"
+	"github.com/pkieltyka/goinfer/internal/testgate"
 )
 
 // TestDumpLogitsForBisect writes the resident GPU logits for a fixed 4-token sequence to $GOINFER_DUMP_LOGITS as raw

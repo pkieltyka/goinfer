@@ -5,9 +5,9 @@ import (
 	"reflect"
 	"testing"
 
-	"github.com/townsendmerino/goinfer/engine"
-	"github.com/townsendmerino/goinfer/engine/enginetest"
-	"github.com/townsendmerino/goinfer/tokenizer"
+	"github.com/pkieltyka/goinfer/engine"
+	"github.com/pkieltyka/goinfer/engine/enginetest"
+	"github.com/pkieltyka/goinfer/tokenizer"
 )
 
 // scriptedEngine is lm's scripted seam as its engine: Start streams lm.scripted (read at each call, so a test may set it

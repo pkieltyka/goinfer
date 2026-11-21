@@ -11,7 +11,7 @@ import (
 	"slices"
 	"testing"
 
-	"github.com/townsendmerino/goinfer/decoder"
+	"github.com/pkieltyka/goinfer/decoder"
 )
 
 // P26b: an image turn on a Gated-DeltaNet hybrid runs its prefill AND decode on the CUDA resident, through

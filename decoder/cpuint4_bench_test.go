@@ -6,8 +6,8 @@ import (
 	"testing"
 	"time"
 
-	"github.com/townsendmerino/goinfer/internal/runtime/giw"
-	"github.com/townsendmerino/goinfer/tokenizer"
+	"github.com/pkieltyka/goinfer/internal/runtime/giw"
+	"github.com/pkieltyka/goinfer/tokenizer"
 )
 
 // TestCPUInt4Bench re-measures the docs/gpu-assessment.md §1 decision-matrix CPU

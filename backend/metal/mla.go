@@ -4,10 +4,10 @@ package metal
 
 import (
 	"fmt"
-	"github.com/townsendmerino/goinfer/internal/runtime/mem"
+	"github.com/pkieltyka/goinfer/internal/runtime/mem"
 
-	"github.com/townsendmerino/aikit/linalg"
-	"github.com/townsendmerino/goinfer/decoder"
+	"github.com/pkieltyka/aikit/linalg"
+	"github.com/pkieltyka/goinfer/decoder"
 )
 
 // MLA, DeepSeek and Kimi's multi-head latent attention, on the resident decode path, in gpu/mla.go's absorbed form: kernels/mla_kernels_msl.go has the four kernels. A layer's KV cache is

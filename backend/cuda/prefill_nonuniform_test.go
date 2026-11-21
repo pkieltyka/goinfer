@@ -10,7 +10,7 @@ import (
 	"os"
 	"testing"
 
-	"github.com/townsendmerino/goinfer/decoder"
+	"github.com/pkieltyka/goinfer/decoder"
 )
 
 // TestPrefillNonUniform_bitIdentical pins what batched prefill needs to take the Gemma-4 families:

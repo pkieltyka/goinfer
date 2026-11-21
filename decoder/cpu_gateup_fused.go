@@ -6,7 +6,7 @@ import (
 	"runtime"
 	"sync"
 
-	"github.com/townsendmerino/aikit/linalg"
+	"github.com/pkieltyka/aikit/linalg"
 )
 
 // cpuFusedGateUp is the fused gate+up+SwiGLU decode path for W4A8 SiLU-gated MLPs: ONE fork/join per

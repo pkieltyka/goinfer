@@ -251,6 +251,19 @@ func modRequire(gomod, module string) string {
 	return m[1]
 }
 
+// aikitPaths are aikit's module path and its original one, which go.mod files recorded before the rename require.
+var aikitPaths = []string{"github.com/pkieltyka/aikit", "github.com/townsendmerino/aikit"}
+
+// aikitRequire is the version gomod requires of aikit's module path plus sub, under either path in aikitPaths.
+func aikitRequire(gomod, sub string) string {
+	for _, p := range aikitPaths {
+		if v := modRequire(gomod, p+sub); v != "" {
+			return v
+		}
+	}
+	return ""
+}
+
 func rowPins(e *relEnv) relRow {
 	const name = "the modules agree on the aikit pins"
 	aikit := map[string]string{}
@@ -260,10 +273,10 @@ func rowPins(e *relEnv) relRow {
 		if err != nil {
 			return owed(name, m+"/go.mod", err.Error())
 		}
-		if v := modRequire(b, "github.com/townsendmerino/aikit"); v != "" {
+		if v := aikitRequire(b, ""); v != "" {
 			aikit[m] = v
 		}
-		if v := modRequire(b, "github.com/townsendmerino/aikit/gpu"); v != "" {
+		if v := aikitRequire(b, "/gpu"); v != "" {
 			gpuReq = append(gpuReq, m+" "+v)
 		}
 	}

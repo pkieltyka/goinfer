@@ -4,7 +4,7 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/townsendmerino/goinfer/internal/runtime/mem/probe"
+	"github.com/pkieltyka/goinfer/internal/runtime/mem/probe"
 )
 
 func ok(v int64) func() (int64, bool) { return func() (int64, bool) { return v, true } }

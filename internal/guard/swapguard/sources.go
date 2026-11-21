@@ -6,9 +6,9 @@ import (
 	"sync"
 	"time"
 
-	"github.com/townsendmerino/goinfer/decoder"
-	"github.com/townsendmerino/goinfer/internal/runtime/logs"
-	"github.com/townsendmerino/goinfer/internal/runtime/mem/probe"
+	"github.com/pkieltyka/goinfer/decoder"
+	"github.com/pkieltyka/goinfer/internal/runtime/logs"
+	"github.com/pkieltyka/goinfer/internal/runtime/mem/probe"
 )
 
 // BackstopMB is the system-wide swap growth that trips the guard on a machine where the per-process figure is read (CLAUDE.md, "guard

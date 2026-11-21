@@ -3,9 +3,9 @@
 package kernels
 
 import (
-	"github.com/townsendmerino/goinfer/internal/vision"
+	"github.com/pkieltyka/goinfer/internal/vision"
 
-	"github.com/townsendmerino/goinfer/multimodal"
+	"github.com/pkieltyka/goinfer/multimodal"
 )
 
 // init plugs the resident WebGPU SigLIP encoder into the vision package, so a

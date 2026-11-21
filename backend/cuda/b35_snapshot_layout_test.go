@@ -5,7 +5,7 @@ package cuda
 import (
 	"testing"
 
-	"github.com/townsendmerino/goinfer/decoder"
+	"github.com/pkieltyka/goinfer/decoder"
 )
 
 // TestB35SnapshotLayout_followsEachLayersKind: a snapshot of a mixed stack lays out K/V rows for each attention layer that owns its K/V,

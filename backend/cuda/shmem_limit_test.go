@@ -12,7 +12,7 @@ import (
 
 	gc "github.com/eitamring/gocudrv/cuda"
 
-	"github.com/townsendmerino/goinfer/internal/testgate"
+	"github.com/pkieltyka/goinfer/internal/testgate"
 )
 
 // M-16: the single-block attention kernels size their scratch (nWin+128)*4 with NO ceiling, so past 12,160 attended keys

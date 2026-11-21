@@ -3,8 +3,8 @@ package decoder
 import (
 	"strings"
 
-	"github.com/townsendmerino/aikit/linalg"
-	"github.com/townsendmerino/goinfer/internal/runtime/program"
+	"github.com/pkieltyka/aikit/linalg"
+	"github.com/pkieltyka/goinfer/internal/runtime/program"
 )
 
 // metalScratchBatchRows is the batch rows a Metal build allocates for ForwardBatch before any call grows them (ensureBatchCap(16)).

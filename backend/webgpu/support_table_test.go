@@ -5,8 +5,8 @@ package webgpu
 import (
 	"testing"
 
-	"github.com/townsendmerino/goinfer/decoder"
-	"github.com/townsendmerino/goinfer/multimodal"
+	"github.com/pkieltyka/goinfer/decoder"
+	"github.com/pkieltyka/goinfer/multimodal"
 )
 
 // G-S8c: this build's live tower registrations equal WebGPU's row of

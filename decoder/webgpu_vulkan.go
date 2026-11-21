@@ -4,9 +4,9 @@ import (
 	"runtime"
 	"slices"
 
-	"github.com/townsendmerino/aikit/linalg"
+	"github.com/pkieltyka/aikit/linalg"
 
-	"github.com/townsendmerino/goinfer/internal/runtime/program"
+	"github.com/pkieltyka/goinfer/internal/runtime/program"
 )
 
 // WebGPU's device memory as Vulkan allocates it (docs/measurements/sb2-vk-2026-10-31/README.md): wgpu-native's gpu-allocator

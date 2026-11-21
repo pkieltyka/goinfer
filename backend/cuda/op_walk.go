@@ -5,8 +5,8 @@ package cuda
 import (
 	"fmt"
 
-	gpu "github.com/townsendmerino/goinfer/backend/cuda/internal/gpudev"
-	"github.com/townsendmerino/goinfer/internal/runtime/program"
+	gpu "github.com/pkieltyka/goinfer/backend/cuda/internal/gpudev"
+	"github.com/pkieltyka/goinfer/internal/runtime/program"
 )
 
 // attnOutUnfused reports whether layer L's attention output projection writes to scratch rather than accumulating directly into

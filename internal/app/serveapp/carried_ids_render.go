@@ -8,8 +8,8 @@ import (
 	"sort"
 	"strings"
 
-	"github.com/townsendmerino/goinfer/chat"
-	"github.com/townsendmerino/goinfer/internal/codec"
+	"github.com/pkieltyka/goinfer/chat"
+	"github.com/pkieltyka/goinfer/internal/codec"
 )
 
 // idsCheck is what verifying one request's carriers needs: the server's key, the identity a blob must name, the request's

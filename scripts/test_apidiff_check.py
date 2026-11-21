@@ -12,7 +12,7 @@ import unittest
 
 ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 SCRIPT = os.path.join(ROOT, "scripts", "apidiff_check.sh")
-MOD = "github.com/townsendmerino/goinfer"
+MOD = "github.com/pkieltyka/goinfer"
 
 HARD = ("decoder Config\ndecoder (*Model).Config\ndecoder Options\ndecoder (*Model).Dims\ndecoder Options.Cfg\n"
         "decoder (*Model).Foo\ndecoder (*Model).Bar\ndecoder (*Model).Baz\ndecoder/config Config\ndecoder/config Config.*\n")

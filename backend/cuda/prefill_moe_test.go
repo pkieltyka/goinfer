@@ -10,7 +10,7 @@ import (
 	"os"
 	"testing"
 
-	"github.com/townsendmerino/goinfer/decoder"
+	"github.com/pkieltyka/goinfer/decoder"
 )
 
 // TestPrefillMoE_bitIdentical pins that a MoE layer's FFN, which runs row by row off the BATCHED residual

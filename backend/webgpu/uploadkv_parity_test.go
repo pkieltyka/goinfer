@@ -8,7 +8,7 @@ import (
 	"os"
 	"testing"
 
-	"github.com/townsendmerino/goinfer/decoder"
+	"github.com/pkieltyka/goinfer/decoder"
 )
 
 // TestUploadKV_matchesSequentialForward pins UploadKV on the WebGPU backend (docs/multimodal.md,

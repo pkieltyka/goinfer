@@ -11,7 +11,7 @@ import (
 	"slices"
 	"testing"
 
-	"github.com/townsendmerino/goinfer/decoder"
+	"github.com/pkieltyka/goinfer/decoder"
 )
 
 // kv2Slot is every per-sequence buffer of slot s (slotKVBuffers, each once) as 32-bit words, with each buffer's words

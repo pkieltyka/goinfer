@@ -13,7 +13,7 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/townsendmerino/goinfer/decoder"
+	"github.com/pkieltyka/goinfer/decoder"
 )
 
 // TestMoELayerMajor_matchesSequential is prefillMoEPaged's gate, the generic twin of TestG4LayerMajor_matchesSequential:

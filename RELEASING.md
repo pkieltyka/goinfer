@@ -1,10 +1,10 @@
 # Releasing goinfer (root + backend/webgpu + backend/cuda + backend/metal + demo/agent)
 
-goinfer has **seven Go modules** in its workspace — five that are tagged and released together (`github.com/townsendmerino/goinfer` at `.`,
-`github.com/townsendmerino/goinfer/backend/webgpu` at `backend/webgpu/`, `github.com/townsendmerino/goinfer/backend/cuda` at `backend/cuda/`,
-`github.com/townsendmerino/goinfer/backend/metal` at `backend/metal/`, and the ancillary `github.com/townsendmerino/goinfer/demo/agent` at
-`demo/agent/`), plus two that are never tagged (`github.com/townsendmerino/goinfer/sdktest` at `apps/sdktest/`, tests only, and
-`github.com/townsendmerino/goinfer/site` at `apps/site/`, the website generator; an eighth `go.mod` in `.github/actions/staticcheck/`
+goinfer has **seven Go modules** in its workspace — five that are tagged and released together (`github.com/pkieltyka/goinfer` at `.`,
+`github.com/pkieltyka/goinfer/backend/webgpu` at `backend/webgpu/`, `github.com/pkieltyka/goinfer/backend/cuda` at `backend/cuda/`,
+`github.com/pkieltyka/goinfer/backend/metal` at `backend/metal/`, and the ancillary `github.com/pkieltyka/goinfer/demo/agent` at
+`demo/agent/`), plus two that are never tagged (`github.com/pkieltyka/goinfer/sdktest` at `apps/sdktest/`, tests only, and
+`github.com/pkieltyka/goinfer/site` at `apps/site/`, the website generator; an eighth `go.mod` in `.github/actions/staticcheck/`
 only pins the CI linter build). This file is the tag ordering
 that produces a consistent, go-gettable set, plus the module-graph fixes that must land with it.
 It exists because four release blockers in the 2026-08-05 audit (§1a/§1b: B-01…B-07) were "the
@@ -22,7 +22,7 @@ survives to a tag unless caught here.
 ## Invariants (why the steps are shaped this way)
 
 - **Submodule go.mods carry NO `replace` (2026-08-15).** The dev-convenience
-  `replace github.com/townsendmerino/goinfer => ../` was **removed** from `backend/webgpu`/`backend/cuda`/`backend/metal`/
+  `replace github.com/pkieltyka/goinfer => ../` was **removed** from `backend/webgpu`/`backend/cuda`/`backend/metal`/
   `demo-agent` go.mods, because a committed replace makes **`go install …/backend/metal/cmd/serve@vX`
   fail** — `go install pkg@version` treats the target as main and rejects replace directives (C3
   finding, `docs/measurements/c3-metal-consumer-window.md`). The replace was only ever "ignored by
@@ -159,8 +159,8 @@ Do `backend/webgpu/`, `backend/cuda/`, `backend/metal/` first, then `demo/agent/
 ```
 cd <mod>
 # The go.mods are replace-free (2026-08-15) — nothing to remove/restore. Just point at the tag:
-GOWORK=off go get github.com/townsendmerino/goinfer@v0.10.1        # B-01/B-05: real version, not placeholder/pseudo
-GOWORK=off go get github.com/townsendmerino/goinfer/backend/webgpu@v0.10.1    # demo/agent ONLY (it requires goinfer/backend/webgpu too)
+GOWORK=off go get github.com/pkieltyka/goinfer@v0.10.1        # B-01/B-05: real version, not placeholder/pseudo
+GOWORK=off go get github.com/pkieltyka/goinfer/backend/webgpu@v0.10.1    # demo/agent ONLY (it requires goinfer/backend/webgpu too)
 GOWORK=off go mod tidy                                             # B-02/B-03/B-04: complete go.sum for the SELECTED versions
 GOWORK=off go build -tags <cuda|gpu|metal> ./...                  # PROVE it builds with no workspace
 # NO replace to restore — do not re-add it (it breaks `go install …@vX`; see the Invariants).

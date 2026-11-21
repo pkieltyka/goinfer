@@ -9,7 +9,7 @@ import (
 	"testing"
 	"time"
 
-	"github.com/townsendmerino/goinfer/internal/guard/swapguard"
+	"github.com/pkieltyka/goinfer/internal/guard/swapguard"
 )
 
 // scriptedSwapReader is decoder/swapwatch_test.go's scriptedReader, reimplemented minimally here

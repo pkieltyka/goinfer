@@ -6,10 +6,10 @@ import (
 	"fmt"
 	"slices"
 
-	"github.com/townsendmerino/goinfer/chat"
-	"github.com/townsendmerino/goinfer/decoder"
-	"github.com/townsendmerino/goinfer/internal/codec"
-	"github.com/townsendmerino/goinfer/tokenizer"
+	"github.com/pkieltyka/goinfer/chat"
+	"github.com/pkieltyka/goinfer/decoder"
+	"github.com/pkieltyka/goinfer/internal/codec"
+	"github.com/pkieltyka/goinfer/tokenizer"
 )
 
 // PlainTokenizer adapts a goinfer tokenizer. Text a caller supplies (a state, an option) is always encoded as a plain

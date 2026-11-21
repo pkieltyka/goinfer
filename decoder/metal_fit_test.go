@@ -2,7 +2,7 @@ package decoder
 
 import (
 	"fmt"
-	"github.com/townsendmerino/goinfer/internal/runtime/mem"
+	"github.com/pkieltyka/goinfer/internal/runtime/mem"
 	"strings"
 	"testing"
 )

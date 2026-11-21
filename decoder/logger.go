@@ -3,7 +3,7 @@ package decoder
 import (
 	"log/slog"
 
-	"github.com/townsendmerino/goinfer/internal/runtime/logs"
+	"github.com/pkieltyka/goinfer/internal/runtime/logs"
 )
 
 // SetLogger sends the library's operational messages to l: what a load decided, why a path declined, what the KV pool did, from this package

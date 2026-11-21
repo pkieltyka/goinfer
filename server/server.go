@@ -12,7 +12,7 @@
 //	// point an SDK at http://goinfer/v1 with this client
 //
 // A GPU backend is linked the way the binaries link it: import the backend's module for its registration
-// (github.com/townsendmerino/goinfer/backend/metal, .../backend/cuda or .../backend/webgpu) and pass "-backend".
+// (github.com/pkieltyka/goinfer/backend/metal, .../backend/cuda or .../backend/webgpu) and pass "-backend".
 //
 // Experimental: this package is outside the compatibility guarantee (docs/api-tiers.md) and may change in any release.
 package server
@@ -21,8 +21,8 @@ import (
 	"io"
 	"net/http"
 
-	"github.com/townsendmerino/goinfer/internal/app/inproc"
-	"github.com/townsendmerino/goinfer/internal/app/serveapp"
+	"github.com/pkieltyka/goinfer/internal/app/inproc"
+	"github.com/pkieltyka/goinfer/internal/app/serveapp"
 )
 
 // NewHandler loads the models the flags name and returns the server's HTTP API as a handler. The flags are

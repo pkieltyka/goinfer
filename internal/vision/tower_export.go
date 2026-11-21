@@ -3,7 +3,7 @@ package vision
 import (
 	"fmt"
 
-	"github.com/townsendmerino/aikit/linalg"
+	"github.com/pkieltyka/aikit/linalg"
 )
 
 // Device-tower exports for the Qwen3.5+ and GLM-OCR towers, on the pattern of the Gemma 4 one (gemma4_export.go): a

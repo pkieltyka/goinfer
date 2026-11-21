@@ -10,7 +10,7 @@ import (
 	"os"
 	"testing"
 
-	"github.com/townsendmerino/goinfer/internal/vision"
+	"github.com/pkieltyka/goinfer/internal/vision"
 )
 
 // TestGemma4Preprocess_matchesTransformers is F1c of docs/multimodal.md ("Finishing this doc"): aikit's

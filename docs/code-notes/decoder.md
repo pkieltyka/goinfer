@@ -1419,7 +1419,7 @@ This is a RAW COMPLETION primitive: it continues prompt verbatim and knows nothi
 chat turns, roles, or a checkpoint's own template — encoding a user message directly, with no
 formatting, is why an instruct-tuned model degenerates into repetition (R10, docs/measurements/
 cold-user-2026-09-06-nobara-pc.md). Rendering a template is the caller's job: see
-github.com/townsendmerino/goinfer/chat (chat.Detect resolves a checkpoint's own template from
+github.com/pkieltyka/goinfer/chat (chat.Detect resolves a checkpoint's own template from
 its tokenizer metadata) and apps/examples/embed/main.go for the whole sequence.
 
 Sampling is greedy at Temperature 0, else temperature/top-k/top-p (see
@@ -12702,7 +12702,7 @@ Moved from `decoder/aikit_pin_test.go` (the comment above `TestAikitPinsAgree`) 
 TestAikitPinsAgree pins every module's aikit require to the ROOT's.
 
 WHY. goinfer is five Go modules, each with its own go.mod, and each pinning
-github.com/townsendmerino/aikit independently. Nothing checked that they agree. Measured
+github.com/pkieltyka/aikit independently. Nothing checked that they agree. Measured
 2026-09-06: the root sat at v1.37.0 while cuda, gpu, metal and demo/agent were all still on
 v1.35.0 — a drift discovered only by reading four files by hand, prompted by a months-old git
 stash that had once tried to fix the same thing at v1.33.0.
@@ -12732,7 +12732,7 @@ not the same as unchecked, and the two-step is precisely the ritual a person can
 Moved from `decoder/aikit_pin_test.go` (the comment above `TestAikitPinsAgree.gpu`) on 2026-10-09.
 
 ```text
-testAikitGPUPinsAgree pins every module that requires github.com/townsendmerino/aikit/gpu to the SAME
+testAikitGPUPinsAgree pins every module that requires github.com/pkieltyka/aikit/gpu to the SAME
 version. There is no root pin to compare against (the root and gpu/go.mod require only aikit), so the
 rule is agreement: today cuda and metal, which build the Linux and Mac `goinfer-serve` release
 binaries. A module on an older gpu ships older kernels to users, and the parity manifest tracks the

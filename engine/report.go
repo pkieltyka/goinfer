@@ -3,7 +3,7 @@ package engine
 import (
 	"time"
 
-	"github.com/townsendmerino/goinfer/decoder"
+	"github.com/pkieltyka/goinfer/decoder"
 )
 
 // Report is a generation's account as the shell reads it: the budget its finish reason is judged against, its

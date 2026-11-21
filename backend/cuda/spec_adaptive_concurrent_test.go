@@ -16,7 +16,7 @@ import (
 	"sync"
 	"testing"
 
-	"github.com/townsendmerino/goinfer/decoder"
+	"github.com/pkieltyka/goinfer/decoder"
 )
 
 func specIDs(t *testing.T, m *decoder.Model, prompt []int, maxTok int) []int {

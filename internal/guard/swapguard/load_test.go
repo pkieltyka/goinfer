@@ -7,7 +7,7 @@ import (
 	"testing"
 	"time"
 
-	"github.com/townsendmerino/goinfer/decoder"
+	"github.com/pkieltyka/goinfer/decoder"
 )
 
 // task-never-swap-2026-09.md S3: the LOAD-TIME half's integration seam — ArmLoad wired

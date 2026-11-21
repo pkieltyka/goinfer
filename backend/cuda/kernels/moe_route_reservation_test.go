@@ -10,7 +10,7 @@ import (
 	"strings"
 	"testing"
 
-	gpu "github.com/townsendmerino/goinfer/backend/cuda/internal/gpudev"
+	gpu "github.com/pkieltyka/goinfer/backend/cuda/internal/gpudev"
 )
 
 // TestMoERouteFirstLaunchReservation measures when moePTX's device memory is actually taken: at

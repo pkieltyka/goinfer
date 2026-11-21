@@ -8,7 +8,7 @@ import (
 	"io"
 	"os"
 
-	"github.com/townsendmerino/goinfer/decoder/config"
+	"github.com/pkieltyka/goinfer/decoder/config"
 )
 
 // streamDirSwapForTest writes layers 0 and 1 of a streamed directory transcode in each other's place: the planted

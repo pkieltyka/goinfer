@@ -8,7 +8,7 @@ import (
 	"math"
 	"testing"
 
-	"github.com/townsendmerino/goinfer/backend/webgpu/internal/kernels"
+	"github.com/pkieltyka/goinfer/backend/webgpu/internal/kernels"
 )
 
 // TestMoEExpertGEMV_indexing pins that the indexed sparse-expert GEMV reads the RIGHT expert's

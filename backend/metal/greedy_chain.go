@@ -7,8 +7,8 @@ import (
 	"math"
 	"runtime"
 
-	"github.com/townsendmerino/goinfer/internal/runtime/logs"
-	"github.com/townsendmerino/goinfer/internal/runtime/mem"
+	"github.com/pkieltyka/goinfer/internal/runtime/logs"
+	"github.com/pkieltyka/goinfer/internal/runtime/mem"
 )
 
 // The greedy chain (docs/audit-metal-2026-09-30.md).

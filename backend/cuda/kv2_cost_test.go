@@ -10,7 +10,7 @@ import (
 	"testing"
 	"time"
 
-	"github.com/townsendmerino/goinfer/decoder"
+	"github.com/pkieltyka/goinfer/decoder"
 )
 
 // GV-C(b) and G7-C (docs/measurements/kv2-cuda-2026-10-15.md): a copy allocates nothing on the device, and what it costs.

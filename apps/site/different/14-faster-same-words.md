@@ -99,7 +99,7 @@ One MacBook Pro (M1 Pro, 16 GB, macOS 26.6.2), on 2026-09-27. The models were Qw
 
 On the 1.5B, copy traffic ran at 109 tok/s (tokens per second) against 52.7 tok/s plain. The run had three rounds. Each round ran plain decode, speculation on the earlier build and speculation on the new build, in a rotated order, and each measurement waited for the machine to be idle first. The bars were set in writing before the run ([pre-registered](/different/16-numbers-with-receipts/)): every reply equal to plain decode's (a must-pass), copy at least 1.25×, chat at least 0.97×. All passed. The chat median hides one odd round: the first plain chat measurement was slow, so the three chat ratios span 1.066 to 1.317. The record leaves that unexplained and notes that the two clean rounds read 1.066 and 1.068.
 
-The record is [on GitHub](https://github.com/townsendmerino/goinfer/blob/main/docs/measurements/metal-spec-step-verify-2026-09-27.md). To reproduce it from a clone of the repo, run each benchmark as shown, then again without speculation (`--key plain --serve-args=-embed-int4=false`):
+The record is [on GitHub](https://github.com/pkieltyka/goinfer/blob/main/docs/measurements/metal-spec-step-verify-2026-09-27.md). To reproduce it from a clone of the repo, run each benchmark as shown, then again without speculation (`--key plain --serve-args=-embed-int4=false`):
 
 ```sh
 GOINFER_SERVE_CPU=<serve binary> BENCH_W7_MODEL=~/models/qwen2.5-coder-1.5b-instruct-q4_k_m.gguf \
@@ -122,5 +122,5 @@ The fix runs that last token through the model when the generation ends, as plai
 
 - `--spec ngram` on `goinfer-serve` (and `goinfer-chat`). Default off. It falls back to plain decode for a request it cannot speculate on.
 - On Metal it verifies on the batched-step kernels.
-- On Metal, an explicit `--embed-int4` sends a load to the CPU, so it defaults off there ([docs/quantization.md](https://github.com/townsendmerino/goinfer/blob/main/docs/quantization.md)). These measurements were made without it.
+- On Metal, an explicit `--embed-int4` sends a load to the CPU, so it defaults off there ([docs/quantization.md](https://github.com/pkieltyka/goinfer/blob/main/docs/quantization.md)). These measurements were made without it.
 - Best for one user, an editor or an agent loop with copy-heavy edits. Leave it off for a server shared by several clients.

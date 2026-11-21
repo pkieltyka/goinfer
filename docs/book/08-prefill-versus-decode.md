@@ -70,7 +70,7 @@ wall-clock time across a practical prompt-length range; it reappears at much dee
 instead, where `docs/benchmarks.md`'s own long-context row shows the gap against peers widening
 with depth rather than staying flat.
 
-Against peers on this same CPU path, the picture has actually flipped — [`docs/benchmarks.md`](https://github.com/townsendmerino/goinfer/blob/main/docs/benchmarks.md)
+Against peers on this same CPU path, the picture has actually flipped — [`docs/benchmarks.md`](https://github.com/pkieltyka/goinfer/blob/main/docs/benchmarks.md)
 now records goinfer 1.54× *behind* Ollama at K=512 but 0.91× (AHEAD) by K=3,900, a 0.86× ratio
 over the whole curve in goinfer's favor — superseding the "roughly 4–5× behind" this book used to
 quote. (The lane where goinfer is still clearly behind on prefill is CUDA throughput, not CPU: Ollama was
@@ -255,12 +255,12 @@ on the same two backends read 62.6 tok/s and 94.4 tok/s: Metal is 1.5× faster a
 That is this chapter's split in two numbers. Decode reads every weight once per token and is bound by memory
 bandwidth, which on Apple Silicon the CPU and GPU share (the GPU just draws more of it); prefill multiplies the
 weights by thousands of rows at once and is bound by arithmetic, where the GPU has far more to give. Your machine's numbers will differ. Measured on 2026-10-02 with the v0.20.0
-release ([record](https://github.com/townsendmerino/goinfer/blob/main/docs/measurements/book-try-it-2026-10.md), timed figures).
+release ([record](https://github.com/pkieltyka/goinfer/blob/main/docs/measurements/book-try-it-2026-10.md), timed figures).
 
 ---
 
 *Sources: the performance queue (kept privately) (G16/G20 prefill baselines), `docs/benchmarks.md`
-(peer prefill ratio), [`docs/measurements/mellum2-moe-prefill-split-RESULT.md`](https://github.com/townsendmerino/goinfer/blob/main/docs/measurements/mellum2-moe-prefill-split-RESULT.md) (attention share,
-the slice-versus-model correction, and the 3.11×/1.52× figures), [`docs/ollama-chase.md`](https://github.com/townsendmerino/goinfer/blob/main/docs/ollama-chase.md)
-(§7, the bit-identity fork — Phase 0/0b and the tensor-core decision), and [`CLAUDE.md`](https://github.com/townsendmerino/goinfer/blob/main/CLAUDE.md) (measurement
+(peer prefill ratio), [`docs/measurements/mellum2-moe-prefill-split-RESULT.md`](https://github.com/pkieltyka/goinfer/blob/main/docs/measurements/mellum2-moe-prefill-split-RESULT.md) (attention share,
+the slice-versus-model correction, and the 3.11×/1.52× figures), [`docs/ollama-chase.md`](https://github.com/pkieltyka/goinfer/blob/main/docs/ollama-chase.md)
+(§7, the bit-identity fork — Phase 0/0b and the tensor-core decision), and [`CLAUDE.md`](https://github.com/pkieltyka/goinfer/blob/main/CLAUDE.md) (measurement
 discipline).*

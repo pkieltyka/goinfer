@@ -244,11 +244,11 @@ below is declaring it (§3), not proving it.
   **Measured 2026-08-18 from OUTSIDE the checkout** (isolated GOPATH, module proxy, no local
   source):
   - The `v0.13.0` breakage is confirmed and precisely scoped: the `gpu/`, `cuda/` and `metal/`
-    tags each carry `replace github.com/townsendmerino/goinfer => ../`; the ROOT `v0.13.0` go.mod
+    tags each carry `replace github.com/pkieltyka/goinfer => ../`; the ROOT `v0.13.0` go.mod
     is clean. (A `replace` in a dependency is ignored, but `go install pkg@version` makes that
     module the MAIN module, so the directive applies and `../` does not exist.)
   - main is replace-free in **all five** go.mods.
-  - `go install github.com/townsendmerino/goinfer/cmd/serve@main` **succeeds from a clean GOPATH**
+  - `go install github.com/pkieltyka/goinfer/cmd/serve@main` **succeeds from a clean GOPATH**
     — resolves through the proxy, pulls aikit v1.21.0, produces a 13.9 MB binary.
   - All four submodules resolve at `@main` (`go list -m` returns the pseudo-version for `gpu`,
     `cuda`, `metal`, `demo/agent`).

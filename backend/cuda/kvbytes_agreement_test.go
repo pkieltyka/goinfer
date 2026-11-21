@@ -12,9 +12,9 @@ import (
 	"sync"
 	"testing"
 
-	"github.com/townsendmerino/goinfer/decoder"
-	"github.com/townsendmerino/goinfer/internal/diag/sb2census"
-	"github.com/townsendmerino/goinfer/internal/runtime/program"
+	"github.com/pkieltyka/goinfer/decoder"
+	"github.com/pkieltyka/goinfer/internal/diag/sb2census"
+	"github.com/pkieltyka/goinfer/internal/runtime/program"
 )
 
 // TestResidentKVBytes_matchesCUDAAllocation pins the CUDA half of the KV-bytes agreement:

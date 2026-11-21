@@ -80,7 +80,7 @@ func thresholdUses(f *ast.File) int {
 // TestNoGuardThresholdOutsideMem (MM1 gate G-MM1c-3, I6 as far as MM1 reaches): no file outside this package applies a guard
 // threshold, except the ratcheted backend guards. It goes red on a planted reference first.
 func TestNoGuardThresholdOutsideMem(t *testing.T) {
-	plant := "package x\nimport \"github.com/townsendmerino/goinfer/decoder\"\nconst fitMemFraction = decoder.WeightsMemFraction\nvar budget = int64(decoder.WeightsMemFraction * 8)\n"
+	plant := "package x\nimport \"github.com/pkieltyka/goinfer/decoder\"\nconst fitMemFraction = decoder.WeightsMemFraction\nvar budget = int64(decoder.WeightsMemFraction * 8)\n"
 	f, err := parser.ParseFile(token.NewFileSet(), "plant.go", plant, 0)
 	if err != nil {
 		t.Fatal(err)

@@ -8,7 +8,7 @@ import (
 	"slices"
 	"testing"
 
-	"github.com/townsendmerino/goinfer/decoder"
+	"github.com/pkieltyka/goinfer/decoder"
 )
 
 // TestKSD8_yardstick (diagnostic, not a gate): D8-G3's instrument (8 prompts of 512 seeded token ids, last-position logits,

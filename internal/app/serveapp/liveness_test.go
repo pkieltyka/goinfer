@@ -7,7 +7,7 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/townsendmerino/goinfer/internal/vision"
+	"github.com/pkieltyka/goinfer/internal/vision"
 )
 
 // TestLookupLockedOnlyViaResolve enforces item-5 of the design: withModel/withModelAnthropic are the

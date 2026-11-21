@@ -6,7 +6,7 @@ import (
 	"context"
 	"testing"
 
-	"github.com/townsendmerino/goinfer/decoder"
+	"github.com/pkieltyka/goinfer/decoder"
 )
 
 // hiddenLastResidentBar is deliberately NOT the task doc's literal "cosine >= 0.9999" — that

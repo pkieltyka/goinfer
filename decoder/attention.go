@@ -4,9 +4,9 @@ import (
 	"math"
 	"sync/atomic"
 
-	"github.com/townsendmerino/aikit/linalg"
+	"github.com/pkieltyka/aikit/linalg"
 
-	"github.com/townsendmerino/goinfer/internal/runtime/hybridattn"
+	"github.com/pkieltyka/goinfer/internal/runtime/hybridattn"
 )
 
 // addBias adds b into x in place, for architectures with q/k/v/o bias (Qwen2's projections, GPT-2's output). Callers pass equal

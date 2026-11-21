@@ -9,8 +9,8 @@ import (
 	"slices"
 	"testing"
 
-	"github.com/townsendmerino/goinfer/backend/webgpu"
-	"github.com/townsendmerino/goinfer/decoder"
+	"github.com/pkieltyka/goinfer/backend/webgpu"
+	"github.com/pkieltyka/goinfer/decoder"
 )
 
 // TestSpeculativeResident_parity is THE gate for resident GPU speculative decoding

@@ -13,7 +13,7 @@ import (
 )
 
 // The install-line gate. A `go get` that looks right can fail: the bare module
-// (`go get github.com/townsendmerino/goinfer`) records the requirement but does not fetch enough to build against, and the
+// (`go get github.com/pkieltyka/goinfer`) records the requirement but does not fetch enough to build against, and the
 // next build fails with "missing go.sum entry". The README documents that, and scripts/readme_smoke.sh runs the README's
 // `<!-- smoke -->` lines from an empty directory, so those lines are the ones known to work. The site printed the bare
 // form on two pages for a release cycle, because nothing compared the two.
@@ -24,7 +24,7 @@ import (
 // on both sides.
 
 var (
-	goCmdRE = regexp.MustCompile(`go (?:get|install) [^\n#]*github\.com/townsendmerino/goinfer[^\n#]*`)
+	goCmdRE = regexp.MustCompile(`go (?:get|install) [^\n#]*github\.com/pkieltyka/goinfer[^\n#]*`)
 	codeRE  = regexp.MustCompile(`(?s)<(pre|code)[^>]*>(.*?)</(?:pre|code)>`)
 	tagRE   = regexp.MustCompile(`<[^>]+>`)
 	// a command wrapped to fit a narrow box: a path broken after "/", or a shell continuation

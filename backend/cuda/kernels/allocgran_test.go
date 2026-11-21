@@ -5,7 +5,7 @@ package kernels
 import (
 	"testing"
 
-	gpu "github.com/townsendmerino/goinfer/backend/cuda/internal/gpudev"
+	gpu "github.com/pkieltyka/goinfer/backend/cuda/internal/gpudev"
 )
 
 // TestAllocGranularity records what this driver actually charges for a device allocation, because the
