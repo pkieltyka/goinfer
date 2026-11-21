@@ -110,10 +110,10 @@ func (m *Model) Weights() Weights {
 // [T, hd/2] each, so an accelerator rotates with the same float32 values.
 func RopeTables(T, hd int, theta float64) (cos, sin []float32) { return ropeTables(T, hd, theta) }
 
-// UseAccelerator makes the encoder run its forward on the named accelerator; Embed and the aikit methods then use it,
-// and the CPU forward is no longer called. The vision tower, loaded or not yet, runs on a tower accelerator of the same
-// name when one is registered (RegisterVisionAccelerator). It returns the accelerator, or an error leaving the CPU path
-// in place.
+// UseAccelerator makes the encoder run its forward on the named accelerator; EmbedIDs, EmbedText and the aikit methods
+// then use it, and the CPU forward is no longer called. The vision tower, loaded or not yet, runs on a tower
+// accelerator of the same name when one is registered (RegisterVisionAccelerator). It returns the accelerator, or an
+// error leaving the CPU path in place.
 func (e *Encoder) UseAccelerator(name string) (Accelerator, error) {
 	a, err := e.m.NewAccelerator(name)
 	if err != nil {
@@ -130,12 +130,19 @@ func (e *Encoder) Accelerator() Accelerator { return e.accel }
 
 // embedIDs is the sentence embedding of ids on whichever path the encoder runs.
 func (e *Encoder) embedIDs(ids []int) ([]float32, error) {
+	if len(ids) == 0 {
+		return nil, fmt.Errorf("embeddinggemma2: no input ids")
+	}
 	if e.accel == nil {
 		return e.m.Embed(ids)
 	}
 	h, _, err := e.accel.Forward(ids, false)
 	if err != nil {
 		return nil, err
+	}
+	want := len(ids) * e.m.cfg.EmbeddingDim
+	if len(h) != want {
+		return nil, fmt.Errorf("embeddinggemma2: %s returned %d hidden values, want %d", e.accel.Name(), len(h), want)
 	}
 	return poolNormalize(h, len(ids), e.m.cfg.EmbeddingDim), nil
 }

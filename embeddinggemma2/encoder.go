@@ -138,6 +138,13 @@ func (e *Encoder) Tokenize(text, prompt string) ([]int, error) {
 	return out, nil
 }
 
+// EmbedIDs returns the unit-length sentence embedding for pre-tokenized ids on whichever path the encoder runs: the
+// selected accelerator when one is active (UseAccelerator), otherwise the CPU model. It does not re-tokenize or add
+// prompts or special tokens, does not modify ids, and returns any accelerator error without falling back to CPU.
+func (e *Encoder) EmbedIDs(ids []int) ([]float32, error) {
+	return e.embedIDs(ids)
+}
+
 // EmbedText is the sentence embedding of text under the named prompt ("" for none), unit length.
 func (e *Encoder) EmbedText(text, prompt string) ([]float32, int, error) {
 	ids, err := e.Tokenize(text, prompt)
