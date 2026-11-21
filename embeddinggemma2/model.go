@@ -71,11 +71,16 @@ type layer struct {
 	scalar           float32
 }
 
-// Model is a loaded EmbeddingGemma 2 text encoder. Its weights are immutable after Load, so concurrent Embed calls
-// are safe.
+// Model is a loaded EmbeddingGemma 2 text encoder. Its weights are immutable after Load or NewModel, so concurrent
+// Embed calls are safe.
 type Model struct {
-	cfg        Config
-	embed      []float32 // [vocab, hidden]
+	cfg   Config
+	embed []float32 // [vocab, hidden]; nil on a model built by NewModel until an accelerator asks for it (Weights)
+	// embedRaw is the token table as the caller gave it to NewModel, [vocab, hidden] little-endian values of
+	// embedSize bytes each (2: bfloat16, 4: float32). One row is widened per token, so the table is never copied.
+	embedRaw   []byte
+	embedSize  int
+	embedOnce  sync.Once // widens embedRaw into embed, for Weights
 	pleProj    []float32 // [layers*ple, hidden]
 	pleNorm    []float32 // [ple]
 	layers     []layer
@@ -95,6 +100,11 @@ func LoadConfig(dir string) (Config, error) {
 	if err != nil {
 		return Config{}, fmt.Errorf("embeddinggemma2: %w", err)
 	}
+	return LoadConfigBytes(raw)
+}
+
+// LoadConfigBytes is LoadConfig for a config.json that is already in memory.
+func LoadConfigBytes(raw []byte) (Config, error) {
 	var c composite
 	if err := json.Unmarshal(raw, &c); err != nil {
 		return Config{}, fmt.Errorf("embeddinggemma2: config.json: %w", err)
@@ -103,26 +113,34 @@ func LoadConfig(dir string) (Config, error) {
 		return Config{}, fmt.Errorf("embeddinggemma2: model_type %q, want embedding_gemma2", c.ModelType)
 	}
 	cfg := c.TextConfig
+	if err := cfg.validate(); err != nil {
+		return Config{}, err
+	}
+	return cfg, nil
+}
+
+// validate is what a text config must satisfy before a model is built from it.
+func (cfg Config) validate() error {
 	if cfg.Hidden <= 0 || cfg.Layers <= 0 || cfg.Heads <= 0 || cfg.KVHeads <= 0 || cfg.HeadDim <= 0 || cfg.EmbeddingDim <= 0 ||
 		cfg.PLEDim <= 0 || cfg.VocabSize <= 0 || len(cfg.LayerTypes) != cfg.Layers {
-		return Config{}, fmt.Errorf("embeddinggemma2: text_config incomplete (hidden %d, layers %d, heads %d/%d, head_dim %d, embedding_dim %d, ple %d, vocab %d, %d layer_types)",
+		return fmt.Errorf("embeddinggemma2: text_config incomplete (hidden %d, layers %d, heads %d/%d, head_dim %d, embedding_dim %d, ple %d, vocab %d, %d layer_types)",
 			cfg.Hidden, cfg.Layers, cfg.Heads, cfg.KVHeads, cfg.HeadDim, cfg.EmbeddingDim, cfg.PLEDim, cfg.VocabSize, len(cfg.LayerTypes))
 	}
 	if cfg.HiddenAct != "gelu_pytorch_tanh" {
-		return Config{}, fmt.Errorf("embeddinggemma2: hidden_activation %q, only gelu_pytorch_tanh is implemented", cfg.HiddenAct)
+		return fmt.Errorf("embeddinggemma2: hidden_activation %q, only gelu_pytorch_tanh is implemented", cfg.HiddenAct)
 	}
 	if cfg.RMSNormEps <= 0 {
-		return Config{}, fmt.Errorf("embeddinggemma2: rms_norm_eps %v", cfg.RMSNormEps)
+		return fmt.Errorf("embeddinggemma2: rms_norm_eps %v", cfg.RMSNormEps)
 	}
 	for _, t := range cfg.LayerTypes {
 		if t != "sliding_attention" && t != "full_attention" {
-			return Config{}, fmt.Errorf("embeddinggemma2: layer type %q", t)
+			return fmt.Errorf("embeddinggemma2: layer type %q", t)
 		}
 		if p, ok := cfg.RopeParameters[t]; !ok || p.Theta <= 0 || (p.Type != "" && p.Type != "default") {
-			return Config{}, fmt.Errorf("embeddinggemma2: rope_parameters[%q] missing or not a default rope", t)
+			return fmt.Errorf("embeddinggemma2: rope_parameters[%q] missing or not a default rope", t)
 		}
 	}
-	return cfg, nil
+	return nil
 }
 
 // Load reads the text encoder from an HF checkpoint directory (config.json + model.safetensors). The vision and audio
@@ -145,23 +163,42 @@ func Load(dir string) (*Model, error) {
 		// An F32 tensor comes back aliasing the mapping, which Close unmaps; own a copy.
 		return append([]float32(nil), v...), nil
 	}
+	m := &Model{cfg: cfg, layers: make([]layer, cfg.Layers)}
+	if m.embed, err = get("embed_tokens.weight", cfg.VocabSize, cfg.Hidden); err != nil {
+		return nil, err
+	}
+	refs, scalars, err := m.plan()
+	if err != nil {
+		return nil, err
+	}
+	for _, w := range refs {
+		if *w.dst, err = get(w.name, w.shape...); err != nil {
+			return nil, err
+		}
+	}
+	m.setScalars(scalars)
+	return m, nil
+}
+
+// weightRef names one tensor of the text encoder (without its "language_model." prefix), its shape, and where it goes.
+type weightRef struct {
+	dst   *[]float32
+	name  string
+	shape []int
+}
+
+// plan sets every layer's shape parameters from the config and lists every weight except the token table, in
+// checkpoint order. Layer i's scalar is read into scalars[i]; setScalars stores it once the refs are filled. Load and
+// NewModel fill the same list, one serially from a mapped file and one across the processors from memory.
+func (m *Model) plan() (refs []weightRef, scalars [][]float32, err error) {
+	cfg := m.cfg
 	H, I, P, L := cfg.Hidden, cfg.Intermediate, cfg.PLEDim, cfg.Layers
-	m := &Model{cfg: cfg, layers: make([]layer, L)}
-	if m.embed, err = get("embed_tokens.weight", cfg.VocabSize, H); err != nil {
-		return nil, err
-	}
-	if m.pleProj, err = get("ple.per_layer_model_projection.weight", L*P, H); err != nil {
-		return nil, err
-	}
-	if m.pleNorm, err = get("ple.per_layer_projection_norm.weight", P); err != nil {
-		return nil, err
-	}
-	if m.finalNorm, err = get("norm.weight", H); err != nil {
-		return nil, err
-	}
-	if m.projection, err = get("embedding_projection.weight", cfg.EmbeddingDim, H); err != nil {
-		return nil, err
-	}
+	scalars = make([][]float32, L)
+	refs = append(refs,
+		weightRef{&m.pleProj, "ple.per_layer_model_projection.weight", []int{L * P, H}},
+		weightRef{&m.pleNorm, "ple.per_layer_projection_norm.weight", []int{P}},
+		weightRef{&m.finalNorm, "norm.weight", []int{H}},
+		weightRef{&m.projection, "embedding_projection.weight", []int{cfg.EmbeddingDim, H}})
 	for i := range m.layers {
 		ly := &m.layers[i]
 		ly.full = cfg.LayerTypes[i] == "full_attention"
@@ -177,44 +214,38 @@ func Load(dir string) (*Model, error) {
 			}
 		}
 		if cfg.Heads%ly.kvH != 0 || ly.headDim%2 != 0 {
-			return nil, fmt.Errorf("embeddinggemma2: layer %d: %d heads over %d KV heads, head_dim %d", i, cfg.Heads, ly.kvH, ly.headDim)
+			return nil, nil, fmt.Errorf("embeddinggemma2: layer %d: %d heads over %d KV heads, head_dim %d", i, cfg.Heads, ly.kvH, ly.headDim)
 		}
 		ly.theta = cfg.RopeParameters[cfg.LayerTypes[i]].Theta
 		qd, kvd := cfg.Heads*ly.headDim, ly.kvH*ly.headDim
 		p := fmt.Sprintf("layers.%d.", i)
-		for _, w := range []struct {
-			dst   *[]float32
-			name  string
-			shape []int
-		}{
-			{&ly.inNorm, "input_layernorm.weight", []int{H}},
-			{&ly.q, "self_attn.q_proj.weight", []int{qd, H}},
-			{&ly.k, "self_attn.k_proj.weight", []int{kvd, H}},
-			{&ly.v, "self_attn.v_proj.weight", []int{kvd, H}},
-			{&ly.o, "self_attn.o_proj.weight", []int{H, qd}},
-			{&ly.qNorm, "self_attn.q_norm.weight", []int{ly.headDim}},
-			{&ly.kNorm, "self_attn.k_norm.weight", []int{ly.headDim}},
-			{&ly.postAttnNorm, "post_attention_layernorm.weight", []int{H}},
-			{&ly.preFFNorm, "pre_feedforward_layernorm.weight", []int{H}},
-			{&ly.gate, "mlp.gate_proj.weight", []int{I, H}},
-			{&ly.up, "mlp.up_proj.weight", []int{I, H}},
-			{&ly.down, "mlp.down_proj.weight", []int{H, I}},
-			{&ly.postFFNorm, "post_feedforward_layernorm.weight", []int{H}},
-			{&ly.pleGate, "ple_block.per_layer_input_gate.weight", []int{P, H}},
-			{&ly.pleProj, "ple_block.per_layer_projection.weight", []int{H, P}},
-			{&ly.plePostNorm, "ple_block.post_per_layer_input_norm.weight", []int{H}},
-		} {
-			if *w.dst, err = get(p+w.name, w.shape...); err != nil {
-				return nil, err
-			}
-		}
-		s, err := get(p+"layer_scalar", 1)
-		if err != nil {
-			return nil, err
-		}
-		ly.scalar = s[0]
+		refs = append(refs,
+			weightRef{&ly.inNorm, p + "input_layernorm.weight", []int{H}},
+			weightRef{&ly.q, p + "self_attn.q_proj.weight", []int{qd, H}},
+			weightRef{&ly.k, p + "self_attn.k_proj.weight", []int{kvd, H}},
+			weightRef{&ly.v, p + "self_attn.v_proj.weight", []int{kvd, H}},
+			weightRef{&ly.o, p + "self_attn.o_proj.weight", []int{H, qd}},
+			weightRef{&ly.qNorm, p + "self_attn.q_norm.weight", []int{ly.headDim}},
+			weightRef{&ly.kNorm, p + "self_attn.k_norm.weight", []int{ly.headDim}},
+			weightRef{&ly.postAttnNorm, p + "post_attention_layernorm.weight", []int{H}},
+			weightRef{&ly.preFFNorm, p + "pre_feedforward_layernorm.weight", []int{H}},
+			weightRef{&ly.gate, p + "mlp.gate_proj.weight", []int{I, H}},
+			weightRef{&ly.up, p + "mlp.up_proj.weight", []int{I, H}},
+			weightRef{&ly.down, p + "mlp.down_proj.weight", []int{H, I}},
+			weightRef{&ly.postFFNorm, p + "post_feedforward_layernorm.weight", []int{H}},
+			weightRef{&ly.pleGate, p + "ple_block.per_layer_input_gate.weight", []int{P, H}},
+			weightRef{&ly.pleProj, p + "ple_block.per_layer_projection.weight", []int{H, P}},
+			weightRef{&ly.plePostNorm, p + "ple_block.post_per_layer_input_norm.weight", []int{H}},
+			weightRef{&scalars[i], p + "layer_scalar", []int{1}})
 	}
-	return m, nil
+	return refs, scalars, nil
+}
+
+// setScalars stores each layer's scalar from the slices plan handed out.
+func (m *Model) setScalars(scalars [][]float32) {
+	for i := range m.layers {
+		m.layers[i].scalar = scalars[i][0]
+	}
 }
 
 // Hidden runs the encoder over ids and returns the projected last hidden state, [len(ids), Dim()] row-major: the
@@ -279,6 +310,10 @@ func (m *Model) EmbedTokens(ids []int) ([]float32, error) {
 	for t, id := range ids {
 		if id < 0 || id >= c.VocabSize {
 			return nil, fmt.Errorf("embeddinggemma2: token id %d out of range [0, %d)", id, c.VocabSize)
+		}
+		if m.embedRaw != nil {
+			m.rawRow(id, scale, x[t*H:(t+1)*H])
+			continue
 		}
 		row := m.embed[id*H : (id+1)*H]
 		for j, v := range row {

@@ -3,6 +3,7 @@ package embeddinggemma2
 import (
 	"encoding/json"
 	"fmt"
+	"maps"
 	"os"
 	"path/filepath"
 	"sort"
@@ -50,11 +51,6 @@ func LoadEncoder(dir string) (*Encoder, error) {
 	if err != nil {
 		return nil, fmt.Errorf("embeddinggemma2: tokenizer: %w", err)
 	}
-	bos, okB := tok.TokenID("<bos>")
-	eos, okE := tok.TokenID("<eos>")
-	if !okB || !okE {
-		return nil, fmt.Errorf("embeddinggemma2: tokenizer has no <bos>/<eos>")
-	}
 	prompts := map[string]string{}
 	if raw, err := os.ReadFile(filepath.Join(dir, "config_sentence_transformers.json")); err == nil {
 		var st struct {
@@ -65,7 +61,32 @@ func LoadEncoder(dir string) (*Encoder, error) {
 		}
 		prompts = st.Prompts
 	}
-	return &Encoder{m: m, tok: tok, prompts: prompts, bos: bos, eos: eos, dir: dir}, nil
+	e, err := NewEncoder(m, tok, prompts)
+	if err != nil {
+		return nil, err
+	}
+	e.dir = dir
+	return e, nil
+}
+
+// NewEncoder builds an Encoder from parts that are already in memory: a model (Load or NewModel), its tokenizer
+// (tokenizer.Load, tokenizer.LoadJSONBytes or tokenizer.LoadPack) and the prompt table of
+// config_sentence_transformers.json, which may be nil. The table is copied. LoadEncoder reads all three from a
+// checkpoint directory; this is for a caller that already holds them and must read nothing by path.
+//
+// Such an encoder has no checkpoint directory, so EnableVision and EnableAudio refuse it. The text path is complete.
+func NewEncoder(m *Model, tok *tokenizer.Tokenizer, prompts map[string]string) (*Encoder, error) {
+	if m == nil || tok == nil {
+		return nil, fmt.Errorf("embeddinggemma2: NewEncoder needs a model and a tokenizer")
+	}
+	bos, okB := tok.TokenID("<bos>")
+	eos, okE := tok.TokenID("<eos>")
+	if !okB || !okE {
+		return nil, fmt.Errorf("embeddinggemma2: tokenizer has no <bos>/<eos>")
+	}
+	p := make(map[string]string, len(prompts))
+	maps.Copy(p, prompts)
+	return &Encoder{m: m, tok: tok, prompts: p, bos: bos, eos: eos}, nil
 }
 
 // Model returns the underlying text encoder.
