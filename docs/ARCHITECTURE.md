@@ -1078,7 +1078,7 @@ go get github.com/pkieltyka/goinfer/backend/cuda@latest
 root, then point each submodule at that tag and tag it. Submodule tags carry the module path as a
 prefix (`backend/cuda/vX.Y.Z`, `backend/webgpu/vX.Y.Z`, `backend/metal/vX.Y.Z`, `demo/agent/vX.Y.Z`), which is how the module
 proxy resolves a submodule. Bare `vX.Y.Z` tags are the root's. The
-[releases page](https://github.com/townsendmerino/goinfer/releases) has what is current.
+[releases page](https://github.com/pkieltyka/goinfer/releases) has what is current.
 
 ### Binaries
 

@@ -86,7 +86,7 @@ the report is shown. Only Francis adds an entry, as with `swap_guard_approved_by
    landed 2555edc; B-08/B-12 must be done first — they are breaking-to-fix-after-tag).
 2. `docs/completed/audit-2026-08-05.md` §9 "before the tag" set (C-18/C-19 in; confirm nothing regressed).
 3. **§C1 parity re-validation** (below, real T3 on the box) is scheduled — it is the one ⛔ gate.
-4. Working tree clean; on `main`; `gh auth switch --user townsendmerino`.
+4. Working tree clean; on `main`; signed in with an account that can write to `github.com/pkieltyka/goinfer` (tags go to that fork only).
 5. **A cold-user run on the previous tag**, per `docs/measurements/cold-user-protocol.md` — a fresh window, an
    empty directory outside the repo, the published assets only. It is a 15-minute run and it is the
    only gate that reads the product from outside: v0.16.0 shipped a README naming a binary that was
@@ -234,7 +234,7 @@ zero never does.
 **And read the build stamp off a published asset** — v0.17.0 to v0.20.0 shipped binaries that printed `-dirty`, and only this
 reads the thing the user sees (R18, `docs/completed/task-first-hour.md`; the workflow runs the same check before upload):
 ```
-gh release download v0.10.1 --repo townsendmerino/goinfer -p 'goinfer-serve-linux-amd64' -D /tmp/asset-check
+gh release download v0.10.1 --repo pkieltyka/goinfer -p 'goinfer-serve-linux-amd64' -D /tmp/asset-check
 scripts/check_asset_vcs.sh /tmp/asset-check/goinfer-serve-linux-amd64
 ```
 It fails on `vcs.modified=true` and on a binary with no stamp at all. The defect was measured on the `goinfer-serve` darwin-arm64 and linux-amd64 assets; the workflow check covers every chat, serve and embedded asset.
