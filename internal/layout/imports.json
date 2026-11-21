@@ -695,7 +695,8 @@
     "embeddinggemma2": [
       "internal/audio",
       "internal/vision",
-      "multimodal"
+      "multimodal",
+      "tokenizer"
     ],
     "engine": [
       "constrain",
