@@ -1,12 +1,14 @@
-# Releasing goinfer (root + backend/webgpu + backend/cuda + backend/metal + demo/agent)
+# Releasing goinfer
 
-goinfer has **seven Go modules** in its workspace — five that are tagged and released together (`github.com/pkieltyka/goinfer` at `.`,
-`github.com/pkieltyka/goinfer/backend/webgpu` at `backend/webgpu/`, `github.com/pkieltyka/goinfer/backend/cuda` at `backend/cuda/`,
-`github.com/pkieltyka/goinfer/backend/metal` at `backend/metal/`, and the ancillary `github.com/pkieltyka/goinfer/demo/agent` at
-`demo/agent/`), plus two that are never tagged (`github.com/pkieltyka/goinfer/sdktest` at `apps/sdktest/`, tests only, and
-`github.com/pkieltyka/goinfer/site` at `apps/site/`, the website generator; an eighth `go.mod` in `.github/actions/staticcheck/`
-only pins the CI linter build). This file is the tag ordering
-that produces a consistent, go-gettable set, plus the module-graph fixes that must land with it.
+The fork publishes the root module, `github.com/pkieltyka/goinfer`. Its v0.1.0, v0.2.0
+and v0.3.0 releases all tag the root alone. See the [fork tags](https://github.com/pkieltyka/goinfer/tags).
+
+The workspace also includes four separately versioned modules in `backend/webgpu/`,
+`backend/cuda/`, `backend/metal/` and `demo/agent/`. Use Step 2 only when publishing
+one of those modules. The other two workspace modules serve the SDK tests and website.
+A separate `go.mod` in `.github/actions/staticcheck/` pins the CI linter.
+
+The procedure for publishing submodules follows the upstream module-graph fix.
 It exists because four release blockers in the 2026-08-05 audit (§1a/§1b: B-01…B-07) were "the
 tagged submodules don't build for anyone" — the gitignored `go.work` masks it locally, so it
 survives to a tag unless caught here.
@@ -15,7 +17,7 @@ survives to a tag unless caught here.
 > flow tagged the root *twice* because the graph was a cycle (root → gpu/cuda/metal → root). M-19
 > moved the backend imports out of the root (`cmd/serve`/`demo` build tags became no-op guards),
 > so the **root no longer requires `backend/webgpu`/`backend/cuda`/`backend/metal`** — the graph is one-way: submodules
-> require the root, the root requires none of them. Tag the root **once**, then the submodules;
+> require the root, the root requires none of them. For a submodule release, tag the root **once**, then the selected submodules;
 > there is no second root tag. Confirm before starting: `grep -E "goinfer/(backend/(cuda|webgpu|metal)|cuda|gpu|metal)" go.mod`
 > in the root prints nothing. (git history holds the obsolete three-step flow.)
 
@@ -39,7 +41,7 @@ survives to a tag unless caught here.
   legitimately fails on perfectly good code that uses a root symbol added since. At tag time the
   root tag is published, which is when the answer means anything. Until 2026-09-02 the sentence
   here claimed a CI step that did not exist, and Step 2 below was the only thing checking it.
-- **Version alignment (B-07):** all five tagged modules must agree on `aikit`. **Read the versions, do not read them
+- **Version alignment (B-07):** the root and the four releasable submodules must agree on `aikit`. **Read the versions, do not read them
   here.** No module requires `aikit/gpu`: the device package is goinfer's own since Track AX
   (`backend/cuda/internal/gpudev`, `backend/metal/internal/gpudev`), and `internal/guard/movedpaths` fails on a require of it.
   The `aikit` they agree on must be a **tag**: `main` may require an aikit pseudo-version between weekly aikit
@@ -64,9 +66,16 @@ survives to a tag unless caught here.
 
 **`go run ./cmd/gate release vX.Y.Z` runs the reads below as rows** (pending gates, the module pins, the cold-user record, both GPU-gate records, the hardware matrix and its never-executed diff, unmerged fix branches, the CHANGELOG check, gofmt, the citation lint, CI at HEAD, the §C1 parity sweep's record, the deferred tests' record from each box): each is `done`, `OWED` or `UNKNOWN`, with the record that proves it or is missing, and the exit code is 0 only when all twelve are done. It refuses off `main`, on a dirty tree, or for a tag that exists. The list below is what each row reads and why; the command is the check, so read the rows, not this list, to learn what is owed. (Reads 1 and 2, the API blockers and the audit's "before the tag" set, are historical and are not rows.)
 
-**A red gate record the owner has read and accepted: `docs/releases/vX.Y.Z-accepted.json`.** The GPU-gate, `quick -full` and parity rows are OWED while their newest
-record at HEAD's code is not a PASS. If Francis has read that record's failures and accepted them, the file says so, and the row prints `accepted` with the entries
-instead of `OWED`; it does not count against the tag, it is never `done`, and the report counts it apart ("n of m done, k accepted"). Schema 1:
+**Fork release exceptions.** Peter, the owner of `pkieltyka/goinfer`, decides whether to
+accept a failed release gate. Record his decision, the specific failures, evidence and
+date in `docs/releases/vX.Y.Z-accepted.json`, with `accepted_by` set to `Peter`, and cite
+the approval in the commit. The inherited checker at this revision recognizes only the
+literal `Francis`, so it reports a fork-owner exception as `OWED`. Report that result
+alongside Peter's decision. Preserve the actual approver's name in the record.
+
+**Upstream history (2026-11-05).** The GPU-gate, `quick -full` and parity rows are OWED while their newest
+record at HEAD's code is not a PASS. Upstream, Francis recorded exceptions he approved. The inherited checker prints `accepted` with the entries
+instead of `OWED`; it does not count against the tag, it is never `done`, and the report counts it apart ("n of m done, k accepted"). Upstream schema-1 example:
 
 ```json
 {"schema": 1, "release": "vX.Y.Z", "accepted": [
@@ -76,17 +85,17 @@ instead of `OWED`; it does not count against the tag, it is never `done`, and th
 
 One entry per accepted failure. `record` is the record's file name; the row builds it from the failing record it judged (backend or system, time, commit), so an entry for a
 different record, or for a rerun, does not match. `class` is one of `test-bug`, `gate-definition`, `fixture`, `toolchain-artifact`, `environment`, `stale-golden`: a product
-defect is not a class, it is fixed or the tag waits. `accepted_by` must read `Francis` and `accepted_on` be a date; an entry that is not complete leaves the row OWED and says why.
+defect is not a class, it is fixed or the tag waits. The upstream checker required `accepted_by` to read `Francis` and `accepted_on` to be a date; an entry that is not complete leaves the row OWED and says why.
 **A record is accepted only when its entries name as many distinct items as it has reds**: a GPU record's failed groups plus its vacuous and empty cells, a `quick -full` record's failed
 tests, a parity record's blockers (a record that is not a PASS with none of those, a dirty tree or a narrowed run, has one). Fewer entries leave the row OWED and name how many are unlisted, so a new red
 is never hidden behind an accepted one. Records hold counts, not the names of what failed, so the gate compares counts and cannot match the items to the failures: the entries are what the reader of
-the report is shown. Only Francis adds an entry, as with `swap_guard_approved_by`; the commit that adds one cites where he gave the word. Code: `cmd/gate/grade_release_accepted.go`.
+the report is shown. Upstream reserved approval to Francis, as with `swap_guard_approved_by`. Checker: `cmd/gate/grade_release_accepted.go`.
 
 1. All §1 API blockers are in (B-08…B-14 — see `docs/completed/audit-2026-08-05.md`; B-09/B-10/B-11/B-13
    landed 2555edc; B-08/B-12 must be done first — they are breaking-to-fix-after-tag).
 2. `docs/completed/audit-2026-08-05.md` §9 "before the tag" set (C-18/C-19 in; confirm nothing regressed).
 3. **§C1 parity re-validation** (below, real T3 on the box) is scheduled — it is the one ⛔ gate.
-4. Working tree clean; on `main`; `gh auth switch --user townsendmerino`.
+4. Working tree clean; on `main`; confirm `git remote get-url --push origin` names `pkieltyka/goinfer`, and set `export GH_REPO=pkieltyka/goinfer` for the release commands. Use an account with write access to the fork.
 5. **A cold-user run on the previous tag**, per `docs/measurements/cold-user-protocol.md` — a fresh window, an
    empty directory outside the repo, the published assets only. It is a 15-minute run and it is the
    only gate that reads the product from outside: v0.16.0 shipped a README naming a binary that was
@@ -126,19 +135,19 @@ the report is shown. Only Francis adds an entry, as with `swap_guard_approved_by
    It runs aikit's `linalg` suite and goinfer's tiny-fixture goldens under `-hsw` (the control), `-icx` and `-spr`; a difference under the
    VNNI targets is arithmetic, not emulation noise. Not a CI job: SDE is a click-through-license download. The same item applies at every aikit bump.
 
-## The two-step tag (post-M-19)
+## Tagging the root and optional submodules
 
-The root no longer requires the submodules, so tag the root **once**, push it, then bump and tag
-the submodules against that published root. The example uses `v0.10.1`.
+Set `TAG` to the new fork version. For a root-only tag, perform Step 1 and continue with the GitHub Release.
+When a backend or demo module is also being released, perform Step 2 for the selected modules after publishing the root.
 
 **Step 1 — tag the root, push FIRST.** The submodules `go get` the root from the proxy, so it must
 be published before Step 2 runs.
 ```
 # align aikit ONLY if a module actually disagrees (B-07 above) — as of v0.10.3 they all agree.
 go mod tidy
-git commit -am "release: v0.10.1 (<one-line summary>)"
-git tag v0.10.1
-git push origin main v0.10.1        # published BEFORE any submodule go-gets it
+git commit -am "release: ${TAG} (<one-line summary>)"
+git tag ${TAG}
+git push origin main ${TAG}        # published BEFORE any submodule go-gets it
 ```
 
 > **If `git commit -am` says "nothing to commit", that is expected — tag HEAD instead.** This step
@@ -153,39 +162,35 @@ git push origin main v0.10.1        # published BEFORE any submodule go-gets it
 > every tracked modification. Stash anything not part of the release first (`git stash push -u --
 > <paths>`) — Step 2 in particular runs `-am` four times across four modules.
 
-**Step 2 — point each submodule at the tagged root, prove the standalone build, tag.**
+**Optional Step 2 — point each selected submodule at the tagged root, prove the standalone build, tag.**
 Do `backend/webgpu/`, `backend/cuda/`, `backend/metal/` first, then `demo/agent/` LAST (it also requires `goinfer/backend/webgpu`, so
 `backend/webgpu/vX` must be tagged and pushed before demo/agent can `go get` it).
 ```
 cd <mod>
 # The go.mods are replace-free (2026-08-15) — nothing to remove/restore. Just point at the tag:
-GOWORK=off go get github.com/pkieltyka/goinfer@v0.10.1        # B-01/B-05: real version, not placeholder/pseudo
-GOWORK=off go get github.com/pkieltyka/goinfer/backend/webgpu@v0.10.1    # demo/agent ONLY (it requires goinfer/backend/webgpu too)
+GOWORK=off go get github.com/pkieltyka/goinfer@${TAG}        # B-01/B-05: real version, not placeholder/pseudo
+GOWORK=off go get github.com/pkieltyka/goinfer/backend/webgpu@${TAG}    # demo/agent ONLY (it requires goinfer/backend/webgpu too)
 GOWORK=off go mod tidy                                             # B-02/B-03/B-04: complete go.sum for the SELECTED versions
 GOWORK=off go build -tags <cuda|gpu|metal> ./...                  # PROVE it builds with no workspace
 # NO replace to restore — do not re-add it (it breaks `go install …@vX`; see the Invariants).
 ```
 `metal` on a Linux box prints `matched no packages` (its files are darwin-gated) — that is
 EXPECTED; the `go mod tidy` go.sum bump is the deliverable, and macOS/CI runs the real build gate.
-Then commit the go.mod/go.sum bumps and tag. **`git tag` takes ONE name per call** (unlike
+Then commit the go.mod/go.sum bumps and tag the modules being published. The example below releases all four. **`git tag` takes ONE name per call** (unlike
 `git push`, which takes many):
 ```
-git commit -am "release: backend/{webgpu,cuda,metal} require goinfer v0.10.1"
-git tag backend/cuda/v0.10.1 ; git tag backend/webgpu/v0.10.1 ; git tag backend/metal/v0.10.1
+git commit -am "release: backend/{webgpu,cuda,metal} require goinfer ${TAG}"
+git tag backend/cuda/${TAG} ; git tag backend/webgpu/${TAG} ; git tag backend/metal/${TAG}
 # a SEPARATE commit for demo/agent (requires goinfer + goinfer/backend/webgpu):
-git commit -am "release: demo/agent requires goinfer + goinfer/backend/webgpu v0.10.1"
-git tag demo/agent/v0.10.1
-git push origin main backend/cuda/v0.10.1 backend/webgpu/v0.10.1 backend/metal/v0.10.1 demo/agent/v0.10.1
+git commit -am "release: demo/agent requires goinfer + goinfer/backend/webgpu ${TAG}"
+git tag demo/agent/${TAG}
+git push origin main backend/cuda/${TAG} backend/webgpu/${TAG} backend/metal/${TAG} demo/agent/${TAG}
 ```
 
-## The site (goinfer.dev) deploys itself after a root tag
+## Where users download a fork release
 
-When `release assets` finishes for a `v*` tag, the `site` workflow builds the site from **that tag's commit** and deploys it to
-Cloudflare Workers (`.github/workflows/site.yml`; `apps/site/README.md`, "Policy"). Nothing to do by hand, but two
-things are worth checking after a release: that the `site` run is green (a failing gate leaves the last good site up), and that
-`https://goinfer.dev/download/` shows the new tag. A push to `main` never deploys; it only validates. A manual run of the workflow
-(Actions → site → Run workflow) deploys the ref it is run on, for a fix between releases. The Download page needs the release's
-assets to be attached first, which is why the deploy waits for `release assets`.
+Use the [fork's Releases page](https://github.com/pkieltyka/goinfer/releases) for downloads and checksums.
+The site at goinfer.dev belongs to the original project.
 
 ## GitHub Release (non-optional final step)
 
@@ -205,23 +210,23 @@ CHANGELOG once the workflow has attached assets. **Check which case you're in fi
 `gh release create` on a tag that already has a release ERRORS (`release already exists`), it does
 not update one:
 ```
-# If the workflow's auto-create step already ran (the common case — check `gh release view v0.10.1`
+# If the workflow's auto-create step already ran (the common case — check `gh release view ${TAG}`
 # first), EDIT it instead of trying to create it again:
-gh release edit v0.10.1 \
-  --title "goinfer v0.10.1 — <one-line descriptor>" \
+gh release edit ${TAG} \
+  --title "goinfer ${TAG} — <one-line descriptor>" \
   --notes-file <notes-from-changelog> \
   --latest
 
 # Only if `gh release view` says no such release exists yet (the workflow hasn't run/finished, or
 # this is being done by hand ahead of it):
-gh release create v0.10.1 \
-  --title "goinfer v0.10.1 — <one-line descriptor>" \
+gh release create ${TAG} \
+  --title "goinfer ${TAG} — <one-line descriptor>" \
   --notes-file <notes-from-changelog> \
   --latest
 ```
 **Then check what the Release carries** — this is the moment it becomes something users see:
 ```
-scripts/check_release_assets.sh v0.10.1
+scripts/check_release_assets.sh ${TAG}
 ```
 It fails if the Release has zero assets, or fewer than the nearest earlier release that has any.
 v0.18.0 is why: its asset run failed, `publish` never ran, and the Release was created here anyway
@@ -234,7 +239,7 @@ zero never does.
 **And read the build stamp off a published asset** — v0.17.0 to v0.20.0 shipped binaries that printed `-dirty`, and only this
 reads the thing the user sees (R18, `docs/completed/task-first-hour.md`; the workflow runs the same check before upload):
 ```
-gh release download v0.10.1 --repo townsendmerino/goinfer -p 'goinfer-serve-linux-amd64' -D /tmp/asset-check
+gh release download ${TAG} --repo pkieltyka/goinfer -p 'goinfer-serve-linux-amd64' -D /tmp/asset-check
 scripts/check_asset_vcs.sh /tmp/asset-check/goinfer-serve-linux-amd64
 ```
 It fails on `vcs.modified=true` and on a binary with no stamp at all. The defect was measured on the `goinfer-serve` darwin-arm64 and linux-amd64 assets; the workflow check covers every chat, serve and embedded asset.

@@ -18,7 +18,7 @@ def gh(*args):
 def main():
     tag = sys.argv[1] if len(sys.argv) > 1 else "latest"
     out = sys.argv[2] if len(sys.argv) > 2 else "release.json"
-    repo = "townsendmerino/goinfer"
+    repo = "pkieltyka/goinfer"
     if tag == "latest":
         tag = json.loads(gh("release", "view", "--repo", repo, "--json", "tagName"))["tagName"]
     rel = json.loads(gh("release", "view", tag, "--repo", repo, "--json", "tagName,publishedAt,url,assets"))

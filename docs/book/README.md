@@ -14,7 +14,7 @@ that produced the number.
 
 Most chapters then end with **Try it**: one command you can run with the released binaries to see the chapter's
 number on your own machine. Download `goinfer-chat` and `goinfer-serve` for your platform from the
-[releases page](https://github.com/townsendmerino/goinfer/releases). The server-based ones assume the smallest model
+[releases page](https://github.com/pkieltyka/goinfer/releases). The server-based ones assume the smallest model
 served on the CPU (an `hf:` reference is fetched on first use, about 0.5 GB):
 
 ```sh

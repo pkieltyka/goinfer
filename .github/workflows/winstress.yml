@@ -5,7 +5,7 @@ name: winstress
 # `fatal error: acquireSudog: found s.elem != nil in cache`, one with a nil dereference inside encoding/json/v2, one with no
 # test named. Each cell builds the test binary once and runs it `rounds` times, so a crash costs one round, not the cell, and
 # the summary line counts crashes per cell. GOTRACEBACK=crash makes a runtime fatal error dump every goroutine.
-# Dispatch: gh workflow run winstress.yml --repo townsendmerino/goinfer [-f rounds=20 -f count=20]
+# Dispatch: gh workflow run winstress.yml --repo pkieltyka/goinfer [-f rounds=20 -f count=20]
 on:
   workflow_dispatch:
     inputs:

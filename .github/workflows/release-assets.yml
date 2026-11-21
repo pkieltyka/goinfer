@@ -554,7 +554,7 @@ jobs:
       # downloaded are the bytes attached; the attestation says those bytes were built by this
       # workflow, in this repo, from this tag. Signed through GitHub's Sigstore instance, keyless, no
       # secret to keep. A user checks a download with:
-      #   gh attestation verify goinfer-serve-darwin-arm64 --repo townsendmerino/goinfer
+      #   gh attestation verify goinfer-serve-darwin-arm64 --repo pkieltyka/goinfer
       # It reads the digests already in checksums.txt, so the 1.5B binaries are not hashed twice.
       - name: attest build provenance for every asset
         uses: actions/attest-build-provenance@4d101475d8b20a2381f78447822ac1eab6504dd8 # v4.2.2

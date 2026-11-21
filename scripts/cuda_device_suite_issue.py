@@ -3,7 +3,7 @@
 the open one with a comment. The issue is titled "cuda-device-suite red on <short sha>". Called by the night job after scripts/cuda_device_suite.py has
 written its log; `--gh` names the gh binary so a test can pass a fake.
 
-  python3 scripts/cuda_device_suite_issue.py --verdict-log LOG --sha abc1234 [--repo townsendmerino/goinfer] [--gh gh]
+  python3 scripts/cuda_device_suite_issue.py --verdict-log LOG --sha abc1234 [--repo pkieltyka/goinfer] [--gh gh]
 
 Exit 0 when the issue state now matches the verdict, 2 when the log carries no verdict line (nothing is opened or closed: a job that never reached a verdict is
 in night.py's SUMMARY.md, and is not a red test), 1 when a gh call failed.
@@ -110,7 +110,7 @@ def main(argv=None):
     ap = argparse.ArgumentParser()
     ap.add_argument("--verdict-log", required=True)
     ap.add_argument("--sha", required=True)
-    ap.add_argument("--repo", default="townsendmerino/goinfer")
+    ap.add_argument("--repo", default="pkieltyka/goinfer")
     ap.add_argument("--gh", default="gh")
     ap.add_argument("--box", help="also rewrite the standing 'device-suite status: <box>' issue (the run-completed heartbeat)")
     ap.add_argument("--backend", default="cuda", help="cuda or metal: names the red issue and the runner's summary line")

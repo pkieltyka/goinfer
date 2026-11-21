@@ -1059,7 +1059,7 @@ stays out of the root's `go.mod`.
 | `github.com/pkieltyka/goinfer/sdktest` | (`apps/sdktest`, never tagged) official OpenAI and Anthropic SDK tests against the in-process server | the OpenAI and Anthropic Go SDKs |
 | `github.com/pkieltyka/goinfer/site` | (`apps/site`, never tagged) the website generator (`goinfer.dev`) | stdlib only |
 
-**Four of the five tagged modules are the ones you build against**; `demo/agent` is a demo.
+**The four modules for library users are the root and the three backends**; `demo/agent` is a demo.
 [api-tiers.md](api-tiers.md) lists all four tagged submodules as Experimental.
 
 **`go.work` is gitignored, but needed for any cross-module change.** Without it, a submodule resolves
@@ -1074,11 +1074,11 @@ module named explicitly. Name a backend module to build against it, or to pin, v
 go get github.com/pkieltyka/goinfer/backend/cuda@latest
 ```
 
-**Releases tag all five modules together.** [RELEASING.md](../RELEASING.md) is the authority: tag the
+**The fork releases the root independently.** Its v0.1.0 and v0.2.0 tags cover the root module. To build a matching backend, use the release checkout and its workspace. When also publishing submodule versions, follow the multi-module release procedure. [RELEASING.md](../RELEASING.md) is the authority: tag the
 root, then point each submodule at that tag and tag it. Submodule tags carry the module path as a
 prefix (`backend/cuda/vX.Y.Z`, `backend/webgpu/vX.Y.Z`, `backend/metal/vX.Y.Z`, `demo/agent/vX.Y.Z`), which is how the module
 proxy resolves a submodule. Bare `vX.Y.Z` tags are the root's. The
-[releases page](https://github.com/townsendmerino/goinfer/releases) has what is current.
+[releases page](https://github.com/pkieltyka/goinfer/releases) has what is current.
 
 ### Binaries
 
