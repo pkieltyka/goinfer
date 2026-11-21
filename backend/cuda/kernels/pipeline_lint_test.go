@@ -1,6 +1,6 @@
 //go:build cuda
 
-package cuda
+package kernels
 
 import (
 	"os"
@@ -82,7 +82,7 @@ func TestPipelineLint_boundKernelsAreLaunched(t *testing.T) {
 	t.Logf("pipeline lint: %d Pipeline fields, %d bound-and-dead, %d launched-but-unbound", len(names), len(dead), len(unbound))
 }
 
-// packageSources reads the package's non-test .go sources, keyed by base name.
+// packageSources reads the cuda package's non-test .go sources (the parent directory), keyed by base name.
 //
 // EXCLUDING _test.go IS THE POINT, not an oversight — do not "fix" it. The lint asks whether a
 // pipeline bound in PRODUCTION is launched in PRODUCTION. gemv_w4a8_batched, the defect this was
@@ -95,9 +95,9 @@ func TestPipelineLint_boundKernelsAreLaunched(t *testing.T) {
 // goinfer_testhooks production code is seen. That is the opposite exposure and it is not present.
 func packageSources(t *testing.T) map[string]string {
 	t.Helper()
-	ents, err := os.ReadDir(".")
+	ents, err := os.ReadDir("..")
 	if err != nil {
-		t.Fatalf("read package dir: %v", err)
+		t.Fatalf("read the cuda package dir: %v", err)
 	}
 	out := map[string]string{}
 	for _, e := range ents {
@@ -105,7 +105,7 @@ func packageSources(t *testing.T) map[string]string {
 		if !strings.HasSuffix(n, ".go") || strings.HasSuffix(n, "_test.go") {
 			continue
 		}
-		b, err := os.ReadFile(filepath.Clean(n))
+		b, err := os.ReadFile(filepath.Join("..", n))
 		if err != nil {
 			t.Fatalf("read %s: %v", n, err)
 		}
