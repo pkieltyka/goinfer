@@ -19,6 +19,7 @@ import (
 
 	gpu "github.com/pkieltyka/goinfer/backend/cuda/internal/gpudev"
 	"github.com/pkieltyka/goinfer/embeddinggemma2"
+	"github.com/pkieltyka/goinfer/tokenizer"
 )
 
 const eg2TinyDir = "../../testdata/embeddinggemma2-tiny"
@@ -664,6 +665,55 @@ func TestEG2CUDA_realBatchParity(t *testing.T) {
 		}
 	}
 	t.Logf("RESULT bit-identical to singletons in every batch; golden: %d texts in %d batches, worst cosine %.12f", len(g.Items), groups, worst)
+}
+
+// TestEG2CUDA_encoderBatch: Encoder.EmbedIDsBatch on the CUDA accelerator runs the batch, one forward with one
+// attention_seg per layer for the whole batch, and gives every input bit for bit what EmbedIDs gives it alone.
+func TestEG2CUDA_encoderBatch(t *testing.T) {
+	m := eg2TinyModel(t)
+	vocab := map[string]int{"<pad>": 0, "<eos>": 1, "<bos>": 2, "<unk>": 3}
+	raw, err := json.Marshal(map[string]any{
+		"added_tokens": []map[string]any{{"id": 0, "content": "<pad>"}, {"id": 1, "content": "<eos>"}, {"id": 2, "content": "<bos>"},
+			{"id": 3, "content": "<unk>"}},
+		"model": map[string]any{"type": "BPE", "unk_token": "<unk>", "vocab": vocab, "merges": [][2]string{}},
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	tok, err := tokenizer.LoadJSONBytes(raw)
+	if err != nil {
+		t.Fatal(err)
+	}
+	enc, err := embeddinggemma2.NewEncoder(m, tok, nil)
+	if err != nil {
+		t.Fatal(err)
+	}
+	acc, err := enc.UseAccelerator("cuda")
+	if err != nil {
+		t.Skipf("no CUDA device for EmbeddingGemma 2: %v", err)
+	}
+	defer acc.Close()
+	a := acc.(*eg2Accel)
+	V := m.Config().VocabSize
+	in := [][]int{eg2SeqIDs(9, 1, V), eg2SeqIDs(64, 2, V), eg2SeqIDs(2, 3, V)}
+	var got [][]float32
+	n := eg2Count(t, a, func() {
+		if got, err = enc.EmbedIDsBatch(in); err != nil {
+			t.Fatal(err)
+		}
+	})
+	if n.attn != m.Config().Layers {
+		t.Fatalf("EmbedIDsBatch: %d attention_seg launches, want one forward's %d", n.attn, m.Config().Layers)
+	}
+	for i, ids := range in {
+		want, err := enc.EmbedIDs(ids)
+		if err != nil {
+			t.Fatal(err)
+		}
+		if d := eg2FirstDiff(got[i], want, len(want)); d != "" {
+			t.Fatalf("input %d: EmbedIDsBatch differs from EmbedIDs at %s", i, d)
+		}
+	}
 }
 
 // TestEG2CUDA_bounds: a sliding row's key range is every key within the radius, the radius itself included, clipped to

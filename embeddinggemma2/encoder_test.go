@@ -245,3 +245,126 @@ func TestEncoder_EmbedIDs(t *testing.T) {
 		t.Fatalf("EmbedText accelerator error = %v, want %v", err, wantErr)
 	}
 }
+
+type fakeBatchAccel struct {
+	fakeEmbedAccel
+	batchRows  [][]float32
+	batchErr   error
+	batchCalls int
+	gotBatch   [][]int
+}
+
+func (f *fakeBatchAccel) ForwardBatch(ids [][]int) ([][]float32, error) {
+	f.batchCalls++
+	f.gotBatch = nil
+	for _, in := range ids {
+		f.gotBatch = append(f.gotBatch, slices.Clone(in))
+	}
+	if f.batchErr != nil {
+		return nil, f.batchErr
+	}
+	return f.batchRows, nil
+}
+
+// TestEncoder_EmbedIDsBatch: on the CPU, EmbedIDsBatch gives each input what EmbedIDs gives it; through an
+// accelerator that batches, it makes one ForwardBatch call with the inputs as given (no Forward) and pools each
+// input's rows as EmbedIDs does, into vectors the caller owns; an accelerator that cannot batch is an error with no
+// forward at all; and an empty batch or input, an accelerator error, a wrong output count or width, or a bad id on the
+// CPU returns nil and an error.
+func TestEncoder_EmbedIDsBatch(t *testing.T) {
+	e := newTinyEncoderForTest(t)
+	dim := e.HiddenDim()
+	in := [][]int{{5, 17, 42}, {3}, {9, 9, 9, 9}}
+	keep := [][]int{slices.Clone(in[0]), slices.Clone(in[1]), slices.Clone(in[2])}
+	same := func(a, b [][]int) bool { return slices.EqualFunc(a, b, slices.Equal[[]int]) }
+
+	cpu, err := e.EmbedIDsBatch(in)
+	if err != nil || len(cpu) != len(in) {
+		t.Fatalf("CPU EmbedIDsBatch: %d vectors, %v", len(cpu), err)
+	}
+	for i, ids := range in {
+		want, err := e.EmbedIDs(ids)
+		if err != nil || !sameBits(cpu[i], want) {
+			t.Fatalf("CPU input %d: differs from EmbedIDs (error %v)", i, err)
+		}
+	}
+	if !same(in, keep) {
+		t.Fatal("CPU EmbedIDsBatch modified its ids")
+	}
+	for _, bad := range []struct {
+		name string
+		ids  [][]int
+	}{{"empty batch", nil}, {"empty last input", [][]int{in[0], {}}}, {"out-of-vocabulary last input", [][]int{in[0], {1 << 30}}}} {
+		if got, err := e.EmbedIDsBatch(bad.ids); err == nil || got != nil {
+			t.Errorf("CPU %s: (%v, %v), want (nil, error)", bad.name, got, err)
+		}
+	}
+
+	rows := [][]float32{distinguishableRows(3, dim), distinguishableRows(1, dim), distinguishableRows(4, dim)}
+	rows[1][0], rows[2][dim] = 7, -3 // so no two inputs pool alike
+	keepRows := [][]float32{slices.Clone(rows[0]), slices.Clone(rows[1]), slices.Clone(rows[2])}
+	fake := &fakeBatchAccel{fakeEmbedAccel: fakeEmbedAccel{name: "fake-embed-batch"}, batchRows: rows}
+	registerTempAccelerator(t, fake.name, fake)
+	if _, err := e.UseAccelerator(fake.name); err != nil {
+		t.Fatal(err)
+	}
+	got, err := e.EmbedIDsBatch(in)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if fake.batchCalls != 1 || fake.calls != 0 || !same(fake.gotBatch, keep) || !same(in, keep) {
+		t.Fatalf("ForwardBatch calls %d, Forward calls %d, ids received %v (sent %v)", fake.batchCalls, fake.calls, fake.gotBatch, keep)
+	}
+	for i := range in {
+		if !sameBits(got[i], expectedPoolNormalize(keepRows[i], len(keep[i]), dim)) {
+			t.Fatalf("input %d: not the mean pool and L2 normalisation of its own rows", i)
+		}
+	}
+	clear(got[0])
+	again, err := e.EmbedIDsBatch(in)
+	if err != nil || !sameBits(again[0], expectedPoolNormalize(keepRows[0], len(keep[0]), dim)) {
+		t.Fatalf("after the caller cleared a returned vector, the next batch differs (error %v)", err)
+	}
+	for i := range rows {
+		if !sameBits(rows[i], keepRows[i]) {
+			t.Fatalf("EmbedIDsBatch wrote the accelerator's rows for input %d", i)
+		}
+	}
+
+	calls := fake.batchCalls
+	wantErr := errors.New("fake batch failure")
+	for _, c := range []struct {
+		name string
+		ids  [][]int
+		rows [][]float32
+		err  error
+		call bool
+	}{
+		{"empty batch", nil, rows, nil, false},
+		{"empty last input", [][]int{in[0], {}}, rows, nil, false},
+		{"accelerator error", in, nil, wantErr, true},
+		{"too few outputs", in, rows[:2], nil, true},
+		{"short last output", in, [][]float32{rows[0], rows[1], rows[2][:len(rows[2])-1]}, nil, true},
+	} {
+		fake.batchRows, fake.batchErr = c.rows, c.err
+		got, err := e.EmbedIDsBatch(c.ids)
+		if err == nil || got != nil || (c.err != nil && !errors.Is(err, c.err)) {
+			t.Errorf("%s: (%v, %v), want (nil, error)", c.name, got, err)
+		}
+		if c.call {
+			calls++
+		}
+		if fake.batchCalls != calls || fake.calls != 0 {
+			t.Errorf("%s: %d ForwardBatch and %d Forward calls, want %d and 0", c.name, fake.batchCalls, fake.calls, calls)
+		}
+	}
+
+	single := &fakeEmbedAccel{name: "fake-embed-nobatch", rows: distinguishableRows(3, dim)}
+	registerTempAccelerator(t, single.name, single)
+	if _, err := e.UseAccelerator(single.name); err != nil {
+		t.Fatal(err)
+	}
+	if got, err := e.EmbedIDsBatch(in); err == nil || got != nil || single.calls != 0 {
+		t.Fatalf("an accelerator that cannot batch: (%v, %v) after %d Forward calls; want an error and none", got, err, single.calls)
+	}
+}

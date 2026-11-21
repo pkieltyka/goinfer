@@ -145,6 +145,64 @@ func (e *Encoder) EmbedIDs(ids []int) ([]float32, error) {
 	return e.embedIDs(ids)
 }
 
+// batchForwarder is an accelerator that runs several prepared inputs in one forward, returning each input's projected
+// last hidden state, [len(ids[b]), Dim()] row-major, in input order (the CUDA accelerator's ForwardBatch).
+type batchForwarder interface {
+	ForwardBatch(ids [][]int) ([][]float32, error)
+}
+
+// EmbedIDsBatch returns the unit-length sentence embedding of each pre-tokenized input, in input order, as EmbedIDs
+// would give each alone. With no accelerator it runs EmbedIDs on each input in turn on the CPU. With an accelerator it
+// needs one that batches (the CUDA accelerator's ForwardBatch): it runs every input in that one call and pools each
+// input's rows as EmbedIDs does; an accelerator that cannot batch is an error, never a CPU or one-by-one fallback.
+//
+// The call is all or nothing: an empty batch, an empty input, or any error from the model or the accelerator returns
+// nil and that error, with no partial result. It does not split a batch: the caller groups inputs to fit the
+// accelerator (CUDA refuses a batch of more than MaxTokens ids in total). ids is not modified, and the returned
+// vectors belong to the caller.
+func (e *Encoder) EmbedIDsBatch(ids [][]int) ([][]float32, error) {
+	if len(ids) == 0 {
+		return nil, fmt.Errorf("embeddinggemma2: an empty batch")
+	}
+	for i, in := range ids {
+		if len(in) == 0 {
+			return nil, fmt.Errorf("embeddinggemma2: batch input %d has no ids", i)
+		}
+	}
+	out := make([][]float32, len(ids))
+	if e.accel == nil {
+		for i, in := range ids {
+			v, err := e.embedIDs(in)
+			if err != nil {
+				return nil, fmt.Errorf("embeddinggemma2: batch input %d: %w", i, err)
+			}
+			out[i] = v
+		}
+		return out, nil
+	}
+	b, ok := e.accel.(batchForwarder)
+	if !ok {
+		return nil, fmt.Errorf("embeddinggemma2: the %s accelerator cannot run a batch", e.accel.Name())
+	}
+	hs, err := b.ForwardBatch(ids)
+	if err != nil {
+		return nil, err
+	}
+	d := e.m.cfg.EmbeddingDim
+	if len(hs) != len(ids) {
+		return nil, fmt.Errorf("embeddinggemma2: %s returned %d batch outputs for %d inputs", e.accel.Name(), len(hs), len(ids))
+	}
+	for i, h := range hs {
+		if want := len(ids[i]) * d; len(h) != want {
+			return nil, fmt.Errorf("embeddinggemma2: %s returned %d hidden values for batch input %d, want %d", e.accel.Name(), len(h), i, want)
+		}
+	}
+	for i, h := range hs {
+		out[i] = poolNormalize(h, len(ids[i]), d)
+	}
+	return out, nil
+}
+
 // EmbedText is the sentence embedding of text under the named prompt ("" for none), unit length.
 func (e *Encoder) EmbedText(text, prompt string) ([]float32, int, error) {
 	ids, err := e.Tokenize(text, prompt)
