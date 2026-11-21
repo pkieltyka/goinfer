@@ -79,7 +79,7 @@ func TestReleaseReplay_plants(t *testing.T) {
 		"pins that differ": {func(t *testing.T, in *releaseInputs) {
 			for i, l := range in.Looks {
 				if l.Kind == "read" && l.Args[0] == "cuda/go.mod" {
-					in.Looks[i].Out = strings.Replace(l.Out, "github.com/pkieltyka/aikit v1.76.0", "github.com/pkieltyka/aikit v1.75.0", 1)
+					in.Looks[i].Out = strings.Replace(l.Out, "github.com/townsendmerino/aikit v1.76.0", "github.com/townsendmerino/aikit v1.75.0", 1)
 				}
 			}
 		}, 2, "OWED", "aikit differs: v1.75.0: backend/cuda | v1.76.0: ., backend/metal, backend/webgpu, demo/agent"},

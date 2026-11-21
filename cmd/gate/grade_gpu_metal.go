@@ -193,8 +193,9 @@ var crashHeadRe = regexp.MustCompile(`^(SIGSEGV|SIGBUS|SIGABRT|SIGILL|panic:|fat
 
 // ourFrameRe matches a stack frame in code this repo owns or vendors — the frames
 // that identify WHICH test or function died, as opposed to the runtime and FFI
-// scaffolding above them.
-var ourFrameRe = regexp.MustCompile(`townsendmerino/(goinfer|aikit)|_test\.go:[0-9]+`)
+// scaffolding above them. Streams recorded before the module rename name the
+// original path.
+var ourFrameRe = regexp.MustCompile(`(pkieltyka|townsendmerino)/(goinfer|aikit)|_test\.go:[0-9]+`)
 
 // registerDumpRe is the tail of a Go crash report — `r14  0x8000…`, `pc 0x…`.
 // Machine state, useless for identifying WHICH test died, and long enough to push
