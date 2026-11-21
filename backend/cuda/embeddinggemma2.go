@@ -52,6 +52,8 @@ type eg2Defect struct {
 	windowWide   bool // a sliding row reaches distance W+1
 	windowNarrow bool // a sliding row stops at distance W-1
 	vNormWeight  bool // v's norm takes the k weight instead of none
+	failForward  bool // a forward fails after its first layer is queued
+	drainFails   int  // the next drainFails queue drains fail
 }
 
 // eg2Accel is the CUDA accelerator. One forward at a time (mu); towerOps runs every device call on its executor.
@@ -65,6 +67,7 @@ type eg2Accel struct {
 	pleProj, pleNorm, finalNorm, proj, ones Buffer
 	layers                                  []eg2Layer
 	ropes                                   []eg2Rope
+	broken                                  error // set when a failed forward could not be drained; every later forward returns it
 	defect                                  eg2Defect
 }
 
@@ -109,15 +112,32 @@ func newEG2Accel(m *embeddinggemma2.Model) (*eg2Accel, error) {
 
 func (a *eg2Accel) Name() string { return "cuda" }
 
-// Close frees the encoder's device memory and stops its executor; a forward after it is an error. Idempotent.
+// Close frees the encoder's device memory and stops its executor; a forward after it is an error. On an accelerator
+// a failed forward left undrained (broken), it drains the queue first: if that fails too it frees nothing, returns the
+// error and leaves the accelerator as it was, so a later Close can try again. Once closed, Close does nothing.
 func (a *eg2Accel) Close() error {
 	a.mu.Lock()
 	defer a.mu.Unlock()
-	if !a.closed {
-		a.ops.close()
-		a.closed, a.layers, a.ropes = true, nil, nil
+	if a.closed {
+		return nil
 	}
+	if a.broken != nil {
+		if err := a.ops.do(a.drainQueue); err != nil {
+			return fmt.Errorf("cuda: EmbeddingGemma 2 Close could not drain the queue, so nothing was freed: %w", err)
+		}
+	}
+	a.ops.close()
+	a.closed, a.layers, a.ropes = true, nil, nil
 	return nil
+}
+
+// drainQueue waits for every queued launch and copy. The caller is on the executor.
+func (a *eg2Accel) drainQueue() error {
+	if a.defect.drainFails > 0 {
+		a.defect.drainFails--
+		return errors.New("cuda: planted drain failure")
+	}
+	return a.ops.q.Sync()
 }
 
 var errEG2Closed = errors.New("cuda: the EmbeddingGemma 2 accelerator is closed")
@@ -185,6 +205,20 @@ func eg2Bounds(T, W int) (lo, hi []int32) {
 	return lo, hi
 }
 
+// eg2BatchBounds is eg2Bounds for inputs of the given lengths laid end to end: each row's range is its own input's,
+// shifted to where that input starts, so no row reaches another input's keys.
+func eg2BatchBounds(lens []int, W int) (lo, hi []int32) {
+	off := 0
+	for _, n := range lens {
+		l, h := eg2Bounds(n, W)
+		for i := range l {
+			lo, hi = append(lo, l[i]+int32(off)), append(hi, h[i]+int32(off))
+		}
+		off += n
+	}
+	return lo, hi
+}
+
 // ForwardEmbeds runs the encoder from T prepared input rows (embeddinggemma2.Accelerator); x0 is not modified.
 func (a *eg2Accel) ForwardEmbeds(x0 []float32, T int, keepLayers bool) ([]float32, [][]float32, error) {
 	a.mu.Lock()
@@ -192,13 +226,126 @@ func (a *eg2Accel) ForwardEmbeds(x0 []float32, T int, keepLayers bool) ([]float3
 	if a.closed {
 		return nil, nil, errEG2Closed
 	}
-	c := a.cfg
-	H, I, P, L, E, nH := c.Hidden, c.Intermediate, c.PLEDim, c.Layers, c.EmbeddingDim, c.Heads
-	if T == 0 || len(x0) != T*H {
+	if a.broken != nil {
+		return nil, nil, a.broken
+	}
+	if H := a.cfg.Hidden; T == 0 || len(x0) != T*H {
 		return nil, nil, fmt.Errorf("cuda: %d input values for %d rows of %d", len(x0), T, H)
 	}
 	if T > eg2MaxTokens {
 		return nil, nil, fmt.Errorf("cuda: %d positions, over the accelerator's %d", T, eg2MaxTokens)
+	}
+	return a.forwardRows(x0, []int{T}, keepLayers)
+}
+
+// ForwardBatch runs the encoder over several inputs in one forward: their token rows laid end to end, each attending
+// only within itself at its own positions 0..T_b-1, every row-wise step over all of them at once. It returns each
+// input's projected last hidden state, [len(ids[b]), E] row-major, in input order, for the caller to pool. The inputs'
+// total length is held to the single-input cap. A batch of one runs exactly what Forward runs.
+func (a *eg2Accel) ForwardBatch(ids [][]int) ([][]float32, error) {
+	a.mu.Lock()
+	defer a.mu.Unlock()
+	if a.closed {
+		return nil, errEG2Closed
+	}
+	if a.broken != nil {
+		return nil, a.broken
+	}
+	c := a.cfg
+	H, E := c.Hidden, c.EmbeddingDim
+	if len(ids) == 0 {
+		return nil, fmt.Errorf("cuda: an empty batch")
+	}
+	lens, T := make([]int, len(ids)), 0
+	for b, in := range ids {
+		if len(in) == 0 {
+			return nil, fmt.Errorf("cuda: batch input %d has no ids", b)
+		}
+		lens[b], T = len(in), T+len(in)
+	}
+	if T > eg2MaxTokens {
+		return nil, fmt.Errorf("cuda: a batch of %d positions, over the accelerator's %d", T, eg2MaxTokens)
+	}
+	x := make([]float32, T*H)
+	scale := float32(math.Sqrt(float64(H)))
+	t := 0
+	for b, in := range ids {
+		for _, id := range in {
+			if id < 0 || id >= c.VocabSize {
+				return nil, fmt.Errorf("cuda: batch input %d: token id %d out of range [0, %d)", b, id, c.VocabSize)
+			}
+			for j, v := range a.embed[id*H : (id+1)*H] {
+				x[t*H+j] = v * scale
+			}
+			t++
+		}
+	}
+	out, _, err := a.forwardRows(x, lens, false)
+	if err != nil {
+		return nil, err
+	}
+	res := make([][]float32, len(ids))
+	off := 0
+	for b, n := range lens {
+		res[b] = out[off*E : (off+n)*E : (off+n)*E]
+		off += n
+	}
+	return res, nil
+}
+
+type eg2RopeKey struct {
+	hd    int
+	theta float64
+}
+
+// batchRope builds, for inputs of the given lengths laid end to end, one cos and one sin table per (head dim, theta)
+// the layers use: input b's rows hold the cached table's first len(b) rows, its own positions 0..len(b)-1. Every cached
+// table is grown before the first copy is queued, so no source a copy reads is replaced under it; the tables are
+// per-call scratch (towerOps.af), freed when the forward's scratch is. Copy errors latch as launch errors do. The
+// caller is on the executor.
+func (a *eg2Accel) batchRope(lens []int) map[eg2RopeKey][2]Buffer {
+	o := a.ops
+	T, maxT := 0, 0
+	for _, n := range lens {
+		T, maxT = T+n, max(maxT, n)
+	}
+	src := map[eg2RopeKey][2]Buffer{}
+	var keys []eg2RopeKey
+	for _, ly := range a.layers {
+		k := eg2RopeKey{ly.w.HeadDim, ly.w.RopeTheta}
+		if _, ok := src[k]; !ok {
+			cs, sn := a.rope(maxT, k.hd, k.theta)
+			src[k] = [2]Buffer{cs, sn}
+			keys = append(keys, k)
+		}
+	}
+	out := map[eg2RopeKey][2]Buffer{}
+	for _, k := range keys {
+		dst := [2]Buffer{o.af(T * k.hd), o.af(T * k.hd)}
+		off := 0
+		for _, n := range lens {
+			w := n * k.hd * 4
+			for j := range dst {
+				if o.err == nil {
+					o.err = o.q.Copy2DAsync(dst[j].At(off*k.hd*4), w, src[k][j], w, w, 1)
+				}
+			}
+			off += n
+		}
+		out[k] = dst
+	}
+	return out
+}
+
+// forwardRows is the forward over inputs of the given lengths whose prepared rows x0 holds end to end. One input takes
+// the cached RoPE tables as they are; several take a table per (head dim, theta) gathered on the device from each
+// input's own leading rows. The caller holds mu and has checked the lengths.
+func (a *eg2Accel) forwardRows(x0 []float32, lens []int, keepLayers bool) ([]float32, [][]float32, error) {
+	c := a.cfg
+	H, I, P, L, E, nH := c.Hidden, c.Intermediate, c.PLEDim, c.Layers, c.EmbeddingDim, c.Heads
+	T, maxT := 0, 0
+	for _, n := range lens {
+		T, maxT = T+n, max(maxT, n)
 	}
 	W := c.SlidingWindow
 	if a.defect.windowWide {
@@ -207,8 +354,8 @@ func (a *eg2Accel) ForwardEmbeds(x0 []float32, T int, keepLayers bool) ([]float3
 	if a.defect.windowNarrow {
 		W--
 	}
-	slLo, slHi := eg2Bounds(T, W)
-	fuLo, fuHi := eg2Bounds(T, -1)
+	slLo, slHi := eg2BatchBounds(lens, W)
+	fuLo, fuHi := eg2BatchBounds(lens, -1)
 	maxQD, maxKVD := 0, 0
 	for _, ly := range a.layers {
 		maxQD = max(maxQD, nH*ly.w.HeadDim)
@@ -221,7 +368,19 @@ func (a *eg2Accel) ForwardEmbeds(x0 []float32, T int, keepLayers bool) ([]float3
 	}
 	err := a.ops.do(func() error {
 		o := a.ops
-		defer o.releaseScratch()
+		done := false
+		defer func() {
+			// A failed or panicking forward may leave copies and launches queued on its scratch: drain them before it is
+			// freed. If the drain fails, keep the scratch (Close frees it once a drain succeeds) and refuse later forwards.
+			if !done {
+				o.err = nil
+				if e := a.drainQueue(); e != nil {
+					a.broken = fmt.Errorf("cuda: a failed EmbeddingGemma 2 forward could not be drained: %w", e)
+					return
+				}
+			}
+			o.releaseScratch()
+		}()
 		af := o.af
 		x, xn := af(T*H), af(T*H)
 		q, k, v := af(T*maxQD), af(T*maxKVD), af(T*maxKVD)
@@ -240,6 +399,10 @@ func (a *eg2Accel) ForwardEmbeds(x0 []float32, T int, keepLayers bool) ([]float3
 			if e := gpu.Upload(b.dst, b.v); e != nil {
 				return e
 			}
+		}
+		var batchRope map[eg2RopeKey][2]Buffer
+		if len(lens) > 1 {
+			batchRope = a.batchRope(lens)
 		}
 		eps := float32(c.RMSNormEps)
 		// Per-layer inputs, as the CPU forms them: RMSNorm(W · x0 · hidden^-0.5) over [T, L, P].
@@ -262,15 +425,20 @@ func (a *eg2Accel) ForwardEmbeds(x0 []float32, T int, keepLayers bool) ([]float3
 				vw = ly.kNorm
 			}
 			o.rms(v, vw, v, T*nKV, hd, eps)
-			cs, sn := a.rope(T, hd, ly.w.RopeTheta)
+			var cs, sn Buffer
+			if r, ok := batchRope[eg2RopeKey{hd, ly.w.RopeTheta}]; ok {
+				cs, sn = r[0], r[1]
+			} else {
+				cs, sn = a.rope(T, hd, ly.w.RopeTheta)
+			}
 			o.ropeHalfTo(q, cs, sn, T, nH, hd)
 			o.ropeHalfTo(k, cs, sn, T, nKV, hd)
 			if e := a.pack(qkv, q, k, v, T, nH, hd, group); e != nil {
 				return e
 			}
-			lo, hi, maxSeg := slLoB, slHiB, min(T, 2*W+1)
+			lo, hi, maxSeg := slLoB, slHiB, min(maxT, 2*W+1)
 			if ly.w.Full {
-				lo, hi, maxSeg = fuLoB, fuHiB, T
+				lo, hi, maxSeg = fuLoB, fuHiB, maxT
 			}
 			o.cls(clsAttn)
 			o.launch(o.vit.AttentionSeg, gpu.SegAttentionGrid(T, nH, maxSeg), Arg(qkv), Arg(ctx), Arg(lo), Arg(hi),
@@ -298,6 +466,9 @@ func (a *eg2Accel) ForwardEmbeds(x0 []float32, T int, keepLayers bool) ([]float3
 			o.rms(pr, ly.plePostNorm, pr, T, H, eps)
 			o.addVec(x, pr, T*H)
 			o.scaleVec(x, T*H, ly.w.LayerScalar)
+			if a.defect.failForward && o.err == nil {
+				o.err = errors.New("cuda: planted forward failure")
+			}
 			if keepLayers {
 				if e := o.finish(); e != nil {
 					return fmt.Errorf("layer %d: %w", li, e)
@@ -315,7 +486,11 @@ func (a *eg2Accel) ForwardEmbeds(x0 []float32, T int, keepLayers bool) ([]float3
 			return e
 		}
 		out = make([]float32, T*E)
-		return gpu.Download(res, out)
+		if e := gpu.Download(res, out); e != nil {
+			return e
+		}
+		done = true
+		return nil
 	})
 	if err != nil {
 		return nil, nil, fmt.Errorf("cuda: EmbeddingGemma 2 forward: %w", err)

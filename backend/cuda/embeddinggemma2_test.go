@@ -5,6 +5,7 @@ package cuda
 import (
 	"encoding/json"
 	"errors"
+	"fmt"
 	"math"
 	"math/rand/v2"
 	"os"
@@ -235,6 +236,305 @@ func TestEG2CUDA_runsOnDevice(t *testing.T) {
 	}
 	if launches < 20*c.Layers {
 		t.Errorf("%d launches for %d layers", launches, c.Layers)
+	}
+}
+
+// eg2Counts is what the device saw while f ran: launches (attention_seg among them), strided copies and allocations.
+type eg2Counts struct{ launches, attn, copies, allocs int }
+
+func eg2Count(t *testing.T, a *eg2Accel, f func()) eg2Counts {
+	t.Helper()
+	var mu sync.Mutex
+	var n eg2Counts
+	attnPtr := a.ops.vit.AttentionSeg.Ptr()
+	gpu.TraceForTest = func(e gpu.TraceEvent) {
+		mu.Lock()
+		defer mu.Unlock()
+		switch e.Op {
+		case gpu.TraceLaunch:
+			n.launches++
+			if e.Pipe == attnPtr {
+				n.attn++
+			}
+		case gpu.TraceCopy2D:
+			n.copies++
+		case gpu.TraceAlloc:
+			n.allocs++
+		}
+	}
+	defer func() { gpu.TraceForTest = nil }()
+	f()
+	return n
+}
+
+// eg2FirstDiff is the first value at which got and want differ bit for bit, as row and column of width w, or "".
+func eg2FirstDiff(got, want []float32, w int) string {
+	if len(got) != len(want) {
+		return fmt.Sprintf("%d values, want %d", len(got), len(want))
+	}
+	for i := range want {
+		if math.Float32bits(got[i]) != math.Float32bits(want[i]) {
+			return fmt.Sprintf("row %d column %d: %#08x (%v), want %#08x (%v)", i/w, i%w, math.Float32bits(got[i]), got[i],
+				math.Float32bits(want[i]), want[i])
+		}
+	}
+	return ""
+}
+
+func eg2SeqIDs(n, seed, vocab int) []int {
+	ids := make([]int, n)
+	for i := range ids {
+		ids[i] = (i*2654435761 + seed*40503 + 17) % vocab
+		if ids[i] < 0 {
+			ids[i] = -ids[i]
+		}
+	}
+	return ids
+}
+
+// TestEG2CUDA_batchMatchesSingles: a batch of inputs of mixed lengths (1 to 300 tokens; both sides of the radius-3
+// window, both head geometries) gives each input's projected rows bit for bit what Forward gives that input alone, in
+// either order, and each is within the CPU bar.
+func TestEG2CUDA_batchMatchesSingles(t *testing.T) {
+	m := eg2TinyModel(t)
+	a := newEG2ForTest(t, m)
+	V, E := m.Config().VocabSize, m.Dim()
+	var inputs [][]int
+	for i, n := range []int{1, 2, 7, 9, 64, 300} {
+		inputs = append(inputs, eg2SeqIDs(n, i+1, V))
+	}
+	singles := make([][]float32, len(inputs))
+	for i, ids := range inputs {
+		h, _, err := a.Forward(ids, false)
+		if err != nil {
+			t.Fatal(err)
+		}
+		singles[i] = h
+		cpu, _, err := m.ForwardCPU(ids, false)
+		if err != nil {
+			t.Fatal(err)
+		}
+		if c := eg2Cos(h, cpu); !(c >= 0.9999) {
+			t.Fatalf("input %d (%d tokens) alone: cosine %.9f with the CPU", i, len(ids), c)
+		}
+	}
+	for _, order := range [][]int{{0, 1, 2, 3, 4, 5}, {5, 4, 3, 2, 1, 0}, {3, 0, 5, 1, 4, 2}} {
+		batch := make([][]int, len(order))
+		for j, i := range order {
+			batch[j] = inputs[i]
+		}
+		got, err := a.ForwardBatch(batch)
+		if err != nil {
+			t.Fatal(err)
+		}
+		for j, i := range order {
+			if d := eg2FirstDiff(got[j], singles[i], E); d != "" {
+				t.Fatalf("order %v, input %d (%d tokens): batch differs from the input alone at %s", order, i, len(inputs[i]), d)
+			}
+		}
+	}
+}
+
+// TestEG2CUDA_batchNoLeakage: what sits beside an input in a batch — other tokens, another length, before or after it,
+// one or two neighbours — never changes that input's rows by a bit.
+func TestEG2CUDA_batchNoLeakage(t *testing.T) {
+	m := eg2TinyModel(t)
+	a := newEG2ForTest(t, m)
+	V, E := m.Config().VocabSize, m.Dim()
+	b := eg2SeqIDs(9, 99, V)
+	want, _, err := a.Forward(b, false)
+	if err != nil {
+		t.Fatal(err)
+	}
+	for _, n := range []int{1, 3, 4, 8, 64} {
+		for seed := range 2 {
+			other := eg2SeqIDs(n, 1000+seed, V)
+			for _, c := range []struct {
+				name  string
+				batch [][]int
+				at    int
+			}{{"after", [][]int{other, b}, 1}, {"before", [][]int{b, other}, 0}, {"between", [][]int{other, b, other}, 1}} {
+				got, err := a.ForwardBatch(c.batch)
+				if err != nil {
+					t.Fatal(err)
+				}
+				if d := eg2FirstDiff(got[c.at], want, E); d != "" {
+					t.Fatalf("neighbour of %d tokens (seed %d) %s: the 9-token input differs at %s", n, seed, c.name, d)
+				}
+			}
+		}
+	}
+}
+
+// TestEG2CUDA_batchRopeSegments: the batch's RoPE tables hold, for every input, the cached table's leading rows bit for
+// bit: each input starts again at position 0, also after a nonempty one, for both (head dim, theta) pairs.
+func TestEG2CUDA_batchRopeSegments(t *testing.T) {
+	m := eg2TinyModel(t)
+	a := newEG2ForTest(t, m)
+	lens := []int{5, 9, 3}
+	if err := a.ops.do(func() error {
+		defer a.ops.releaseScratch()
+		tabs := a.batchRope(lens)
+		if err := a.ops.finish(); err != nil {
+			return err
+		}
+		if len(tabs) != 2 {
+			return fmt.Errorf("%d (head dim, theta) pairs, want the fixture's 2", len(tabs))
+		}
+		for k, tb := range tabs {
+			cs, sn := a.rope(9, k.hd, k.theta)
+			for j, src := range []Buffer{cs, sn} {
+				ref := make([]float32, 9*k.hd)
+				got := make([]float32, 17*k.hd)
+				if err := errors.Join(gpu.Download(src, ref), gpu.Download(tb[j], got)); err != nil {
+					return err
+				}
+				off := 0
+				for b, n := range lens {
+					if d := eg2FirstDiff(got[off*k.hd:(off+n)*k.hd], ref[:n*k.hd], k.hd); d != "" {
+						return fmt.Errorf("hd %d theta %g table %d, input %d: %s", k.hd, k.theta, j, b, d)
+					}
+					off += n
+				}
+			}
+		}
+		return nil
+	}); err != nil {
+		t.Fatal(err)
+	}
+}
+
+// TestEG2CUDA_batchContract: a batch's outputs are the caller's (appending to one leaves the next alone; a later
+// forward changes neither); a batch at exactly the length cap runs; an empty batch, an empty or out-of-vocabulary
+// member (in the last slot) and a batch one past the cap are refused before any device allocation, copy or launch; a
+// batch of one issues what Forward issues; a batch of N issues one forward's launches (one attention_seg per layer)
+// and Forward's copies plus two per input for each RoPE pair; and after Close a batch is an error.
+func TestEG2CUDA_batchContract(t *testing.T) {
+	m := eg2TinyModel(t)
+	a := newEG2ForTest(t, m)
+	c := m.Config()
+	V, E := c.VocabSize, m.Dim()
+	in := [][]int{eg2SeqIDs(7, 1, V), eg2SeqIDs(5, 2, V), eg2SeqIDs(12, 3, V), eg2SeqIDs(2, 4, V)}
+	got, err := a.ForwardBatch(in)
+	if err != nil {
+		t.Fatal(err)
+	}
+	keep := slices.Clone(got[1])
+	_ = append(got[0], 1, 2, 3)
+	if _, err := a.ForwardBatch(in[:2]); err != nil {
+		t.Fatal(err)
+	}
+	if d := eg2FirstDiff(got[1], keep, E); d != "" {
+		t.Fatalf("an append to one output or a later forward changed the next output at %s", d)
+	}
+	if _, err := a.ForwardBatch([][]int{eg2SeqIDs(eg2MaxTokens-5, 5, V), eg2SeqIDs(5, 6, V)}); err != nil {
+		t.Fatalf("a batch of exactly %d positions: %v", eg2MaxTokens, err)
+	}
+	for _, bad := range []struct {
+		name  string
+		batch [][]int
+	}{
+		{"empty batch", nil},
+		{"empty last member", [][]int{in[0], {}}},
+		{"out-of-vocabulary last member", [][]int{in[0], {1, V}}},
+		{"one past the cap", [][]int{eg2SeqIDs(eg2MaxTokens-4, 5, V), eg2SeqIDs(5, 6, V)}},
+	} {
+		var err error
+		n := eg2Count(t, a, func() { _, err = a.ForwardBatch(bad.batch) })
+		if err == nil || n != (eg2Counts{}) {
+			t.Errorf("%s: error %v, device work %+v; want a refusal and none", bad.name, err, n)
+		}
+	}
+	single := eg2Count(t, a, func() {
+		if _, _, err := a.Forward(in[2], false); err != nil {
+			t.Fatal(err)
+		}
+	})
+	one := eg2Count(t, a, func() {
+		if _, err := a.ForwardBatch(in[2:3]); err != nil {
+			t.Fatal(err)
+		}
+	})
+	if one != single {
+		t.Errorf("a batch of one: %+v, Forward: %+v", one, single)
+	}
+	var cat []int
+	for _, ids := range in {
+		cat = append(cat, ids...)
+	}
+	flat := eg2Count(t, a, func() {
+		if _, _, err := a.Forward(cat, false); err != nil {
+			t.Fatal(err)
+		}
+	})
+	batch := eg2Count(t, a, func() {
+		if _, err := a.ForwardBatch(in); err != nil {
+			t.Fatal(err)
+		}
+	})
+	t.Logf("%d tokens as one input: %+v; as %d inputs: %+v", len(cat), flat, len(in), batch)
+	if batch.launches != flat.launches || batch.attn != c.Layers || batch.copies != flat.copies+2*2*len(in) {
+		t.Errorf("a batch of %d: %+v; want %d launches with %d attention_seg and %d copies", len(in), batch, flat.launches,
+			c.Layers, flat.copies+2*2*len(in))
+	}
+	if err := a.Close(); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := a.ForwardBatch(in); !errors.Is(err, errEG2Closed) {
+		t.Fatalf("a batch after Close: %v, want errEG2Closed", err)
+	}
+}
+
+// TestEG2CUDA_failedDrain: a failed forward is drained before its scratch is freed; when that drain fails the
+// accelerator refuses forwards and batches and keeps its device memory, and Close frees nothing until a drain
+// succeeds, then empties the ledger; a second Close does nothing.
+func TestEG2CUDA_failedDrain(t *testing.T) {
+	m := eg2TinyModel(t)
+	a := newEG2ForTest(t, m)
+	V := m.Config().VocabSize
+	in := [][]int{eg2SeqIDs(7, 1, V), eg2SeqIDs(5, 2, V)}
+	if _, err := a.ForwardBatch(in); err != nil {
+		t.Fatal(err)
+	}
+	dev := a.ops.dev
+	held, _ := dev.LedgerLen()
+	a.defect.failForward = true
+	if _, err := a.ForwardBatch(in); err == nil {
+		t.Fatal("the planted failure was not reported")
+	}
+	if n, _ := dev.LedgerLen(); n != held || a.broken != nil {
+		t.Fatalf("after a drained failure: %d allocations (want %d), broken %v", n, held, a.broken)
+	}
+	a.defect.drainFails = 1
+	if _, err := a.ForwardBatch(in); err == nil {
+		t.Fatal("the planted failure was not reported")
+	}
+	a.defect.failForward = false
+	kept, _ := dev.LedgerLen()
+	if a.broken == nil || kept <= held {
+		t.Fatalf("after an undrained failure: broken %v, %d allocations (held %d before)", a.broken, kept, held)
+	}
+	if _, err := a.ForwardBatch(in); !errors.Is(err, a.broken) {
+		t.Fatalf("a batch on a broken accelerator: %v", err)
+	}
+	if _, _, err := a.Forward(in[0], false); !errors.Is(err, a.broken) {
+		t.Fatalf("a forward on a broken accelerator: %v", err)
+	}
+	a.defect.drainFails = 1
+	if err := a.Close(); err == nil {
+		t.Fatal("Close returned nil though its drain failed")
+	}
+	if n, _ := dev.LedgerLen(); n != kept || a.closed {
+		t.Fatalf("after a failed Close: %d allocations (want %d), closed %v", n, kept, a.closed)
+	}
+	if err := a.Close(); err != nil {
+		t.Fatalf("Close once the drain recovers: %v", err)
+	}
+	if allocs, objs := dev.LedgerLen(); allocs != 0 || objs != 0 {
+		t.Fatalf("after Close the ledger holds %d allocations and %d objects", allocs, objs)
+	}
+	if err := a.Close(); err != nil {
+		t.Fatalf("a second Close: %v", err)
 	}
 }
 
