@@ -70,8 +70,8 @@ while read -r lref lsha rref rsha; do
             echo "  or tests) or a release (a tip whose subject starts \"release: \", RELEASING.md) goes straight to main." >&2
             echo "  Product code goes through a pull request (CLAUDE.md, \"Working in the tree\"):" >&2
             echo "    git push origin <sha>:<branch>; gh pr create; then, as its own command," >&2
-            echo "    gh pr merge <n> --repo townsendmerino/goinfer --auto --merge" >&2
-            echo "  If you believe the hold is wrong, stop and report it to Francis. Never --no-verify." >&2
+            echo "    gh pr merge <n> --repo pkieltyka/goinfer --auto --merge" >&2
+            echo "  If you believe the hold is wrong, stop and report it to the fork owner (Peter). Never --no-verify." >&2
             refused=1
         fi
     fi
