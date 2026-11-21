@@ -1074,7 +1074,10 @@ module named explicitly. Name a backend module to build against it, or to pin, v
 go get github.com/pkieltyka/goinfer/backend/cuda@latest
 ```
 
-**The fork releases the root independently.** Its v0.1.0 and v0.2.0 tags cover the root module. To build a matching backend, use the release checkout and its workspace. When also publishing submodule versions, follow the multi-module release procedure. [RELEASING.md](../RELEASING.md) is the authority: tag the
+**The fork releases the root independently.** See the [fork tags](https://github.com/pkieltyka/goinfer/tags).
+The fork inherited upstream’s `v0.3.0` tag for `github.com/townsendmerino/goinfer`, so its next
+release skips to `v0.4.0` pending the fork owner’s approval.
+To build a matching backend, use the release checkout and its workspace. When also publishing submodule versions, follow the multi-module release procedure. [RELEASING.md](../RELEASING.md) is the authority: tag the
 root, then point each submodule at that tag and tag it. Submodule tags carry the module path as a
 prefix (`backend/cuda/vX.Y.Z`, `backend/webgpu/vX.Y.Z`, `backend/metal/vX.Y.Z`, `demo/agent/vX.Y.Z`), which is how the module
 proxy resolves a submodule. Bare `vX.Y.Z` tags are the root's. The

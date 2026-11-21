@@ -1,7 +1,8 @@
 # Releasing goinfer
 
-The fork publishes the root module, `github.com/pkieltyka/goinfer`. Its v0.1.0, v0.2.0
-and v0.3.0 releases all tag the root alone. See the [fork tags](https://github.com/pkieltyka/goinfer/tags).
+The fork publishes the root module, `github.com/pkieltyka/goinfer`, independently of the backends and demo.
+The fork inherited upstream’s `v0.3.0` tag for `github.com/townsendmerino/goinfer`, so its next
+release skips to `v0.4.0` pending the fork owner’s approval. See the [fork tags](https://github.com/pkieltyka/goinfer/tags).
 
 The workspace also includes four separately versioned modules in `backend/webgpu/`,
 `backend/cuda/`, `backend/metal/` and `demo/agent/`. Use Step 2 only when publishing
