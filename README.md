@@ -4,7 +4,6 @@
 > `github.com/pkieltyka/goinfer`. The original copyright and MIT License are kept ([LICENSE](LICENSE), [NOTICE](NOTICE)).
 
 [![Go Reference](https://pkg.go.dev/badge/github.com/pkieltyka/goinfer.svg)](https://pkg.go.dev/github.com/pkieltyka/goinfer)
-[![codecov](https://codecov.io/gh/townsendmerino/goinfer/graph/badge.svg)](https://codecov.io/gh/townsendmerino/goinfer)
 
 **Run an open-weight LLM inside your Go program.** Pure Go, no cgo: `go get` it, import it,
 cross-compile it like anything else. No Python, no llama.cpp, no C toolchain, no daemon.
@@ -21,8 +20,7 @@ cross-compile it like anything else. No Python, no llama.cpp, no C toolchain, no
 Also ships as a ready-made server (`goinfer-serve`: OpenAI and Anthropic APIs, web UI) and a
 single-shot chat binary (`goinfer-chat`).
 
-**[goinfer.dev](https://goinfer.dev)** — [models](https://goinfer.dev/models/) ·
-[download](https://goinfer.dev/download/) · [docs](https://goinfer.dev/docs/) ·
+**[Fork downloads](https://github.com/pkieltyka/goinfer/releases/latest)** · Upstream documentation at [goinfer.dev](https://goinfer.dev): [models](https://goinfer.dev/models/) · [docs](https://goinfer.dev/docs/) ·
 [an inference primer for Go engineers](https://goinfer.dev/book/)
 
 [![goinfer chat — an entire LLM in one file](docs/assets/demo.gif)](docs/assets/demo.gif)
@@ -110,8 +108,7 @@ decided: [docs/api-tiers.md](docs/api-tiers.md).
 ## Or run it as a binary
 
 Nothing to build and no Go toolchain needed. Binaries for macOS, Linux and Windows (Intel and
-ARM) are on the [latest release](https://github.com/townsendmerino/goinfer/releases/latest) and
-the [download page](https://goinfer.dev/download/), with sizes and sha256.
+ARM) are on the [latest fork release](https://github.com/pkieltyka/goinfer/releases/latest), with file sizes and SHA-256 checksums.
 
 | asset | what it is |
 | --- | --- |
@@ -125,12 +122,12 @@ Each of the four comes for darwin, linux and windows on amd64 and arm64 (a Windo
 
 ```bash
 # macOS arm64; swap the suffix for your platform
-curl -fsSL -o goinfer-serve https://github.com/townsendmerino/goinfer/releases/latest/download/goinfer-serve-darwin-arm64
+curl -fsSL -o goinfer-serve https://github.com/pkieltyka/goinfer/releases/latest/download/goinfer-serve-darwin-arm64
 chmod +x goinfer-serve
 ```
 
 Each release carries `checksums.txt` and a build attestation for every asset. To check that a binary was built by this
-repo's release workflow from that tag, run `gh attestation verify goinfer-serve --repo townsendmerino/goinfer`.
+repo's release workflow from that tag, run `gh attestation verify goinfer-serve --repo pkieltyka/goinfer`.
 
 ```bash
 # model included — nothing else to fetch
@@ -218,8 +215,10 @@ That is the CPU server. Each GPU backend has its own entrypoint (`-tags metal` o
 fails the build and says so):
 
 ```bash
-go install github.com/pkieltyka/goinfer/backend/metal/cmd/serve@latest              # macOS
-go install -tags cuda  github.com/pkieltyka/goinfer/backend/cuda/cmd/serve@latest    # Linux + NVIDIA
+# From a checkout of the fork at the release you want:
+./scripts/make_work.sh
+go build -o goinfer-serve ./backend/metal/cmd/serve              # macOS
+go build -tags cuda -o goinfer-serve ./backend/cuda/cmd/serve    # Linux + NVIDIA
 ```
 
 The released `goinfer-serve` and `goinfer-chat` assets include Metal on macOS and CUDA on Linux,
@@ -338,8 +337,7 @@ narrower path, or emulation), and which have never executed at all.
 
 What stands between you and a wrong answer on a machine we have not seen is a check goinfer runs at start: it runs the compute kernels it is about to use against a reference on a small fixed input, and if one disagrees
 it steps down to a slower path, or declines that backend, rather than giving wrong numbers. Today that covers the CPU kernels, CUDA, WebGPU on a real GPU (not on a software renderer), and Metal; each GPU backend's margins were
-measured on one device so far ([docs/server.md](docs/server.md)). `goinfer-serve check --hardware` prints what it found on your machine and sends nothing anywhere. If something is wrong, paste it into
-[a bug report](https://github.com/townsendmerino/goinfer/issues/new?template=bug.yml); that is the most useful thing you can send.
+measured on one device so far ([docs/server.md](docs/server.md)). `goinfer-serve check --hardware` prints what it found on your machine and sends nothing anywhere. If you submit a [fix to this fork](https://github.com/pkieltyka/goinfer/pulls), include the hardware report and steps to reproduce the problem.
 
 ## What it is, and isn't
 
@@ -416,8 +414,7 @@ Qwen3-VL MoE (a 30B model, too large for a 16 GB Mac or an 8 GB card) has been c
 
 ## Docs
 
-[goinfer.dev](https://goinfer.dev) is the readable front door and is rebuilt at each release; the
-repo is the source of truth in between. The [primer](https://goinfer.dev/book/) is eleven chapters
+This checkout's [docs](docs/) describe the fork. [goinfer.dev](https://goinfer.dev) hosts the upstream documentation. The [primer](https://goinfer.dev/book/) is eleven chapters
 on how a language model runs, written for someone who knows Go and not machine learning, each
 ending in a measured number from this repo. Chapter 11, on how measurements here have gone wrong,
 is the one to read if you read only one. Source: [docs/book/](docs/book).

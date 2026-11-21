@@ -24,7 +24,7 @@ set -euo pipefail
 
 tag="${1:-}"
 [ -n "$tag" ] || { echo "usage: $0 <tag>" >&2; exit 2; }
-repo="${GH_REPO:-townsendmerino/goinfer}"
+repo="${GH_REPO:-pkieltyka/goinfer}"
 
 if ! gh release view "$tag" --repo "$repo" >/dev/null 2>&1; then
   echo "no GitHub Release for $tag yet — nothing published, nothing to check"

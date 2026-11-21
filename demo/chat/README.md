@@ -25,7 +25,7 @@ kernel) — interactive on a laptop CPU, no GPU required.
 ## Download & run
 
 Two size tiers — same program, pick one. Grab the binary for your platform from
-the [latest release](https://github.com/townsendmerino/goinfer/releases/latest):
+the [latest release](https://github.com/pkieltyka/goinfer/releases/latest):
 
 Speed figures below are measured, not estimated: Apple M1 Pro, int8int8,
 `DefaultDecodeParallelThreshold`, median of 5 runs, 2026-08-22 @ `3a27941`

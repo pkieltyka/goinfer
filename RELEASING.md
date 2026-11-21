@@ -19,6 +19,8 @@ survives to a tag unless caught here.
 > there is no second root tag. Confirm before starting: `grep -E "goinfer/(backend/(cuda|webgpu|metal)|cuda|gpu|metal)" go.mod`
 > in the root prints nothing. (git history holds the obsolete three-step flow.)
 
+The fork published v0.1.0 and v0.2.0 as root-module tags. Use the submodule steps below when publishing a backend or demo module. Check the [fork tags](https://github.com/pkieltyka/goinfer/tags) for the versions that exist.
+
 ## Invariants (why the steps are shaped this way)
 
 - **Submodule go.mods carry NO `replace` (2026-08-15).** The dev-convenience
@@ -86,7 +88,7 @@ the report is shown. Only Francis adds an entry, as with `swap_guard_approved_by
    landed 2555edc; B-08/B-12 must be done first — they are breaking-to-fix-after-tag).
 2. `docs/completed/audit-2026-08-05.md` §9 "before the tag" set (C-18/C-19 in; confirm nothing regressed).
 3. **§C1 parity re-validation** (below, real T3 on the box) is scheduled — it is the one ⛔ gate.
-4. Working tree clean; on `main`; `gh auth switch --user townsendmerino`.
+4. Working tree clean; on `main`; confirm `git remote get-url --push origin` names `pkieltyka/goinfer`, and set `export GH_REPO=pkieltyka/goinfer` for the release commands. Use an account with write access to the fork.
 5. **A cold-user run on the previous tag**, per `docs/measurements/cold-user-protocol.md` — a fresh window, an
    empty directory outside the repo, the published assets only. It is a 15-minute run and it is the
    only gate that reads the product from outside: v0.16.0 shipped a README naming a binary that was
@@ -129,16 +131,16 @@ the report is shown. Only Francis adds an entry, as with `swap_guard_approved_by
 ## The two-step tag (post-M-19)
 
 The root no longer requires the submodules, so tag the root **once**, push it, then bump and tag
-the submodules against that published root. The example uses `v0.10.1`.
+the submodules against that published root. Set `TAG` to the new fork release version in the shell before running these steps.
 
 **Step 1 — tag the root, push FIRST.** The submodules `go get` the root from the proxy, so it must
 be published before Step 2 runs.
 ```
 # align aikit ONLY if a module actually disagrees (B-07 above) — as of v0.10.3 they all agree.
 go mod tidy
-git commit -am "release: v0.10.1 (<one-line summary>)"
-git tag v0.10.1
-git push origin main v0.10.1        # published BEFORE any submodule go-gets it
+git commit -am "release: ${TAG} (<one-line summary>)"
+git tag ${TAG}
+git push origin main ${TAG}        # published BEFORE any submodule go-gets it
 ```
 
 > **If `git commit -am` says "nothing to commit", that is expected — tag HEAD instead.** This step
@@ -159,8 +161,8 @@ Do `backend/webgpu/`, `backend/cuda/`, `backend/metal/` first, then `demo/agent/
 ```
 cd <mod>
 # The go.mods are replace-free (2026-08-15) — nothing to remove/restore. Just point at the tag:
-GOWORK=off go get github.com/pkieltyka/goinfer@v0.10.1        # B-01/B-05: real version, not placeholder/pseudo
-GOWORK=off go get github.com/pkieltyka/goinfer/backend/webgpu@v0.10.1    # demo/agent ONLY (it requires goinfer/backend/webgpu too)
+GOWORK=off go get github.com/pkieltyka/goinfer@${TAG}        # B-01/B-05: real version, not placeholder/pseudo
+GOWORK=off go get github.com/pkieltyka/goinfer/backend/webgpu@${TAG}    # demo/agent ONLY (it requires goinfer/backend/webgpu too)
 GOWORK=off go mod tidy                                             # B-02/B-03/B-04: complete go.sum for the SELECTED versions
 GOWORK=off go build -tags <cuda|gpu|metal> ./...                  # PROVE it builds with no workspace
 # NO replace to restore — do not re-add it (it breaks `go install …@vX`; see the Invariants).
@@ -170,22 +172,18 @@ EXPECTED; the `go mod tidy` go.sum bump is the deliverable, and macOS/CI runs th
 Then commit the go.mod/go.sum bumps and tag. **`git tag` takes ONE name per call** (unlike
 `git push`, which takes many):
 ```
-git commit -am "release: backend/{webgpu,cuda,metal} require goinfer v0.10.1"
-git tag backend/cuda/v0.10.1 ; git tag backend/webgpu/v0.10.1 ; git tag backend/metal/v0.10.1
+git commit -am "release: backend/{webgpu,cuda,metal} require goinfer ${TAG}"
+git tag backend/cuda/${TAG} ; git tag backend/webgpu/${TAG} ; git tag backend/metal/${TAG}
 # a SEPARATE commit for demo/agent (requires goinfer + goinfer/backend/webgpu):
-git commit -am "release: demo/agent requires goinfer + goinfer/backend/webgpu v0.10.1"
-git tag demo/agent/v0.10.1
-git push origin main backend/cuda/v0.10.1 backend/webgpu/v0.10.1 backend/metal/v0.10.1 demo/agent/v0.10.1
+git commit -am "release: demo/agent requires goinfer + goinfer/backend/webgpu ${TAG}"
+git tag demo/agent/${TAG}
+git push origin main backend/cuda/${TAG} backend/webgpu/${TAG} backend/metal/${TAG} demo/agent/${TAG}
 ```
 
-## The site (goinfer.dev) deploys itself after a root tag
+## Where users download a fork release
 
-When `release assets` finishes for a `v*` tag, the `site` workflow builds the site from **that tag's commit** and deploys it to
-Cloudflare Workers (`.github/workflows/site.yml`; `apps/site/README.md`, "Policy"). Nothing to do by hand, but two
-things are worth checking after a release: that the `site` run is green (a failing gate leaves the last good site up), and that
-`https://goinfer.dev/download/` shows the new tag. A push to `main` never deploys; it only validates. A manual run of the workflow
-(Actions → site → Run workflow) deploys the ref it is run on, for a fix between releases. The Download page needs the release's
-assets to be attached first, which is why the deploy waits for `release assets`.
+Use the [fork's Releases page](https://github.com/pkieltyka/goinfer/releases) for downloads and checksums.
+The site at goinfer.dev belongs to the original project.
 
 ## GitHub Release (non-optional final step)
 
@@ -205,23 +203,23 @@ CHANGELOG once the workflow has attached assets. **Check which case you're in fi
 `gh release create` on a tag that already has a release ERRORS (`release already exists`), it does
 not update one:
 ```
-# If the workflow's auto-create step already ran (the common case — check `gh release view v0.10.1`
+# If the workflow's auto-create step already ran (the common case — check `gh release view ${TAG}`
 # first), EDIT it instead of trying to create it again:
-gh release edit v0.10.1 \
-  --title "goinfer v0.10.1 — <one-line descriptor>" \
+gh release edit ${TAG} \
+  --title "goinfer ${TAG} — <one-line descriptor>" \
   --notes-file <notes-from-changelog> \
   --latest
 
 # Only if `gh release view` says no such release exists yet (the workflow hasn't run/finished, or
 # this is being done by hand ahead of it):
-gh release create v0.10.1 \
-  --title "goinfer v0.10.1 — <one-line descriptor>" \
+gh release create ${TAG} \
+  --title "goinfer ${TAG} — <one-line descriptor>" \
   --notes-file <notes-from-changelog> \
   --latest
 ```
 **Then check what the Release carries** — this is the moment it becomes something users see:
 ```
-scripts/check_release_assets.sh v0.10.1
+scripts/check_release_assets.sh ${TAG}
 ```
 It fails if the Release has zero assets, or fewer than the nearest earlier release that has any.
 v0.18.0 is why: its asset run failed, `publish` never ran, and the Release was created here anyway
@@ -234,7 +232,7 @@ zero never does.
 **And read the build stamp off a published asset** — v0.17.0 to v0.20.0 shipped binaries that printed `-dirty`, and only this
 reads the thing the user sees (R18, `docs/completed/task-first-hour.md`; the workflow runs the same check before upload):
 ```
-gh release download v0.10.1 --repo townsendmerino/goinfer -p 'goinfer-serve-linux-amd64' -D /tmp/asset-check
+gh release download ${TAG} --repo pkieltyka/goinfer -p 'goinfer-serve-linux-amd64' -D /tmp/asset-check
 scripts/check_asset_vcs.sh /tmp/asset-check/goinfer-serve-linux-amd64
 ```
 It fails on `vcs.modified=true` and on a binary with no stamp at all. The defect was measured on the `goinfer-serve` darwin-arm64 and linux-amd64 assets; the workflow check covers every chat, serve and embedded asset.
