@@ -19,6 +19,7 @@ type encoder struct {
 	model                                         *embeddinggemma2.Model
 	cfg                                           embeddinggemma2.Config
 	device                                        *vk.Device
+	identity                                      DeviceInfo
 	pipes                                         map[string]*vk.Pipeline
 	pleProj, pleNorm, finalNorm, projection, ones *vk.Buffer
 	layers                                        []layer
@@ -69,6 +70,9 @@ func newEncoder(m *embeddinggemma2.Model, selector vk.Selector) (*encoder, error
 		return nil, err
 	}
 	a.device = d
+	info := d.Info()
+	a.identity = DeviceInfo{Name: info.Name, VendorID: info.VendorID, DeviceID: info.DeviceID,
+		APIVersion: info.APIVersion, DriverVersion: info.DriverVersion, Type: "discrete-gpu"}
 	fail := func(err error) (*encoder, error) { return nil, errors.Join(err, d.Close()) }
 	for _, s := range []struct {
 		name            string
@@ -152,6 +156,13 @@ func (a *encoder) upload(group []weight) (err error) {
 }
 
 func (*encoder) Name() string { return "vulkan" }
+
+func (a *encoder) attachedDevice() (DeviceInfo, bool) {
+	if a == nil {
+		return DeviceInfo{}, false
+	}
+	return a.identity, true
+}
 
 func (a *encoder) Close() error {
 	a.mu.Lock()
