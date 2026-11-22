@@ -181,6 +181,7 @@ SCANS = [
     Scan("internal/testpath", "TestNoStrayRelativePathInInternalTests", TREE_T),
     Scan("internal/runtime/mem", "TestImports", NT("internal/runtime/mem")),
     Scan("backend/cuda", "TestPlanSlack_oneCopy", NT("backend/cuda")),
+    Scan("backend/vulkan", "TestVulkanSourceDoesNotReadEnvironmentOrPrint", F("backend/vulkan/*.go")),
     Scan("backend/cuda", "TestLedger_everyAllocationNamesALine", NT("backend/cuda")),
     Scan("internal/layout", "TestCUDASoloShapes_takeTodaysCalls", F("backend/cuda/resident.go", "backend/cuda/gumbel.go")),
     Scan("internal/runtime/mem", "TestSolve_pure", NT("internal/runtime/mem")),

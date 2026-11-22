@@ -22,8 +22,19 @@ type Accelerator interface {
 	Close() error
 }
 
-// ErrDeviceUnavailable reports an unresolved explicit device selection.
-var ErrDeviceUnavailable = errors.New("embeddinggemma2: device unavailable")
+var (
+	// ErrDeviceUnavailable covers malformed selectors and unavailable device selection.
+	ErrDeviceUnavailable = errors.New("embeddinggemma2: device unavailable")
+	// ErrBackendUnavailable means the requested backend is missing or could not start.
+	ErrBackendUnavailable = fmt.Errorf("%w: backend runtime unavailable", ErrDeviceUnavailable)
+	// ErrNoDevice means the runtime started but no eligible device matched.
+	ErrNoDevice = fmt.Errorf("%w: no eligible device", ErrDeviceUnavailable)
+	// ErrAmbiguousDevice means more than one eligible device matched.
+	ErrAmbiguousDevice = fmt.Errorf("%w: several eligible devices", ErrDeviceUnavailable)
+	// ErrDeviceOutOfMemory means a native memory allocation failed. It is a
+	// separate category from ErrDeviceUnavailable and carries no retry guarantee.
+	ErrDeviceOutOfMemory = errors.New("embeddinggemma2: device out of memory")
+)
 
 var (
 	accelMu        sync.Mutex
@@ -70,10 +81,10 @@ func (m *Model) NewAccelerator(name string) (Accelerator, error) {
 		f = func(m *Model) (Accelerator, error) { return selected(m, id) }
 	}
 	if f == nil && qualified {
-		return nil, fmt.Errorf("%w: no %q device selector in this binary", ErrDeviceUnavailable, backend)
+		return nil, fmt.Errorf("%w: no %q device selector in this binary", ErrBackendUnavailable, backend)
 	}
 	if f == nil {
-		return nil, fmt.Errorf("embeddinggemma2: no %q accelerator in this binary (registered: %v)", name, Accelerators())
+		return nil, fmt.Errorf("%w: no %q accelerator in this binary (registered: %v)", ErrBackendUnavailable, name, Accelerators())
 	}
 	a, err := f(m)
 	if err != nil {

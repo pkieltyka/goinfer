@@ -19,9 +19,6 @@ const (
 	poolDescriptors = 32768
 )
 
-// ErrDeviceUnavailable identifies a failed device lookup.
-var ErrDeviceUnavailable = errors.New("vulkan: device unavailable")
-
 // Selector filters by PCI product ID, physical device UUID, or both.
 type Selector struct {
 	DeviceID uint32
@@ -32,6 +29,8 @@ type Info struct {
 	Name                      string
 	UUID                      [16]byte
 	TotalLocalBytes           uint64
+	AvailableLocalBytes       uint64
+	BudgetKnown               bool
 	VendorID, DeviceID        uint32
 	APIVersion, DriverVersion uint32
 	MaxStorageRange           uint64
@@ -45,6 +44,11 @@ type Device struct {
 	mu                      sync.Mutex
 	api                     api
 	properties2             func(handle, *physicalProperties2)
+	memoryProperties2       func(handle, *memoryProperties2)
+	enumerateVersion        func(*uint32) result
+	getProc                 func(handle, string) uintptr
+	instanceVersion         uint32
+	physical                handle
 	lib                     uintptr
 	instance, device, queue handle
 	cmdPool, cmd, descPool  handle
@@ -60,43 +64,65 @@ type Device struct {
 	broken                  error
 }
 
-func openInstance() (_ *Device, err error) {
+var loadLibrary = loadNativeLibrary
+
+func loadNativeLibrary() (*Device, error) {
 	lib, err := purego.Dlopen("libvulkan.so.1", purego.RTLD_NOW|purego.RTLD_LOCAL)
 	if err != nil {
 		return nil, fmt.Errorf("vulkan: open libvulkan.so.1: %w", err)
 	}
 	d := &Device{lib: lib}
+	if err := d.api.load(lib); err != nil {
+		return nil, errors.Join(err, d.Close())
+	}
+	if addr, err := purego.Dlsym(lib, "vkEnumerateInstanceVersion"); err == nil {
+		purego.RegisterFunc(&d.enumerateVersion, addr)
+	}
+	if addr, err := purego.Dlsym(lib, "vkGetInstanceProcAddr"); err == nil {
+		purego.RegisterFunc(&d.getProc, addr)
+	}
+	return d, nil
+}
+
+func runtimeFailure(err error) error {
+	if errors.Is(err, ErrOutOfMemory) {
+		return err
+	}
+	return fmt.Errorf("%w: %w", ErrRuntimeUnavailable, err)
+}
+
+func openInstance() (_ *Device, err error) {
+	d, err := loadLibrary()
+	if err != nil {
+		return nil, runtimeFailure(err)
+	}
 	defer func() {
 		if err != nil {
 			err = errors.Join(err, d.Close())
 		}
 	}()
-	if err = d.api.load(lib); err != nil {
-		return nil, err
-	}
 	info := instanceInfo{header: st(stInstance)}
-	if addr, e := purego.Dlsym(lib, "vkEnumerateInstanceVersion"); e == nil {
-		var enumerateVersion func(*uint32) result
-		purego.RegisterFunc(&enumerateVersion, addr)
+	if d.enumerateVersion != nil {
 		var version uint32
-		if enumerateVersion(&version) == success && version >= apiVersion11 {
-			info.App = &applicationInfo{APIVersion: apiVersion11}
+		if err := d.enumerateVersion(&version).check("enumerate instance version"); err != nil {
+			return nil, runtimeFailure(err)
+		}
+		if version >= apiVersion11 {
+			d.instanceVersion = apiVersion11
+			info.App = &applicationInfo{APIVersion: d.instanceVersion}
 		}
 	}
 	var instance handle
 	if err = d.api.createInstance(&info, nil, &instance).check("create instance"); err != nil {
-		return nil, err
+		return nil, runtimeFailure(err)
 	}
 	d.instance = instance
-	if info.App != nil {
-		addr, e := purego.Dlsym(lib, "vkGetInstanceProcAddr")
-		if e != nil {
-			return nil, e
-		}
-		var getProc func(handle, string) uintptr
-		purego.RegisterFunc(&getProc, addr)
-		if addr := getProc(instance, "vkGetPhysicalDeviceProperties2"); addr != 0 {
+	if info.App != nil && d.getProc != nil {
+		if addr := d.getProc(instance, "vkGetPhysicalDeviceProperties2"); addr != 0 {
 			purego.RegisterFunc(&d.properties2, addr)
+		}
+		if addr := d.getProc(instance, "vkGetPhysicalDeviceMemoryProperties2"); addr != 0 {
+			purego.RegisterFunc(&d.memoryProperties2, addr)
 		}
 	}
 	return d, nil
@@ -106,22 +132,23 @@ func openInstance() (_ *Device, err error) {
 func Open(selector Selector) (_ *Device, err error) {
 	d, err := openInstance()
 	if err != nil {
-		return nil, errors.Join(ErrDeviceUnavailable, err)
+		return nil, err
 	}
 	defer func() {
 		if err != nil {
 			err = errors.Join(err, d.Close())
 		}
 	}()
-	candidates, err := d.adapters()
+	candidates, err := d.adapters(false)
 	if err != nil {
-		return nil, errors.Join(ErrDeviceUnavailable, err)
+		return nil, err
 	}
 	selected, err := choosePhysical(candidates, selector)
 	if err != nil {
 		return nil, err
 	}
 	physical, family := selected.handle, selected.family
+	d.physical = physical
 	d.info = selected.info
 	d.maxBindings, d.maxAllocations = selected.maxBindings, selected.maxAllocations
 	d.buffers = make(map[*Buffer]struct{})
@@ -151,15 +178,15 @@ type adapter struct {
 }
 
 // Devices inventories eligible adapters without creating a logical device.
-func Devices() (_ []Info, err error) {
+func Devices(includeBudget bool) (_ []Info, err error) {
 	d, err := openInstance()
 	if err != nil {
-		return nil, errors.Join(ErrDeviceUnavailable, err)
+		return nil, err
 	}
 	defer func() { err = errors.Join(err, d.Close()) }()
-	adapters, err := d.adapters()
+	adapters, err := d.adapters(includeBudget)
 	if err != nil {
-		return nil, errors.Join(ErrDeviceUnavailable, err)
+		return nil, err
 	}
 	out := make([]Info, 0, len(adapters))
 	for _, adapter := range adapters {
@@ -168,20 +195,15 @@ func Devices() (_ []Info, err error) {
 	return out, nil
 }
 
-func (d *Device) adapters() ([]adapter, error) {
-	var count uint32
-	if err := d.api.enumeratePhysical(d.instance, &count, nil).check("count physical devices"); err != nil {
-		return nil, err
-	}
-	if count == 0 {
-		return nil, nil
-	}
-	devices := make([]handle, count)
-	if err := d.api.enumeratePhysical(d.instance, &count, &devices[0]).check("enumerate physical devices"); err != nil {
-		return nil, err
+func (d *Device) adapters(includeBudget bool) ([]adapter, error) {
+	devices, err := enumerate("enumerate physical devices", func(n *uint32, dst *handle) result {
+		return d.api.enumeratePhysical(d.instance, n, dst)
+	})
+	if err != nil {
+		return nil, runtimeFailure(err)
 	}
 	var out []adapter
-	for _, physical := range devices[:count] {
+	for _, physical := range devices {
 		var p physicalProperties
 		d.api.physicalProperties(physical, &p)
 		if p.Kind != deviceDiscrete || p.Vendor != amdVendor {
@@ -200,10 +222,13 @@ func (d *Device) adapters() ([]adapter, error) {
 		}
 		var memory memoryProperties
 		d.api.memoryProperties(physical, &memory)
-		var total uint64
-		for _, heap := range memory.Heaps[:min(memory.HeapCount, uint32(len(memory.Heaps)))] {
-			if heap.Flags&heapDeviceLocal != 0 {
-				total += heap.Size
+		total := localCapacity(&memory)
+		var available uint64
+		var known bool
+		if includeBudget {
+			available, known, err = d.availableMemory(physical, p.API, &memory)
+			if err != nil {
+				return nil, err
 			}
 		}
 		name, _, _ := bytes.Cut(p.Name[:], []byte{0})
@@ -211,7 +236,7 @@ func (d *Device) adapters() ([]adapter, error) {
 			handle: physical, family: family,
 			info: Info{
 				Name: string(name), UUID: id.DeviceUUID, VendorID: p.Vendor, DeviceID: p.Device,
-				TotalLocalBytes: total, APIVersion: p.API, DriverVersion: p.Driver,
+				TotalLocalBytes: total, AvailableLocalBytes: available, BudgetKnown: known, APIVersion: p.API, DriverVersion: p.Driver,
 				MaxStorageRange: uint64(p.Limits.MaxStorageBufferRange),
 				MaxGroupCount:   p.Limits.MaxWorkGroupCount, MaxPushBytes: p.Limits.MaxPushConstantsSize,
 			},
@@ -230,12 +255,12 @@ func choosePhysical(candidates []adapter, selector Selector) (adapter, error) {
 			continue
 		}
 		if selected.handle != 0 {
-			return adapter{}, fmt.Errorf("%w: multiple discrete AMD adapters match the selection", ErrDeviceUnavailable)
+			return adapter{}, ErrAmbiguousAdapter
 		}
 		selected = candidate
 	}
 	if selected.handle == 0 {
-		return adapter{}, fmt.Errorf("%w: no discrete AMD adapter matches the selection", ErrDeviceUnavailable)
+		return adapter{}, ErrNoAdapter
 	}
 	return selected, nil
 }
@@ -329,7 +354,7 @@ func (d *Device) Close() error {
 			b.release()
 		}
 		a.destroyDevice(d.device, nil)
-		d.device = 0
+		d.device, d.physical = 0, 0
 	}
 	if d.instance != 0 {
 		d.api.destroyInstance(d.instance, nil)
