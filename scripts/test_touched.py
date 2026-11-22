@@ -76,6 +76,10 @@ class PlanSelectsTheScanTests(unittest.TestCase):
     def test_a_scanner_in_an_untouched_package_runs(self):
         self.assertIn(("internal/app/cliutil", "TestLdflagsTargetsExist"), selected(["internal/app/serveapp/openai.go"]))
 
+    def test_a_nested_vulkan_source_change_selects_the_process_io_scan(self):
+        changed = ["backend/vulkan/internal/vk/future/source.go"]
+        self.assertIn(("backend/vulkan", "TestVulkanSourceDoesNotReadEnvironmentOrPrint"), selected(changed))
+
     def test_a_kernel_source_change_selects_its_readers_with_no_go_file_changed(self):
         got = selected(["backend/cuda/moe.cu"])
         self.assertIn(("backend/cuda/kernels", "TestKernelFMALint"), got)
