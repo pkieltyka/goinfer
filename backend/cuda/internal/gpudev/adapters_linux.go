@@ -12,12 +12,13 @@ import (
 
 // Adapter describes a visible CUDA device. Ordinal is the driver's ordinal.
 type Adapter struct {
-	Ordinal      int
-	UUID         string
-	Name         string
-	PCIBusID     string
-	TotalBytes   uint64
-	Major, Minor int
+	Ordinal                     int
+	UUID                        string
+	Name                        string
+	PCIBusID                    string
+	TotalBytes                  uint64
+	Major, Minor                int
+	Integrated, IntegratedKnown bool
 }
 
 var (
@@ -32,6 +33,7 @@ type adapterHandle interface {
 	PCIBusID() (string, error)
 	TotalMemory() (uint64, error)
 	ComputeCapability() (int, int, error)
+	Attribute(gc.DeviceAttribute) (int, error)
 }
 
 // Adapters lists driver-visible devices without retaining a CUDA context.
@@ -94,18 +96,49 @@ func describeAdapter(dev adapterHandle) (Adapter, error) {
 	if a.Major, a.Minor, err = dev.ComputeCapability(); err != nil {
 		return Adapter{}, fmt.Errorf("compute capability: %w", err)
 	}
+	a.Integrated, a.IntegratedKnown = memoryArchitecture(dev)
 	return a, nil
+}
+
+func memoryArchitecture(dev adapterHandle) (integrated, known bool) {
+	n, err := dev.Attribute(gc.DeviceAttributeIntegrated)
+	return n > 0, err == nil && n >= 0
 }
 
 // Adapter reports identity from the same handle that retained this context.
 // Unavailable details are left empty.
 func (d *Device) Adapter() Adapter {
-	dev := d.cx.Device()
+	return attachedAdapter(d.cx.Device(), d.verifiedUUID, Adapters)
+}
+
+func attachedAdapter(dev adapterHandle, verifiedUUID string, list func() ([]Adapter, error)) Adapter {
 	name, _ := dev.Name()
-	uuid, _ := dev.UUID()
 	pci, _ := dev.PCIBusID()
 	total, _ := dev.TotalMemory()
-	return Adapter{Ordinal: dev.Ordinal(), UUID: uuid, Name: name, PCIBusID: pci, TotalBytes: total}
+	integrated, known := memoryArchitecture(dev)
+	uuid := verifiedUUID
+	if uuid == "" {
+		uuid, _ = dev.UUID()
+		if uuid != "" && !hasUniqueUUID(uuid, list) {
+			uuid = ""
+		}
+	}
+	return Adapter{Ordinal: dev.Ordinal(), UUID: uuid, Name: name, PCIBusID: pci, TotalBytes: total,
+		Integrated: integrated, IntegratedKnown: known}
+}
+
+func hasUniqueUUID(uuid string, list func() ([]Adapter, error)) bool {
+	adapters, err := list()
+	if err != nil {
+		return false
+	}
+	count := 0
+	for _, adapter := range adapters {
+		if strings.EqualFold(adapter.UUID, uuid) {
+			count++
+		}
+	}
+	return count == 1
 }
 
 // CreateSelectedDevice retains the primary context only after checking the UUID

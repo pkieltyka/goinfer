@@ -8,6 +8,7 @@ import (
 
 func TestDevicesReturnsOrderedPartialInventory(t *testing.T) {
 	const a, b = "fake-a", "fake-b"
+	const missing = "fake-absent"
 	failure := errors.New("adapter query failed")
 	var called []string
 	RegisterDeviceProber(b, func(opts ProbeOptions) ([]DeviceInfo, error) {
@@ -22,15 +23,18 @@ func TestDevicesReturnsOrderedPartialInventory(t *testing.T) {
 		DeviceSelectors(a) // registration lookup must not deadlock inside a probe
 		return []DeviceInfo{{ID: a + ":abc", Backend: a, Name: "Device", ProductID: 1234}}, nil
 	})
+	RegisterDeviceProber(missing, nil)
 	t.Cleanup(func() {
 		accelMu.Lock()
 		delete(deviceProbes, a)
 		delete(deviceProbes, b)
+		delete(deviceProbes, missing)
 		accelMu.Unlock()
 	})
 	devices, failures := Devices(ProbeOptions{IncludeMemory: true})
 	if !slices.Equal(called, []string{a, b}) || len(devices) != 2 || devices[0].ID != a+":abc" || devices[1].ID != b+":abc" ||
-		len(failures) != 1 || failures[0].Backend != b || !errors.Is(failures[0].Err, failure) {
+		len(failures) != 2 || failures[0].Backend != missing || !errors.Is(failures[0].Err, ErrBackendUnavailable) ||
+		failures[1].Backend != b || !errors.Is(failures[1].Err, failure) {
 		t.Fatalf("called %v; inventory %+v; failures %+v", called, devices, failures)
 	}
 }

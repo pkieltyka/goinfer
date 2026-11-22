@@ -11,12 +11,27 @@ import (
 )
 
 func probeMetalDevice(opts embeddinggemma2.ProbeOptions) ([]embeddinggemma2.DeviceInfo, error) {
-	device, err := CreateSystemDefaultDevice()
+	return probeMetalDeviceOn(CreateSystemDefaultDevice, opts)
+}
+
+func acquireMetalDevice(open func() (*Device, error)) (*Device, error) {
+	device, err := open()
 	if errors.Is(err, gpu.ErrNoDevice) {
-		return nil, nil
+		return nil, fmt.Errorf("%w: %w", embeddinggemma2.ErrNoDevice, err)
 	}
 	if err != nil {
 		return nil, fmt.Errorf("%w: %w", embeddinggemma2.ErrBackendUnavailable, err)
+	}
+	return device, nil
+}
+
+func probeMetalDeviceOn(open func() (*Device, error), opts embeddinggemma2.ProbeOptions) ([]embeddinggemma2.DeviceInfo, error) {
+	device, err := acquireMetalDevice(open)
+	if errors.Is(err, embeddinggemma2.ErrNoDevice) {
+		return nil, nil
+	}
+	if err != nil {
+		return nil, err
 	}
 	defer device.ReleaseObjects()
 	return []embeddinggemma2.DeviceInfo{describeMetalDevice(device.Name(), device.HasUnifiedMemory(), opts.IncludeMemory)}, nil

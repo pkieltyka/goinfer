@@ -66,9 +66,13 @@ type eg2AttnBufs struct{ q, k, v, qh, kh, vh, sc, vt, ob, ctx Buffer }
 // newEG2Ops opens the device and compiles this file's kernels with extra (more kernels in the same precise library),
 // whose pipelines it builds into more, by kernel name.
 func newEG2Ops(extra string, more map[string]*Pipeline) (eg2Ops, error) {
-	d, err := CreateSystemDefaultDevice()
+	return newEG2OpsOn(CreateSystemDefaultDevice, extra, more)
+}
+
+func newEG2OpsOn(open func() (*Device, error), extra string, more map[string]*Pipeline) (eg2Ops, error) {
+	d, err := acquireMetalDevice(open)
 	if err != nil {
-		return eg2Ops{}, fmt.Errorf("metal: %w", err)
+		return eg2Ops{}, err
 	}
 	vit, err := d.NewViT()
 	if err != nil {

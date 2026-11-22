@@ -115,14 +115,16 @@ func (a *eg2Accel) DeviceMemory() (reading embeddinggemma2.DeviceMemory, err err
 	}
 	err = a.ops.do(func() error {
 		var readErr error
-		reading, readErr = cudaMemory(a.ops.dev)
+		reading, readErr = cudaMemory(a.ops.dev.Context())
 		return readErr
 	})
 	return reading, err
 }
 
-func cudaMemory(dev *Device) (embeddinggemma2.DeviceMemory, error) {
-	free, total, err := dev.Context().MemInfo()
+func cudaMemory(dev interface {
+	MemInfo() (uint64, uint64, error)
+}) (embeddinggemma2.DeviceMemory, error) {
+	free, total, err := dev.MemInfo()
 	if err != nil {
 		return embeddinggemma2.DeviceMemory{}, err
 	}

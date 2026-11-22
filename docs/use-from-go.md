@@ -304,7 +304,8 @@ additional Metal devices and selecting one explicitly remain open work.
 Passing `ProbeOptions{IncludeMemory: true}` requests headroom as well as known capacity.
 CUDA reads capacity without retaining a context. The available-byte query temporarily
 retains the primary context of each eligible device with a unique UUID, which can wake
-the device and consume device memory. Metal reads host memory on a [unified-memory
+the device and consume device memory. CUDA uses the driver's integrated-device attribute
+to distinguish shared from dedicated memory. Metal reads host memory on a [unified-memory
 device](https://developer.apple.com/documentation/metal/mtldevice/hasunifiedmemory) and
 uses the existing Metal headroom estimate. It omits capacity and headroom when the
 default device has dedicated memory. Read the basis of each snapshot before using it.

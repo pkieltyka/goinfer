@@ -23,6 +23,15 @@ func (d *fakeAdapterHandle) TotalMemory() (uint64, error) { return d.TotalBytes,
 func (d *fakeAdapterHandle) ComputeCapability() (int, int, error) {
 	return d.Major, d.Minor, nil
 }
+func (d *fakeAdapterHandle) Attribute(attr gc.DeviceAttribute) (int, error) {
+	if attr != gc.DeviceAttributeIntegrated || !d.IntegratedKnown {
+		return 0, gc.ErrNotSupported
+	}
+	if d.Integrated {
+		return 1, nil
+	}
+	return 0, nil
+}
 func (d *fakeAdapterHandle) Primary() (*gc.Context, error) {
 	d.retains++
 	return nil, nil
@@ -34,6 +43,8 @@ func TestCUDAAdapterEnumeration(t *testing.T) {
 		{Adapter: Adapter{Ordinal: 1, UUID: "second", Name: "B", PCIBusID: "0000:02:00.0", TotalBytes: 2048, Major: 12}},
 		{Adapter: Adapter{Ordinal: 2, Name: "C", TotalBytes: 512, Major: 7}, uuidErr: gc.ErrSymbolUnavailable},
 	}
+	devs[0].IntegratedKnown = true // discrete
+	devs[1].Integrated, devs[1].IntegratedKnown = true, true
 	init := func() error { return nil }
 	count := func() (int, error) { return len(devs), nil }
 	get := func(ordinal int) (adapterHandle, error) { return &devs[ordinal], nil }
@@ -77,6 +88,21 @@ func TestCUDAAdapterEnumeration(t *testing.T) {
 		if len(rows) != 0 || !errors.Is(err, ErrAdapterChanged) || !errors.Is(err, native) {
 			t.Fatalf("failed count: rows %+v, error %v (%v)", rows, err, native)
 		}
+	}
+}
+
+func TestCUDAAttachedAdapterPreservesVerifiedIdentity(t *testing.T) {
+	d := &fakeAdapterHandle{Adapter: Adapter{Ordinal: 2, UUID: "actual", Integrated: true, IntegratedKnown: true}, uuidErr: gc.ErrNotSupported}
+	got := attachedAdapter(d, "actual", nil)
+	if got.Ordinal != 2 || got.UUID != "actual" || !got.Integrated || !got.IntegratedKnown {
+		t.Fatalf("attachment lost verified identity: %+v", got)
+	}
+	d.uuidErr = nil
+	list := func() ([]Adapter, error) {
+		return []Adapter{d.Adapter, {Ordinal: 3, UUID: "ACTUAL"}}, nil
+	}
+	if got := attachedAdapter(d, "", list); got.UUID != "" {
+		t.Fatalf("bare attachment advertised an ambiguous ID: %+v", got)
 	}
 }
 

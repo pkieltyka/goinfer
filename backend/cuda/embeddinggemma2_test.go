@@ -1711,3 +1711,99 @@ func TestEG2CUDA_BatchMemory_InstrumentedOracle(t *testing.T) {
 		})
 	}
 }
+
+func TestCUDAInventoryRows(t *testing.T) {
+	adapters := []gpu.Adapter{
+		{Ordinal: 0, UUID: "Old", Major: 7},
+		{Ordinal: 1, UUID: "First", Name: "GPU", Major: 7, Minor: 5, TotalBytes: 2048, IntegratedKnown: true},
+		{Ordinal: 2, Major: 8, TotalBytes: 1024},
+		{Ordinal: 3, UUID: "Third", Name: "GPU", Major: 12, TotalBytes: 4096, Integrated: true, IntegratedKnown: true},
+		{Ordinal: 4, UUID: "Duplicate", Major: 8},
+		{Ordinal: 5, UUID: "duplicate", Major: 8},
+	}
+	var sampled []int
+	failure := errors.New("memory unavailable")
+	read := func(a gpu.Adapter) (embeddinggemma2.DeviceMemory, error) {
+		sampled = append(sampled, a.Ordinal)
+		if a.Ordinal == 3 {
+			return embeddinggemma2.DeviceMemory{}, failure
+		}
+		return embeddinggemma2.DeviceMemory{TotalBytes: int64(a.TotalBytes), AvailableBytes: 512, Basis: embeddinggemma2.MemoryLive}, nil
+	}
+	cheap, err := describeCUDADevices(adapters, embeddinggemma2.ProbeOptions{}, read)
+	if err != nil || len(sampled) != 0 || len(cheap) != 5 || cheap[0].Alias != "cuda:1" || cheap[2].Alias != "cuda:3" ||
+		cheap[0].ID != "cuda:First" || cheap[0].Backend != "cuda" || cheap[0].MemoryKind != embeddinggemma2.MemoryDedicated ||
+		cheap[0].VendorID != 0x10de || !cheap[0].TextBatching || cheap[0].Memory.TotalBytes != 2048 ||
+		cheap[0].Memory.Basis != embeddinggemma2.MemoryUnknown {
+		t.Fatalf("cheap inventory %+v, queries %v, error %v", cheap, sampled, err)
+	}
+	for _, i := range []int{1, 3, 4} {
+		if cheap[i].ID != "" || cheap[i].Alias != "" {
+			t.Fatalf("unverified identifier at %d: %+v", i, cheap[i])
+		}
+	}
+	if cheap[1].MemoryKind != embeddinggemma2.MemoryKindUnknown || cheap[2].MemoryKind != embeddinggemma2.MemoryShared {
+		t.Fatalf("memory architecture: %+v", cheap)
+	}
+	live, err := describeCUDADevices(adapters, embeddinggemma2.ProbeOptions{IncludeMemory: true}, read)
+	if !errors.Is(err, failure) || !slices.Equal(sampled, []int{1, 3}) || len(live) != len(cheap) ||
+		live[0].Memory.Basis != embeddinggemma2.MemoryLive || live[0].Memory.AvailableBytes != 512 || live[2] != cheap[2] {
+		t.Fatalf("live inventory %+v, queries %v, error %v", live, sampled, err)
+	}
+}
+
+type fakeCUDAMemoryContext struct {
+	closeErr      error
+	reads, closes int
+}
+
+func (c *fakeCUDAMemoryContext) MemInfo() (uint64, uint64, error) {
+	c.reads++
+	return 1024, 2048, nil
+}
+
+func (c *fakeCUDAMemoryContext) Close() error {
+	c.closes++
+	return c.closeErr
+}
+
+func TestCUDAProbeRetainsFailedCloseOwnership(t *testing.T) {
+	first, second := gpu.Adapter{Ordinal: 0, UUID: "First", Major: 8, TotalBytes: 2048}, gpu.Adapter{Ordinal: 1, UUID: "Second", Major: 8, TotalBytes: 2048}
+	wantClose := errors.New("native release failed")
+	failed := &fakeCUDAMemoryContext{closeErr: wantClose}
+	var probe cudaMemoryProbe
+	var firstOpens, secondOpens int
+	var fresh *fakeCUDAMemoryContext
+	open := func(a gpu.Adapter) (cudaMemoryContext, error) {
+		if a == first {
+			firstOpens++
+			if firstOpens == 1 {
+				return failed, nil
+			}
+			fresh = &fakeCUDAMemoryContext{}
+			return fresh, nil
+		}
+		secondOpens++
+		return &fakeCUDAMemoryContext{}, nil
+	}
+	list := func() ([]embeddinggemma2.DeviceInfo, error) {
+		return describeCUDADevices([]gpu.Adapter{first, second}, embeddinggemma2.ProbeOptions{IncludeMemory: true},
+			func(a gpu.Adapter) (embeddinggemma2.DeviceMemory, error) { return probe.read(a, open) })
+	}
+	for attempt := 1; attempt <= 2; attempt++ {
+		rows, err := list()
+		if !errors.Is(err, wantClose) || len(rows) != 2 || rows[0].ID != "cuda:First" ||
+			rows[0].Memory.Basis != embeddinggemma2.MemoryUnknown || rows[1].Memory.Basis != embeddinggemma2.MemoryLive ||
+			firstOpens != 1 || secondOpens != attempt || failed.reads != 1 || failed.closes != attempt {
+			t.Fatalf("attempt %d: rows %+v/error %v; first/second opens %d/%d, failed context %+v",
+				attempt, rows, err, firstOpens, secondOpens, failed)
+		}
+	}
+	failed.closeErr = nil
+	rows, err := list()
+	if err != nil || len(rows) != 2 || rows[0].Memory.Basis != embeddinggemma2.MemoryLive ||
+		firstOpens != 2 || failed.closes != 3 || fresh == nil || fresh.closes != 1 || len(probe.pending) != 0 {
+		t.Fatalf("recovery: rows %+v/error %v; first opens %d, old %+v, new %+v, retained %d",
+			rows, err, firstOpens, failed, fresh, len(probe.pending))
+	}
+}

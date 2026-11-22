@@ -64,7 +64,12 @@ func Devices(opts ProbeOptions) ([]DeviceInfo, []ProbeFailure) {
 	var devices []DeviceInfo
 	var failures []ProbeFailure
 	for _, name := range slices.Sorted(maps.Keys(probes)) {
-		rows, err := probes[name](opts)
+		probe := probes[name]
+		if probe == nil {
+			failures = append(failures, ProbeFailure{Backend: name, Err: fmt.Errorf("%w: nil device prober", ErrBackendUnavailable)})
+			continue
+		}
+		rows, err := probe(opts)
 		devices = append(devices, rows...)
 		if err != nil {
 			failures = append(failures, ProbeFailure{Backend: name, Err: err})

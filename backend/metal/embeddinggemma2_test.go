@@ -4,10 +4,12 @@ package metal
 
 import (
 	"encoding/json"
+	"errors"
 	"math"
 	"os"
 	"testing"
 
+	gpu "github.com/pkieltyka/goinfer/backend/metal/internal/gpudev"
 	"github.com/pkieltyka/goinfer/embeddinggemma2"
 )
 
@@ -101,6 +103,51 @@ func TestEG2Metal_matchesCPU(t *testing.T) {
 			if worst < 0.9999 || lc < 0.9999 || ec < 0.9999 {
 				t.Errorf("block %d, case %d (%d tokens): worst layer %.9f at index %d, last hidden %.9f, embedding %.9f (bar 0.9999)", blk, ci, len(ids), worst, worstAt, lc, ec)
 			}
+		}
+	}
+}
+
+func TestMetalInventoryMemory(t *testing.T) {
+	oldRAM, oldCeiling := physicalRAM, metalMemoryCeilingForTest
+	t.Cleanup(func() { physicalRAM, metalMemoryCeilingForTest = oldRAM, oldCeiling })
+	physicalRAM = func() (uint64, error) { return 4096, nil }
+	metalMemoryCeilingForTest = 1024
+	for _, tc := range []struct {
+		unified, include bool
+		kind             embeddinggemma2.MemoryKind
+		memory           embeddinggemma2.DeviceMemory
+	}{
+		{true, false, embeddinggemma2.MemoryShared, embeddinggemma2.DeviceMemory{TotalBytes: 4096}},
+		{true, true, embeddinggemma2.MemoryShared, embeddinggemma2.DeviceMemory{TotalBytes: 4096, AvailableBytes: 1024, Basis: embeddinggemma2.MemoryEstimated}},
+		{false, true, embeddinggemma2.MemoryDedicated, embeddinggemma2.DeviceMemory{}},
+	} {
+		got := describeMetalDevice("GPU", tc.unified, tc.include)
+		if got.Backend != "metal" || got.Name != "GPU" || got.ID != "" || got.Alias != "" ||
+			got.TextBatching || got.MemoryKind != tc.kind || got.Memory != tc.memory {
+			t.Errorf("unified %t include %t: %+v", tc.unified, tc.include, got)
+		}
+	}
+	physicalRAM = func() (uint64, error) { return 0, errors.New("unreadable") }
+	if got := describeMetalDevice("GPU", true, true).Memory; got != (embeddinggemma2.DeviceMemory{}) {
+		t.Fatalf("unavailable physical RAM should be unknown: %+v", got)
+	}
+}
+
+func TestMetalInventoryAndAttachAcquisitionErrors(t *testing.T) {
+	for _, tt := range []struct{ native, category error }{
+		{gpu.ErrNoDevice, embeddinggemma2.ErrNoDevice},
+		{errors.New("framework missing"), embeddinggemma2.ErrBackendUnavailable},
+	} {
+		open := func() (*Device, error) { return nil, tt.native }
+		ops, err := newEG2OpsOn(open, "", nil)
+		if ops.d != nil || !errors.Is(err, tt.category) || !errors.Is(err, tt.native) {
+			t.Fatalf("attach %v: %+v, %v", tt.native, ops.d, err)
+		}
+		rows, err := probeMetalDeviceOn(open, embeddinggemma2.ProbeOptions{})
+		if len(rows) != 0 ||
+			tt.category == embeddinggemma2.ErrNoDevice && err != nil ||
+			tt.category == embeddinggemma2.ErrBackendUnavailable && (!errors.Is(err, tt.category) || !errors.Is(err, tt.native)) {
+			t.Fatalf("inventory %v: rows %+v, error %v", tt.native, rows, err)
 		}
 	}
 }
