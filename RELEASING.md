@@ -218,12 +218,16 @@ python3 scripts/release_prep.py check \
 `--no-renames -z`, so moving a root file into a backend module is caught), confirms `go.mod`
 invariants, and confirms committed `go.sum` hashes match Go's `go mod download -json` sums for `${TAG}`.
 
-**Step 4 — tag the single commit, verify same-commit tags, and push in batches of at most three tags.**
-GitHub Actions does not create tag `push` workflow events if more than three tags are pushed in
-one `git push` (so a four-tag root + CUDA + Vulkan + Metal push would silently skip both
-`release-assets.yml` and `standalone-build.yml`). Keep all tags on the one release commit and push
-with `--atomic` in chunks of at most three tags per push:
+**Step 4 — tag the single commit on `main`, verify same-commit tags and `main`, and push in batches of at most three tags.**
+Run Steps 2–4 on `main` (not a side branch); `check --check-tags` verifies that local `main` and
+every selected release tag resolve to the exact same release commit SHA, and `HEAD:main` prevents
+publishing tags off an unpushed branch while leaving `main` behind. GitHub Actions does not create
+tag `push` workflow events if more than three tags are pushed in one `git push` (so a four-tag
+root + CUDA + Vulkan + Metal push would silently skip both `release-assets.yml` and
+`standalone-build.yml`). Keep all tags on the one release commit and push with `--atomic` in chunks
+of at most three tags per push:
 ```sh
+test "$(git rev-parse --abbrev-ref HEAD)" = main
 TAGS=("${TAG}")
 for mod in "${SELECTED[@]}"; do
   TAGS+=("${mod}/${TAG}")
@@ -238,16 +242,16 @@ python3 scripts/release_prep.py check \
   --modules "${MODULES}" \
   --check-tags
 
-# Push main plus the first <=3 tags atomically, then any remaining tags in <=3-tag atomic pushes:
-git push --atomic origin main "${TAGS[@]:0:3}"
+# Push HEAD:main plus the first <=3 tags atomically, then any remaining tags in <=3-tag atomic pushes:
+git push --atomic origin HEAD:main "${TAGS[@]:0:3}"
 if [ "${#TAGS[@]}" -gt 3 ]; then
   git push --atomic origin "${TAGS[@]:3:3}"
 fi
 ```
 Concrete examples:
-- Root + CUDA + Vulkan (3 tags): one push — `git push --atomic origin main "${TAG}" "backend/cuda/${TAG}" "backend/vulkan/${TAG}"`.
-- Root + CUDA + Vulkan + Metal (4 tags): two atomic pushes — `git push --atomic origin main "${TAG}" "backend/cuda/${TAG}" "backend/vulkan/${TAG}"` followed by `git push --atomic origin "backend/metal/${TAG}"`.
-- Root-only (`MODULES=none`, 1 tag): skip the Step 3 commit, create only `git tag "${TAG}"`, and run `git push --atomic origin main "${TAG}"`.
+- Root + CUDA + Vulkan (3 tags): one push — `git push --atomic origin HEAD:main "${TAG}" "backend/cuda/${TAG}" "backend/vulkan/${TAG}"`.
+- Root + CUDA + Vulkan + Metal (4 tags): two atomic pushes — `git push --atomic origin HEAD:main "${TAG}" "backend/cuda/${TAG}" "backend/vulkan/${TAG}"` followed by `git push --atomic origin "backend/metal/${TAG}"`.
+- Root-only (`MODULES=none`, 1 tag): skip the Step 3 commit, create only `git tag "${TAG}"`, and run `git push --atomic origin HEAD:main "${TAG}"`.
 
 **Step 5 — verify same-commit tags, public Go proxy checksums, and consumer builds.**
 Run after pushing from a clean temporary `GOMODCACHE` with `GOWORK=off`, `GOPROXY=https://proxy.golang.org`

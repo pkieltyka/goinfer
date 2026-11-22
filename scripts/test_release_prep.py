@@ -3,6 +3,7 @@
 
 from __future__ import annotations
 
+import os
 import subprocess
 import sys
 import tempfile
@@ -48,19 +49,37 @@ class TestReleasePrep(unittest.TestCase):
         # GitHub Actions skips tag push events when >3 tags are pushed together.
         self.assertEqual(
             rp.format_push_commands(["v0.6.2"]),
-            ["git push --atomic origin main v0.6.2"],
+            ["git push --atomic origin HEAD:main v0.6.2"],
         )
         self.assertEqual(
             rp.format_push_commands(["v0.6.2", "backend/cuda/v0.6.2", "backend/vulkan/v0.6.2"]),
-            ["git push --atomic origin main v0.6.2 backend/cuda/v0.6.2 backend/vulkan/v0.6.2"],
+            ["git push --atomic origin HEAD:main v0.6.2 backend/cuda/v0.6.2 backend/vulkan/v0.6.2"],
         )
         self.assertEqual(
             rp.format_push_commands(["v0.6.2", "backend/cuda/v0.6.2", "backend/vulkan/v0.6.2", "backend/metal/v0.6.2"]),
             [
-                "git push --atomic origin main v0.6.2 backend/cuda/v0.6.2 backend/vulkan/v0.6.2",
+                "git push --atomic origin HEAD:main v0.6.2 backend/cuda/v0.6.2 backend/vulkan/v0.6.2",
                 "git push --atomic origin backend/metal/v0.6.2",
             ],
         )
+
+        # Online go_env forces GOSUMDB=sum.golang.org even when caller has GOSUMDB=off.
+        orig_sumdb = os.environ.get("GOSUMDB")
+        os.environ["GOSUMDB"] = "off"
+        try:
+            env = rp.go_env(modcache=Path("/tmp/mc"), goproxy="https://proxy.golang.org,direct", gonosumdb=rp.ROOT_MODULE)
+            self.assertEqual(env["GOSUMDB"], "sum.golang.org")
+            self.assertEqual(env["GONOSUMDB"], rp.ROOT_MODULE)
+            self.assertEqual(env["GOPRIVATE"], "")
+        finally:
+            if orig_sumdb is None:
+                os.environ.pop("GOSUMDB", None)
+            else:
+                os.environ["GOSUMDB"] = orig_sumdb
+
+        # Production CLI must not accept hidden archive-injection flags.
+        with self.assertRaises(SystemExit):
+            rp.build_parser().parse_args(["prep", "--version", "v0.6.2", "--source-zip", "/tmp/evil.zip"])
 
     def test_single_commit_prep_and_guards(self):
         tmp = Path(tempfile.mkdtemp(prefix="goinfer-rp-lean-"))
@@ -107,13 +126,14 @@ class TestReleasePrep(unittest.TestCase):
             _write_zip(src_zip, f"{rp.ROOT_MODULE}@{src_ver}", {"go.mod": root_mod, "embeddinggemma2/api.go": root_api})
 
             orig_cache = rp.local_cache_proxy
+            orig_fetch = rp.fetch_base_module
             rp.local_cache_proxy = lambda: fake_dl.resolve().as_uri()
+            rp.fetch_base_module = lambda bsha, fproxy, tdir, gmp: (src_zip, src_ver, src_mod, None)
             try:
                 # 1. Prep CUDA + Vulkan (Metal omitted).
                 self.assertEqual(rp.main([
                     "prep", "--repo", str(repo), "--version", "v0.6.2", "--base", base_sha,
                     "--modules", "backend/cuda,backend/vulkan", "--offline-deps", "--gomaxprocs", "1",
-                    "--source-zip", str(src_zip), "--source-version", src_ver, "--source-mod", str(src_mod),
                 ]), 0)
                 self.assertIn(f"{rp.ROOT_MODULE} v0.6.1", (repo / "backend/metal/go.mod").read_text())
 
@@ -125,8 +145,7 @@ class TestReleasePrep(unittest.TestCase):
 
                 self.assertEqual(rp.main([
                     "check", "--repo", str(repo), "--version", "v0.6.2", "--base", base_sha,
-                    "--modules", "backend/cuda,backend/vulkan", "--check-tags", "--gomaxprocs", "1",
-                    "--source-zip", str(src_zip), "--source-version", src_ver, "--source-mod", str(src_mod),
+                    "--modules", "backend/cuda,backend/vulkan", "--check-tags", "--verify-sum", "--gomaxprocs", "1",
                 ]), 0)
 
                 # Negative control: unselected Metal tag rejected.
@@ -141,7 +160,6 @@ class TestReleasePrep(unittest.TestCase):
                 self.assertEqual(rp.main([
                     "prep", "--repo", str(repo), "--version", "v0.6.3", "--base", base_sha,
                     "--modules", "backend/cuda,backend/vulkan,backend/metal", "--offline-deps", "--gomaxprocs", "1",
-                    "--source-zip", str(src_zip), "--source-version", src_ver, "--source-mod", str(src_mod),
                 ]), 0)
                 _git(repo, "add", "backend/cuda/go.mod", "backend/cuda/go.sum", "backend/vulkan/go.mod", "backend/vulkan/go.sum", "backend/metal/go.mod", "backend/metal/go.sum")
                 _git(repo, "commit", "-m", "release: v0.6.3")
@@ -149,9 +167,18 @@ class TestReleasePrep(unittest.TestCase):
                     _git(repo, "tag", t)
                 self.assertEqual(rp.main([
                     "check", "--repo", str(repo), "--version", "v0.6.3", "--base", base_sha,
-                    "--modules", "backend/cuda,backend/vulkan,backend/metal", "--check-tags", "--gomaxprocs", "1",
-                    "--source-zip", str(src_zip), "--source-version", src_ver, "--source-mod", str(src_mod),
+                    "--modules", "backend/cuda,backend/vulkan,backend/metal", "--check-tags", "--verify-sum", "--gomaxprocs", "1",
                 ]), 0)
+
+                # Negative control: tagging on a side branch while local main stays behind fails --check-tags.
+                rel_sha = _git(repo, "rev-parse", "HEAD")
+                _git(repo, "checkout", "-b", "side-release")
+                _git(repo, "branch", "-f", "main", base_sha)
+                self.assertEqual(rp.main([
+                    "check", "--repo", str(repo), "--version", "v0.6.3", "--base", base_sha,
+                    "--modules", "backend/cuda,backend/vulkan,backend/metal", "--check-tags",
+                ]), 1)
+                _git(repo, "checkout", "-B", "main", rel_sha)
 
                 # Negative control: moving an unchanged root file into an existing backend module
                 # (R100 rename) removes it from the root zip and MUST be caught by root_module_diff + check.
@@ -171,6 +198,7 @@ class TestReleasePrep(unittest.TestCase):
                 ]), 1)
             finally:
                 rp.local_cache_proxy = orig_cache
+                rp.fetch_base_module = orig_fetch
         finally:
             rp.rmtree_ro(tmp)
 

@@ -219,18 +219,17 @@ def check_gosum(text: str, version: str, zip_sum: str, mod_sum: str, label: str)
     return errs
 
 
-def go_env(*, modcache: Path, goproxy: str, gosumdb: Optional[str] = None, gonosumdb: Optional[str] = None, goos: str = "", goarch: str = "", gomaxprocs: Optional[int] = None) -> Dict[str, str]:
+def go_env(*, modcache: Path, goproxy: str, gosumdb: str = "sum.golang.org", gonosumdb: str = "", goos: str = "", goarch: str = "", gomaxprocs: Optional[int] = None) -> Dict[str, str]:
     env = os.environ.copy()
     env["GOWORK"] = "off"
     env["GOTOOLCHAIN"] = "local"
     env["CGO_ENABLED"] = "0"
     env["GOMODCACHE"] = str(modcache)
     env["GOPROXY"] = goproxy
-    if gosumdb is not None:
-        env["GOSUMDB"] = gosumdb
-    if gonosumdb is not None:
-        env["GONOSUMDB"] = gonosumdb
-        env["GOPRIVATE"] = ""
+    env["GOSUMDB"] = gosumdb
+    env["GONOSUMDB"] = gonosumdb
+    env["GONOPROXY"] = ""
+    env["GOPRIVATE"] = ""
     if goos:
         env["GOOS"] = goos
     if goarch:
@@ -272,6 +271,28 @@ def relabel_canonical_zip(src_zip: Path, src_version: str, src_mod: Path, src_in
             zout.writestr(nzi, zin.read(zi))
 
 
+def fetch_base_module(
+    base_sha: str,
+    fetch_proxy: str,
+    tmp: Path,
+    gomaxprocs: Optional[int],
+) -> Tuple[Path, str, Path, Optional[Path]]:
+    """Fetch Go's canonical root zip/mod/info for an already-pushed base commit."""
+    fetch_mc = tmp / "fetch-mc"
+    fetch_mc.mkdir()
+    env = go_env(
+        modcache=fetch_mc,
+        goproxy=fetch_proxy,
+        gosumdb="sum.golang.org",
+        gonosumdb="",
+        gomaxprocs=gomaxprocs,
+    )
+    dl = json.loads(run(["go", "mod", "download", "-json", f"{ROOT_MODULE}@{base_sha}"], cwd=tmp, env=env).stdout)
+    if dl.get("Error"):
+        raise PrepError(f"go mod download {ROOT_MODULE}@{base_sha}: {dl['Error']}")
+    return Path(dl["Zip"]), dl["Version"], Path(dl["GoMod"]), Path(dl["Info"])
+
+
 def stage_root_from_go(
     *,
     base_sha: str,
@@ -279,24 +300,11 @@ def stage_root_from_go(
     tmp: Path,
     fetch_proxy: str,
     gomaxprocs: Optional[int],
-    source_zip: Optional[Path] = None,
-    source_version: Optional[str] = None,
-    source_mod: Optional[Path] = None,
 ) -> Tuple[Path, str, str]:
-    """Fetch Go's canonical zip for base_sha (or use explicit source_zip), relabel to version, and verify with Go."""
+    """Fetch Go's canonical zip for base_sha, relabel to version, and verify with Go."""
     proxy_dir = tmp / "proxy"
-    if source_zip is not None:
-        if not source_version or source_mod is None:
-            raise PrepError("--source-zip requires --source-version and --source-mod")
-        relabel_canonical_zip(source_zip, source_version, source_mod, None, version, proxy_dir)
-    else:
-        fetch_mc = tmp / "fetch-mc"
-        fetch_mc.mkdir()
-        env = go_env(modcache=fetch_mc, goproxy=fetch_proxy, gomaxprocs=gomaxprocs)
-        dl = json.loads(run(["go", "mod", "download", "-json", f"{ROOT_MODULE}@{base_sha}"], cwd=tmp, env=env).stdout)
-        if dl.get("Error"):
-            raise PrepError(f"go mod download {ROOT_MODULE}@{base_sha}: {dl['Error']}")
-        relabel_canonical_zip(Path(dl["Zip"]), dl["Version"], Path(dl["GoMod"]), Path(dl["Info"]), version, proxy_dir)
+    src_zip, src_ver, src_mod, src_info = fetch_base_module(base_sha, fetch_proxy, tmp, gomaxprocs)
+    relabel_canonical_zip(src_zip, src_ver, src_mod, src_info, version, proxy_dir)
 
     # Let Go itself validate the relabeled zip and compute the authoritative h1 sums.
     verify_mc = tmp / "verify-mc"
@@ -304,6 +312,7 @@ def stage_root_from_go(
     venv = go_env(
         modcache=verify_mc,
         goproxy=proxy_dir.resolve().as_uri(),
+        gosumdb="sum.golang.org",
         gonosumdb=ROOT_MODULE,
         gomaxprocs=gomaxprocs,
     )
@@ -364,12 +373,12 @@ def dirty_paths(repo: Path) -> List[str]:
     return paths
 
 
-def format_push_commands(tags: Sequence[str], *, remote: str = "origin", branch: str = "main", max_tags_per_push: int = 3) -> List[str]:
+def format_push_commands(tags: Sequence[str], *, remote: str = "origin", branch_refspec: str = "HEAD:main", max_tags_per_push: int = 3) -> List[str]:
     """Batch tag pushes to <=3 tags per push so GitHub Actions still creates tag push events."""
     tag_list = list(tags)
     if not tag_list:
-        return [f"git push --atomic {remote} {branch}"]
-    cmds = [f"git push --atomic {remote} {branch} {' '.join(tag_list[:max_tags_per_push])}"]
+        return [f"git push --atomic {remote} {branch_refspec}"]
+    cmds = [f"git push --atomic {remote} {branch_refspec} {' '.join(tag_list[:max_tags_per_push])}"]
     for i in range(max_tags_per_push, len(tag_list), max_tags_per_push):
         cmds.append(f"git push --atomic {remote} {' '.join(tag_list[i:i + max_tags_per_push])}")
     return cmds
@@ -413,9 +422,6 @@ def cmd_prep(args: argparse.Namespace) -> int:
             tmp=tmp,
             fetch_proxy=args.fetch_proxy,
             gomaxprocs=args.gomaxprocs,
-            source_zip=Path(args.source_zip).resolve() if args.source_zip else None,
-            source_version=args.source_version,
-            source_mod=Path(args.source_mod).resolve() if args.source_mod else None,
         )
         print(f"staged {ROOT_MODULE}@{args.version} from base {base_sha[:12]}:\n  Sum      = {zip_sum}\n  GoModSum = {mod_sum}")
 
@@ -436,8 +442,8 @@ def cmd_prep(args: argparse.Namespace) -> int:
             env = go_env(
                 modcache=work_mc,
                 goproxy=goproxy,
-                gosumdb="off" if args.offline_deps else None,
-                gonosumdb=None if args.offline_deps else ROOT_MODULE,
+                gosumdb="off" if args.offline_deps else "sum.golang.org",
+                gonosumdb="" if args.offline_deps else ROOT_MODULE,
                 goos=spec.goos,
                 goarch=spec.goarch,
                 gomaxprocs=args.gomaxprocs,
@@ -511,7 +517,7 @@ def cmd_check(args: argparse.Namespace) -> int:
     errs.extend(check_gomod(root_gomod, "go.mod", expected_mod=ROOT_MODULE, is_root=True))
 
     zip_sum = mod_sum = None
-    if args.verify_sum or args.source_zip:
+    if args.verify_sum:
         tmp = Path(tempfile.mkdtemp(prefix="goinfer-release-check-"))
         try:
             _, zip_sum, mod_sum = stage_root_from_go(
@@ -520,9 +526,6 @@ def cmd_check(args: argparse.Namespace) -> int:
                 tmp=tmp,
                 fetch_proxy=args.fetch_proxy,
                 gomaxprocs=args.gomaxprocs,
-                source_zip=Path(args.source_zip).resolve() if args.source_zip else None,
-                source_version=args.source_version,
-                source_mod=Path(args.source_mod).resolve() if args.source_mod else None,
             )
         finally:
             rmtree_ro(tmp)
@@ -538,6 +541,14 @@ def cmd_check(args: argparse.Namespace) -> int:
             errs.append(f"{m}/go.sum@{rev_sha[:12]}: missing h1 entries for {ROOT_MODULE} {args.version}")
 
     if args.check_tags:
+        main_ref = run(["git", "rev-parse", "-q", "--verify", "refs/heads/main^{commit}"], cwd=repo, check=False)
+        if main_ref.returncode != 0:
+            errs.append("missing local branch refs/heads/main")
+        elif main_ref.stdout.strip() != rev_sha:
+            errs.append(
+                f"local main points to {main_ref.stdout.strip()[:12]}, expected single release commit {rev_sha[:12]} "
+                "(release must be committed on main so pushing main publishes the tagged commit)"
+            )
         for t in [args.version] + [f"{m}/{args.version}" for m in selected]:
             p = run(["git", "rev-parse", "-q", "--verify", f"refs/tags/{t}^{{commit}}"], cwd=repo, check=False)
             if p.returncode != 0:
@@ -569,9 +580,6 @@ def build_parser() -> argparse.ArgumentParser:
         sp.add_argument("--repo", default=None, help="Git repository path (default: current repo).")
         sp.add_argument("--fetch-proxy", default="https://proxy.golang.org,direct", help="GOPROXY for fetching base canonical zip.")
         sp.add_argument("--gomaxprocs", type=int, default=None, help="Optional GOMAXPROCS cap.")
-        sp.add_argument("--source-zip", default=None, help=argparse.SUPPRESS)
-        sp.add_argument("--source-version", default=None, help=argparse.SUPPRESS)
-        sp.add_argument("--source-mod", default=None, help=argparse.SUPPRESS)
 
     pr = sub.add_parser("prep", help="Relabel Go's canonical base zip to candidate version and pin selected submodules.")
     add_common(pr)
