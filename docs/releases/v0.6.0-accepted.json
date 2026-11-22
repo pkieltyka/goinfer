@@ -1,0 +1,56 @@
+{
+  "schema": 1,
+  "release": "v0.6.0",
+  "decision": "On 2026-11-22, Peter approved publishing v0.6.0 with the listed qualifications deferred after the ordinary CI run passed.",
+  "ci": "https://github.com/pkieltyka/goinfer/actions/runs/45037448153",
+  "accepted": [
+    {
+      "record": "v0.5.0-cold-user-record",
+      "item": "Full install record for the previous tag",
+      "class": "environment",
+      "evidence": "No full v0.5.0 cold-user record is available.",
+      "accepted_by": "Peter",
+      "accepted_on": "2026-11-22"
+    },
+    {
+      "record": "cuda-20261105T022250Z-ccdfb3ad.json",
+      "item": "Current full CUDA device gate",
+      "class": "environment",
+      "evidence": "Focused Q8_0 and UD-Q6_K_XL EmbeddingGemma 2 checks ran on an RTX PRO 6000. The full current CUDA gate is outstanding.",
+      "accepted_by": "Peter",
+      "accepted_on": "2026-11-22"
+    },
+    {
+      "record": "metal-20261104T224100Z-ccdfb3ad.json",
+      "item": "Current full Metal device gate",
+      "class": "environment",
+      "evidence": "Metal cross-built for Darwin arm64. A current Metal device run is outstanding because an Apple Silicon host was unavailable.",
+      "accepted_by": "Peter",
+      "accepted_on": "2026-11-22"
+    },
+    {
+      "record": "parity-20261105T071007Z-ccdfb3ad.json",
+      "item": "Current full parity sweep",
+      "class": "environment",
+      "evidence": "Targeted embedding checks were run. A full parity sweep covering this release is outstanding.",
+      "accepted_by": "Peter",
+      "accepted_on": "2026-11-22"
+    },
+    {
+      "record": "darwin-arm64-20261104T232151Z-ccdfb3ad.json",
+      "item": "Current full Darwin deferred tests",
+      "class": "environment",
+      "evidence": "The current full deferred test record on Darwin is outstanding.",
+      "accepted_by": "Peter",
+      "accepted_on": "2026-11-22"
+    },
+    {
+      "record": "linux-amd64-20261105T032044Z-ccdfb3ad.json",
+      "item": "Current full Linux deferred tests",
+      "class": "environment",
+      "evidence": "The current full deferred test record on Linux is outstanding.",
+      "accepted_by": "Peter",
+      "accepted_on": "2026-11-22"
+    }
+  ]
+}

@@ -17,6 +17,33 @@ any surface may still change.
 
 Each unreleased change is a file in [`changelog.d/`](changelog.d/), collected into the release's section when it is tagged (`scripts/changelog.py release`).
 
+## [v0.6.0] — 2026-11-22
+
+### Added
+
+- **EmbeddingGemma 2 on AMD.** The optional Linux amd64 Vulkan backend runs text embedding
+  and independent document batches with `CGO_ENABLED=0`. `Encoder.UseAutoAccelerator` lets
+  an application opt into trying its linked CUDA and Vulkan backends, with CPU available
+  when neither attaches.
+
+- **EmbeddingGemma 2 text GGUF.** Go applications can open Unsloth's Q8_0 and UD-Q6_K_XL
+  text checkpoints with `embeddinggemma2.LoadGGUFEncoder` and attach CUDA for embedding
+  and prepared-ID batching. The loader decodes the file's mixed tensor formats in Go,
+  with FP32 weights for execution.
+
+- **EmbeddingGemma 2 downloads for Go clients.** `pull.DownloadEmbeddingGemma2`
+  fetches the pinned Google checkpoint or an Unsloth text GGUF over HTTPS and
+  returns a verified path in the goinfer model cache.
+
+### Changed
+
+- Routine CI runs Linux short tests, CUDA and Vulkan checks, and lint. The extended suite runs weekly and on demand.
+- The fork retired its WebGPU backend, agent demo, SDK harness, and website publishing. The [upstream archive](https://github.com/pkieltyka/goinfer/blob/v0.6.0/docs/upstream-archive.md) also points to the archived measurement data.
+
+### Release qualification
+
+Ordinary CI passed. The maintainer approved deferring the full install, device, parity, and cross-platform qualification listed in the [release record](https://github.com/pkieltyka/goinfer/blob/v0.6.0/docs/releases/v0.6.0-accepted.json).
+
 ## [v0.5.0] — 2026-11-21
 
 - This fork release adds opt-in CUDA EmbeddingGemma 2 inference and prepared-ID passage batching. It follows fork release v0.4.1.
@@ -5029,7 +5056,7 @@ families served, and gains a Mamba-2 SSM engine for hybrids.** (See
   Adds `golang.org/x/sys` as a direct root dependency. (CI now runs darwin/arm64
   jobs to catch this class of platform gap.)
 
-## [v0.6.0] — 2026-06-13
+## [Upstream v0.6.0] — 2026-06-13
 
 ### Added
 - **GPU int8 KV cache (`--kv i8`, opt-in `-tags gpu`) — 4× vs f32, ~64k context on
