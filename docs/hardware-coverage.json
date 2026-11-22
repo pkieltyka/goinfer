@@ -816,14 +816,14 @@
   },
   {
    "id": "cuda-hwinfo-report",
-   "gate": "check --hardware's CUDA device facts: name, compute capability, SM count, memory, driver CUDA version (report only: selects no code path)",
+   "gate": "CUDA device facts and attached-context memory reporting",
    "kind": "cuda-device",
    "predicates": [
     "cuda:DeviceAttributeComputeCapabilityMajor",
     "cuda:DeviceAttributeComputeCapabilityMinor",
     "mem:MemInfo@goinfer/backend/cuda/hwinfo.go"
    ],
-   "selected_when": "only when `check --hardware` runs on a CUDA build; the report says whether the PTX is native (sm_75) or JIT-compiled forward, or older than sm_75 and unsupported",
+   "selected_when": "`check --hardware` on a CUDA build reports device facts; an EmbeddingGemma 2 memory query reads free and total bytes on its attached CUDA context",
    "files": [
     "goinfer/backend/cuda/hwinfo.go"
    ],
