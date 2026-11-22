@@ -26,6 +26,7 @@ type relRow struct {
 type relEnv struct {
 	root, tag, prev string
 	offline         bool
+	modules         []string                                               // a replay uses the set qualification actually covered
 	run             func(dir, name string, args ...string) (string, error) // combined output
 	look            func(kind string, args ...string) (string, error)
 	looks           []relLookup // what the live reader answered, each read once, in the order first asked
@@ -46,6 +47,7 @@ type releaseInputs struct {
 	Prev    string      `json:"prev"`
 	Offline bool        `json:"offline,omitempty"`
 	Looks   []relLookup `json:"looks"`
+	Modules []string    `json:"modules,omitempty"`
 }
 
 func relLookupKey(kind string, args []string) string {
@@ -233,9 +235,16 @@ func rowPending(e *relEnv) relRow {
 	return done(name, "cmd/gate/parity.go awaitingFirstConfirmation", fmt.Sprintf("nothing pending since before %s (%s)", prevVer, prevDate))
 }
 
-// ---- row 2: the five modules agree on a tagged aikit, and none requires aikit/gpu ----
+// ---- row 2: the releasable modules agree on a tagged aikit, and none requires aikit/gpu ----
 
-var relModules = []string{".", "backend/webgpu", "backend/cuda", "backend/metal", "demo/agent"}
+var relModules = []string{".", "backend/webgpu", "backend/cuda", "backend/metal", "backend/vulkan", "demo/agent"}
+
+func (e *relEnv) releaseModules() []string {
+	if e.modules != nil {
+		return e.modules
+	}
+	return relModules
+}
 
 // rePseudo matches the three pseudo-version forms Go writes (vX.0.0-yyyymmddhhmmss-hash, vX.Y.Z-pre.0.yyyymmddhhmmss-hash,
 // vX.Y.Z-0.yyyymmddhhmmss-hash), with or without build metadata such as +incompatible. goinfer's main may require one
@@ -268,7 +277,7 @@ func rowPins(e *relEnv) relRow {
 	const name = "the modules agree on the aikit pins"
 	aikit := map[string]string{}
 	var gpuReq []string // aikit's gpu module moved into goinfer (Track AX); a require is a module that did not switch
-	for _, m := range relModules {
+	for _, m := range e.releaseModules() {
 		b, err := e.readMoved(relPath(m, "go.mod"))
 		if err != nil {
 			return owed(name, m+"/go.mod", err.Error())
@@ -314,13 +323,13 @@ func rowPins(e *relEnv) relRow {
 		bad = append(bad, "no module requires aikit: the reader found nothing")
 	}
 	if len(bad) > 0 {
-		return owed(name, "go.mod of "+strings.Join(relModules, ", "), bad...)
+		return owed(name, "go.mod of "+strings.Join(e.releaseModules(), ", "), bad...)
 	}
 	vs := ""
 	for _, v := range aikit {
 		vs = v
 	}
-	return done(name, "go.mod of "+strings.Join(relModules, ", "), fmt.Sprintf("aikit %s in %d modules; no aikit/gpu", vs, len(aikit)))
+	return done(name, "go.mod of "+strings.Join(e.releaseModules(), ", "), fmt.Sprintf("aikit %s in %d modules; no aikit/gpu", vs, len(aikit)))
 }
 
 // ---- row 3: a cold-user record for the previous tag ----
@@ -583,7 +592,7 @@ func rowChangelog(e *relEnv) relRow {
 func rowGofmt(e *relEnv) relRow {
 	const name = "gofmt -l is empty in every module"
 	var dirty []string
-	for _, m := range relModules {
+	for _, m := range e.releaseModules() {
 		out, err := e.cmdMoved(m, "gofmt", "-l", ".")
 		if err != nil {
 			return owed(name, m, err.Error())

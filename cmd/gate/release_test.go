@@ -59,14 +59,14 @@ func writeMods(t *testing.T, root string, aikit map[string]string, gpu map[strin
 
 func TestRowPins(t *testing.T) {
 	root := t.TempDir()
-	agree := map[string]string{".": "v1.69.0", "backend/webgpu": "v1.69.0", "backend/cuda": "v1.69.0", "backend/metal": "v1.69.0", "demo/agent": "v1.69.0"}
+	agree := map[string]string{".": "v1.69.0", "backend/webgpu": "v1.69.0", "backend/cuda": "v1.69.0", "backend/metal": "v1.69.0", "backend/vulkan": "v1.69.0", "demo/agent": "v1.69.0"}
 	writeMods(t, root, agree, nil)
 	e := liveRelEnv(relEnv{root: root})
 	if r := rowPins(e); r.State != "done" {
 		t.Fatalf("agreeing pins: %+v", r)
 	}
 	// one module on an older aikit
-	bad := map[string]string{".": "v1.69.0", "backend/webgpu": "v1.69.0", "backend/cuda": "v1.68.0", "backend/metal": "v1.69.0", "demo/agent": "v1.69.0"}
+	bad := map[string]string{".": "v1.69.0", "backend/webgpu": "v1.69.0", "backend/cuda": "v1.68.0", "backend/metal": "v1.69.0", "backend/vulkan": "v1.69.0", "demo/agent": "v1.69.0"}
 	writeMods(t, root, bad, nil)
 	if r := rowPins(e); r.State != "OWED" || !strings.Contains(strings.Join(r.Detail, " "), "aikit differs") {
 		t.Errorf("aikit disagreement: %+v", r)
@@ -76,9 +76,13 @@ func TestRowPins(t *testing.T) {
 	if r := rowPins(e); r.State != "OWED" || !strings.Contains(strings.Join(r.Detail, " "), "aikit/gpu") {
 		t.Errorf("an aikit/gpu require read as done: %+v", r)
 	}
-	// an untagged aikit, agreed by all five modules, is owed at a release (SD3), in each form Go writes a pseudo-version
+	// an untagged aikit, agreed by all releasable modules, is owed at a release (SD3), in each form Go writes a pseudo-version
 	all := func(v string) map[string]string {
-		return map[string]string{".": v, "backend/webgpu": v, "backend/cuda": v, "backend/metal": v, "demo/agent": v}
+		pins := make(map[string]string, len(relModules))
+		for _, module := range relModules {
+			pins[module] = v
+		}
+		return pins
 	}
 	for _, v := range []string{"v0.0.0-20261027120000-abcdefabcdef", "v1.77.0-rc.1.0.20261027120000-abcdefabcdef",
 		"v1.76.1-0.20261027120000-abcdefabcdef", "v2.0.1-0.20261027120000-abcdefabcdef+incompatible"} {
