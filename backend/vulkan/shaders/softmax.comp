@@ -18,10 +18,14 @@ shared float partial[64];
 void main() {
     uint row = gl_WorkGroupID.x;
     uint head = gl_WorkGroupID.y;
+    if (row >= p.blockRows || head >= p.heads) {
+        return;
+    }
     uint query = p.queryStart + row;
     uint lane = gl_LocalInvocationID.x;
-    uint first = max(uint(segments[query].x), query - min(query, p.radius));
-    uint end = min(uint(segments[query].y), query + p.radius + 1u);
+    uint radius = min(p.radius, p.tokens);
+    uint first = max(uint(segments[query].x), query - min(query, radius));
+    uint end = min(uint(segments[query].y), query + radius + 1u);
     uint base = (head * p.blockRows + row) * p.tokens;
 
     // Assign every key to the same lane for all storage accesses.

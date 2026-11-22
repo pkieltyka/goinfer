@@ -45,6 +45,14 @@ func TestAttentionGroupedSegments(t *testing.T) {
 		return data
 	}
 	queries, keys, values := samples(tokens*heads*headDim), samples(tokens*kvHeads*headDim), samples(tokens*kvHeads*headDim)
+	// Keys outside every query window must not contribute even with non-finite values.
+	for k := range tokens {
+		if k < queryStart-radius || k >= queryStart+blockRows+radius {
+			for d := range kvHeads * headDim {
+				values[k*kvHeads*headDim+d] = float32(math.NaN())
+			}
+		}
+	}
 	segments := make([]float32, 2*tokens)
 	for row := range tokens {
 		if row < split {
