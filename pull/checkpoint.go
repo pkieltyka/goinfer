@@ -371,6 +371,10 @@ func CachedCheckpoint(dir string) (string, bool) {
 // already verified there. A complete dest is a no-op. A dest that exists without a matching marker is refused rather than
 // overwritten. progress reports bytes over the whole set and the file in flight; it may be nil.
 func DownloadCheckpoint(ctx context.Context, p Plan, dest string, progress func(done, total int64, file string)) (string, error) {
+	return downloadCheckpointAtRevision(ctx, p, "main", dest, progress)
+}
+
+func downloadCheckpointAtRevision(ctx context.Context, p Plan, revision, dest string, progress func(done, total int64, file string)) (string, error) {
 	if len(p.Files) == 0 {
 		return "", fmt.Errorf("checkpoint plan for %s has no files", p.Repo)
 	}
@@ -398,7 +402,7 @@ func DownloadCheckpoint(ctx context.Context, p Plan, dest string, progress func(
 	for _, f := range p.Files {
 		dir := filepath.Join(staging, filepath.FromSlash(path.Dir(f.Path)))
 		base := done
-		if _, err := Download(ctx, p.Repo, f, dir, func(d, _ int64) {
+		if _, err := downloadAtRevision(ctx, p.Repo, revision, f, dir, func(d, _ int64) {
 			if progress != nil {
 				progress(base+d, p.Bytes, f.Path)
 			}
