@@ -27,6 +27,7 @@ import (
 func init() {
 	embeddinggemma2.RegisterAccelerator("cuda", bareEG2Factory(false))
 	embeddinggemma2.RegisterSelectedAccelerator("cuda", selectedEG2Factory(false))
+	embeddinggemma2.RegisterDeviceProber("cuda", probeCUDADevices)
 }
 
 func bareEG2Factory(combined bool) func(*embeddinggemma2.Model) (embeddinggemma2.Accelerator, error) {
@@ -73,11 +74,12 @@ type eg2Defect struct {
 
 // eg2Accel is the CUDA accelerator. One forward at a time (mu); towerOps runs every device call on its executor.
 type eg2Accel struct {
-	mu     sync.Mutex
-	ops    *towerOps
-	closed bool
-	cfg    embeddinggemma2.Config
-	model  *embeddinggemma2.Model
+	mu       sync.Mutex
+	ops      *towerOps
+	closed   bool
+	cfg      embeddinggemma2.Config
+	model    *embeddinggemma2.Model
+	identity embeddinggemma2.DeviceInfo
 
 	pleProj, pleNorm, finalNorm, proj, ones Buffer
 	residentWeightBytes                     int64
@@ -345,6 +347,7 @@ func newEG2AccelOn(m *embeddinggemma2.Model, combined bool, open func() (*Device
 		return nil, err
 	}
 	a := &eg2Accel{ops: ops, cfg: c, model: m}
+	a.identity = cudaDeviceInfo(ops.dev.Adapter())
 	if err := ops.do(func() error {
 		var weightBytes int64
 		upWeight := func(v []float32) Buffer {

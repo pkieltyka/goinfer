@@ -785,6 +785,36 @@
    "notes": "Executed on one OS version only."
   },
   {
+   "id": "cuda-eg2-inventory-memory-architecture",
+   "gate": "EmbeddingGemma 2 CUDA device memory architecture",
+   "kind": "cuda-device",
+   "predicates": [
+    "cuda:DeviceAttributeIntegrated"
+   ],
+   "selected_when": "CUDA inventory and attached-device reporting query the driver's integrated-device attribute",
+   "files": [
+    "goinfer/backend/cuda/internal/gpudev/adapters_linux.go"
+   ],
+   "our_machines": "RTX PRO 6000 Blackwell Max-Q available for dedicated-memory verification",
+   "last_executed": [],
+   "notes": "Fake tests exercise integrated, discrete and unknown responses. An integrated CUDA device has not been tested."
+  },
+  {
+   "id": "metal-eg2-inventory-memory-architecture",
+   "gate": "EmbeddingGemma 2 system-default Metal device memory architecture",
+   "kind": "metal-device",
+   "predicates": [
+    "metal:hasUnifiedMemory"
+   ],
+   "selected_when": "Metal inventory and attached-device reporting classify the system default device's memory",
+   "files": [
+    "goinfer/backend/metal/internal/gpudev/metal.go"
+   ],
+   "our_machines": "no macOS device available for this change",
+   "last_executed": [],
+   "notes": "Cross-build only."
+  },
+  {
    "id": "cuda-hwinfo-report",
    "gate": "CUDA device facts and attached-context memory reporting",
    "kind": "cuda-device",

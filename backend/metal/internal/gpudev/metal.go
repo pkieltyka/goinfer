@@ -31,23 +31,19 @@ const MSL3_1 uint = (3 << 16) | 1
 
 var mtlCreateSystemDefaultDevice func() uintptr
 
-// loadOnce guards the Metal.framework dlopen + symbol registration. It is a
-// sync.Once rather than a package init so it does not depend on init ordering
-// between files in this package (annbackend.go's init registers the backend and
-// calls CreateSystemDefaultDevice, and Go runs inits in filename order — a plain
-// init here would run after that call). Callers reach it via CreateSystemDefaultDevice.
-var loadOnce sync.Once
-
-func loadMetal() {
-	loadOnce.Do(func() {
-		h, err := purego.Dlopen("/System/Library/Frameworks/Metal.framework/Metal",
-			purego.RTLD_NOW|purego.RTLD_GLOBAL)
-		if err != nil {
-			panic("metal: dlopen Metal.framework: " + err.Error())
-		}
-		purego.RegisterLibFunc(&mtlCreateSystemDefaultDevice, h, "MTLCreateSystemDefaultDevice")
-	})
-}
+// loadMetal resolves the framework once, on the first device request.
+var loadMetal = sync.OnceValue(func() error {
+	h, err := purego.Dlopen("/System/Library/Frameworks/Metal.framework/Metal", purego.RTLD_NOW|purego.RTLD_GLOBAL)
+	if err != nil {
+		return fmt.Errorf("metal: dlopen Metal.framework: %w", err)
+	}
+	symbol, err := purego.Dlsym(h, "MTLCreateSystemDefaultDevice")
+	if err != nil {
+		return errors.Join(fmt.Errorf("metal: find MTLCreateSystemDefaultDevice: %w", err), purego.Dlclose(h))
+	}
+	purego.RegisterFunc(&mtlCreateSystemDefaultDevice, symbol)
+	return nil
+})
 
 // cached selectors
 var (
@@ -61,6 +57,7 @@ var (
 	selUTF8String         = objc.RegisterName("UTF8String")
 	selLocalizedDesc      = objc.RegisterName("localizedDescription")
 	selName               = objc.RegisterName("name")
+	selHasUnifiedMemory   = objc.RegisterName("hasUnifiedMemory")
 	selMaxTgMem           = objc.RegisterName("maxThreadgroupMemoryLength") // device tile-memory limit (bytes)
 	selThreadExecWidth    = objc.RegisterName("threadExecutionWidth")       // pipeline SIMD-group width
 	selCurrentAllocSize   = objc.RegisterName("currentAllocatedSize")       // actual GPU-side bytes
@@ -225,13 +222,17 @@ func (d *Device) ReleaseObjects() {
 	}
 }
 
+var ErrNoDevice = errors.New("metal: no system default device")
+
 // CreateSystemDefaultDevice reaches Metal cgo-free (MTLCreateSystemDefaultDevice is a
 // plain C export in Metal.framework).
 func CreateSystemDefaultDevice() (*Device, error) {
-	loadMetal()
+	if err := loadMetal(); err != nil {
+		return nil, err
+	}
 	p := mtlCreateSystemDefaultDevice()
 	if p == 0 {
-		return nil, fmt.Errorf("metal: MTLCreateSystemDefaultDevice returned nil (no Metal GPU?)")
+		return nil, ErrNoDevice
 	}
 	d := &Device{id: objc.ID(p)}
 	if NewLeaser != nil {
@@ -242,6 +243,9 @@ func CreateSystemDefaultDevice() (*Device, error) {
 
 // Name is the device's product name (e.g. "Apple M1 Pro").
 func (d *Device) Name() string { return goString(d.id.Send(selName)) }
+
+// HasUnifiedMemory reports whether the device shares memory with the host.
+func (d *Device) HasUnifiedMemory() bool { return objc.Send[bool](d.id, selHasUnifiedMemory) }
 
 // MaxThreadgroupMemoryLength is the device's maximum threadgroup (tile) memory per dispatch, in
 // bytes (~32 KiB on Apple GPUs). A dispatch whose setThreadgroupMemoryLength exceeds it aborts the
