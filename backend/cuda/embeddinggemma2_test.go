@@ -410,8 +410,8 @@ func TestEG2CUDA_batchRopeSegments(t *testing.T) {
 }
 
 // TestEG2CUDA_batchContract: a batch's outputs are the caller's (appending to one leaves the next alone; a later
-// forward changes neither); a batch at exactly the length cap runs; an empty batch, an empty or out-of-vocabulary
-// member (in the last slot) and a batch one past the cap are refused before any device allocation, copy or launch; a
+// forward changes neither); a batch totaling the single-input cap runs; an empty batch, an empty, out-of-vocabulary
+// or oversized member (in the last slot) are refused before any device allocation, copy or launch; a
 // batch of one issues what Forward issues; a batch of N issues one forward's launches (one attention_seg per layer)
 // and Forward's copies plus two per input for each RoPE pair; and after Close a batch is an error.
 func TestEG2CUDA_batchContract(t *testing.T) {
@@ -442,7 +442,7 @@ func TestEG2CUDA_batchContract(t *testing.T) {
 		{"empty batch", nil},
 		{"empty last member", [][]int{in[0], {}}},
 		{"out-of-vocabulary last member", [][]int{in[0], {1, V}}},
-		{"one past the cap", [][]int{eg2SeqIDs(eg2MaxTokens-4, 5, V), eg2SeqIDs(5, 6, V)}},
+		{"oversized member", [][]int{in[0], eg2SeqIDs(eg2MaxTokens+1, 6, V)}},
 	} {
 		var err error
 		n := eg2Count(t, a, func() { _, err = a.ForwardBatch(bad.batch) })
@@ -1016,6 +1016,46 @@ func checkCombined(t *testing.T, model *embeddinggemma2.Model, shapes [][]int) {
 				t.Errorf("longest input %d, transposes %d attention %d, wanted %d each", longest, transposes, attn, wantAttn)
 			}
 		})
+	}
+}
+
+func TestEG2CUDA_largeAggregateBatch(t *testing.T) {
+	m := eg2TinyModel(t)
+	ids := make([][]int, 6)
+	for i, length := range []int{2048, 2048, 2048, 2048, 2048, 2047} {
+		ids[i] = eg2SeqIDs(length, i+1, m.Config().VocabSize)
+	}
+	for _, selector := range []string{"cuda", "cuda-eg2-combined"} {
+		t.Run(selector, func(t *testing.T) {
+			a := newEG2ForTest(t, m)
+			if selector == "cuda-eg2-combined" {
+				if err := a.enableCombined(); err != nil {
+					t.Fatal(err)
+				}
+			}
+			batch, err := a.ForwardBatch(ids)
+			if err != nil {
+				t.Fatal(err)
+			}
+			for i, input := range ids {
+				single, _, err := a.Forward(input, false)
+				if err != nil {
+					t.Fatal(err)
+				}
+				if diff := eg2FirstDiff(batch[i], single, m.Dim()); diff != "" {
+					t.Fatalf("input %d differs at %s", i, diff)
+				}
+			}
+		})
+	}
+}
+
+func TestEG2CUDA_aggregateIndexLimit(t *testing.T) {
+	a := &eg2Accel{cfg: embeddinggemma2.Config{Hidden: 65536, VocabSize: 1, MaxPositions: eg2MaxTokens}}
+	input := make([]int, eg2MaxTokens)
+	// This crosses signed element indexing even though every member is valid.
+	if _, err := a.ForwardBatch([][]int{input, input, input, input}); err == nil {
+		t.Fatal("CUDA accepted an aggregate that would overflow its indexing")
 	}
 }
 
