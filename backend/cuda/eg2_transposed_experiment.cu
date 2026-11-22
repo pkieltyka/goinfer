@@ -47,9 +47,24 @@ extern "C" __global__ void eg2_attention_transposed(
     __shared__ float qs[512];
     for (int d = threadIdx.x; d < hd; d += blockDim.x) qs[d] = qi[d];
     __syncthreads();
-    for (int t = threadIdx.x; t < n; t += blockDim.x) {
+    // Interleave two independent scores without changing either score's FMA order.
+    int t = threadIdx.x;
+    for (; t + blockDim.x < n; t += 2 * blockDim.x) {
+        const float* key = kh + s0 + t;
+        float first = 0.f, second = 0.f;
+        #pragma unroll 8
+        for (int d = 0; d < hd; ++d) {
+            const float* row = key + (long)d * pitch;
+            first = __fmaf_rn(qs[d], row[0], first);
+            second = __fmaf_rn(qs[d], row[blockDim.x], second);
+        }
+        sc[t] = first * scale;
+        sc[t + blockDim.x] = second * scale;
+    }
+    if (t < n) {
         const float* key = kh + s0 + t;
         float acc = 0.f;
+        #pragma unroll 8
         for (int d = 0; d < hd; ++d) acc = __fmaf_rn(qs[d], key[(long)d * pitch], acc);
         sc[t] = acc * scale;
     }
@@ -89,9 +104,22 @@ extern "C" __global__ void eg2_attention_transposed(
     __syncthreads();
 
     float* oi = out + (long)i * hidden + off;
-    for (int d = threadIdx.x; d < hd; d += blockDim.x) {
+    const int d = threadIdx.x;
+    // A second feature can reuse the same value row and normalized score.
+    if (d + blockDim.x < hd) {
+        float first = 0.f, second = 0.f;
+        #pragma unroll 4
+        for (int t = 0; t < n; ++t) {
+            const float* row = v + (long)(s0 + t) * kvWidth + kv * hd + d;
+            first = __fmaf_rn(sc[t], row[0], first);
+            second = __fmaf_rn(sc[t], row[blockDim.x], second);
+        }
+        oi[d] = first;
+        oi[d + blockDim.x] = second;
+    } else if (d < hd) {
         float acc = 0.f;
-        for (int t = 0; t < n; t++) acc = __fmaf_rn(sc[t], v[(long)(s0 + t) * kvWidth + kv * hd + d], acc);
+        #pragma unroll 4
+        for (int t = 0; t < n; ++t) acc = __fmaf_rn(sc[t], v[(long)(s0 + t) * kvWidth + kv * hd + d], acc);
         oi[d] = acc;
     }
 }
