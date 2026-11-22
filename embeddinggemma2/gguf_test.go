@@ -3,12 +3,15 @@ package embeddinggemma2
 import (
 	"bytes"
 	"encoding/binary"
+	"flag"
 	"os"
 	"path/filepath"
+	"slices"
 	"strings"
 	"testing"
 
 	"github.com/pkieltyka/goinfer/internal/gguf"
+	"github.com/pkieltyka/goinfer/tokenizer"
 )
 
 func TestLoadGGUFEncoderRejectsOtherArchitectures(t *testing.T) {
@@ -78,5 +81,66 @@ func TestGGUFQuantRejectsUnknownCodecVersion(t *testing.T) {
 	}
 	if _, err = ggufQuant(file); err == nil || !strings.Contains(err.Error(), "quantization version 3") {
 		t.Fatalf("got %v, want unknown quantization version", err)
+	}
+}
+
+func TestLoadGGUFEncoderReaderAtRejectsMalformed(t *testing.T) {
+	for _, data := range [][]byte{[]byte("GGUF"), make([]byte, 24)} {
+		if e, err := LoadGGUFEncoderReaderAt(bytes.NewReader(data), int64(len(data)), nil); err == nil || e != nil {
+			t.Fatalf("accepted malformed input of length %d: encoder %v, error %v", len(data), e, err)
+		}
+	}
+}
+
+var readerGGUFDir = flag.String("eg2-reader-gguf-dir", "", "directory containing the pinned EmbeddingGemma 2 Q8_0 and UD-Q6_K_XL GGUFs")
+
+func TestLoadGGUFEncoderReaderAtReal(t *testing.T) {
+	if *readerGGUFDir == "" {
+		t.Skip("set -eg2-reader-gguf-dir to the pinned GGUF snapshots")
+	}
+	for _, file := range []string{"embeddinggemma-2-Q8_0.gguf", "embeddinggemma-2-UD-Q6_K_XL.gguf"} {
+		t.Run(file, func(t *testing.T) {
+			path := filepath.Join(*readerGGUFDir, file)
+			raw, err := os.ReadFile(path)
+			if err != nil {
+				t.Fatal(err)
+			}
+			r := bytes.NewReader(raw)
+			got, err := LoadGGUFEncoderReaderAt(r, int64(len(raw)), nil)
+			if err != nil {
+				t.Fatal(err)
+			}
+			if got.Tokenizer() != got.tok {
+				t.Fatal("the accessor did not return the encoder's tokenizer")
+			}
+			ref, err := tokenizer.LoadGGUFBytes(raw)
+			if err != nil {
+				t.Fatal(err)
+			}
+			r.Reset(nil)
+			clear(raw)
+			want, err := LoadGGUFEncoder(path, nil)
+			if err != nil {
+				t.Fatal(err)
+			}
+			for _, text := range []string{"Redis", "How long can results be before they get cut off?"} {
+				a, err := got.Tokenizer().Encode(text, false)
+				if err != nil {
+					t.Fatal(err)
+				}
+				b, err := ref.Encode(text, false)
+				if err != nil || !slices.Equal(a, b) {
+					t.Fatalf("token IDs for %q: got %v, want %v (error %v)", text, a, b, err)
+				}
+				v, _, err := got.EmbedText(text, "")
+				if err != nil {
+					t.Fatal(err)
+				}
+				w, _, err := want.EmbedText(text, "")
+				if err != nil || !slices.Equal(v, w) {
+					t.Fatalf("reader and path embeddings differ for %q (error %v)", text, err)
+				}
+			}
+		})
 	}
 }

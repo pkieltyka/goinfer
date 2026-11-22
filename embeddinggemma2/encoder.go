@@ -92,6 +92,9 @@ func NewEncoder(m *Model, tok *tokenizer.Tokenizer, prompts map[string]string) (
 // Model returns the underlying text encoder.
 func (e *Encoder) Model() *Model { return e.m }
 
+// Tokenizer returns the tokenizer used by the encoder. Treat it as read-only.
+func (e *Encoder) Tokenizer() *tokenizer.Tokenizer { return e.tok }
+
 // HiddenDim is the embedding width (768).
 func (e *Encoder) HiddenDim() int { return e.m.Dim() }
 
