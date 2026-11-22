@@ -54,6 +54,9 @@ func TestAttentionGroupedSegments(t *testing.T) {
 			}
 		}
 	}
+	// Only the first query admits this key. A masked in-tile NaN must not
+	// reach the value accumulation in subsequent queries.
+	values[keyStart*kvHeads*headDim] = float32(math.NaN())
 	buffer := func(n int, memory vk.Memory) *vk.Buffer {
 		b, err := device.NewBuffer(uint64(n)*4, memory)
 		if err != nil {
@@ -163,6 +166,12 @@ func TestAttentionGroupedSegments(t *testing.T) {
 					want += wants[k] * float64(values[(k*kvHeads+kh)*headDim+d])
 				}
 				got := gotCtx[(row*heads+h)*headDim+d]
+				if math.IsNaN(want) {
+					if !math.IsNaN(float64(got)) {
+						t.Fatalf("row %d head %d coordinate %d: got %g, want NaN", q, h, d, got)
+					}
+					continue
+				}
 				if !(math.Abs(float64(got)-want) <= 6e-5) {
 					t.Fatalf("row %d head %d coordinate %d: got %g, want %g", q, h, d, got, want)
 				}

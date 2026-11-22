@@ -315,8 +315,8 @@ An out-of-memory error has its own category. Forward retry safety is a separate 
 If a Vulkan forward returns `embeddinggemma2.ErrDeviceLost`, detectable with
 `errors.Is`, close the accelerator. Later forwards on it return the loss without
 submitting work. Use `errors.As` with `*embeddinggemma2.DeviceLostError` to
-inspect the original driver error. A new attempt requires a fresh encoder and
-successful attachment.
+inspect the original driver error. After a successful close, an application can
+attach a fresh accelerator to the same encoder before sharing it again.
 
 `EmbedIDsBatch` returns vectors in input order. With the same model pack,
 build, selector, physical device and driver, its float32 output for an input
