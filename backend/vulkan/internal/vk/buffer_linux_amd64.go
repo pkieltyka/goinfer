@@ -70,7 +70,7 @@ func (d *Device) NewBuffer(size uint64, memory Memory) (_ *Buffer, err error) {
 	if b.memory, err = createHandle(d.device, &alloc, "allocate buffer memory", allocFn); err != nil {
 		var re *ResultError
 		if errors.As(err, &re) && result(re.Code) == outOfDevice {
-			return nil, fmt.Errorf("%w: %w", ErrBufferDeviceOutOfMemory, err)
+			return nil, &BufferDeviceOOMError{Cause: re}
 		}
 		return nil, err
 	}

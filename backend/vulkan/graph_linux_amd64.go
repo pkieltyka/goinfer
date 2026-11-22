@@ -55,6 +55,26 @@ func (f *forward) close() error {
 	return err
 }
 
+// isPureVulkanBufferDeviceOOM reports whether err is a single-wrapped
+// *vk.BufferDeviceOOMError for VK_ERROR_OUT_OF_DEVICE_MEMORY (-2) with no
+// joined sibling errors anywhere along the chain.
+func isPureVulkanBufferDeviceOOM(err error) bool {
+	for cur := err; cur != nil; {
+		if _, multi := cur.(interface{ Unwrap() []error }); multi {
+			return false
+		}
+		if e, ok := cur.(*vk.BufferDeviceOOMError); ok {
+			return e.Cause != nil && e.Cause.Code == -2
+		}
+		u, ok := cur.(interface{ Unwrap() error })
+		if !ok {
+			return false
+		}
+		cur = u.Unwrap()
+	}
+	return false
+}
+
 func (a *encoder) forwardRows(x []float32, lengths []int, keep bool) (out []float32, hidden [][]float32, err error) {
 	t := len(x) / a.cfg.Hidden
 	f := forward{a: a, rows: t, maxGroupX: int(a.device.Info().MaxGroupCount[0]), lengths: lengths, tables: make(map[rotation][2]*vk.Buffer)}
@@ -79,7 +99,7 @@ func (a *encoder) forwardRows(x []float32, lengths []int, keep bool) (out []floa
 			err = classify(err)
 			return
 		}
-		if !submitted && a.device.Activity().Submissions == beforeSub && closeErr == nil && status == nil && errors.Is(err, vk.ErrBufferDeviceOutOfMemory) {
+		if !submitted && a.device.Activity().Submissions == beforeSub && closeErr == nil && status == nil && isPureVulkanBufferDeviceOOM(err) {
 			err = fmt.Errorf("%w: %w", embeddinggemma2.ErrBatchOutOfMemory, err)
 			return
 		}

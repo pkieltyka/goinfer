@@ -43,13 +43,13 @@ type towerOps struct {
 
 // newTowerOps creates the device and loads the kernels on a pinned executor goroutine. maxN is the widest output of any projection run without a bias.
 func newTowerOps(maxN int) (*towerOps, error) {
-	return newTowerOpsWithDevice(maxN, CreateSystemDefaultDevice)
+	return newTowerOpsOn(CreateSystemDefaultDevice, maxN)
 }
 
-// newTowerOpsWithDevice creates towerOps using openDev to acquire the CUDA device on the executor goroutine.
-func newTowerOpsWithDevice(maxN int, openDev func() (*Device, error)) (t *towerOps, err error) {
-	if openDev == nil {
-		openDev = CreateSystemDefaultDevice
+// newTowerOpsOn creates towerOps using an explicit non-nil device opener on the executor goroutine.
+func newTowerOpsOn(open func() (*Device, error), maxN int) (t *towerOps, err error) {
+	if open == nil {
+		return nil, errors.New("cuda tower: nil device opener")
 	}
 	t = &towerOps{reqCh: make(chan func() error), ackCh: make(chan error)}
 	go func() {
@@ -61,7 +61,7 @@ func newTowerOpsWithDevice(maxN int, openDev func() (*Device, error)) (t *towerO
 	}()
 	err = t.do(func() error {
 		var e error
-		if t.dev, e = openDev(); e != nil {
+		if t.dev, e = open(); e != nil {
 			return e
 		}
 		t.q = t.dev.NewCommandQueue()
@@ -119,6 +119,36 @@ func (t *towerOps) close() {
 	})
 	close(t.reqCh)
 	t.reqCh = nil
+}
+
+// closeChecked retires every tracked buffer via ReleaseBufChecked /
+// ReleaseAllChecked before releasing modules, streams, the context, and the
+// executor. If any native buffer free fails, the executor and context stay
+// alive with the failed handles still owned in the ledger so a later Close can
+// retry without losing leases or handles.
+func (t *towerOps) closeChecked() error {
+	if t.reqCh == nil {
+		return nil
+	}
+	if err := t.do(func() error {
+		if t.dev == nil {
+			return nil
+		}
+		err := t.releaseScratchChecked()
+		if allErr := t.dev.ReleaseAllChecked(); allErr != nil {
+			err = errors.Join(err, allErr)
+		}
+		if err != nil {
+			return err
+		}
+		t.dev.ReleaseObjects()
+		return nil
+	}); err != nil {
+		return err
+	}
+	close(t.reqCh)
+	t.reqCh = nil
+	return nil
 }
 
 // up uploads a float32 slice as a persistent buffer (weights, tables).

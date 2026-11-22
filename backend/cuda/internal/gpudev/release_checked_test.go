@@ -66,3 +66,46 @@ func TestReleaseBufChecked_PreservesLedgerOnFailedClose(t *testing.T) {
 		t.Fatalf("sub-allocation ReleaseBufChecked = %v", err)
 	}
 }
+
+func TestReleaseAllChecked_PreservesFailedBuffersAndRetries(t *testing.T) {
+	lease := &recordingLease{}
+	d := &Device{leaser: lease}
+
+	raw1 := new(gc.Buffer[uint8])
+	raw2 := new(gc.Buffer[uint8])
+	d.allocs = append(d.allocs,
+		devAlloc{b: raw1, release: d.lease(true, "a", 2048, 2048)},
+		devAlloc{b: raw2, release: d.lease(true, "b", 4096, 4096)},
+	)
+
+	closeErr := errors.New("cuda: synthetic repeat close failure")
+	calls := 0
+	d.SetCloseBufHookForTest(func(func() error) error {
+		calls++
+		if calls == 2 {
+			return closeErr
+		}
+		return nil
+	})
+	if err := d.ReleaseAllChecked(); !errors.Is(err, closeErr) {
+		t.Fatalf("first ReleaseAllChecked = %v, want %v", err, closeErr)
+	}
+	if allocs, _ := d.LedgerLen(); allocs != 1 {
+		t.Fatalf("LedgerLen after partial ReleaseAllChecked = %d, want 1", allocs)
+	}
+	if lease.live != 4096 || lease.frees != 1 {
+		t.Fatalf("lease after partial ReleaseAllChecked = (live=%d, frees=%d), want (4096, 1)", lease.live, lease.frees)
+	}
+
+	// Retry once native close succeeds frees only the remaining buffer cleanly.
+	d.SetCloseBufHookForTest(func(func() error) error { return nil })
+	if err := d.ReleaseAllChecked(); err != nil {
+		t.Fatalf("second ReleaseAllChecked = %v, want nil", err)
+	}
+	if allocs, _ := d.LedgerLen(); allocs != 0 {
+		t.Fatalf("LedgerLen after second ReleaseAllChecked = %d, want 0", allocs)
+	}
+	if lease.live != 0 || lease.frees != 2 {
+		t.Fatalf("lease after second ReleaseAllChecked = (live=%d, frees=%d), want (0, 2)", lease.live, lease.frees)
+	}
+}

@@ -46,6 +46,7 @@ package gpudev
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"runtime"
 	"sync"
@@ -79,6 +80,7 @@ type Device struct {
 	leaser              Leaser // every allocation's lease; nil leases nothing
 	allocHookForTest    func(what string, nBytes int) error
 	closeBufHookForTest func(closeReal func() error) error
+	syncHookForTest     func(err error)
 	// launches and waits count every kernel launch and every host wait on the device (Activity), always on: the device-level
 	// count the resident's per-kernel cost counts are checked against.
 	launches, waits atomic.Int64
@@ -97,6 +99,14 @@ func (d *Device) SetAllocHookForTest(fn func(what string, nBytes int) error) {
 func (d *Device) SetCloseBufHookForTest(fn func(closeReal func() error) error) {
 	d.mu.Lock()
 	d.closeBufHookForTest = fn
+	d.mu.Unlock()
+}
+
+// SetSyncHookForTest installs an optional per-device hook called immediately
+// after Queue.Sync returns. Nil clears the hook.
+func (d *Device) SetSyncHookForTest(fn func(err error)) {
+	d.mu.Lock()
+	d.syncHookForTest = fn
 	d.mu.Unlock()
 }
 
@@ -393,6 +403,24 @@ func (d *Device) ReleaseBufChecked(b Buffer) error {
 		TraceForTest(TraceEvent{Op: TraceFree, Dst: uint64(b.b.DevicePtr())})
 	}
 	return nil
+}
+
+// ReleaseAllChecked frees every tracked device allocation via
+// ReleaseBufChecked, keeping any allocation whose native Buffer.Close fails in
+// d.allocs with its lease intact so a later Close can retry without double-free
+// or silent lease loss.
+func (d *Device) ReleaseAllChecked() error {
+	d.mu.Lock()
+	bufs := make([]devAlloc, len(d.allocs))
+	copy(bufs, d.allocs)
+	d.mu.Unlock()
+	var err error
+	for _, a := range bufs {
+		if e := d.ReleaseBufChecked(Buffer{b: a.b, cx: d.cx, d: d}); e != nil {
+			err = errors.Join(err, e)
+		}
+	}
+	return err
 }
 
 // LedgerLen reports how many allocations and non-buffer objects this Device still
@@ -741,7 +769,7 @@ func NewBufferOfOn[T Scalar](d *Device, line string, data []T) Buffer {
 	var z T
 	b := d.MustBufOn(line, len(data)*int(unsafe.Sizeof(z)), len(data), "typed")
 	if err := b.upload(asBytes(data)); err != nil {
-		panic(fmt.Sprintf("cuda: NewBufferOf upload: %v", err))
+		panic(fmt.Errorf("cuda: NewBufferOf upload: %w", err))
 	}
 	runtime.KeepAlive(data)
 	return b
@@ -1194,7 +1222,18 @@ func (q Queue) Launch(p Pipeline, cfg LaunchConfig, args ...KernelArg) error {
 
 // Sync blocks until every kernel enqueued on this queue has completed — the
 // explicit boundary the async Launch model is built around.
-func (q Queue) Sync() error { return q.sync() }
+func (q Queue) Sync() error {
+	err := q.sync()
+	if q.d != nil {
+		q.d.mu.Lock()
+		hook := q.d.syncHookForTest
+		q.d.mu.Unlock()
+		if hook != nil {
+			hook(err)
+		}
+	}
+	return err
+}
 
 // Graph is a replayable capture of a FIXED sequence of stream work: record it once with Capture,
 // then Replay it per iteration as a SINGLE driver call instead of re-issuing every kernel launch —

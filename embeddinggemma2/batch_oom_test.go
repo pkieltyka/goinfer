@@ -8,13 +8,12 @@ import (
 )
 
 type stubRetryOOMAccel struct {
-	name      string
-	maxTotal  int
-	failErr   error
-	failOnce  bool
-	calls     int
-	embedDim  int
-	hiddenDim int
+	name     string
+	maxTotal int
+	failErr  error
+	failOnce bool
+	calls    int
+	embedDim int
 }
 
 func (s *stubRetryOOMAccel) Name() string { return s.name }

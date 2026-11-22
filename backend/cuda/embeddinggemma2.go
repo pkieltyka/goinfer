@@ -10,6 +10,8 @@ import (
 	"sync"
 
 	gc "github.com/eitamring/gocudrv/cuda"
+	"github.com/eitamring/gocudrv/cudaresult"
+	"github.com/eitamring/gocudrv/cudasys"
 	gpu "github.com/pkieltyka/goinfer/backend/cuda/internal/gpudev"
 	"github.com/pkieltyka/goinfer/embeddinggemma2"
 	"github.com/pkieltyka/goinfer/internal/runtime/mem"
@@ -52,11 +54,12 @@ type eg2Rope struct {
 
 // eg2Defect plants one defect for a test to show it is noticed; zero in production.
 type eg2Defect struct {
-	windowWide   bool // a sliding row reaches distance W+1
-	windowNarrow bool // a sliding row stops at distance W-1
-	vNormWeight  bool // v's norm takes the k weight instead of none
-	failForward  bool // a forward fails after its first layer is queued
-	drainFails   int  // the next drainFails queue drains fail
+	windowWide     bool  // a sliding row reaches distance W+1
+	windowNarrow   bool  // a sliding row stops at distance W-1
+	vNormWeight    bool  // v's norm takes the k weight instead of none
+	failForward    bool  // a forward fails after its first layer is queued
+	failForwardErr error // optional typed error for failForward (nil uses default string error)
+	drainFails     int   // the next drainFails queue drains fail
 }
 
 // eg2Accel is the CUDA accelerator. One forward at a time (mu); towerOps runs every device call on its executor.
@@ -76,54 +79,126 @@ type eg2Accel struct {
 	defect                                  eg2Defect
 }
 
-func isCUDADeviceOOM(err error) bool {
-	var af *gpu.AllocFailure
-	return errors.As(err, &af) && errors.Is(af.Err, gc.ErrOutOfMemory)
+// isSingleCUDAErrOutOfMemory reports whether err is a single-unwrap chain
+// terminating at native gc.ErrOutOfMemory with no joined sibling errors.
+func isSingleCUDAErrOutOfMemory(err error) bool {
+	for cur := err; cur != nil; {
+		if _, multi := cur.(interface{ Unwrap() []error }); multi {
+			return false
+		}
+		if cur == gc.ErrOutOfMemory {
+			return true
+		}
+		u, ok := cur.(interface{ Unwrap() error })
+		if !ok {
+			return errors.Is(cur, gc.ErrOutOfMemory)
+		}
+		cur = u.Unwrap()
+	}
+	return false
+}
+
+// isPureCUDAAllocOOM reports whether err is a single-wrapped *gpu.AllocFailure
+// whose own Err is a single-wrapped native gc.ErrOutOfMemory with no joined
+// sibling errors anywhere outside or inside AllocFailure. Only this pure
+// allocation-only cause can certify forward retry safety.
+func isPureCUDAAllocOOM(err error) bool {
+	for cur := err; cur != nil; {
+		if _, multi := cur.(interface{ Unwrap() []error }); multi {
+			return false
+		}
+		if af, ok := cur.(*gpu.AllocFailure); ok {
+			return isSingleCUDAErrOutOfMemory(af.Err)
+		}
+		u, ok := cur.(interface{ Unwrap() error })
+		if !ok {
+			return false
+		}
+		cur = u.Unwrap()
+	}
+	return false
+}
+
+// isCUDACommonOOM reports whether err carries a typed native gc.ErrOutOfMemory
+// anywhere in its error tree (never matching non-OOM AllocFailure or raw text).
+func isCUDACommonOOM(err error) bool {
+	return errors.Is(err, gc.ErrOutOfMemory)
 }
 
 func isCUDAFatalExec(err error) bool {
-	return errors.Is(err, gc.ErrIllegalAddress) ||
-		errors.Is(err, gc.ErrLaunchFailed) ||
-		errors.Is(err, gc.ErrLaunchTimeout) ||
-		errors.Is(err, gc.ErrInvalidContext) ||
-		errors.Is(err, gc.ErrDeinitialized) ||
-		errors.Is(err, gc.ErrNotInitialized)
+	if err == nil {
+		return false
+	}
+	if ce, ok := err.(*cudaresult.Error); ok {
+		switch ce.Code {
+		case cudasys.CUDA_ERROR_ECC_UNCORRECTABLE,
+			cudasys.CUDA_ERROR_CONTEXT_IS_DESTROYED,
+			cudasys.CUDA_ERROR_ASSERT,
+			cudasys.CUDA_ERROR_HARDWARE_STACK_ERROR,
+			cudasys.CUDA_ERROR_ILLEGAL_INSTRUCTION,
+			cudasys.CUDA_ERROR_MISALIGNED_ADDRESS,
+			cudasys.CUDA_ERROR_INVALID_ADDRESS_SPACE,
+			cudasys.CUDA_ERROR_INVALID_PC,
+			cudasys.CUDA_ERROR_ILLEGAL_ADDRESS,
+			cudasys.CUDA_ERROR_LAUNCH_TIMEOUT,
+			cudasys.CUDA_ERROR_LAUNCH_FAILED,
+			cudasys.CUDA_ERROR_INVALID_CONTEXT,
+			cudasys.CUDA_ERROR_DEINITIALIZED,
+			cudasys.CUDA_ERROR_NOT_INITIALIZED,
+			cudasys.CUDA_ERROR_SYSTEM_DRIVER_MISMATCH,
+			cudasys.CUDA_ERROR_UNKNOWN:
+			return true
+		}
+	}
+	if multi, ok := err.(interface{ Unwrap() []error }); ok {
+		for _, sub := range multi.Unwrap() {
+			if isCUDAFatalExec(sub) {
+				return true
+			}
+		}
+		return false
+	}
+	if single, ok := err.(interface{ Unwrap() error }); ok {
+		return isCUDAFatalExec(single.Unwrap())
+	}
+	return false
 }
 
-// classifyEG2AttachErr maps CUDA constructor/upload allocation OOM to the
-// common ErrDeviceOutOfMemory category (never ErrBatchOutOfMemory), preserving
-// the original native cause.
-func classifyEG2AttachErr(err error) error {
+// classifyCUDAAttach maps raw or wrapped native CUDA OOM during attach (primary
+// retain, kernel compile, or partial weight upload) to common
+// ErrDeviceOutOfMemory (never ErrBatchOutOfMemory), preserving the native cause.
+func classifyCUDAAttach(err error) error {
 	if err == nil {
 		return nil
 	}
-	if isCUDADeviceOOM(err) {
+	if isCUDACommonOOM(err) {
 		return fmt.Errorf("%w: %w", embeddinggemma2.ErrDeviceOutOfMemory, err)
 	}
 	return err
 }
 
-// classifyEG2ForwardErr certifies ErrBatchOutOfMemory ONLY when err is a
-// call-owned CUDA OOM allocation failure, no launch/copy error was latched,
-// drain and checked rollback release both succeeded, and the accelerator stays
-// healthy. On any fatal or unrecovered combination it never attaches
-// ErrBatchOutOfMemory regardless of join order.
+// classifyEG2ForwardErr certifies ErrBatchOutOfMemory ONLY when err is a pure
+// single-chain call-owned CUDA allocation OOM (no joined sibling errors), no
+// launch/copy error was latched, drain and checked rollback release both
+// succeeded, and the accelerator stays healthy. On any fatal, joined, or
+// unrecovered combination it never attaches ErrBatchOutOfMemory regardless of
+// join order.
 func classifyEG2ForwardErr(err, latchedErr, drainErr, releaseErr, broken error, closed bool) error {
 	if err == nil && latchedErr == nil && drainErr == nil && releaseErr == nil {
 		return nil
 	}
-	if err != nil && isCUDADeviceOOM(err) && latchedErr == nil && drainErr == nil && releaseErr == nil && broken == nil && !closed {
+	if err != nil && isPureCUDAAllocOOM(err) && latchedErr == nil && drainErr == nil && releaseErr == nil && broken == nil && !closed {
 		return fmt.Errorf("cuda: EmbeddingGemma 2 forward: %w: %w", embeddinggemma2.ErrBatchOutOfMemory, err)
 	}
 	var parts []error
 	if err != nil {
-		if isCUDADeviceOOM(err) {
+		if isCUDACommonOOM(err) {
 			parts = append(parts, fmt.Errorf("%w: %w", embeddinggemma2.ErrDeviceOutOfMemory, err))
 		} else {
 			parts = append(parts, err)
 		}
 	}
-	if latchedErr != nil && latchedErr != err {
+	if latchedErr != nil && latchedErr != err && !errors.Is(broken, latchedErr) {
 		parts = append(parts, latchedErr)
 	}
 	if broken != nil {
@@ -139,19 +214,20 @@ func classifyEG2ForwardErr(err, latchedErr, drainErr, releaseErr, broken error, 
 }
 
 func newEG2Accel(m *embeddinggemma2.Model, combined bool) (*eg2Accel, error) {
-	return newEG2AccelWithDevice(m, combined, CreateSystemDefaultDevice)
+	return newEG2AccelOn(m, combined, CreateSystemDefaultDevice)
 }
 
-// newEG2AccelWithDevice is the single classified EmbeddingGemma 2 CUDA attach
-// path shared by legacy default attach, the combined attention selector, and
-// explicitly selected device openers: openDev acquires the device while this
+// newEG2AccelOn is the single classified EmbeddingGemma 2 CUDA attach path
+// shared by legacy default attach, the combined attention selector, and
+// explicitly selected device openers: open acquires the device while this
 // constructor owns setup, partial-upload rollback, and OOM classification.
-func newEG2AccelWithDevice(m *embeddinggemma2.Model, combined bool, openDev func() (*Device, error)) (_ *eg2Accel, err error) {
+func newEG2AccelOn(m *embeddinggemma2.Model, combined bool, open func() (*Device, error)) (_ *eg2Accel, err error) {
 	defer func() {
-		if err != nil {
-			err = classifyEG2AttachErr(err)
-		}
+		err = classifyCUDAAttach(err)
 	}()
+	if open == nil {
+		return nil, errors.New("cuda: EmbeddingGemma 2 nil device opener")
+	}
 	w := m.TransformerWeights()
 	c := w.Config
 	maxN := max(c.Layers*c.PLEDim, c.Intermediate, c.Hidden, c.EmbeddingDim)
@@ -163,7 +239,7 @@ func newEG2AccelWithDevice(m *embeddinggemma2.Model, combined bool, openDev func
 		maxN = max(maxN, c.Heads*ly.HeadDim)
 		maxHD = max(maxHD, ly.HeadDim)
 	}
-	ops, err := newTowerOpsWithDevice(maxN, openDev)
+	ops, err := newTowerOpsOn(open, maxN)
 	if err != nil {
 		return nil, err
 	}
@@ -225,7 +301,9 @@ func (a *eg2Accel) Name() string { return "cuda" }
 
 // Close frees the encoder's device memory and stops its executor; a forward after it is an error. On an accelerator
 // a failed forward left undrained (broken), it drains the queue first: if that fails too it frees nothing, returns the
-// error and leaves the accelerator as it was, so a later Close can try again. Once closed, Close does nothing.
+// error and leaves the accelerator as it was, so a later Close can try again. Buffer teardown runs through
+// closeChecked so a failed native cuMemFree preserves remaining ledger ownership and leases for a later Close retry.
+// Once closed, Close does nothing.
 func (a *eg2Accel) Close() error {
 	a.mu.Lock()
 	defer a.mu.Unlock()
@@ -237,7 +315,12 @@ func (a *eg2Accel) Close() error {
 			return fmt.Errorf("cuda: EmbeddingGemma 2 Close could not drain the queue, so nothing was freed: %w", err)
 		}
 	}
-	a.ops.close()
+	if err := a.ops.closeChecked(); err != nil {
+		if a.broken == nil {
+			a.broken = fmt.Errorf("cuda: EmbeddingGemma 2 Close release failed: %w", err)
+		}
+		return fmt.Errorf("cuda: EmbeddingGemma 2 Close could not release device memory: %w", err)
+	}
 	a.closed, a.layers, a.ropes, a.model = true, nil, nil, nil
 	return nil
 }
@@ -774,9 +857,6 @@ func (a *eg2Accel) forwardRows(x0 []float32, lens []int, keepLayers bool) ([]flo
 				o.err = nil
 				if e := a.drainQueue(); e != nil {
 					drainErr = e
-					if a.broken == nil {
-						a.broken = fmt.Errorf("cuda: a failed EmbeddingGemma 2 forward could not be drained: %w", e)
-					}
 					o.scratch = append(o.scratch, pendingRope...)
 					pendingRope = nil
 					return
@@ -792,16 +872,10 @@ func (a *eg2Accel) forwardRows(x0 []float32, lens []int, keepLayers bool) ([]flo
 				if ropeReleaseErr != nil {
 					releaseErr = errors.Join(ropeReleaseErr, releaseErr)
 				}
-				if releaseErr != nil && a.broken == nil {
-					a.broken = fmt.Errorf("cuda: EmbeddingGemma 2 rollback release failed: %w", releaseErr)
-				}
 				return
 			}
 			if e := o.releaseScratchChecked(); e != nil {
 				releaseErr = e
-				if a.broken == nil {
-					a.broken = fmt.Errorf("cuda: EmbeddingGemma 2 scratch release failed: %w", e)
-				}
 			}
 		}()
 		af := o.af
@@ -912,7 +986,11 @@ func (a *eg2Accel) forwardRows(x0 []float32, lens []int, keepLayers bool) ([]flo
 			o.addVec(x, pr, T*H)
 			o.scaleVec(x, T*H, ly.w.LayerScalar)
 			if a.defect.failForward && o.err == nil {
-				o.err = errors.New("cuda: planted forward failure")
+				if a.defect.failForwardErr != nil {
+					o.err = a.defect.failForwardErr
+				} else {
+					o.err = errors.New("cuda: planted forward failure")
+				}
 			}
 			if keepLayers {
 				if e := o.finish(); e != nil {
@@ -937,13 +1015,20 @@ func (a *eg2Accel) forwardRows(x0 []float32, lens []int, keepLayers bool) ([]flo
 		done = true
 		return nil
 	})
-	if isCUDAFatalExec(latchedErr) || isCUDAFatalExec(err) {
-		if a.broken == nil {
-			fatal := latchedErr
-			if fatal == nil {
-				fatal = err
-			}
-			a.broken = fmt.Errorf("cuda: fatal EmbeddingGemma 2 execution error: %w", fatal)
+	if a.broken == nil {
+		var primary error
+		switch {
+		case isCUDAFatalExec(latchedErr):
+			primary = latchedErr
+		case isCUDAFatalExec(err):
+			primary = err
+		}
+		if primary != nil {
+			a.broken = fmt.Errorf("cuda: fatal EmbeddingGemma 2 execution error: %w", errors.Join(primary, drainErr, releaseErr))
+		} else if drainErr != nil {
+			a.broken = fmt.Errorf("cuda: a failed EmbeddingGemma 2 forward could not be drained: %w", drainErr)
+		} else if releaseErr != nil {
+			a.broken = fmt.Errorf("cuda: EmbeddingGemma 2 rollback release failed: %w", releaseErr)
 		}
 	}
 	if classified := classifyEG2ForwardErr(err, latchedErr, drainErr, releaseErr, a.broken, a.closed); classified != nil {

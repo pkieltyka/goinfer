@@ -21,6 +21,8 @@ import (
 	"time"
 
 	gc "github.com/eitamring/gocudrv/cuda"
+	"github.com/eitamring/gocudrv/cudaresult"
+	"github.com/eitamring/gocudrv/cudasys"
 	gpu "github.com/pkieltyka/goinfer/backend/cuda/internal/gpudev"
 	"github.com/pkieltyka/goinfer/embeddinggemma2"
 	"github.com/pkieltyka/goinfer/tokenizer"
@@ -1356,15 +1358,67 @@ func eg2FixedBatch(e *embeddinggemma2.Encoder, count, length int) [][]int {
 	return batch
 }
 
+// checkPostEnqueueRecoveryOrder verifies that an ordered native event trace for
+// a post-enqueue allocation failure contains at least one Copy2DAsync before
+// the injected allocation failure, a successful recovery Queue.Sync after the
+// failure, and checked frees only after that recovery Sync.
+func checkPostEnqueueRecoveryOrder(events []string) error {
+	failIdx := -1
+	for i, ev := range events {
+		if ev == "alloc-fail" {
+			failIdx = i
+			break
+		}
+	}
+	if failIdx < 0 {
+		return errors.New("trace missing alloc-fail event")
+	}
+	sawCopyBefore := false
+	for _, ev := range events[:failIdx] {
+		if ev == "copy2d" {
+			sawCopyBefore = true
+			break
+		}
+	}
+	if !sawCopyBefore {
+		return fmt.Errorf("expected copy2d before alloc-fail in %v", events)
+	}
+	syncIdx := -1
+	for i := failIdx + 1; i < len(events); i++ {
+		if events[i] == "free" && syncIdx < 0 {
+			return fmt.Errorf("free occurred at %d before recovery sync in %v", i, events)
+		}
+		if events[i] == "sync-ok" && syncIdx < 0 {
+			syncIdx = i
+		}
+	}
+	if syncIdx < 0 {
+		return fmt.Errorf("missing recovery sync-ok after alloc-fail in %v", events)
+	}
+	sawFreeAfter := false
+	for _, ev := range events[syncIdx+1:] {
+		if ev == "free" {
+			sawFreeAfter = true
+			break
+		}
+	}
+	if !sawFreeAfter {
+		return fmt.Errorf("missing checked free after recovery sync-ok in %v", events)
+	}
+	return nil
+}
+
 func TestEG2CUDA_RetryOOM_ClassificationContract(t *testing.T) {
 	oomPanic := fmt.Errorf("cuda: executor job panicked: %w", gpu.AllocFailedPanic("typed-len", 4096, gc.ErrOutOfMemory))
 	nonOOMAlloc := fmt.Errorf("cuda: executor job panicked: %w", gpu.AllocFailedPanic("typed-len", 4096, gc.ErrInvalidValue))
+	assertErr := &cudaresult.Error{Code: cudasys.CUDA_ERROR_ASSERT, Op: "cuLaunchKernel"}
+	destroyedErr := &cudaresult.Error{Code: cudasys.CUDA_ERROR_CONTEXT_IS_DESTROYED, Op: "cuCtxSynchronize"}
 	latched := errors.New("cuda: latched launch error")
 	drainErr := errors.New("cuda: drain failed")
 	relErr := errors.New("cuda: close failed")
 	broken := fmt.Errorf("cuda: broken: %w", drainErr)
 
-	// Clean recovered CUDA OOM authorizes retry.
+	// Clean recovered single-chain CUDA allocation OOM authorizes retry.
 	got := classifyEG2ForwardErr(oomPanic, nil, nil, nil, nil, false)
 	if !errors.Is(got, embeddinggemma2.ErrBatchOutOfMemory) ||
 		!errors.Is(got, embeddinggemma2.ErrDeviceOutOfMemory) ||
@@ -1374,6 +1428,49 @@ func TestEG2CUDA_RetryOOM_ClassificationContract(t *testing.T) {
 	var af *gpu.AllocFailure
 	if !errors.As(got, &af) {
 		t.Fatalf("clean OOM lost *gpu.AllocFailure: %v", got)
+	}
+
+	// Joined sibling error inside AllocFailure or outside AllocFailure (either order)
+	// MUST disqualify retry while still surfacing common OOM and sibling/fatal cause.
+	innerJoined := fmt.Errorf("cuda: executor job panicked: %w", gpu.AllocFailedPanic("scratch", 4096, errors.Join(gc.ErrOutOfMemory, assertErr)))
+	if !isCUDAFatalExec(innerJoined) || !isCUDAFatalExec(destroyedErr) {
+		t.Fatalf("fatal CUDA codes not recognized: assert=%v destroyed=%v", isCUDAFatalExec(innerJoined), isCUDAFatalExec(destroyedErr))
+	}
+	for _, tc := range []struct {
+		name      string
+		err       error
+		wantOther error
+	}{
+		{"joined-inside-alloc-oom-first", innerJoined, assertErr},
+		{"joined-inside-alloc-fatal-first", gpu.AllocFailedPanic("scratch", 4096, errors.Join(assertErr, gc.ErrOutOfMemory)), assertErr},
+		{"joined-outside-oom-first", errors.Join(oomPanic, assertErr), assertErr},
+		{"joined-outside-fatal-first", errors.Join(assertErr, oomPanic), assertErr},
+		{"joined-outside-ordinary", errors.Join(oomPanic, errors.New("sibling")), nil},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			res := classifyEG2ForwardErr(tc.err, nil, nil, nil, nil, false)
+			if errors.Is(res, embeddinggemma2.ErrBatchOutOfMemory) {
+				t.Fatalf("%s must not certify ErrBatchOutOfMemory: %v", tc.name, res)
+			}
+			if !errors.Is(res, embeddinggemma2.ErrDeviceOutOfMemory) || !errors.Is(res, gc.ErrOutOfMemory) {
+				t.Fatalf("%s lost common/native OOM diagnostic: %v", tc.name, res)
+			}
+			if tc.wantOther != nil && !errors.Is(res, tc.wantOther) {
+				t.Fatalf("%s lost sibling cause %v: %v", tc.name, tc.wantOther, res)
+			}
+		})
+	}
+
+	// Raw native OOM from a non-allocation operation gets common OOM diagnostic only, never retry.
+	rawForwardOOM := classifyEG2ForwardErr(fmt.Errorf("launch: %w", gc.ErrOutOfMemory), nil, nil, nil, nil, false)
+	if errors.Is(rawForwardOOM, embeddinggemma2.ErrBatchOutOfMemory) || !errors.Is(rawForwardOOM, embeddinggemma2.ErrDeviceOutOfMemory) || !errors.Is(rawForwardOOM, gc.ErrOutOfMemory) {
+		t.Fatalf("raw non-alloc OOM = %v, want ErrDeviceOutOfMemory without ErrBatchOutOfMemory", rawForwardOOM)
+	}
+
+	// Text-only OUT_OF_MEMORY matches neither OOM sentinel.
+	textOnly := classifyEG2ForwardErr(errors.New("driver text: OUT_OF_MEMORY"), nil, nil, nil, nil, false)
+	if errors.Is(textOnly, embeddinggemma2.ErrBatchOutOfMemory) || errors.Is(textOnly, embeddinggemma2.ErrDeviceOutOfMemory) {
+		t.Fatalf("text-only OOM matched sentinel: %v", textOnly)
 	}
 
 	// Non-OOM AllocFailure matches neither retry nor common OOM.
@@ -1410,15 +1507,40 @@ func TestEG2CUDA_RetryOOM_ClassificationContract(t *testing.T) {
 		})
 	}
 
-	// Attach classification maps OOM to common ErrDeviceOutOfMemory only, never ErrBatchOutOfMemory.
+	// Ordered recovery trace positive + negative controls (omitting recovery sync must fail).
+	if err := checkPostEnqueueRecoveryOrder([]string{"copy2d", "alloc-fail", "sync-ok", "free"}); err != nil {
+		t.Fatalf("valid post-enqueue recovery trace rejected: %v", err)
+	}
+	if err := checkPostEnqueueRecoveryOrder([]string{"copy2d", "alloc-fail", "free"}); err == nil {
+		t.Fatal("negative control: trace omitting recovery sync-ok was accepted")
+	}
+	if err := checkPostEnqueueRecoveryOrder([]string{"copy2d", "alloc-fail", "free", "sync-ok"}); err == nil {
+		t.Fatal("negative control: trace freeing before recovery sync-ok was accepted")
+	}
+
+	// Attach classification via newEG2AccelOn maps raw or wrapped native OOM to common
+	// ErrDeviceOutOfMemory only, rejects nil opener, and leaves non-OOM/text errors distinct.
 	m := eg2TinyModel(t)
-	if _, err := newEG2AccelWithDevice(m, false, func() (*Device, error) {
+	if _, err := newEG2AccelOn(m, false, nil); err == nil || errors.Is(err, embeddinggemma2.ErrDeviceOutOfMemory) {
+		t.Fatalf("nil opener = %v, want non-OOM error", err)
+	}
+	if _, err := newEG2AccelOn(m, false, func() (*Device, error) {
+		return nil, fmt.Errorf("primary retain: %w", gc.ErrOutOfMemory)
+	}); !errors.Is(err, embeddinggemma2.ErrDeviceOutOfMemory) || !errors.Is(err, gc.ErrOutOfMemory) || errors.Is(err, embeddinggemma2.ErrBatchOutOfMemory) {
+		t.Fatalf("raw opener attach OOM = %v, want ErrDeviceOutOfMemory + gc.ErrOutOfMemory without ErrBatchOutOfMemory", err)
+	}
+	if _, err := newEG2AccelOn(m, false, func() (*Device, error) {
 		return nil, gpu.AllocFailedPanic("attach", 1024, gc.ErrOutOfMemory)
 	}); !errors.Is(err, embeddinggemma2.ErrDeviceOutOfMemory) || !errors.Is(err, gc.ErrOutOfMemory) || errors.Is(err, embeddinggemma2.ErrBatchOutOfMemory) {
-		t.Fatalf("attach OOM = %v, want ErrDeviceOutOfMemory + gc.ErrOutOfMemory without ErrBatchOutOfMemory", err)
+		t.Fatalf("alloc-panic attach OOM = %v, want ErrDeviceOutOfMemory + gc.ErrOutOfMemory without ErrBatchOutOfMemory", err)
+	}
+	if _, err := newEG2AccelOn(m, false, func() (*Device, error) {
+		return nil, errors.New("plain text OUT_OF_MEMORY")
+	}); err == nil || errors.Is(err, embeddinggemma2.ErrDeviceOutOfMemory) || errors.Is(err, embeddinggemma2.ErrBatchOutOfMemory) {
+		t.Fatalf("text-only attach error matched OOM: %v", err)
 	}
 	unrelated := errors.New("cuda: synthetic unrelated attach failure")
-	if _, err := newEG2AccelWithDevice(m, false, func() (*Device, error) {
+	if _, err := newEG2AccelOn(m, false, func() (*Device, error) {
 		return nil, unrelated
 	}); !errors.Is(err, unrelated) || errors.Is(err, embeddinggemma2.ErrDeviceOutOfMemory) || errors.Is(err, embeddinggemma2.ErrBatchOutOfMemory) {
 		t.Fatalf("unrelated attach = %v", err)
@@ -1506,7 +1628,7 @@ func TestEG2CUDA_RetryOOM_DeviceAcceptance(t *testing.T) {
 				t.Fatalf("baseline Close: %v", err)
 			}
 
-			// (1) Pristine multi-input OOM before submit, then split retry on the same encoder.
+			// (1) Pristine multi-input real allocations with injected OOM before submit, then split retry on the same encoder.
 			t.Run("pristine-batch-oom-and-split-retry", func(t *testing.T) {
 				e, a := attachFresh(t)
 				defer func() {
@@ -1516,6 +1638,18 @@ func TestEG2CUDA_RetryOOM_DeviceAcceptance(t *testing.T) {
 				}()
 				dev := a.ops.dev
 				heldBefore, _ := dev.LedgerLen()
+				var traceMu sync.Mutex
+				launches, copies2D := 0, 0
+				gpu.TraceForTest = func(ev gpu.TraceEvent) {
+					traceMu.Lock()
+					defer traceMu.Unlock()
+					switch ev.Op {
+					case gpu.TraceLaunch:
+						launches++
+					case gpu.TraceCopy2D:
+						copies2D++
+					}
+				}
 				allocs := 0
 				dev.SetAllocHookForTest(func(what string, nBytes int) error {
 					allocs++
@@ -1530,8 +1664,12 @@ func TestEG2CUDA_RetryOOM_DeviceAcceptance(t *testing.T) {
 				}
 				got, err := e.EmbedIDsBatch(in)
 				dev.SetAllocHookForTest(nil)
+				gpu.TraceForTest = nil
 				if got != nil {
 					t.Fatalf("pristine OOM returned non-nil outputs")
+				}
+				if launches != 0 || copies2D != 0 {
+					t.Fatalf("pristine OOM issued device work: launches=%d copy2d=%d", launches, copies2D)
 				}
 				if !errors.Is(err, embeddinggemma2.ErrBatchOutOfMemory) ||
 					!errors.Is(err, embeddinggemma2.ErrDeviceOutOfMemory) ||
@@ -1612,25 +1750,59 @@ func TestEG2CUDA_RetryOOM_DeviceAcceptance(t *testing.T) {
 					t.Fatalf("warm batch: %v", err)
 				}
 				heldWarm, _ := dev.LedgerLen()
-				lBefore, wBefore := dev.Activity()
 				// On warm batch: 20 base scratch + 2 batchRope buffers for key 0 (#21,#22) + Copy2DAsync queued,
-				// then fail key 1's batchRope buffer (#23) AFTER copies were enqueued.
+				// then fail key 1's batchRope buffer (#23) AFTER copies were enqueued. Record ordered native
+				// events (copy2d -> alloc-fail -> sync-ok -> free) to prove recovery drain precedes frees.
+				var evMu sync.Mutex
+				var events []string
+				record := func(ev string) {
+					evMu.Lock()
+					events = append(events, ev)
+					evMu.Unlock()
+				}
+				gpu.TraceForTest = func(ev gpu.TraceEvent) {
+					switch ev.Op {
+					case gpu.TraceCopy2D:
+						record("copy2d")
+					case gpu.TraceFree:
+						record("free")
+					}
+				}
+				dev.SetSyncHookForTest(func(err error) {
+					if err == nil {
+						record("sync-ok")
+					} else {
+						record("sync-err")
+					}
+				})
 				allocs := 0
 				dev.SetAllocHookForTest(func(what string, nBytes int) error {
 					allocs++
 					if allocs == 23 {
+						record("alloc-fail")
 						return gc.ErrOutOfMemory
 					}
 					return nil
 				})
 				got, err := e.EmbedIDsBatch(orig)
 				dev.SetAllocHookForTest(nil)
-				_, wAfter := dev.Activity()
+				dev.SetSyncHookForTest(nil)
+				gpu.TraceForTest = nil
 				if got != nil || !errors.Is(err, embeddinggemma2.ErrBatchOutOfMemory) {
 					t.Fatalf("post-enqueue OOM = (%v, %v), want nil + ErrBatchOutOfMemory", got, err)
 				}
-				if wAfter <= wBefore {
-					t.Fatalf("post-enqueue OOM did not drain queue: waits %d -> %d (launches before %d)", wBefore, wAfter, lBefore)
+				if orderErr := checkPostEnqueueRecoveryOrder(events); orderErr != nil {
+					t.Fatalf("post-enqueue recovery order invalid: %v", orderErr)
+				}
+				// Negative control: removing sync-ok from the recorded live trace must fail the assertion.
+				withoutSync := make([]string, 0, len(events))
+				for _, ev := range events {
+					if ev != "sync-ok" {
+						withoutSync = append(withoutSync, ev)
+					}
+				}
+				if err := checkPostEnqueueRecoveryOrder(withoutSync); err == nil {
+					t.Fatalf("drain negative control failed: trace without sync-ok was accepted (%v)", withoutSync)
 				}
 				if n, _ := dev.LedgerLen(); n != heldWarm {
 					t.Fatalf("post-enqueue OOM leaked buffers: ledger %d, want %d", n, heldWarm)
@@ -1717,16 +1889,22 @@ func TestEG2CUDA_RetryOOM_DeviceAcceptance(t *testing.T) {
 					t.Fatalf("Close left ledger (%d, %d)", allocsLeft, objsLeft)
 				}
 
-				// 3c: OOM + failed rollback free -> no retry, sticky broken, ledger retains failed buffer.
+				// 3c: OOM + failed rollback free -> no retry, sticky broken, ledger and lease retain failed
+				// buffer across both rollback AND a failing first Close, then retryable second Close succeeds.
+				recFree := &eg2RecordingLeaser{}
+				origLeaser := gpu.NewLeaser
+				gpu.NewLeaser = func() gpu.Leaser { return recFree }
 				eFree, aFree := attachFresh(t)
+				gpu.NewLeaser = origLeaser
 				devFree := aFree.ops.dev
 				heldBeforeFree, _ := devFree.LedgerLen()
 				freeErr := errors.New("cuda: planted buffer close failure")
+				failFirst := true
 				closeCalls := 0
 				devFree.SetCloseBufHookForTest(func(closeReal func() error) error {
 					closeCalls++
-					if closeCalls == 1 {
-						return freeErr // leave real buffer open so Close->ReleaseAll frees it cleanly
+					if failFirst && closeCalls == 1 {
+						return freeErr // leave real buffer open so later Close retry frees it cleanly
 					}
 					return closeReal()
 				})
@@ -1740,7 +1918,6 @@ func TestEG2CUDA_RetryOOM_DeviceAcceptance(t *testing.T) {
 				})
 				_, err = eFree.EmbedIDsBatch(orig)
 				devFree.SetAllocHookForTest(nil)
-				devFree.SetCloseBufHookForTest(nil)
 				if err == nil || errors.Is(err, embeddinggemma2.ErrBatchOutOfMemory) {
 					t.Fatalf("OOM+failed-free must not match ErrBatchOutOfMemory: %v", err)
 				}
@@ -1756,11 +1933,57 @@ func TestEG2CUDA_RetryOOM_DeviceAcceptance(t *testing.T) {
 				if _, err := eFree.EmbedIDsBatch(orig[:1]); !errors.Is(err, aFree.broken) || errors.Is(err, embeddinggemma2.ErrBatchOutOfMemory) {
 					t.Fatalf("subsequent call after failed free = %v", err)
 				}
-				if err := aFree.Close(); err != nil {
-					t.Fatalf("aFree.Close: %v", err)
+				// Keep close failure active across the first Close: Close must fail, keep aFree unclosed,
+				// and preserve the remaining live ledger entry and lease charge.
+				closeCalls = 0
+				if err := aFree.Close(); !errors.Is(err, freeErr) {
+					t.Fatalf("first Close with active close failure = %v, want %v", err, freeErr)
 				}
-				if allocsLeft, objsLeft := devFree.LedgerLen(); allocsLeft != 0 || objsLeft != 0 {
-					t.Fatalf("aFree.Close left ledger (%d, %d)", allocsLeft, objsLeft)
+				if aFree.closed {
+					t.Fatal("first failing Close marked accelerator closed")
+				}
+				recFree.mu.Lock()
+				liveAfterFailClose := recFree.devLive
+				recFree.mu.Unlock()
+				if n, _ := devFree.LedgerLen(); n == 0 || liveAfterFailClose <= 0 {
+					t.Fatalf("failing first Close lost ownership/lease: ledger=%d liveBytes=%d", n, liveAfterFailClose)
+				}
+				// Clear close hook and retry Close: remaining buffer and lease release cleanly to zero.
+				devFree.SetCloseBufHookForTest(nil)
+				if err := aFree.Close(); err != nil {
+					t.Fatalf("retry aFree.Close: %v", err)
+				}
+				recFree.mu.Lock()
+				liveAfterClose := recFree.devLive
+				recFree.mu.Unlock()
+				if allocsLeft, objsLeft := devFree.LedgerLen(); allocsLeft != 0 || objsLeft != 0 || liveAfterClose != 0 {
+					t.Fatalf("retry aFree.Close left ledger (%d, %d) liveBytes=%d", allocsLeft, objsLeft, liveAfterClose)
+				}
+
+				// 3d: Primary fatal CUDA launch error outranks subsequent drain failure, and subsequent
+				// valid forwards preserve the original fatal cause while performing zero device work.
+				eFatal, aFatal := attachFresh(t)
+				devFatal := aFatal.ops.dev
+				assertErr := &cudaresult.Error{Code: cudasys.CUDA_ERROR_ASSERT, Op: "cuLaunchKernel"}
+				aFatal.defect.failForward = true
+				aFatal.defect.failForwardErr = assertErr
+				aFatal.defect.drainFails = 1
+				_, err = eFatal.EmbedIDsBatch(orig[:1])
+				aFatal.defect.failForward = false
+				aFatal.defect.failForwardErr = nil
+				if err == nil || errors.Is(err, embeddinggemma2.ErrBatchOutOfMemory) || !errors.Is(err, assertErr) {
+					t.Fatalf("fatal launch + failed drain = %v, want primary %v without retry", err, assertErr)
+				}
+				l0, w0 := devFatal.Activity()
+				if _, err2 := eFatal.EmbedIDsBatch(orig[:1]); !errors.Is(err2, assertErr) || errors.Is(err2, embeddinggemma2.ErrBatchOutOfMemory) {
+					t.Fatalf("subsequent call after primary fatal = %v, want preserved %v", err2, assertErr)
+				}
+				l1, w1 := devFatal.Activity()
+				if l1 != l0 || w1 != w0 {
+					t.Fatalf("poisoned accelerator performed device work: launches %d->%d waits %d->%d", l0, l1, w0, w1)
+				}
+				if err := aFatal.Close(); err != nil {
+					t.Fatalf("aFatal.Close: %v", err)
 				}
 			})
 
@@ -1798,7 +2021,7 @@ func TestEG2CUDA_RetryOOM_DeviceAcceptance(t *testing.T) {
 				// Attach OOM after several real weight uploads -> ErrDeviceOutOfMemory only, 0 leaks.
 				var attachDev *Device
 				attachAllocs := 0
-				gotAcc, err := newEG2AccelWithDevice(m, combined, func() (*Device, error) {
+				gotAcc, err := newEG2AccelOn(m, combined, func() (*Device, error) {
 					d, err := CreateSystemDefaultDevice()
 					if err != nil {
 						return nil, err
@@ -1822,7 +2045,7 @@ func TestEG2CUDA_RetryOOM_DeviceAcceptance(t *testing.T) {
 
 				// Unrelated attach allocation error (gc.ErrInvalidValue) -> neither OOM sentinel, 0 leaks.
 				attachAllocs = 0
-				gotAcc, err = newEG2AccelWithDevice(m, combined, func() (*Device, error) {
+				gotAcc, err = newEG2AccelOn(m, combined, func() (*Device, error) {
 					d, err := CreateSystemDefaultDevice()
 					if err != nil {
 						return nil, err
