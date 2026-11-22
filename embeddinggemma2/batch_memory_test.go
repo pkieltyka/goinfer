@@ -27,6 +27,20 @@ func (s *stubBatchAccel) ForwardBatch(ids [][]int) ([][]float32, error) {
 	return nil, errors.New("unexpected batch forward")
 }
 
+type stubSingletonEstimatorAccel struct {
+	stubSingletonAccel
+	calls int
+	got   []int
+	est   BatchMemoryEstimate
+	err   error
+}
+
+func (s *stubSingletonEstimatorAccel) BatchMemory(preparedLengths []int) (BatchMemoryEstimate, error) {
+	s.calls++
+	s.got = append([]int(nil), preparedLengths...)
+	return s.est, s.err
+}
+
 type stubEstimatorAccel struct {
 	stubBatchAccel
 	got []int
@@ -148,5 +162,27 @@ func TestEncoderBatchMemory_DelegatesToEstimator(t *testing.T) {
 	stub.err = closedErr
 	if _, err := enc.BatchMemory([]int{64}); !errors.Is(err, closedErr) {
 		t.Fatalf("backend error = %v, want %v", err, closedErr)
+	}
+
+	// A singleton-only accelerator that implements BatchMemoryEstimator still
+	// fails multi-input requests at the root batchForwarder check without
+	// delegating, while singleton requests delegate normally.
+	singletonEst := &stubSingletonEstimatorAccel{
+		stubSingletonAccel: stubSingletonAccel{name: "singleton-est"},
+		est:                want,
+	}
+	singletonEnc := newTestEncoder(512, singletonEst)
+	if _, err := singletonEnc.BatchMemory([]int{8, 8}); !errors.Is(err, ErrUnsupportedBatchShape) {
+		t.Fatalf("singleton estimator multi-input = %v, want ErrUnsupportedBatchShape", err)
+	}
+	if singletonEst.calls != 0 {
+		t.Fatalf("singleton estimator BatchMemory called %d times on multi-input, want 0", singletonEst.calls)
+	}
+	gotSingle, err := singletonEnc.BatchMemory([]int{32})
+	if err != nil {
+		t.Fatalf("singleton estimator single input: %v", err)
+	}
+	if gotSingle != want || singletonEst.calls != 1 || len(singletonEst.got) != 1 || singletonEst.got[0] != 32 {
+		t.Fatalf("singleton estimator single = (%+v, calls=%d, got=%v)", gotSingle, singletonEst.calls, singletonEst.got)
 	}
 }

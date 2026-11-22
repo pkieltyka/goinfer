@@ -1479,6 +1479,41 @@ func TestEG2CUDA_BatchMemory_UnitContract(t *testing.T) {
 	if _, err := a.BatchMemory(tooManyItems); !errors.Is(err, embeddinggemma2.ErrUnsupportedBatchShape) {
 		t.Fatalf("len(lens) > batchRowLimit: got %v, want ErrUnsupportedBatchShape", err)
 	}
+	// ForwardBatch also rejects len(ids) > batchRowLimit in O(1) before allocating lens.
+	if _, err := a.ForwardBatch(make([][]int, limit+1)); !errors.Is(err, embeddinggemma2.ErrUnsupportedBatchShape) {
+		t.Fatalf("ForwardBatch len(ids) > batchRowLimit: got %v, want ErrUnsupportedBatchShape", err)
+	}
+
+	// Singleton BatchMemory prices EmbedIDs (Forward) and uses singleton
+	// checkPositions admission rather than ForwardBatch's aggregate batchRowLimit.
+	wide := &eg2Accel{
+		cfg: embeddinggemma2.Config{
+			Hidden:       768,
+			Intermediate: 262144, // maximal stride -> batchRowLimit = (MaxInt32-255)/262144 - 31 = 8160
+			PLEDim:       256,
+			Layers:       1,
+			Heads:        8,
+			EmbeddingDim: 768,
+			MaxPositions: 8192,
+		},
+		layers: []eg2Layer{{w: embeddinggemma2.LayerWeights{HeadDim: 128, KVHeads: 2, RopeTheta: 10_000}}},
+	}
+	if got := wide.batchRowLimit(); got != 8160 {
+		t.Fatalf("wide.batchRowLimit() = %d, want 8160", got)
+	}
+	estSingleWide, err := wide.BatchMemory([]int{8161})
+	if err != nil {
+		t.Fatalf("singleton length 8161 (<= MaxPositions=8192, > batchRowLimit=8160) rejected: %v", err)
+	}
+	if estSingleWide.Quality != embeddinggemma2.BatchMemoryUpperBound || estSingleWide.AdditionalPeakBytes <= 0 {
+		t.Fatalf("singleton wide estimate = %+v", estSingleWide)
+	}
+	if _, err := wide.BatchMemory([]int{8160, 1}); !errors.Is(err, embeddinggemma2.ErrUnsupportedBatchShape) {
+		t.Fatalf("multi-input [8160, 1] over batchRowLimit=8160: got %v, want ErrUnsupportedBatchShape", err)
+	}
+	if _, err := wide.BatchMemory([]int{8193}); !errors.Is(err, embeddinggemma2.ErrUnsupportedBatchShape) {
+		t.Fatalf("singleton 8193 over MaxPositions=8192: got %v, want ErrUnsupportedBatchShape", err)
+	}
 
 	// Same aggregate T=128 with different max member lengths: [64,64] vs [1,127].
 	cold64, err := a.BatchMemory([]int{64, 64})
@@ -1547,6 +1582,12 @@ func TestEG2CUDA_BatchMemory_UnitContract(t *testing.T) {
 }
 
 func TestEG2CUDA_BatchMemory_InstrumentedOracle(t *testing.T) {
+	dev, err := CreateSystemDefaultDevice()
+	if err != nil {
+		t.Skipf("no CUDA device: %v", err)
+	}
+	dev.ReleaseObjects()
+
 	m := eg2TinyModel(t)
 	V := m.Config().VocabSize
 
@@ -1562,7 +1603,7 @@ func TestEG2CUDA_BatchMemory_InstrumentedOracle(t *testing.T) {
 			a, err := newEG2Accel(m, combined)
 			gpu.NewLeaser = origNewLeaser
 			if err != nil {
-				t.Skipf("no CUDA device for EmbeddingGemma 2 (combined=%v): %v", combined, err)
+				t.Fatalf("newEG2Accel(combined=%v): %v", combined, err)
 			}
 			defer a.Close()
 

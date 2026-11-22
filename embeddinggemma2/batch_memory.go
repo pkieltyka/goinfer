@@ -15,8 +15,11 @@ var ErrUnsupportedBatchShape = errors.New("embeddinggemma2: unsupported batch sh
 type BatchMemoryQuality uint8
 
 const (
-	// BatchMemoryUnknown means the backend provides no usable estimate for an
-	// otherwise admissible batch shape. AdditionalPeakBytes is zero.
+	// BatchMemoryUnknown means the backend provides no usable estimate for the
+	// batch shape. AdditionalPeakBytes is zero. Because a backend without
+	// BatchMemoryEstimator may still enforce backend-specific admission limits
+	// (such as aggregate row caps) not visible to the root encoder,
+	// BatchMemoryUnknown does not certify that the batch will be admitted or fit.
 	BatchMemoryUnknown BatchMemoryQuality = iota
 	// BatchMemoryUpperBound means AdditionalPeakBytes is a conservative upper
 	// bound over explicitly tracked backend device buffer allocations for the
@@ -103,9 +106,13 @@ func (m *Model) checkPreparedLengthCap(preparedLengths []int) error {
 
 // BatchMemory estimates the device working memory for a prepared batch on the
 // encoder's current path without running a forward or allocating device memory.
-// One length prices EmbedIDs; multiple lengths price EmbedIDsBatch. When no
-// accelerator is attached or the attached accelerator does not implement
-// BatchMemoryEstimator, admissible shapes return BatchMemoryUnknown.
+// One length prices EmbedIDs; multiple lengths price EmbedIDsBatch. Multi-input
+// batches always require batchForwarder support on an attached accelerator,
+// even if that accelerator implements BatchMemoryEstimator. When no accelerator
+// is attached or the attached accelerator does not implement
+// BatchMemoryEstimator, shapes passing root length and batch-capability checks
+// return BatchMemoryUnknown; this does not certify backend-specific admission
+// limits or fit.
 func (e *Encoder) BatchMemory(preparedLengths []int) (BatchMemoryEstimate, error) {
 	if e == nil || e.m == nil {
 		return BatchMemoryEstimate{}, errors.New("embeddinggemma2: nil encoder")
@@ -114,16 +121,16 @@ func (e *Encoder) BatchMemory(preparedLengths []int) (BatchMemoryEstimate, error
 		return BatchMemoryEstimate{}, err
 	}
 	if e.accel != nil {
+		if len(preparedLengths) > 1 {
+			if _, canBatch := e.accel.(batchForwarder); !canBatch {
+				return BatchMemoryEstimate{}, fmt.Errorf("%w: the %s accelerator cannot run a batch", ErrUnsupportedBatchShape, e.accel.Name())
+			}
+		}
 		if est, ok := e.accel.(BatchMemoryEstimator); ok {
 			return est.BatchMemory(preparedLengths)
 		}
 		if err := e.m.checkPreparedLengthCap(preparedLengths); err != nil {
 			return BatchMemoryEstimate{}, err
-		}
-		if len(preparedLengths) > 1 {
-			if _, canBatch := e.accel.(batchForwarder); !canBatch {
-				return BatchMemoryEstimate{}, fmt.Errorf("%w: the %s accelerator cannot run a batch", ErrUnsupportedBatchShape, e.accel.Name())
-			}
 		}
 		return BatchMemoryEstimate{Quality: BatchMemoryUnknown}, nil
 	}

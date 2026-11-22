@@ -187,8 +187,17 @@ func (a *eg2Accel) checkPositions(n int) error {
 	return nil
 }
 
-// validateBatchLengths checks prepared sequence lengths for both ForwardBatch
-// and BatchMemory before any allocation or arithmetic overflow.
+// validateSingleLength checks a single prepared sequence length for Forward
+// and singleton BatchMemory without imposing ForwardBatch's aggregate row limit.
+func (a *eg2Accel) validateSingleLength(n int) error {
+	if n <= 0 {
+		return fmt.Errorf("cuda: input has invalid length %d", n)
+	}
+	return a.checkPositions(n)
+}
+
+// validateBatchLengths checks prepared sequence lengths for ForwardBatch and
+// multi-input BatchMemory before any allocation or arithmetic overflow.
 func (a *eg2Accel) validateBatchLengths(lens []int) (total, maxT int, err error) {
 	if len(lens) == 0 {
 		return 0, 0, errors.New("cuda: an empty batch")
@@ -351,9 +360,21 @@ func (a *eg2Accel) BatchMemory(preparedLengths []int) (embeddinggemma2.BatchMemo
 	if a.broken != nil {
 		return embeddinggemma2.BatchMemoryEstimate{}, a.broken
 	}
-	total, maxT, err := a.validateBatchLengths(preparedLengths)
-	if err != nil {
-		return embeddinggemma2.BatchMemoryEstimate{}, err
+	var total, maxT int
+	if len(preparedLengths) == 0 {
+		return embeddinggemma2.BatchMemoryEstimate{}, errors.New("cuda: an empty batch")
+	}
+	if len(preparedLengths) == 1 {
+		if err := a.validateSingleLength(preparedLengths[0]); err != nil {
+			return embeddinggemma2.BatchMemoryEstimate{}, err
+		}
+		total, maxT = preparedLengths[0], preparedLengths[0]
+	} else {
+		var err error
+		total, maxT, err = a.validateBatchLengths(preparedLengths)
+		if err != nil {
+			return embeddinggemma2.BatchMemoryEstimate{}, err
+		}
 	}
 	plan, err := a.scratchPlan(total)
 	if err != nil {
@@ -404,7 +425,7 @@ func (a *eg2Accel) Forward(ids []int, keepLayers bool) ([]float32, [][]float32, 
 	if a.broken != nil {
 		return nil, nil, a.broken
 	}
-	if err := a.checkPositions(len(ids)); err != nil {
+	if err := a.validateSingleLength(len(ids)); err != nil {
 		return nil, nil, err
 	}
 	x, err := a.model.EmbedTokens(ids)
@@ -520,6 +541,10 @@ func (a *eg2Accel) ForwardBatch(ids [][]int) ([][]float32, error) {
 	E := c.EmbeddingDim
 	if len(ids) == 0 {
 		return nil, fmt.Errorf("cuda: an empty batch")
+	}
+	// Reject impossible batch counts in O(1) before allocating the lengths slice.
+	if rowLimit := a.batchRowLimit(); len(ids) > rowLimit {
+		return nil, fmt.Errorf("cuda: %w: batch has %d inputs, over the launch limit of %d total token rows", embeddinggemma2.ErrUnsupportedBatchShape, len(ids), rowLimit)
 	}
 	// Every check runs before the gather buffer is allocated, so a refused batch costs no more than its lengths.
 	lens := make([]int, len(ids))
