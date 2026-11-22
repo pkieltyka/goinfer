@@ -292,8 +292,19 @@ Run after pushing from a clean temporary `GOMODCACHE` with `GOWORK=off`, `GOPROX
     TAGS+=("${mod}/${TAG}")
   done
 
-  # 1. Confirm all published tags on origin resolve to the exact same release commit:
-  git ls-remote --tags origin "${TAGS[@]}"
+  # 1. Confirm origin main and every published tag resolve to the exact same release commit:
+  REL_SHA="$(git rev-parse --verify "${TAG}^{commit}")"
+  REMOTE_MAIN="$(git ls-remote --heads origin "refs/heads/main" | awk '{print $1}')"
+  test "${REMOTE_MAIN}" = "${REL_SHA}"
+  for t in "${TAGS[@]}"; do
+    lines="$(git ls-remote --tags origin "refs/tags/${t}" "refs/tags/${t}^{}")"
+    peeled="$(awk -v ref="refs/tags/${t}^{}" '$2 == ref {print $1}' <<<"${lines}")"
+    direct="$(awk -v ref="refs/tags/${t}" '$2 == ref {print $1}' <<<"${lines}")"
+    got="${peeled:-${direct}}"
+    test -n "${got}"
+    test "$(printf '%s\n' "${got}" | wc -l)" -eq 1
+    test "${got}" = "${REL_SHA}"
+  done
 
   # 2. Resolve and verify root + every selected backend strictly from the public Go proxy:
   TMP="$(mktemp -d)"
