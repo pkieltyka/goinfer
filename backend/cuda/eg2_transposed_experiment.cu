@@ -1,5 +1,5 @@
-// Diagnostic prototype from goinfer's attention_seg at 44c5aa2ab. Preserve the score,
-// softmax, and value reduction order. Adjacent scoring threads read adjacent keys.
+// Adjacent scoring threads read adjacent keys. Score, softmax, and value reductions
+// retain the arithmetic order of attention_seg.
 #define LNBLOCK 256
 
 extern "C" __global__ void eg2_transpose_keys(const float* __restrict__ k, float* __restrict__ kt,
@@ -50,7 +50,7 @@ extern "C" __global__ void eg2_attention_transposed(
     for (int t = threadIdx.x; t < n; t += blockDim.x) {
         const float* key = kh + s0 + t;
         float acc = 0.f;
-        for (int d = 0; d < hd; ++d) acc += qs[d] * key[(long)d * pitch];
+        for (int d = 0; d < hd; ++d) acc = __fmaf_rn(qs[d], key[(long)d * pitch], acc);
         sc[t] = acc * scale;
     }
     __syncthreads();
@@ -91,7 +91,7 @@ extern "C" __global__ void eg2_attention_transposed(
     float* oi = out + (long)i * hidden + off;
     for (int d = threadIdx.x; d < hd; d += blockDim.x) {
         float acc = 0.f;
-        for (int t = 0; t < n; t++) acc += sc[t] * v[(long)(s0 + t) * kvWidth + kv * hd + d];
+        for (int t = 0; t < n; t++) acc = __fmaf_rn(sc[t], v[(long)(s0 + t) * kvWidth + kv * hd + d], acc);
         oi[d] = acc;
     }
 }

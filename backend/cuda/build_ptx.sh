@@ -86,6 +86,10 @@ for k in "${targets[@]}"; do
 	src="./${k%.cu}.cu"
 	[ -f "$src" ] || { echo "build_ptx: no such kernel source: $src" >&2; exit 1; }
 	nvrtc "$src" "out/${k%.cu}.ptx" "$ARCH" "$CUDA_INC"
+	if [ "${k%.cu}" = eg2_transposed_experiment ]; then
+		# Strip NVRTC's trailing horizontal spaces and blank lines from this artifact.
+		sed -z -i -e 's/[ \t]*\n/\n/g' -e 's/\n\+$/\n/' "$STAGE/out/eg2_transposed_experiment.ptx"
+	fi
 	# A source that includes kvtype.cuh is also built with the KV cache as f16: <name>_kv16.ptx, the twin module the resident loads
 	# for an f16 KV build (docs/completed/task-cuda-f16-kv-2026-10.md). The module above is built WITHOUT the define and must not change.
 	if grep -q 'kvtype.cuh' "$src"; then

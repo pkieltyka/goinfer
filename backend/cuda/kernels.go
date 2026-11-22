@@ -21,6 +21,11 @@ import (
 //
 //go:generate ./build_ptx.sh
 
+// eg2CombinedAttentionPTX transposes key heads and attends over the combined encoder's bounded rows.
+//
+//go:embed testdata/eg2_transposed_experiment.ptx
+var eg2CombinedAttentionPTX []byte
+
 // gemvFwdPTX: the LLM-specific forward kernels, kv_store / rope_kv. The generic quantized GEMVs live in aikit/gpu
 // (gpu.QuantGEMVPTX, Device.NewQuantGEMV; see backend.go); the name is kept for continuity with the .cu it is built
 // from.

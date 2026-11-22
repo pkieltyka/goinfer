@@ -3,15 +3,11 @@
 package cuda
 
 import (
-	_ "embed"
 	"errors"
 	"fmt"
 
 	"github.com/pkieltyka/goinfer/embeddinggemma2"
 )
-
-//go:embed testdata/eg2_transposed_experiment.ptx
-var eg2CombinedAttentionPTX []byte
 
 func init() {
 	embeddinggemma2.RegisterAccelerator("cuda-eg2-combined", func(model *embeddinggemma2.Model) (embeddinggemma2.Accelerator, error) {
