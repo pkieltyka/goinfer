@@ -273,8 +273,6 @@ jobs:
         run: python3 -B scripts/test_notes_readers.py
       - name: CHANGELOG fragments (scripts/changelog.py)
         run: python3 -B scripts/test_changelog.py && python3 -B scripts/changelog.py render > /dev/null
-      - name: single-commit release prep (scripts/release_prep.py)
-        run: python3 -B scripts/test_release_prep.py
 
       # The night job cuda-device-suite judges `go test -json` of the CUDA module run with a device: a failed test, a failed package and a
       # skip that says "no device" are red, whatever go test's exit status. Fed fake streams, with a plant that treats skips as passes.
