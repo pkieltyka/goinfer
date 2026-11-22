@@ -5,12 +5,15 @@ layout(std430, set = 0, binding = 0) readonly buffer Queries { float queries[]; 
 layout(std430, set = 0, binding = 1) readonly buffer Keys { float keys[]; };
 layout(std430, set = 0, binding = 2) writeonly buffer Scores { float scores[]; };
 layout(push_constant) uniform Shape {
-    uint tokens;
     uint queryStart;
     uint blockRows;
     uint heads;
     uint kvHeads;
     uint headDim;
+    uint keyStart;
+    uint keys;
+    uint sequenceStart;
+    uint radius;
 } p;
 
 shared float qTile[8][16];
@@ -22,7 +25,10 @@ void main() {
     uint queryBase = gl_WorkGroupID.y * 8u;
     uint keyBase = gl_WorkGroupID.x * 16u;
     uint row = queryBase + y;
-    uint key = keyBase + x;
+    uint query = p.queryStart + row;
+    uint key = p.keyStart + keyBase + x;
+    bool valid = row < p.blockRows && keyBase + x < p.keys &&
+        query <= key + p.radius && key <= query + p.radius;
     uint head = gl_WorkGroupID.z;
     uint kvHead = head / (p.heads / p.kvHeads);
 
@@ -30,19 +36,21 @@ void main() {
     for (uint dBase = 0u; dBase < p.headDim; dBase += 16u) {
         uint d = dBase + x;
         qTile[y][x] = row < p.blockRows && d < p.headDim
-            ? queries[((p.queryStart + row) * p.heads + head) * p.headDim + d] : 0.0;
+            ? queries[(query * p.heads + head) * p.headDim + d] : 0.0;
         for (uint j = y; j < 16u; j += 8u) {
             uint k = keyBase + j;
-            kTile[j][x] = k < p.tokens && d < p.headDim
-                ? keys[(k * p.kvHeads + kvHead) * p.headDim + d] : 0.0;
+            kTile[j][x] = k < p.keys && d < p.headDim
+                ? keys[((p.keyStart + k) * p.kvHeads + kvHead) * p.headDim + d] : 0.0;
         }
         barrier();
-        for (uint j = 0u; j < 16u; ++j) {
-            sum = fma(qTile[y][j], kTile[x][j], sum);
+        if (valid) {
+            for (uint j = 0u; j < 16u; ++j) {
+                sum = fma(qTile[y][j], kTile[x][j], sum);
+            }
         }
         barrier();
     }
-    if (row < p.blockRows && key < p.tokens) {
-        scores[(head * p.blockRows + row) * p.tokens + key] = sum;
+    if (row < p.blockRows && keyBase + x < p.keys) {
+        scores[(head * p.blockRows + row) * p.keys + keyBase + x] = sum;
     }
 }

@@ -23,6 +23,7 @@ var (
 	ErrNoAdapter          = errors.New("vulkan: no discrete AMD adapter matches the selection")
 	ErrAmbiguousAdapter   = errors.New("vulkan: several discrete AMD adapters match the selection")
 	ErrOutOfMemory        = errors.New("vulkan: native allocation failed")
+	ErrDeviceLost         = errors.New("vulkan: native device lost")
 )
 
 type ResultError struct {
@@ -57,7 +58,8 @@ func (e *ResultError) Error() string {
 }
 
 func (e *ResultError) Is(target error) bool {
-	return target == ErrOutOfMemory && (result(e.Code) == outOfHost || result(e.Code) == outOfDevice)
+	return (target == ErrOutOfMemory && (result(e.Code) == outOfHost || result(e.Code) == outOfDevice)) ||
+		(target == ErrDeviceLost && result(e.Code) == deviceLost)
 }
 
 func (r result) check(op string) error {

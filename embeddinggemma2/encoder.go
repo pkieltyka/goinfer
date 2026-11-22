@@ -148,21 +148,23 @@ func (e *Encoder) EmbedIDs(ids []int) ([]float32, error) {
 	return e.embedIDs(ids)
 }
 
-// batchForwarder is an accelerator that runs several prepared inputs in one forward, returning each input's projected
-// last hidden state, [len(ids[b]), Dim()] row-major, in input order (the CUDA accelerator's ForwardBatch).
+// batchForwarder runs prepared inputs in a single logical forward and returns
+// each input's projected last hidden rows in request order.
 type batchForwarder interface {
 	ForwardBatch(ids [][]int) ([][]float32, error)
 }
 
 // EmbedIDsBatch returns the unit-length sentence embedding of each pre-tokenized input, in input order, as EmbedIDs
-// would give each alone. With no accelerator it runs EmbedIDs on each input in turn on the CPU. With an accelerator it
-// needs one that batches (the CUDA accelerator's ForwardBatch): it runs every input in that one call and pools each
-// input's rows as EmbedIDs does; an accelerator that cannot batch is an error, never a CPU or one-by-one fallback.
+// would give each alone. For a fixed model pack, build, accelerator selector,
+// physical device and driver, the same input produces identical float32 bits
+// regardless of its position or neighbors in an admitted batch. The CPU runs
+// each input in turn. An accelerator must implement batching, and each result
+// is pooled as EmbedIDs pools it.
 //
 // The call is all or nothing: an empty batch, an empty input, or any error from the model or the accelerator returns
-// nil and that error, with no partial result. It does not split a batch: the caller groups inputs to fit the
-// accelerator's launch and memory limits, with at most MaxTokens ids per input. ids is not modified, and the returned
-// vectors belong to the caller.
+// nil and that error, with no partial result. The caller groups inputs to fit
+// the accelerator's launch and memory limits, with at most MaxTokens ids per
+// input. ids is unchanged and the returned vectors belong to the caller.
 func (e *Encoder) EmbedIDsBatch(ids [][]int) ([][]float32, error) {
 	if len(ids) == 0 {
 		return nil, fmt.Errorf("embeddinggemma2: an empty batch")

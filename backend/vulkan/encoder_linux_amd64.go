@@ -82,7 +82,7 @@ func newEncoder(m *embeddinggemma2.Model, selector vk.Selector) (*encoder, error
 		name            string
 		bindings, words int
 	}{
-		{"project", 3, 3}, {"norm", 3, 3}, {"mix", 2, 6}, {"rope", 4, 3}, {"scores", 3, 6}, {"softmax", 2, 7}, {"values", 3, 6},
+		{"project", 3, 4}, {"norm", 3, 3}, {"mix", 2, 6}, {"rope", 4, 3}, {"scores", 3, 9}, {"softmax", 1, 9}, {"values", 3, 9},
 	} {
 		code, err := shaders.ReadFile("shaders/" + s.name + ".spv")
 		if err != nil {
@@ -198,18 +198,25 @@ func (a *encoder) Close() error {
 }
 
 func (a *encoder) validateRows(rows int) error {
-	if a.device == nil {
-		return errors.New("vulkan: encoder is closed")
-	}
 	if rows <= 0 || rows > embeddinggemma2.MaxTokens || (a.cfg.MaxPositions > 0 && rows > a.cfg.MaxPositions) {
 		return fmt.Errorf("vulkan: unsupported input length %d", rows)
 	}
 	return nil
 }
 
+func (a *encoder) status() error {
+	if a.device == nil {
+		return errors.New("vulkan: encoder is closed")
+	}
+	return classify(a.device.Status())
+}
+
 func (a *encoder) Forward(ids []int, keep bool) ([]float32, [][]float32, error) {
 	a.mu.Lock()
 	defer a.mu.Unlock()
+	if err := a.status(); err != nil {
+		return nil, nil, err
+	}
 	if err := a.validateRows(len(ids)); err != nil {
 		return nil, nil, err
 	}
@@ -223,6 +230,9 @@ func (a *encoder) Forward(ids []int, keep bool) ([]float32, [][]float32, error) 
 func (a *encoder) ForwardEmbeds(x []float32, rows int, keep bool) ([]float32, [][]float32, error) {
 	a.mu.Lock()
 	defer a.mu.Unlock()
+	if err := a.status(); err != nil {
+		return nil, nil, err
+	}
 	if err := a.validateRows(rows); err != nil {
 		return nil, nil, err
 	}
@@ -237,6 +247,9 @@ func (a *encoder) ForwardEmbeds(x []float32, rows int, keep bool) ([]float32, []
 func (a *encoder) ForwardBatch(ids [][]int) ([][]float32, error) {
 	a.mu.Lock()
 	defer a.mu.Unlock()
+	if err := a.status(); err != nil {
+		return nil, err
+	}
 	if len(ids) == 0 || len(ids) > embeddinggemma2.MaxTokens {
 		return nil, fmt.Errorf("vulkan: invalid batch size %d", len(ids))
 	}
