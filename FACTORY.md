@@ -24,6 +24,8 @@ Link the project task ID in the issue. The maintainer's task ledger governs land
 
 The operator assigns work and resolves architecture decisions after consulting the architects. Developers use separate worktrees and keep parallel assignments on disjoint paths or coordinate dependencies through the operator. The PM updates the GitHub tracker. The reviewer records findings and verdicts against the exact paths or commit reviewed. Escalate unresolved findings to the operator after three review rounds.
 
+The operator delegates implementation to lead developers and uses architects for design when needed. The operator coordinates, reviews, and integrates the work. Direct implementation by the operator requires explicit direction from the maintainer.
+
 Use the repository's verification rules in `CLAUDE.md`. For GPU work, record device tests and hardware used, or record that no device tests ran. The maintainer decides gates, defaults, guard thresholds, and tags.
 
 ## Review
