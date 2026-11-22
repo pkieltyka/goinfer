@@ -1,0 +1,43 @@
+[operator]
+name = "operator"
+notes = "Owns task assignment, architecture decisions, and integration."
+
+[members.architect]
+harness = "claude"
+model = "claude-fable-5-2"
+thinking = "high"
+notes = "Owns architecture proposals for runtime, serving, and module boundaries."
+
+[members.architect-2]
+role = "architect"
+harness = "codex"
+model = "gpt-6.2-astra"
+thinking = "high"
+notes = "Independently reviews architecture proposals for backend contracts, portability, and validation."
+
+[members.lead-dev]
+harness = "codex"
+model = "gpt-6.2-sol"
+thinking = "high"
+worktree = true
+notes = "Leads implementation and verification for assigned Go runtime and serving work."
+
+[members.lead-dev-2]
+role = "lead-dev"
+harness = "agy"
+model = "gemini-4-neon"
+thinking = "high"
+worktree = true
+notes = "Leads implementation and verification for assigned accelerator and model support work."
+
+[members.pm]
+harness = "codex"
+model = "gpt-6-luna"
+thinking = "high"
+notes = "Owns the GitHub Issues and project board through todos, and reconciles tasks with the project ledger."
+
+[members.reviewer]
+harness = "codex"
+model = "gpt-6-luna"
+thinking = "high"
+notes = "Reviews assigned work and runs the local Codegenie CLI against committed branch heads."

@@ -1,0 +1,11 @@
+# Native CUDA document pairing
+
+On 2026-11-21, the RTX PRO 6000 Blackwell Max-Q Workstation Edition with driver 595.112.07 ran the same 32 whole Markdown documents and 107 queries from the [frozen corpus](../pbrain-embedding-peer-2026-11-21/README.md). One arm embedded each document in its own forward. The candidate grouped adjacent documents in pairs and embedded each pair in a single CUDA forward with sequence-local positions, attention bounds and pooling. Both used the same prepared IDs and pinned BF16 Google checkpoint widened to FP32.
+
+The registered retry completed 20 cells in five ABBA blocks from 17:58:10 to 18:05:30 EST, including 310 seconds of idle-gate waits. Median summed document time was **2.741 s** for singletons and **2.542 s** for pairs. The median paired ratio was **1.0780×**, with 1.0752×–1.0815× across the ten pairs, all favoring batching. Warm query medians had a paired ratio of 0.9994×. Every comparison matched all 139 token and vector digests and all 107 rankings and abstention decisions. The initial attempt stopped after 14 cells at the then-implemented deadline. The retry's own 20 cells supply the reported ratios.
+
+The benchmark binary was built at `2144000f4`, SHA-256 `25c33cfd73549e0f0b7a1668391e95aeddb27f65b59749143c51c307ee554d1a`. Runner `3e6a75edf` counted idle waiting against the registered time budget and used the existing per-cell load and fit rules. Local inputs, detailed timing, and start observations are in `~/goinfer-logs/pbe5-rtx-batch-2026-11-21/paired-cells-2`.
+
+The opt-in prepared-ID batch API is available on local goinfer commit `688afa19d`. RTX tests verified mixed lengths around the real model's sliding window and the reference golden outputs. Tiny tests also verified independent documents, owned embeddings, input errors and actual batch dispatch.
+
+A separate untimed memory check used the same binary and all 139 inputs. Sampling the benchmark process every 50 ms recorded a peak of 1,432 MiB across 92 singleton samples and 1,744 MiB across 88 paired samples. The largest forward had 2,655 rows with singletons and 5,027 with pairs. The sampled difference was 312 MiB. Both outputs matched the timing cells. Raw process samples and fit evidence are under `~/goinfer-logs/pbe5-rtx-batch-2026-11-21/memory-sample`.

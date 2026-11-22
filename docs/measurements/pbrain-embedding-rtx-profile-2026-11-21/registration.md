@@ -1,0 +1,7 @@
+# Transposed-key FP32 CUDA timing registration
+
+The [RTX profile and fit](README.md) select the long-input attention kernel as the first candidate. Both arms use the same binary over corrected CUDA reference `44c5aa2ab`. The candidate changes the attention layout and kernel dispatch for documents over 2,000 tokens. Short inputs use the same packed kernel in both arms. The qualification applies only to this experiment.
+
+Use the frozen 139-input corpus, with all 32 documents and 107 queries in manifest order. Load a fresh resident model per cell and warm up the longest document once. Compare five ABBA blocks under the exclusive timing lock. Record binary and input digests, start load and memory, device identity, per-input wall times, and the output vector and ranking evidence. Stop on fit or parity failure, or when the fixed 20 cells are complete. Keep all 139 token and vector digests, query scores, rankings, and abstention decisions exact.
+
+The primary metric is the sum of the 32 document intervals. Summarize adjacent unlike cells as reference time divided by candidate time. Use a median of at least 1.05 and at least 9 of 10 pairs in the candidate's favor for this local experiment. Report the three long documents individually and query median as secondary results. The candidate runs uninstrumented for timing. Use existing idle and memory rules. Budget about two minutes of cell computation plus idle waits. A speed result informs review and carries no default or release decision.
