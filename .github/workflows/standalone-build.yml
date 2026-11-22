@@ -20,6 +20,7 @@ on:
       - 'backend/webgpu/v*'
       - 'backend/cuda/v*'
       - 'backend/metal/v*'
+      - 'backend/vulkan/v*'
       - 'gpu/v*'
       - 'cuda/v*'
       - 'metal/v*'
@@ -42,6 +43,8 @@ jobs:
             tags: cuda
           - module: backend/metal
             tags: metal
+          - module: backend/vulkan
+            tags: ""
           - module: demo/agent
             tags: ""
     steps:
@@ -59,11 +62,13 @@ jobs:
       # proxy, the way `go install github.com/pkieltyka/goinfer/<module>@<tag>` does for a
       # user. GOWORK=off also defends against a stray go.work in the runner image.
       - name: standalone build (GOWORK=off)
+        if: matrix.module != 'backend/vulkan' || github.event_name == 'workflow_dispatch' || startsWith(github.ref, 'refs/tags/backend/vulkan/')
         env:
           GOWORK: "off"
           GOOS: ${{ matrix.module == 'backend/metal' && 'darwin' || 'linux' }}
         run: |
           cd ${{ matrix.module }}
+          if [ "${{ matrix.module }}" = backend/vulkan ]; then export CGO_ENABLED=0; fi
           if [ -n "${{ matrix.tags }}" ]; then
             go build -tags '${{ matrix.tags }}' ./...
           else

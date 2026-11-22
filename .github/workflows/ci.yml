@@ -377,9 +377,9 @@ jobs:
       # `webgpu`, not one binding's module path: the pattern named cogentcore/webgpu for two weeks
       # after gpu/ moved to oliverbestmann/webgpu (a16a537d), so the guard could no longer see the
       # binding it exists to keep out. Any WebGPU binding in the root is a leak, whoever wrote it.
-      - name: cleanliness guard (no webgpu / cuda / metal in root)
+      - name: cleanliness guard (no GPU backend modules in root)
         run: |
-          leak='webgpu|eitamring/gocudrv|ebitengine/purego|pkieltyka/aikit/gpu|pkieltyka/goinfer/(backend/(webgpu|cuda|metal)|gpu|cuda|metal)'
+          leak='webgpu|eitamring/gocudrv|ebitengine/purego|pkieltyka/aikit/gpu|pkieltyka/goinfer/(backend/(webgpu|cuda|metal|vulkan)|gpu|cuda|metal)'
           if go list -deps ./... | grep -Eiq "$leak"; then
             echo "::error::an opt-in backend dep leaked into the compiled root package set"
             go list -deps ./... | grep -Ei "$leak"
@@ -788,6 +788,26 @@ jobs:
       # (docs/measurements/cold-user-2026-09-06.md, scenario C). Verified to go red on that line.
       - name: readme-smoke
         run: bash scripts/readme_smoke.sh README.md
+
+  vulkan:
+    needs: changes
+    if: ${{ !cancelled() && needs.changes.outputs.docs_only != 'true' && needs.changes.outputs.pr_covered != 'true' }}
+    runs-on: ubuntu-24.04
+    env:
+      CGO_ENABLED: '0'
+    steps:
+      - uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09 # v5.1.0
+      - uses: actions/setup-go@924ae3a1cded613372ab5595356fb5720e22ba16 # v6.5.0
+        with:
+          go-version-file: go.mod
+          cache-dependency-path: backend/vulkan/go.sum
+      - run: go work init . ./backend/vulkan
+      - run: go vet ./backend/vulkan/...
+      - run: go test -short ./backend/vulkan/...
+      - uses: ./.github/actions/staticcheck
+        with:
+          version: "2026.2.1"
+      - run: staticcheck ./backend/vulkan/...
 
   gpu:
     needs: changes

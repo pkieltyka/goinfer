@@ -122,6 +122,7 @@
       "forbid_goinfer": [
         "backend/cuda",
         "backend/metal",
+        "backend/vulkan",
         "backend/webgpu"
       ],
       "forbid_external": [
@@ -132,6 +133,7 @@
       "gomod_forbid": [
         "github.com/pkieltyka/goinfer/backend/cuda",
         "github.com/pkieltyka/goinfer/backend/metal",
+        "github.com/pkieltyka/goinfer/backend/vulkan",
         "github.com/pkieltyka/goinfer/backend/webgpu",
         "github.com/pkieltyka/aikit/gpu",
         "github.com/ebitengine/purego",
@@ -261,6 +263,10 @@
     ],
     "backend/metal/kernels": [
       "internal/runtime/f16"
+    ],
+    "backend/vulkan": [
+      "backend/vulkan/internal/vk",
+      "embeddinggemma2"
     ],
     "backend/webgpu": [
       "backend/webgpu/internal/kernels",
@@ -617,6 +623,10 @@
       "internal/runtime/hybridattn",
       "internal/runtime/mamba2",
       "internal/runtime/sampling"
+    ],
+    "backend/vulkan": [
+      "backend/vulkan/internal/vk",
+      "embeddinggemma2"
     ],
     "backend/webgpu": [
       "backend/webgpu/internal/kernels",

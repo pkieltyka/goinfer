@@ -205,7 +205,8 @@ shared expert or a gpt-oss per-expert bias table (the generic path only — gemm
 mirrors throughout (`decoder/mlp.go`'s P18, `GOINFER_MOE_EXPERT_MAJOR`, same `!= "0"` convention)).
 
 `GOINFER_TEST_VULKAN_DEVICE` enables the AMD Vulkan device tests and identifies the target by
-its hexadecimal PCI device ID.
+its hexadecimal PCI device ID. `GOINFER_EG2_DIR` supplies the local Hugging Face snapshot for
+the real EmbeddingGemma 2 tests.
 
 Gate/CI knobs read by `cmd/gate` and the harnesses: `GOINFER_GATE_BACKEND`,
 `GOINFER_GATE_HEARTBEAT`, `GOINFER_GATE_SKIP_HEAVY`, `GOINFER_GATE_SKIP_WEBGPU`,

@@ -23,7 +23,7 @@ func main() {
 	flag.Parse()
 	args := flag.Args()
 	if len(args) < 3 {
-		fmt.Fprintln(os.Stderr, "usage: embeddinggemma2 [-accelerator cpu|auto|vulkan] <checkpoint-dir> <query> <doc.md> [doc.md ...]")
+		fmt.Fprintln(os.Stderr, "usage: embeddinggemma2 [-accelerator cpu|auto|name] <checkpoint-dir> <query> <doc.md> [doc.md ...]")
 		os.Exit(2)
 	}
 	if err := rank(args[0], args[1], args[2:], *device); err != nil {

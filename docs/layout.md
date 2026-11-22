@@ -14,7 +14,7 @@ A map of the tree. Paths are relative to the repository root; every row was chec
 
 ## Modules and the workspace
 
-Seven modules are developed together; an eighth `go.mod`, `.github/actions/staticcheck/`, only pins the CI linter build
+Eight modules are developed together; a ninth `go.mod`, `.github/actions/staticcheck/`, only pins the CI linter build
 (`go run ./cmd/lint` uses it) and is not part of the workspace.
 
 | Path | Module path | Published |
@@ -23,13 +23,14 @@ Seven modules are developed together; an eighth `go.mod`, `.github/actions/stati
 | `backend/webgpu/` | `.../goinfer/backend/webgpu` | tagged `backend/webgpu/vX.Y.Z` (formerly `gpu/vX.Y.Z`) |
 | `backend/cuda/` | `.../goinfer/backend/cuda` | tagged `backend/cuda/vX.Y.Z` (formerly `cuda/vX.Y.Z`) |
 | `backend/metal/` | `.../goinfer/backend/metal` | tagged `backend/metal/vX.Y.Z` (formerly `metal/vX.Y.Z`) |
+| `backend/vulkan/` | `.../goinfer/backend/vulkan` | tagged `backend/vulkan/vX.Y.Z` |
 | `demo/agent/` | `.../goinfer/demo/agent` | tagged `demo/agent/vX.Y.Z` |
 | `apps/sdktest/` | `.../goinfer/sdktest` | never tagged; tests only |
 | `apps/site/` | `.../goinfer/site` | never tagged; the website generator |
 
 **`go.work` is gitignored and required for cross-module work.** The submodule `go.mod` files carry no `replace`, so a
 submodule built without a workspace resolves the root from the proxy at its last published tag (`RELEASING.md`). Create it
-with `scripts/make_work.sh` (copies `go.work.example`, which lists all seven modules, to `go.work` when absent) and it builds
+with `scripts/make_work.sh` (copies `go.work.example`, which lists all eight modules, to `go.work` when absent) and it builds
 from a clean clone. Without a `go.work` in the repo, Go walks up and uses one in a parent directory, and a `GOWORK` environment variable overrides both; `make_work.sh` warns about the second and fixes the first. A local aikit checkout is an optional extra `use` line, commented in the example.
 
 Untagged, `backend/cuda/` does not build on its own (`backend/cuda/internal/gpudev` needs the `cuda` build tag); see CLAUDE.md for the tags.
@@ -108,6 +109,7 @@ In the other direction 13 non-test `decoder` files call it (`model.go`, `prefill
 | `backend/webgpu/` | the WebGPU backend (opt-in cgo build, tag `gpu`), plus `backend/webgpu/cmd/{chat,serve}` |
 | `backend/cuda/` | the CUDA backend (cgo-free, tag `cuda`), `.cu` kernels and `backend/cuda/cmd/{chat,serve}` |
 | `backend/metal/` | the Metal backend (tag `metal`), `backend/metal/cmd/{chat,serve}` |
+| `backend/vulkan/` | the optional cgo-free Vulkan accelerator for EmbeddingGemma 2 text on Linux amd64 |
 
 ## Binaries
 

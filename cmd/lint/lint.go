@@ -34,6 +34,7 @@ type target struct {
 
 var targets = []target{
 	{name: "root", args: []string{"./..."}},
+	{name: "vulkan", args: []string{"./backend/vulkan/..."}, workspace: []string{"backend/vulkan"}},
 	{name: "gpu", args: []string{"-tags", "gpu goinfer_testhooks", "./backend/webgpu/..."}, workspace: []string{"backend/webgpu", "demo/agent"}, cgo: true},
 	{name: "demo/agent", args: []string{"./demo/agent/..."}, workspace: []string{"backend/webgpu", "demo/agent"}},
 	{name: "cuda", args: []string{"-tags", "cuda goinfer_testhooks", "./backend/cuda/..."}, workspace: []string{"backend/cuda"}},

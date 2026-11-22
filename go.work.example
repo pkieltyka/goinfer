@@ -1,4 +1,4 @@
-// Copy to go.work (gitignored) with `scripts/make_work.sh`, or by hand. Covers all seven modules and
+// Copy to go.work (gitignored) with `scripts/make_work.sh`, or by hand. Covers all eight modules and
 // builds from a clean clone: every module resolves goinfer and aikit from this checkout or the proxy.
 // docs/layout.md explains each module; RELEASING.md says why the workspace is mandatory for cross-module work.
 go 1.27.2
@@ -8,6 +8,7 @@ use (
 	./backend/webgpu
 	./backend/cuda
 	./backend/metal
+	./backend/vulkan
 	./demo/agent
 	./apps/sdktest
 	./apps/site
