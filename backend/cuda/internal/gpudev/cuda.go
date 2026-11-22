@@ -432,6 +432,47 @@ func (d *Device) ReleaseAllChecked() error {
 	return err
 }
 
+// ReleaseObjectsChecked frees every tracked device allocation (via
+// ReleaseAllChecked), then every tracked non-buffer object (modules, streams,
+// host buffers), then the primary context. Any resource whose Close fails
+// remains owned in the ledger with its lease and context intact and its error
+// is returned so a later ReleaseObjectsChecked can retry cleanly.
+func (d *Device) ReleaseObjectsChecked() error {
+	if err := d.ReleaseAllChecked(); err != nil {
+		return err
+	}
+	d.mu.Lock()
+	objs := make([]closer, len(d.objs))
+	copy(objs, d.objs)
+	d.mu.Unlock()
+	var err error
+	for _, o := range objs {
+		if e := o.Close(); e != nil {
+			err = errors.Join(err, e)
+			continue
+		}
+		d.untrackObj(o)
+	}
+	if err != nil {
+		return err
+	}
+	d.mu.Lock()
+	cx := d.cx
+	d.mu.Unlock()
+	if cx != nil {
+		if e := cx.Close(); e != nil {
+			return e
+		}
+		d.mu.Lock()
+		d.cx = nil
+		d.mu.Unlock()
+		if ReleasedForTest != nil {
+			ReleasedForTest(d)
+		}
+	}
+	return nil
+}
+
 // LedgerLen reports how many allocations and non-buffer objects this Device still
 // owns — the observability hook for leak tests (ReleaseObjects must drive both to
 // 0). Mirrors metal.go's LedgerLen.

@@ -6,6 +6,7 @@ import (
 	"errors"
 	"fmt"
 	"runtime"
+	"sync"
 
 	gpu "github.com/pkieltyka/goinfer/backend/cuda/internal/gpudev"
 	"github.com/pkieltyka/goinfer/internal/runtime/mem"
@@ -93,10 +94,62 @@ func newTowerOpsOn(open func() (*Device, error), maxN int) (t *towerOps, err err
 		return nil
 	})
 	if err != nil {
-		t.close()
+		if cerr := retireTowerAttach(t); cerr != nil {
+			return nil, errors.Join(err, cerr)
+		}
 		return nil, err
 	}
 	return t, nil
+}
+
+// towerCleanup retains any *towerOps whose checked attach rollback failed so
+// the executor, device ledger, and memory leases stay owned rather than
+// orphaned when attach returns (nil, err).
+var towerCleanup struct {
+	mu      sync.Mutex
+	pending []*towerOps
+}
+
+func retireTowerAttach(ops *towerOps) error {
+	if ops == nil {
+		return nil
+	}
+	err := ops.closeChecked()
+	if err != nil {
+		towerCleanup.mu.Lock()
+		towerCleanup.pending = append(towerCleanup.pending, ops)
+		towerCleanup.mu.Unlock()
+	}
+	return err
+}
+
+// drainPendingTowerCleanups retries every *towerOps retained from a failed
+// attach rollback, dropping each entry only once closeChecked succeeds.
+func drainPendingTowerCleanups() error {
+	towerCleanup.mu.Lock()
+	items := towerCleanup.pending
+	towerCleanup.pending = nil
+	towerCleanup.mu.Unlock()
+	var still []*towerOps
+	var err error
+	for _, ops := range items {
+		if cerr := ops.closeChecked(); cerr != nil {
+			still = append(still, ops)
+			err = errors.Join(err, cerr)
+		}
+	}
+	if len(still) > 0 {
+		towerCleanup.mu.Lock()
+		towerCleanup.pending = append(still, towerCleanup.pending...)
+		towerCleanup.mu.Unlock()
+	}
+	return err
+}
+
+func pendingTowerCleanupsLen() int {
+	towerCleanup.mu.Lock()
+	defer towerCleanup.mu.Unlock()
+	return len(towerCleanup.pending)
 }
 
 // do runs j on the executor goroutine; a panic inside it (an allocation failure) comes back as an error.
@@ -121,11 +174,11 @@ func (t *towerOps) close() {
 	t.reqCh = nil
 }
 
-// closeChecked retires every tracked buffer once via ReleaseAllChecked before
-// releasing modules, streams, the context, and the executor. If any native
-// buffer free fails, the executor and context stay alive with the failed
-// handles still owned in the ledger so a later Close can retry without losing
-// leases or handles.
+// closeChecked retires every tracked buffer, object, and the primary context
+// via ReleaseObjectsChecked before stopping the executor. If any native close
+// fails, the executor and context stay alive with the failed handles still
+// owned in the ledger so a later Close or cleanup drain can retry without
+// losing leases or handles.
 func (t *towerOps) closeChecked() error {
 	if t.reqCh == nil {
 		return nil
@@ -134,11 +187,10 @@ func (t *towerOps) closeChecked() error {
 		if t.dev == nil {
 			return nil
 		}
-		if err := t.dev.ReleaseAllChecked(); err != nil {
+		if err := t.dev.ReleaseObjectsChecked(); err != nil {
 			return err
 		}
 		t.scratch = nil
-		t.dev.ReleaseObjects()
 		return nil
 	}); err != nil {
 		return err

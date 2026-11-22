@@ -126,43 +126,66 @@ func isCUDACommonOOM(err error) bool {
 	return errors.Is(err, gc.ErrOutOfMemory)
 }
 
-func isCUDAFatalExec(err error) bool {
-	if err == nil {
-		return false
+func isCUDAFatalCode(code cudasys.CUresult) bool {
+	switch code {
+	case cudasys.CUDA_ERROR_ECC_UNCORRECTABLE,
+		cudasys.CUDA_ERROR_CONTEXT_IS_DESTROYED,
+		cudasys.CUDA_ERROR_ASSERT,
+		cudasys.CUDA_ERROR_HARDWARE_STACK_ERROR,
+		cudasys.CUDA_ERROR_ILLEGAL_INSTRUCTION,
+		cudasys.CUDA_ERROR_MISALIGNED_ADDRESS,
+		cudasys.CUDA_ERROR_INVALID_ADDRESS_SPACE,
+		cudasys.CUDA_ERROR_INVALID_PC,
+		cudasys.CUDA_ERROR_ILLEGAL_ADDRESS,
+		cudasys.CUDA_ERROR_LAUNCH_TIMEOUT,
+		cudasys.CUDA_ERROR_LAUNCH_FAILED,
+		cudasys.CUDA_ERROR_INVALID_CONTEXT,
+		cudasys.CUDA_ERROR_DEINITIALIZED,
+		cudasys.CUDA_ERROR_NOT_INITIALIZED,
+		cudasys.CUDA_ERROR_SYSTEM_DRIVER_MISMATCH,
+		cudasys.CUDA_ERROR_UNKNOWN:
+		return true
 	}
-	if ce, ok := err.(*cudaresult.Error); ok {
-		switch ce.Code {
-		case cudasys.CUDA_ERROR_ECC_UNCORRECTABLE,
-			cudasys.CUDA_ERROR_CONTEXT_IS_DESTROYED,
-			cudasys.CUDA_ERROR_ASSERT,
-			cudasys.CUDA_ERROR_HARDWARE_STACK_ERROR,
-			cudasys.CUDA_ERROR_ILLEGAL_INSTRUCTION,
-			cudasys.CUDA_ERROR_MISALIGNED_ADDRESS,
-			cudasys.CUDA_ERROR_INVALID_ADDRESS_SPACE,
-			cudasys.CUDA_ERROR_INVALID_PC,
-			cudasys.CUDA_ERROR_ILLEGAL_ADDRESS,
-			cudasys.CUDA_ERROR_LAUNCH_TIMEOUT,
-			cudasys.CUDA_ERROR_LAUNCH_FAILED,
-			cudasys.CUDA_ERROR_INVALID_CONTEXT,
-			cudasys.CUDA_ERROR_DEINITIALIZED,
-			cudasys.CUDA_ERROR_NOT_INITIALIZED,
-			cudasys.CUDA_ERROR_SYSTEM_DRIVER_MISMATCH,
-			cudasys.CUDA_ERROR_UNKNOWN:
-			return true
-		}
+	return false
+}
+
+// firstCUDAFatalExec returns the first fatal native *cudaresult.Error anywhere
+// in err's unwrap tree (walking single and joined errors), or nil if none.
+func firstCUDAFatalExec(err error) *cudaresult.Error {
+	if err == nil {
+		return nil
+	}
+	if ce, ok := err.(*cudaresult.Error); ok && isCUDAFatalCode(ce.Code) {
+		return ce
 	}
 	if multi, ok := err.(interface{ Unwrap() []error }); ok {
 		for _, sub := range multi.Unwrap() {
-			if isCUDAFatalExec(sub) {
-				return true
+			if fe := firstCUDAFatalExec(sub); fe != nil {
+				return fe
 			}
 		}
-		return false
+		return nil
 	}
 	if single, ok := err.(interface{ Unwrap() error }); ok {
-		return isCUDAFatalExec(single.Unwrap())
+		return firstCUDAFatalExec(single.Unwrap())
 	}
-	return false
+	return nil
+}
+
+func isCUDAFatalExec(err error) bool { return firstCUDAFatalExec(err) != nil }
+
+// fatalFirst ensures errors.As(..., &ce) returns fatal before any earlier
+// non-fatal *cudaresult.Error (such as CUDA_ERROR_OUT_OF_MEMORY in an OOM-first
+// joined tree) while keeping the full original error chain intact.
+func fatalFirst(fatal *cudaresult.Error, err error) error {
+	if fatal == nil || err == nil {
+		return err
+	}
+	var first *cudaresult.Error
+	if errors.As(err, &first) && first == fatal {
+		return err
+	}
+	return errors.Join(fatal, err)
 }
 
 // classifyEG2ForwardErr certifies ErrBatchOutOfMemory ONLY when err is a pure
@@ -170,7 +193,8 @@ func isCUDAFatalExec(err error) bool {
 // launch/copy error was latched, drain and checked rollback release both
 // succeeded, and the accelerator stays healthy. On any fatal, joined, or
 // unrecovered combination it never attaches ErrBatchOutOfMemory regardless of
-// join order.
+// join order, and orders any fatal native CUDA execution cause ahead of OOM
+// so errors.As yields the fatal native code first while preserving all causes.
 func classifyEG2ForwardErr(err, latchedErr, drainErr, releaseErr, broken error, closed bool) error {
 	if err == nil && latchedErr == nil && drainErr == nil && releaseErr == nil {
 		return nil
@@ -178,7 +202,30 @@ func classifyEG2ForwardErr(err, latchedErr, drainErr, releaseErr, broken error, 
 	if err != nil && isPureCUDAAllocOOM(err) && latchedErr == nil && drainErr == nil && releaseErr == nil && broken == nil && !closed {
 		return fmt.Errorf("cuda: EmbeddingGemma 2 forward: %w: %w", embeddinggemma2.ErrBatchOutOfMemory, err)
 	}
+	var fatal *cudaresult.Error
+	switch {
+	case firstCUDAFatalExec(broken) != nil:
+		fatal = firstCUDAFatalExec(broken)
+	case firstCUDAFatalExec(latchedErr) != nil:
+		fatal = firstCUDAFatalExec(latchedErr)
+	case firstCUDAFatalExec(err) != nil:
+		fatal = firstCUDAFatalExec(err)
+	}
 	var parts []error
+	brokenAdded := false
+	latchedAdded := false
+	if fatal != nil {
+		switch {
+		case broken != nil && firstCUDAFatalExec(broken) == fatal:
+			parts = append(parts, fatalFirst(fatal, broken))
+			brokenAdded = true
+		case latchedErr != nil && firstCUDAFatalExec(latchedErr) == fatal:
+			parts = append(parts, fatalFirst(fatal, latchedErr))
+			latchedAdded = true
+		default:
+			parts = append(parts, fatal)
+		}
+	}
 	if err != nil {
 		if isCUDACommonOOM(err) {
 			parts = append(parts, fmt.Errorf("%w: %w", embeddinggemma2.ErrDeviceOutOfMemory, err))
@@ -186,10 +233,10 @@ func classifyEG2ForwardErr(err, latchedErr, drainErr, releaseErr, broken error, 
 			parts = append(parts, err)
 		}
 	}
-	if latchedErr != nil && latchedErr != err && !errors.Is(broken, latchedErr) {
+	if latchedErr != nil && !latchedAdded && latchedErr != err && !errors.Is(broken, latchedErr) {
 		parts = append(parts, latchedErr)
 	}
-	if broken != nil {
+	if broken != nil && !brokenAdded {
 		parts = append(parts, broken)
 	}
 	if drainErr != nil && !errors.Is(broken, drainErr) {
@@ -225,6 +272,7 @@ func newEG2AccelOn(m *embeddinggemma2.Model, combined bool, open func() (*Device
 		maxN = max(maxN, c.Heads*ly.HeadDim)
 		maxHD = max(maxHD, ly.HeadDim)
 	}
+	_ = drainPendingTowerCleanups()
 	ops, err := newTowerOpsOn(open, maxN)
 	if err != nil {
 		return nil, err
@@ -253,12 +301,17 @@ func newEG2AccelOn(m *embeddinggemma2.Model, combined bool, open func() (*Device
 		a.residentWeightBytes = weightBytes
 		return ops.finish()
 	}); err != nil {
-		ops.close()
+		if cerr := retireTowerAttach(ops); cerr != nil {
+			return nil, fmt.Errorf("cuda: EmbeddingGemma 2 upload: %w", errors.Join(err, cerr))
+		}
 		return nil, fmt.Errorf("cuda: EmbeddingGemma 2 upload: %w", err)
 	}
 	if combined {
 		if err := a.enableCombined(); err != nil {
-			return nil, errors.Join(err, a.Close())
+			if cerr := retireTowerAttach(a.ops); cerr != nil {
+				return nil, errors.Join(err, cerr)
+			}
+			return nil, err
 		}
 	}
 	return a, nil
@@ -1003,14 +1056,15 @@ func (a *eg2Accel) forwardRows(x0 []float32, lens []int, keepLayers bool) ([]flo
 	})
 	if a.broken == nil {
 		var primary error
-		switch {
-		case isCUDAFatalExec(latchedErr):
-			primary = latchedErr
-		case isCUDAFatalExec(err):
-			primary = err
+		var fatal *cudaresult.Error
+		if fe := firstCUDAFatalExec(latchedErr); fe != nil {
+			fatal, primary = fe, latchedErr
+		} else if fe := firstCUDAFatalExec(err); fe != nil {
+			fatal, primary = fe, err
 		}
 		if primary != nil {
-			a.broken = fmt.Errorf("cuda: fatal EmbeddingGemma 2 execution error: %w", errors.Join(primary, drainErr, releaseErr))
+			a.broken = fmt.Errorf("cuda: fatal EmbeddingGemma 2 execution error: %w",
+				errors.Join(fatalFirst(fatal, primary), drainErr, releaseErr))
 		} else if drainErr != nil {
 			a.broken = fmt.Errorf("cuda: a failed EmbeddingGemma 2 forward could not be drained: %w", drainErr)
 		} else if releaseErr != nil {

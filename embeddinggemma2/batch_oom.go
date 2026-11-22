@@ -5,9 +5,10 @@ import "fmt"
 // ErrBatchOutOfMemory reports a device out-of-memory failure during a prepared
 // EmbedIDs or EmbedIDsBatch forward after the accelerator has certified
 // recovery: any queued device work drained cleanly, all transient allocations
-// from the failed attempt were released, resident weights and caches remain
-// intact, and the encoder remains usable for an explicit caller retry with a
-// smaller subset of the same ordered inputs.
+// from the failed attempt were released, resident weights remain intact (any
+// evicted derived caches can be rebuilt on demand), and the encoder remains
+// usable for an explicit caller retry with a smaller subset of the same ordered
+// inputs.
 //
 // ErrBatchOutOfMemory wraps ErrDeviceOutOfMemory, so errors.Is matches both
 // ErrBatchOutOfMemory (retry-safe) and ErrDeviceOutOfMemory (common device

@@ -109,3 +109,66 @@ func TestReleaseAllChecked_PreservesFailedBuffersAndRetries(t *testing.T) {
 		t.Fatalf("lease after second ReleaseAllChecked = (live=%d, frees=%d), want (0, 2)", lease.live, lease.frees)
 	}
 }
+
+type fakeCloser struct {
+	fail bool
+	err  error
+}
+
+func (f *fakeCloser) Close() error {
+	if f.fail {
+		return f.err
+	}
+	return nil
+}
+
+func TestReleaseObjectsChecked_PreservesFailedObjectsAndRetries(t *testing.T) {
+	lease := &recordingLease{}
+	d := &Device{leaser: lease, hosts: map[closer]func(){}}
+
+	raw := new(gc.Buffer[uint8])
+	d.allocs = append(d.allocs, devAlloc{b: raw, release: d.lease(true, "buf", 4096, 4096)})
+
+	objErr := errors.New("cuda: synthetic object close failure")
+	obj := &fakeCloser{fail: true, err: objErr}
+	d.objs = append(d.objs, obj)
+	d.hosts[obj] = d.lease(false, "host", 1024, 1024)
+
+	bufErr := errors.New("cuda: synthetic buffer close failure")
+	d.SetCloseBufHookForTest(func(func() error) error { return bufErr })
+
+	// First attempt fails on buffer close: both buffer and object stay owned.
+	if err := d.ReleaseObjectsChecked(); !errors.Is(err, bufErr) {
+		t.Fatalf("first ReleaseObjectsChecked = %v, want %v", err, bufErr)
+	}
+	if allocs, objs := d.LedgerLen(); allocs != 1 || objs != 1 {
+		t.Fatalf("LedgerLen after buffer failure = (%d, %d), want (1, 1)", allocs, objs)
+	}
+	if lease.live != 5120 {
+		t.Fatalf("lease.live after buffer failure = %d, want 5120", lease.live)
+	}
+
+	// Second attempt succeeds on buffer close, fails on object close: buffer released, object + host lease retained.
+	d.SetCloseBufHookForTest(func(func() error) error { return nil })
+	if err := d.ReleaseObjectsChecked(); !errors.Is(err, objErr) {
+		t.Fatalf("second ReleaseObjectsChecked = %v, want %v", err, objErr)
+	}
+	if allocs, objs := d.LedgerLen(); allocs != 0 || objs != 1 {
+		t.Fatalf("LedgerLen after object failure = (%d, %d), want (0, 1)", allocs, objs)
+	}
+	if lease.live != 1024 {
+		t.Fatalf("lease.live after object failure = %d, want 1024", lease.live)
+	}
+
+	// Third attempt succeeds on object close: ledger and lease drain cleanly to zero.
+	obj.fail = false
+	if err := d.ReleaseObjectsChecked(); err != nil {
+		t.Fatalf("third ReleaseObjectsChecked = %v, want nil", err)
+	}
+	if allocs, objs := d.LedgerLen(); allocs != 0 || objs != 0 {
+		t.Fatalf("LedgerLen after recovery = (%d, %d), want (0, 0)", allocs, objs)
+	}
+	if lease.live != 0 || lease.frees != 2 {
+		t.Fatalf("lease after recovery = (live=%d, frees=%d), want (0, 2)", lease.live, lease.frees)
+	}
+}
