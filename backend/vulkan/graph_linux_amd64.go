@@ -47,12 +47,27 @@ func (f *forward) mapped(values []float32) *vk.Buffer {
 	}
 	return b
 }
-func (f *forward) close() error {
-	var err error
+func (f *forward) close() (lostErr, otherErr error) {
 	for _, b := range f.buffers {
-		err = errors.Join(err, b.Close())
+		cerr := b.Close()
+		if cerr == nil {
+			continue
+		}
+		if errors.Is(cerr, vk.ErrDeviceLost) {
+			if lostErr == nil {
+				lostErr = cerr
+			} else {
+				lostErr = errors.Join(lostErr, cerr)
+			}
+		} else {
+			if otherErr == nil {
+				otherErr = cerr
+			} else {
+				otherErr = errors.Join(otherErr, cerr)
+			}
+		}
 	}
-	return err
+	return lostErr, otherErr
 }
 
 // isPureVulkanBufferDeviceOOM reports whether err is a single-wrapped
@@ -81,31 +96,63 @@ func (a *encoder) forwardRows(x []float32, lengths []int, keep bool) (out []floa
 	beforeSub := a.device.Activity().Submissions
 	submitted := false
 	defer func() {
-		closeErr := f.close()
-		if closeErr != nil {
-			out, hidden = nil, nil
-			err = errors.Join(err, closeErr)
-		}
+		origErr := err
+		closeLost, closeOther := f.close()
 		status := a.device.Status()
-		if errors.Is(status, vk.ErrDeviceLost) && !errors.Is(err, vk.ErrDeviceLost) {
-			err = fmt.Errorf("%w (forward returned %v)", status, err)
-			out, hidden = nil, nil
-		}
-		if err == nil {
+		if origErr == nil && closeLost == nil && closeOther == nil && status == nil {
 			return
 		}
 		out, hidden = nil, nil
-		if errors.Is(err, vk.ErrDeviceLost) || errors.Is(status, vk.ErrDeviceLost) {
-			err = classify(err)
+		if errors.Is(status, vk.ErrDeviceLost) || errors.Is(origErr, vk.ErrDeviceLost) || closeLost != nil {
+			var primary error
+			switch {
+			case errors.Is(origErr, vk.ErrDeviceLost):
+				primary = origErr
+			case errors.Is(status, vk.ErrDeviceLost):
+				primary = status
+			default:
+				primary = closeLost
+			}
+			parts := []error{primary}
+			if origErr != nil && !errors.Is(origErr, vk.ErrDeviceLost) {
+				parts = append(parts, origErr)
+			}
+			if closeOther != nil {
+				parts = append(parts, closeOther)
+			}
+			cause := parts[0]
+			if len(parts) > 1 {
+				cause = errors.Join(parts...)
+			}
+			err = classify(cause)
 			return
 		}
-		if !submitted && a.device.Activity().Submissions == beforeSub && closeErr == nil && status == nil && isPureVulkanBufferDeviceOOM(err) {
-			err = fmt.Errorf("%w: %w", embeddinggemma2.ErrBatchOutOfMemory, err)
+		if closeOther != nil {
+			if a.broken == nil {
+				a.broken = fmt.Errorf("vulkan: encoder rollback cleanup failed: %w", closeOther)
+			}
+			err = errors.Join(origErr, closeOther, status)
+			if errors.Is(err, vk.ErrOutOfMemory) {
+				err = classify(err)
+			}
 			return
 		}
-		if errors.Is(err, vk.ErrOutOfMemory) {
-			err = classify(err)
+		if status != nil {
+			err = errors.Join(status, origErr)
+			if errors.Is(err, vk.ErrOutOfMemory) {
+				err = classify(err)
+			}
+			return
 		}
+		if !submitted && a.device.Activity().Submissions == beforeSub && a.broken == nil && isPureVulkanBufferDeviceOOM(origErr) {
+			err = fmt.Errorf("%w: %w", embeddinggemma2.ErrBatchOutOfMemory, origErr)
+			return
+		}
+		if errors.Is(origErr, vk.ErrOutOfMemory) {
+			err = classify(origErr)
+			return
+		}
+		err = origErr
 	}()
 	cfg := a.cfg
 	f.input = f.mapped(x)

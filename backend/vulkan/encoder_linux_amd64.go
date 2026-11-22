@@ -19,6 +19,7 @@ type encoder struct {
 	model                                         *embeddinggemma2.Model
 	cfg                                           embeddinggemma2.Config
 	device                                        *vk.Device
+	broken                                        error // first non-lost rollback failure that left a temporary buffer unreleased
 	identity                                      DeviceInfo
 	pipes                                         map[string]*vk.Pipeline
 	pleProj, pleNorm, finalNorm, projection, ones *vk.Buffer
@@ -198,6 +199,7 @@ func (a *encoder) Close() error {
 		return err
 	}
 	a.device = nil
+	a.broken = nil
 	a.model = nil
 	a.layers = nil
 	a.pipes = nil
@@ -215,7 +217,19 @@ func (a *encoder) status() error {
 	if a.device == nil {
 		return errors.New("vulkan: encoder is closed")
 	}
-	return classify(a.device.Status())
+	if err := a.device.Status(); err != nil {
+		if errors.Is(err, vk.ErrDeviceLost) {
+			return classify(err)
+		}
+		if a.broken != nil {
+			return a.broken
+		}
+		return classify(err)
+	}
+	if a.broken != nil {
+		return a.broken
+	}
+	return nil
 }
 
 func (a *encoder) Forward(ids []int, keep bool) ([]float32, [][]float32, error) {
