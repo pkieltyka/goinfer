@@ -1149,6 +1149,7 @@ Every import from one goinfer package to another, by repository-relative directo
 |---|---|---|
 | `apps/examples/confidence` | `chat`, `constrain`, `decoder`, `tokenizer` |  |
 | `apps/examples/embed` | `chat`, `decoder`, `tokenizer` |  |
+| `apps/examples/embeddinggemma2` | `embeddinggemma2` |  |
 | `apps/examples/invoice` | `chat`, `constrain`, `decoder`, `multimodal`, `tokenizer` |  |
 | `apps/examples/structured` | `chat`, `constrain`, `decoder`, `tokenizer` |  |
 | `apps/sdktest` |  | `server` |
