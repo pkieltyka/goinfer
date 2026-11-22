@@ -1,0 +1,62 @@
+{
+  "schema": 1,
+  "release": "v0.5.0",
+  "accepted": [
+    {
+      "record": "v0.4.1-cold-user-record",
+      "item": "Previous-release install record missing",
+      "class": "environment",
+      "evidence": "Published Linux binary checksum and version check passed; no full cold-user record was collected.",
+      "accepted_by": "Peter",
+      "accepted_on": "2026-11-21"
+    },
+    {
+      "record": "ci-on-release-commit",
+      "item": "CI status at the release commit",
+      "class": "environment",
+      "evidence": "Exact-commit CI completion was waived. Local formatting, staticcheck, touched checks, and citation lint were run.",
+      "accepted_by": "Peter",
+      "accepted_on": "2026-11-21"
+    },
+    {
+      "record": "cuda-20261105T022250Z-ccdfb3ad.json",
+      "item": "Full current CUDA device qualification missing",
+      "class": "environment",
+      "evidence": "Focused EmbeddingGemma 2 device dispatch, real-checkpoint parity, batching, and position-limit checks passed on the RTX PRO 6000. No current full CUDA gate record covers the release.",
+      "accepted_by": "Peter",
+      "accepted_on": "2026-11-21"
+    },
+    {
+      "record": "metal-20261104T224100Z-ccdfb3ad.json",
+      "item": "Full current Metal device qualification missing",
+      "class": "environment",
+      "evidence": "No Apple Silicon host was available for a current Metal device run.",
+      "accepted_by": "Peter",
+      "accepted_on": "2026-11-21"
+    },
+    {
+      "record": "parity-20261105T071007Z-ccdfb3ad.json",
+      "item": "Current full parity sweep missing",
+      "class": "environment",
+      "evidence": "Focused real-checkpoint EmbeddingGemma 2 parity and pbrain SQLite and retrieval checks passed; the full-release parity sweep remains outstanding.",
+      "accepted_by": "Peter",
+      "accepted_on": "2026-11-21"
+    },
+    {
+      "record": "darwin-arm64-20261104T232151Z-ccdfb3ad.json",
+      "item": "Current Darwin deferred test record missing",
+      "class": "environment",
+      "evidence": "No current Darwin deferred test record covers the release.",
+      "accepted_by": "Peter",
+      "accepted_on": "2026-11-21"
+    },
+    {
+      "record": "linux-amd64-20261105T032044Z-ccdfb3ad.json",
+      "item": "Current Linux deferred test record missing",
+      "class": "environment",
+      "evidence": "No current Linux deferred test record covers the release.",
+      "accepted_by": "Peter",
+      "accepted_on": "2026-11-21"
+    }
+  ]
+}

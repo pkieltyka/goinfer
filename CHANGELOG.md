@@ -17,6 +17,14 @@ any surface may still change.
 
 Each unreleased change is a file in [`changelog.d/`](changelog.d/), collected into the release's section when it is tagged (`scripts/changelog.py release`).
 
+## [v0.5.0] — 2026-11-21
+
+- This fork release adds opt-in CUDA EmbeddingGemma 2 inference and prepared-ID passage batching. It follows fork release v0.4.1.
+
+- **Opt-in CUDA for EmbeddingGemma 2.** The separately versioned CUDA backend registers a resident FP32 encoder. Applications that prepare their own tokens can call `Encoder.EmbedIDs` for a single input or `Encoder.EmbedIDsBatch` for a batch. CUDA batches preserve each input's positions, attention bounds, and pooling. The encoder also accepts prepared IDs on the CPU.
+
+- **Opt-in EmbeddingGemma 2 CUDA kernels for indexing and short queries.** With the CUDA backend built under `cuda,eg2_combined`, the `cuda-eg2-combined` selector enables transposed-key attention and a tiled FP32 projection path for short inputs. It also supports the CUDA encoder's prepared-ID batch API.
+
 ## [v0.24.0] — 2026-11-04
 
 - **v0.24.0: more models on the GPU, more conversations in the same memory.** On the model side, Gemma 4 E-models on Metal use a
@@ -5100,7 +5108,7 @@ families served, and gains a Mamba-2 SSM engine for hybrids.** (See
   (QKᵀ f64-accumulating for parity), >2× faster vision prefill (>400 s → ~190 s),
   bit-faithful (encoder golden cosine 1.0).
 
-## [v0.5.0] — 2026-06-11
+## Upstream [v0.5.0] — 2026-06-11
 
 _A **minor bump** per SemVer: `constrain` schema validation carries a
 user-visible behavior change (under Changed) — shipped alongside the Anthropic

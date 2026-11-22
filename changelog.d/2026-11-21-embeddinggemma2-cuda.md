@@ -1,1 +1,0 @@
-- **Opt-in CUDA for EmbeddingGemma 2.** The separately versioned CUDA backend registers a resident FP32 encoder. Applications that prepare their own tokens can call `Encoder.EmbedIDs` for a single input or `Encoder.EmbedIDsBatch` for a batch. CUDA batches preserve each input's positions, attention bounds, and pooling. The encoder also accepts prepared IDs on the CPU.
