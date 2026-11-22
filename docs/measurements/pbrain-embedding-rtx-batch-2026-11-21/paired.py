@@ -73,14 +73,16 @@ def main():
     parser.add_argument("destination", type=Path)
     a = parser.parse_args()
     a.destination.mkdir(exist_ok=False)
-    start = time.monotonic()
+    waited = 0.0  # seconds spent waiting at the idle gate, the registered 10-minute budget; cells do not count
     cells, first = [], None
     for i, arm in enumerate(ORDER):
         path = a.destination / f"{i + 1:02d}-{arm}"
         while not run_cell(a.binary, ARM[arm], path):
-            if time.monotonic() - start > 600:
-                raise RuntimeError("no quiet window within the registered 10 minutes")
+            pause = time.monotonic()
             time.sleep(5)
+            waited += time.monotonic() - pause
+            if waited >= 600:  # checked before the next gate attempt, so no cell starts past the budget
+                raise RuntimeError("no quiet window within the registered 10 minutes of waiting")
         identity, metrics = read_result(path / "result.json", ARM[arm])
         if first is None:
             first = identity
@@ -94,8 +96,8 @@ def main():
             ratios[metric].append(single[metric] / pairs[metric])
     result = {metric: {"median_ratio_single_over_pairs": statistics.median(v), "pairs_faster": sum(r > 1.0 for r in v),
                        "ratios": v} for metric, v in ratios.items()}
-    (a.destination / "summary.json").write_text(json.dumps({"cells": cells, "ratios": result, "identity_match": True},
-                                                           indent=2) + "\n")
+    (a.destination / "summary.json").write_text(json.dumps(
+        {"cells": cells, "ratios": result, "identity_match": True, "idle_wait_s": waited}, indent=2) + "\n")
     print(json.dumps(result, indent=2))
 
 

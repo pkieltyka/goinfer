@@ -167,12 +167,26 @@ func (a *eg2Accel) drainQueue() error {
 
 var errEG2Closed = errors.New("cuda: the EmbeddingGemma 2 accelerator is closed")
 
+// checkPositions applies both position limits to one independent sequence.
+func (a *eg2Accel) checkPositions(n int) error {
+	if n > eg2MaxTokens {
+		return fmt.Errorf("cuda: %d positions, over the accelerator's %d", n, eg2MaxTokens)
+	}
+	if limit := a.cfg.MaxPositions; limit > 0 && n > limit {
+		return fmt.Errorf("cuda: %d positions, over max_position_embeddings %d", n, limit)
+	}
+	return nil
+}
+
 // Forward gathers the scaled token rows on the host, then runs ForwardEmbeds (embeddinggemma2.Accelerator).
 func (a *eg2Accel) Forward(ids []int, keepLayers bool) ([]float32, [][]float32, error) {
 	c := a.cfg
 	H := c.Hidden
 	if len(ids) == 0 {
 		return nil, nil, fmt.Errorf("cuda: no input ids")
+	}
+	if err := a.checkPositions(len(ids)); err != nil {
+		return nil, nil, err
 	}
 	x := make([]float32, len(ids)*H)
 	scale := float32(math.Sqrt(float64(H)))
@@ -254,11 +268,11 @@ func (a *eg2Accel) ForwardEmbeds(x0 []float32, T int, keepLayers bool) ([]float3
 	if a.broken != nil {
 		return nil, nil, a.broken
 	}
-	if H := a.cfg.Hidden; T == 0 || len(x0) != T*H {
-		return nil, nil, fmt.Errorf("cuda: %d input values for %d rows of %d", len(x0), T, H)
+	if err := a.checkPositions(T); err != nil {
+		return nil, nil, err
 	}
-	if T > eg2MaxTokens {
-		return nil, nil, fmt.Errorf("cuda: %d positions, over the accelerator's %d", T, eg2MaxTokens)
+	if H := a.cfg.Hidden; T <= 0 || len(x0) != T*H {
+		return nil, nil, fmt.Errorf("cuda: %d input values for %d rows of %d", len(x0), T, H)
 	}
 	return a.forwardRows(x0, []int{T}, keepLayers)
 }
@@ -286,6 +300,9 @@ func (a *eg2Accel) ForwardBatch(ids [][]int) ([][]float32, error) {
 	for b, in := range ids {
 		if len(in) == 0 {
 			return nil, fmt.Errorf("cuda: batch input %d has no ids", b)
+		}
+		if err := a.checkPositions(len(in)); err != nil {
+			return nil, fmt.Errorf("cuda: batch input %d: %w", b, err)
 		}
 		if lens[b], T = len(in), T+len(in); T > eg2MaxTokens {
 			return nil, fmt.Errorf("cuda: a batch of more than %d positions, over the accelerator's %d", eg2MaxTokens, eg2MaxTokens)

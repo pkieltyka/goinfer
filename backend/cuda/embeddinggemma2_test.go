@@ -1015,3 +1015,38 @@ func checkCombined(t *testing.T, model *embeddinggemma2.Model, shapes [][]int) {
 		})
 	}
 }
+
+func TestEG2CUDA_refusesOversizedIDsBeforeGather(t *testing.T) {
+	const width = 512
+	cfg := embeddinggemma2.Config{Hidden: width, VocabSize: 1, MaxPositions: eg2MaxTokens + 10}
+	a := eg2Accel{cfg: cfg, embed: make([]float32, width)}
+	ids := make([]int, eg2MaxTokens+1)
+	var before, after runtime.MemStats
+	runtime.ReadMemStats(&before)
+	_, _, err := a.Forward(ids, false)
+	runtime.ReadMemStats(&after)
+	if err == nil || !strings.Contains(err.Error(), "over the accelerator") {
+		t.Fatalf("oversized input: %v", err)
+	}
+	gatherBytes := uint64(len(ids) * width * 4)
+	if allocated := after.TotalAlloc - before.TotalAlloc; allocated >= gatherBytes {
+		t.Fatalf("refused input allocated %d bytes, enough for the %d-byte gather", allocated, gatherBytes)
+	}
+}
+
+func TestEG2CUDA_configuredPositions(t *testing.T) {
+	a := newEG2ForTest(t, eg2TinyModel(t))
+	a.cfg.MaxPositions = 4
+	ids := make([]int, 5)
+	_, _, singleErr := a.Forward(ids, false)
+	_, _, embedsErr := a.ForwardEmbeds(make([]float32, len(ids)*a.cfg.Hidden), len(ids), false)
+	_, batchErr := a.ForwardBatch([][]int{ids[:4], ids})
+	for name, err := range map[string]error{"IDs": singleErr, "rows": embedsErr, "batch": batchErr} {
+		if err == nil || !strings.Contains(err.Error(), "over max_position_embeddings 4") {
+			t.Errorf("%s: expected model-position limit error, got %v", name, err)
+		}
+	}
+	if got, err := a.ForwardBatch([][]int{ids[:4], ids[:4]}); err != nil || len(got) != 2 {
+		t.Fatalf("two valid sequences whose total exceeds the per-input cap: %d results, %v", len(got), err)
+	}
+}
