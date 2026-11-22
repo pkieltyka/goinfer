@@ -4,8 +4,8 @@ github.com/eitamring/gocudrv v0.3.2 h1:zjRj3gRSfmbxbQkt1jXSTdGKHPwL1R912qovXnOPU
 github.com/eitamring/gocudrv v0.3.2/go.mod h1:nA+ytiB8A1YvVSHzBQbn+Be+BGR4gAGVIP+7chLn+O4=
 github.com/pkieltyka/aikit v1.79.0 h1:V+jzZQK05MtAZTx21cuNOY3SXODIKMw2uWLhVwiA3uc=
 github.com/pkieltyka/aikit v1.79.0/go.mod h1:VoICCiLubSklB6hXh3LvUOA6lSBOPE/IDb2fDTHMeuc=
-github.com/pkieltyka/goinfer v0.6.2 h1:pM2n7KgB3kZTXlxf0mt8j30FnLOI8E+nCvfJ9KA7q7M=
-github.com/pkieltyka/goinfer v0.6.2/go.mod h1:/+U/HqKR7+4gCgDPF7F6J+lfz3hmfjVkwXlgKa+ZdFs=
+github.com/pkieltyka/goinfer v0.6.3 h1:86fzOKrD3t/B69tf7s7uef04I3ozniEiVWhWhE5zcEc=
+github.com/pkieltyka/goinfer v0.6.3/go.mod h1:/+U/HqKR7+4gCgDPF7F6J+lfz3hmfjVkwXlgKa+ZdFs=
 go.uber.org/goleak v1.3.0 h1:2K3zAYmnTNqV73imy9J1T3WC+gmCePx2hEGkimedGto=
 go.uber.org/goleak v1.3.0/go.mod h1:CoHD4mav9JJNrW/WLlf7HGZPjdw8EucARQHekz1X6bE=
 golang.org/x/sys v0.47.0 h1:o7XGOvZQCADBQQ4Y7VNq2dRWQR7JmOUW8Kxx4ZsNgWs=
