@@ -34,7 +34,7 @@ Each unreleased change is a file in [`changelog.d/`](changelog.d/), collected in
 
 ### Verification
 
-The provisional release scope is root, CUDA, and Vulkan. Targeted CUDA and Vulkan correctness tests passed. Metal has Darwin arm64 cross-build evidence for system-default discovery. Full release qualification remains open. [Verification record](docs/releases/v0.6.3-verification.md)
+This release covers root, CUDA, and Vulkan. Targeted CUDA and Vulkan correctness tests passed. Metal has Darwin arm64 cross-build evidence for system-default discovery and is outside the module tag set. Peter approved deferring the outstanding release checks listed in the verification record. [Verification record](docs/releases/v0.6.3-verification.md)
 
 ## [v0.6.2] — 2026-11-22
 

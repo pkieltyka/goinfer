@@ -1,0 +1,80 @@
+{
+  "schema": 1,
+  "release": "v0.6.3",
+  "scope": ["root", "backend/cuda", "backend/vulkan"],
+  "metadata_base": "1adc3a0e5761cf072349e41b40fcd5a3eab109a2",
+  "decision": "Peter approved publishing this scope with the outstanding release checks below deferred. Targeted feature checks passed and are outside this decision. The inherited grader continues to report unqualified rows as OWED.",
+  "accepted_by": "Peter",
+  "accepted_on": "2026-11-22",
+  "accepted": [],
+  "owner_decisions": [
+    {
+      "row": 3,
+      "gate": "Previous-tag cold-user report",
+      "item": "Complete cold-user qualification on v0.6.2",
+      "candidate_record": null,
+      "evidence": "The isolated RTX 5060 Laptop GPU attempt on v0.6.2 stopped on the first post-start pageout. pswpout went from 3,949,465 to 3,949,872 and swap use rose by 2,788 KiB. No scenario completed or report was produced. Cleanup was verified. Peter deferred the incomplete check. See docs/releases/v0.6.3-verification.md.",
+      "accepted_by": "Peter",
+      "accepted_on": "2026-11-22"
+    },
+    {
+      "row": 4,
+      "gate": "Full CUDA GPU gate",
+      "item": "Current full CUDA GPU qualification",
+      "historical_record": "cuda-20261105T022250Z-ccdfb3ad.json",
+      "candidate_record": null,
+      "evidence": "The source preflight judged the committed record stale after backend changes. Full Linux qualification was pending at freeze. Targeted CUDA device tests passed, including real-checkpoint parity and bit-identical batching. See docs/releases/v0.6.3-verification.md.",
+      "accepted_by": "Peter",
+      "accepted_on": "2026-11-22"
+    },
+    {
+      "row": 4,
+      "gate": "Full Metal GPU gate",
+      "item": "Current Metal device qualification",
+      "historical_record": "metal-20261104T224100Z-ccdfb3ad.json",
+      "candidate_record": null,
+      "evidence": "The source preflight judged the committed record stale after Metal changes. The candidate has default-device Darwin arm64 cross-build evidence only. The Metal module is outside the tag set. See docs/releases/v0.6.3-verification.md.",
+      "accepted_by": "Peter",
+      "accepted_on": "2026-11-22"
+    },
+    {
+      "row": 10,
+      "gate": "CI at the final release commit",
+      "item": "Exact final-commit CI result",
+      "candidate_record": null,
+      "evidence": "Source CI run 45080507606 and metadata base CI run 45081289853 passed. The final release commit and its CI run were pending at freeze. See docs/releases/v0.6.3-verification.md.",
+      "accepted_by": "Peter",
+      "accepted_on": "2026-11-22"
+    },
+    {
+      "row": 11,
+      "gate": "Broad parity sweep",
+      "item": "Current full parity qualification",
+      "historical_record": "parity-20261105T071007Z-ccdfb3ad.json",
+      "candidate_record": null,
+      "evidence": "The source preflight judged the committed record stale after CUDA changes. Linux broad parity was pending at freeze. See docs/releases/v0.6.3-verification.md.",
+      "accepted_by": "Peter",
+      "accepted_on": "2026-11-22"
+    },
+    {
+      "row": 12,
+      "gate": "Linux quick -full",
+      "item": "Current Linux full deferred-test suite",
+      "historical_record": "linux-amd64-20261122T205740Z-6df55538.json",
+      "candidate_record": null,
+      "evidence": "The source preflight judged the committed record stale after CUDA changes. At freeze the run on ca6523dd had reported TestKernelLocalMemoryCensus and TestTowerGolden_cuda failures on the RTX PRO 6000. The overall Linux result was pending. See docs/releases/v0.6.3-verification.md.",
+      "accepted_by": "Peter",
+      "accepted_on": "2026-11-22"
+    },
+    {
+      "row": 12,
+      "gate": "Darwin quick -full",
+      "item": "Current Darwin full deferred-test suite",
+      "historical_record": "darwin-arm64-20261104T232151Z-ccdfb3ad.json",
+      "candidate_record": null,
+      "evidence": "The source preflight judged the committed record stale. No current Darwin full-suite record was available at freeze. See docs/releases/v0.6.3-verification.md.",
+      "accepted_by": "Peter",
+      "accepted_on": "2026-11-22"
+    }
+  ]
+}
