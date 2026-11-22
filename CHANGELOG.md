@@ -17,6 +17,25 @@ any surface may still change.
 
 Each unreleased change is a file in [`changelog.d/`](changelog.d/), collected into the release's section when it is tagged (`scripts/changelog.py release`).
 
+## [v0.6.3] — 2026-11-22
+
+### Added
+
+- **Unified EmbeddingGemma 2 device inventory.** `embeddinggemma2.Devices` returns device rows and per-backend probe failures. Use `DeviceSelectors` to find linked selectors and `Encoder.UseDevice` to bind a device by ID or alias. `AttachedDeviceReporter` identifies the actual attached device. CUDA supports UUID and ordinal targeting and reports live memory. Vulkan reports estimated device-local headroom. Metal discovery covers the system default device. [#58](https://github.com/pkieltyka/goinfer/pull/58), [#60](https://github.com/pkieltyka/goinfer/pull/60)
+- **CUDA batch memory estimates.** `Encoder.BatchMemory` estimates additional tracked device-buffer charges for prepared inputs, including scratch and rotary-table growth. The estimate reserves no memory. [#57](https://github.com/pkieltyka/goinfer/pull/57)
+
+### Changed
+
+- **Module-specific release verification.** Each release tag routes the standalone check to its module. Backend checks verify the published root pin and use the public Go proxy and checksum database with the workspace disabled. [#59](https://github.com/pkieltyka/goinfer/pull/59)
+
+### Fixed
+
+- **Retry after recoverable EmbeddingGemma 2 allocation failures.** `ErrBatchOutOfMemory` certifies that a prepared forward can retry on the same encoder after checked cleanup. Split between complete inputs, preserve order, and stop splitting at a singleton. Failed attachment and device loss carry no retry certificate. [#62](https://github.com/pkieltyka/goinfer/pull/62)
+
+### Verification
+
+The provisional release scope is root, CUDA, and Vulkan. Targeted CUDA and Vulkan correctness tests passed. Metal has Darwin arm64 cross-build evidence for system-default discovery. Full release qualification remains open. [Verification record](docs/releases/v0.6.3-verification.md)
+
 ## [v0.6.2] — 2026-11-22
 
 ### Added
