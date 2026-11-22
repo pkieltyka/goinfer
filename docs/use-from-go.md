@@ -251,16 +251,10 @@ on a CPU. Over HTTP the same request is an `image_url` part plus `response_forma
 ## EmbeddingGemma 2 device selection
 
 The [EmbeddingGemma 2 example](../apps/examples/embeddinggemma2/main.go) ranks Markdown documents
-using a local Hugging Face checkpoint directory. The encoder starts on CPU. An application can
-call `UseAutoAccelerator` after loading it and before sharing it across goroutines:
-
-```go
-		choice := encoder.UseAutoAccelerator()
-		for _, decline := range choice.Declined {
-			fmt.Fprintf(os.Stderr, "%s: %v\n", decline.Selector, decline.Err)
-		}
-		fmt.Fprintln(os.Stderr, "embedding backend:", choice.Backend)
-```
+using a local Hugging Face checkpoint directory on CPU. For an application that links a GPU
+backend, load the checkpoint with `embeddinggemma2.LoadEncoder` and call
+`choice := encoder.UseAutoAccelerator()` before sharing the encoder across goroutines.
+`choice.Backend` reports where embeddings run. Log `choice.Declined` for any attachment errors.
 
 Blank-import `github.com/pkieltyka/goinfer/backend/vulkan` to add the Linux amd64 AMD option. It
 uses the installed Vulkan loader and driver from a `CGO_ENABLED=0` build. A Linux application

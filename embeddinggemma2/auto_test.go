@@ -117,9 +117,10 @@ func TestUseAutoAccelerator_defaultOrder(t *testing.T) {
 }
 
 func TestUseAutoAccelerator_emptyFactory(t *testing.T) {
-	const nilFactory, nilResult = "test-nil-factory", "test-nil-result"
+	const nilFactory, nilResult, typedNil = "test-nil-factory", "test-nil-result", "test-typed-nil"
 	RegisterAccelerator(nilFactory, nil)
 	RegisterAccelerator(nilResult, func(*Model) (Accelerator, error) { return nil, nil })
+	registerTempAccelerator(t, typedNil, (*fakeEmbedAccel)(nil))
 	t.Cleanup(func() {
 		accelMu.Lock()
 		delete(accels, nilFactory)
@@ -127,13 +128,13 @@ func TestUseAutoAccelerator_emptyFactory(t *testing.T) {
 		accelMu.Unlock()
 	})
 	e := newTinyEncoderForTest(t)
-	for _, name := range []string{nilFactory, nilResult} {
+	for _, name := range []string{nilFactory, nilResult, typedNil} {
 		if a, err := e.UseAccelerator(name); a != nil || err == nil || e.Accelerator() != nil {
 			t.Fatalf("UseAccelerator(%q) accepted an empty factory result", name)
 		}
 	}
-	got := e.UseAutoAccelerator(nilFactory, nilResult)
-	if got.Backend != "cpu" || len(got.Declined) != 2 || e.Accelerator() != nil {
+	got := e.UseAutoAccelerator(nilFactory, nilResult, typedNil)
+	if got.Backend != "cpu" || len(got.Declined) != 3 || e.Accelerator() != nil {
 		t.Fatalf("auto accepted an empty factory result: %+v", got)
 	}
 }

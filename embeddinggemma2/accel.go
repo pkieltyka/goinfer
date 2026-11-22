@@ -2,6 +2,7 @@ package embeddinggemma2
 
 import (
 	"fmt"
+	"reflect"
 	"sort"
 	"sync"
 )
@@ -53,10 +54,20 @@ func (m *Model) NewAccelerator(name string) (Accelerator, error) {
 		return nil, fmt.Errorf("embeddinggemma2: no %q accelerator in this binary (registered: %v)", name, Accelerators())
 	}
 	a, err := f(m)
-	if err == nil && a == nil {
+	if err != nil {
+		return a, err
+	}
+	value := reflect.ValueOf(a)
+	if !value.IsValid() {
 		return nil, fmt.Errorf("embeddinggemma2: %q returned no accelerator", name)
 	}
-	return a, err
+	switch value.Kind() {
+	case reflect.Chan, reflect.Func, reflect.Map, reflect.Pointer, reflect.Slice:
+		if value.IsNil() {
+			return nil, fmt.Errorf("embeddinggemma2: %q returned a nil accelerator", name)
+		}
+	}
+	return a, nil
 }
 
 // ForwardCPU is the CPU forward an accelerator is compared with: the projected last hidden state and, with
