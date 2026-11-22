@@ -19,12 +19,33 @@ const (
 )
 
 var (
-	ErrRuntimeUnavailable = errors.New("vulkan: runtime unavailable")
-	ErrNoAdapter          = errors.New("vulkan: no discrete AMD adapter matches the selection")
-	ErrAmbiguousAdapter   = errors.New("vulkan: several discrete AMD adapters match the selection")
-	ErrOutOfMemory        = errors.New("vulkan: native allocation failed")
-	ErrDeviceLost         = errors.New("vulkan: native device lost")
+	ErrRuntimeUnavailable      = errors.New("vulkan: runtime unavailable")
+	ErrNoAdapter               = errors.New("vulkan: no discrete AMD adapter matches the selection")
+	ErrAmbiguousAdapter        = errors.New("vulkan: several discrete AMD adapters match the selection")
+	ErrOutOfMemory             = errors.New("vulkan: native allocation failed")
+	ErrBufferDeviceOutOfMemory = errors.New("vulkan: buffer device memory allocation failed")
+	ErrDeviceLost              = errors.New("vulkan: native device lost")
 )
+
+// BufferDeviceOOMError wraps a VK_ERROR_OUT_OF_DEVICE_MEMORY (-2) result
+// returned directly by vkAllocateMemory in Device.NewBuffer with a single
+// unwrap chain so forward rollback can certify an allocation-only OOM without
+// accepting joined sibling errors.
+type BufferDeviceOOMError struct {
+	Cause *ResultError
+}
+
+func (e *BufferDeviceOOMError) Error() string {
+	if e.Cause == nil {
+		return ErrBufferDeviceOutOfMemory.Error()
+	}
+	return ErrBufferDeviceOutOfMemory.Error() + ": " + e.Cause.Error()
+}
+
+func (e *BufferDeviceOOMError) Unwrap() error { return e.Cause }
+func (e *BufferDeviceOOMError) Is(target error) bool {
+	return target == ErrBufferDeviceOutOfMemory
+}
 
 type ResultError struct {
 	Op   string

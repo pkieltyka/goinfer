@@ -19,6 +19,7 @@ type encoder struct {
 	model                                         *embeddinggemma2.Model
 	cfg                                           embeddinggemma2.Config
 	device                                        *vk.Device
+	broken                                        error // first non-lost rollback failure that left a temporary buffer unreleased
 	identity                                      DeviceInfo
 	pipes                                         map[string]*vk.Pipeline
 	pleProj, pleNorm, finalNorm, projection, ones *vk.Buffer
@@ -45,15 +46,49 @@ func openAccelerator(m *embeddinggemma2.Model) (embeddinggemma2.Accelerator, err
 }
 
 func attach(m *embeddinggemma2.Model, selector vk.Selector) (embeddinggemma2.Accelerator, error) {
-	a, err := newEncoder(m, selector)
+	return attachWithOpener(m, func() (*vk.Device, error) { return vk.Open(selector) })
+}
+
+func attachWithOpener(m *embeddinggemma2.Model, openDev func() (*vk.Device, error)) (embeddinggemma2.Accelerator, error) {
+	a, err := newEncoderWithOpener(m, openDev)
 	if err != nil {
 		return nil, classify(err)
 	}
 	return a, nil
 }
 func newEncoder(m *embeddinggemma2.Model, selector vk.Selector) (*encoder, error) {
+	return newEncoderWithOpener(m, func() (*vk.Device, error) { return vk.Open(selector) })
+}
+
+// vulkanAttachCleanup serializes Vulkan encoder attach admission and
+// failed-attach cleanup so at most one unfinished *vk.Device can exist at a
+// time. While an earlier failed attach cannot drain and Close its device,
+// subsequent attach attempts retry Close under the admission lock and fail
+// closed before calling openDev(). Healthy attached encoders remain
+// independent.
+var vulkanAttachCleanup struct {
+	mu      sync.Mutex
+	pending *vk.Device
+}
+
+func drainPendingVulkanCleanupLocked() error {
+	if vulkanAttachCleanup.pending == nil {
+		return nil
+	}
+	d := vulkanAttachCleanup.pending
+	if err := d.Close(); err != nil {
+		return fmt.Errorf("vulkan: previous failed attach cleanup still pending: %w", errors.Join(d.LossCause(), err))
+	}
+	vulkanAttachCleanup.pending = nil
+	return nil
+}
+
+func newEncoderWithOpener(m *embeddinggemma2.Model, openDev func() (*vk.Device, error)) (*encoder, error) {
 	if m == nil {
 		return nil, errors.New("vulkan: nil model")
+	}
+	if openDev == nil {
+		return nil, errors.New("vulkan: nil device opener")
 	}
 	w := m.TransformerWeights()
 	cfg := w.Config
@@ -70,14 +105,25 @@ func newEncoder(m *embeddinggemma2.Model, selector vk.Selector) (*encoder, error
 		a.maxQ = max(a.maxQ, cfg.Heads*l.HeadDim)
 		a.maxKV = max(a.maxKV, l.KVHeads*l.HeadDim)
 	}
-	d, err := vk.Open(selector)
+	vulkanAttachCleanup.mu.Lock()
+	defer vulkanAttachCleanup.mu.Unlock()
+	if err := drainPendingVulkanCleanupLocked(); err != nil {
+		return nil, err
+	}
+	d, err := openDev()
 	if err != nil {
 		return nil, err
 	}
 	a.device = d
 	info := d.Info()
 	a.identity = describeDevice(info)
-	fail := func(err error) (*encoder, error) { return nil, errors.Join(err, d.Close()) }
+	fail := func(err error) (*encoder, error) {
+		closeErr := d.Close()
+		if closeErr != nil {
+			vulkanAttachCleanup.pending = d
+		}
+		return nil, errors.Join(d.LossCause(), err, closeErr)
+	}
 	for _, s := range []struct {
 		name            string
 		bindings, words int
@@ -196,6 +242,7 @@ func (a *encoder) Close() error {
 		return err
 	}
 	a.device = nil
+	a.broken = nil
 	a.model = nil
 	a.layers = nil
 	a.pipes = nil
@@ -213,7 +260,19 @@ func (a *encoder) status() error {
 	if a.device == nil {
 		return errors.New("vulkan: encoder is closed")
 	}
-	return classify(a.device.Status())
+	if err := a.device.Status(); err != nil {
+		if errors.Is(err, vk.ErrDeviceLost) {
+			return classify(err)
+		}
+		if a.broken != nil {
+			return a.broken
+		}
+		return classify(err)
+	}
+	if a.broken != nil {
+		return a.broken
+	}
+	return nil
 }
 
 func (a *encoder) Forward(ids []int, keep bool) ([]float32, [][]float32, error) {

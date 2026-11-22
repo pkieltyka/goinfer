@@ -74,7 +74,7 @@ func (d *Device) Run(record func(*Commands) error) (err error) {
 		d.broken = waitErr
 		drainErr := d.drain()
 		if errors.Is(d.broken, ErrDeviceLost) {
-			return fmt.Errorf("%w (after %v)", d.broken, waitErr)
+			return fmt.Errorf("%w (after %w)", d.broken, waitErr)
 		}
 		return errors.Join(waitErr, drainErr)
 	}

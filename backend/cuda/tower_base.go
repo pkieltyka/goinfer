@@ -3,6 +3,7 @@
 package cuda
 
 import (
+	"errors"
 	"fmt"
 	"runtime"
 
@@ -45,7 +46,25 @@ func newTowerOps(maxN int) (*towerOps, error) {
 	return newTowerOpsOn(CreateSystemDefaultDevice, maxN)
 }
 
+// newTowerOpsOn creates towerOps using an explicit non-nil device opener on the executor goroutine.
 func newTowerOpsOn(open func() (*Device, error), maxN int) (t *towerOps, err error) {
+	t, err = newTowerOpsOnUnclosed(open, maxN)
+	if err != nil {
+		if t != nil {
+			t.close()
+		}
+		return nil, err
+	}
+	return t, nil
+}
+
+// newTowerOpsOnUnclosed builds towerOps without running unchecked t.close() on
+// failure, returning the partial *towerOps alongside the error so EG2's
+// serialized attach path owns checked rollback.
+func newTowerOpsOnUnclosed(open func() (*Device, error), maxN int) (t *towerOps, err error) {
+	if open == nil {
+		return nil, errors.New("cuda tower: nil device opener")
+	}
 	t = &towerOps{reqCh: make(chan func() error), ackCh: make(chan error)}
 	go func() {
 		runtime.LockOSThread()
@@ -88,8 +107,7 @@ func newTowerOpsOn(open func() (*Device, error), maxN int) (t *towerOps, err err
 		return nil
 	})
 	if err != nil {
-		t.close()
-		return nil, err
+		return t, err
 	}
 	return t, nil
 }
@@ -114,6 +132,32 @@ func (t *towerOps) close() {
 	})
 	close(t.reqCh)
 	t.reqCh = nil
+}
+
+// closeChecked retires every tracked buffer, object, and the primary context
+// via ReleaseObjectsChecked before stopping the executor. If any native close
+// fails, the executor and context stay alive with the failed handles still
+// owned in the ledger so a later Close or cleanup drain can retry without
+// losing leases or handles.
+func (t *towerOps) closeChecked() error {
+	if t.reqCh == nil {
+		return nil
+	}
+	if err := t.do(func() error {
+		if t.dev == nil {
+			return nil
+		}
+		if err := t.dev.ReleaseObjectsChecked(); err != nil {
+			return err
+		}
+		t.scratch = nil
+		return nil
+	}); err != nil {
+		return err
+	}
+	close(t.reqCh)
+	t.reqCh = nil
+	return nil
 }
 
 // up uploads a float32 slice as a persistent buffer (weights, tables).
@@ -143,6 +187,22 @@ func (t *towerOps) releaseScratch() {
 		t.dev.ReleaseBuf(b)
 	}
 	t.scratch = t.scratch[:0]
+}
+
+// releaseScratchChecked frees each scratch buffer via ReleaseBufChecked,
+// retaining any buffer whose native close fails so ownership and ledger
+// charges are never discarded.
+func (t *towerOps) releaseScratchChecked() error {
+	var err error
+	var kept []Buffer
+	for _, b := range t.scratch {
+		if e := t.dev.ReleaseBufChecked(b); e != nil {
+			err = errors.Join(err, e)
+			kept = append(kept, b)
+		}
+	}
+	t.scratch = kept
+	return err
 }
 
 // launch enqueues one kernel and latches the first error.

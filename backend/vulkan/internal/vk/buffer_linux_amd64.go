@@ -57,7 +57,21 @@ func (d *Device) NewBuffer(size uint64, memory Memory) (_ *Buffer, err error) {
 		return nil, err
 	}
 	alloc := memoryInfo{header: st(stMemoryAllocate), Size: requirements.Size, Index: index}
-	if b.memory, err = createHandle(d.device, &alloc, "allocate buffer memory", a.allocateMemory); err != nil {
+	allocFn := a.allocateMemory
+	if d.allocMemHook != nil {
+		hook := d.allocMemHook
+		allocFn = func(dev handle, info *memoryInfo, cb unsafe.Pointer, out *handle) result {
+			if r := hook(memory, size); r != success {
+				return r
+			}
+			return a.allocateMemory(dev, info, cb, out)
+		}
+	}
+	if b.memory, err = createHandle(d.device, &alloc, "allocate buffer memory", allocFn); err != nil {
+		var re *ResultError
+		if errors.As(err, &re) && result(re.Code) == outOfDevice {
+			return nil, &BufferDeviceOOMError{Cause: re}
+		}
 		return nil, err
 	}
 	if err = a.bindMemory(d.device, b.buffer, b.memory, 0).check("bind buffer memory"); err != nil {
@@ -144,6 +158,12 @@ func (b *Buffer) Close() error {
 	defer b.d.mu.Unlock()
 	if b.buffer == 0 {
 		return nil
+	}
+	if b.d.closeBufHook != nil {
+		if err := b.d.closeBufHook(); err != nil {
+			b.d.poisonOnLoss(err)
+			return err
+		}
 	}
 	if err := b.d.drain(); err != nil {
 		return err

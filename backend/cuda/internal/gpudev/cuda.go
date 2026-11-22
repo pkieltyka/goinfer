@@ -46,6 +46,7 @@ package gpudev
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"runtime"
 	"sync"
@@ -73,14 +74,41 @@ type Device struct {
 	dev          *gc.Device
 	verifiedUUID string
 
-	mu     sync.Mutex
-	allocs []devAlloc // every device allocation handed out, for ReleaseAll
-	objs   []closer   // modules + streams, for ReleaseObjects
-	hosts  map[closer]func()
-	leaser Leaser // every allocation's lease; nil leases nothing
+	mu                  sync.Mutex
+	allocs              []devAlloc // every device allocation handed out, for ReleaseAll
+	objs                []closer   // modules + streams, for ReleaseObjects
+	hosts               map[closer]func()
+	leaser              Leaser // every allocation's lease; nil leases nothing
+	allocHookForTest    func(what string, nBytes int) error
+	closeBufHookForTest func(closeReal func() error) error
+	syncHookForTest     func(err error)
 	// launches and waits count every kernel launch and every host wait on the device (Activity), always on: the device-level
 	// count the resident's per-kernel cost counts are checked against.
 	launches, waits atomic.Int64
+}
+
+// SetAllocHookForTest installs an optional per-device allocation hook checked
+// in MustBufOn before calling gc.Alloc. Nil clears the hook.
+func (d *Device) SetAllocHookForTest(fn func(what string, nBytes int) error) {
+	d.mu.Lock()
+	d.allocHookForTest = fn
+	d.mu.Unlock()
+}
+
+// SetCloseBufHookForTest installs an optional per-device hook called by
+// ReleaseBufChecked in place of Buffer.Close. Nil clears the hook.
+func (d *Device) SetCloseBufHookForTest(fn func(closeReal func() error) error) {
+	d.mu.Lock()
+	d.closeBufHookForTest = fn
+	d.mu.Unlock()
+}
+
+// SetSyncHookForTest installs an optional per-device hook called immediately
+// after Queue.Sync returns. Nil clears the hook.
+func (d *Device) SetSyncHookForTest(fn func(err error)) {
+	d.mu.Lock()
+	d.syncHookForTest = fn
+	d.mu.Unlock()
 }
 
 // noteWait counts one host wait on d (nil: a Buffer built without a device, which counts nowhere).
@@ -350,6 +378,102 @@ func (d *Device) ReleaseBuf(b Buffer) {
 	_ = b.b.Close()
 }
 
+// ReleaseBufChecked frees one allocation and drops its ledger entry and lease
+// ONLY when the native Buffer.Close succeeds. Because gocudrv's Buffer.Close
+// leaves a failed free open, preserving the ledger entry on error ensures a
+// later ReleaseBufChecked or ReleaseAll still owns and retries it rather than
+// reporting a false zero-leak state. A zero Buffer or sub-allocation is a no-op.
+func (d *Device) ReleaseBufChecked(b Buffer) error {
+	if b.b == nil || b.lim != 0 {
+		return nil
+	}
+	d.mu.Lock()
+	hook := d.closeBufHookForTest
+	d.mu.Unlock()
+	var err error
+	if hook != nil {
+		err = hook(b.b.Close)
+	} else {
+		err = b.b.Close()
+	}
+	if err != nil {
+		return err
+	}
+	d.mu.Lock()
+	for i, x := range d.allocs {
+		if x.b == b.b {
+			x.release()
+			d.allocs[i] = d.allocs[len(d.allocs)-1]
+			d.allocs = d.allocs[:len(d.allocs)-1]
+			break
+		}
+	}
+	d.mu.Unlock()
+	if TraceForTest != nil {
+		TraceForTest(TraceEvent{Op: TraceFree, Dst: uint64(b.b.DevicePtr())})
+	}
+	return nil
+}
+
+// ReleaseAllChecked frees every tracked device allocation via
+// ReleaseBufChecked, keeping any allocation whose native Buffer.Close fails in
+// d.allocs with its lease intact so a later Close can retry without double-free
+// or silent lease loss.
+func (d *Device) ReleaseAllChecked() error {
+	d.mu.Lock()
+	bufs := make([]devAlloc, len(d.allocs))
+	copy(bufs, d.allocs)
+	d.mu.Unlock()
+	var err error
+	for _, a := range bufs {
+		if e := d.ReleaseBufChecked(Buffer{b: a.b, cx: d.cx, d: d}); e != nil {
+			err = errors.Join(err, e)
+		}
+	}
+	return err
+}
+
+// ReleaseObjectsChecked frees every tracked device allocation (via
+// ReleaseAllChecked), then every tracked non-buffer object (modules, streams,
+// host buffers), then the primary context. Any resource whose Close fails
+// remains owned in the ledger with its lease and context intact and its error
+// is returned so a later ReleaseObjectsChecked can retry cleanly.
+func (d *Device) ReleaseObjectsChecked() error {
+	if err := d.ReleaseAllChecked(); err != nil {
+		return err
+	}
+	d.mu.Lock()
+	objs := make([]closer, len(d.objs))
+	copy(objs, d.objs)
+	d.mu.Unlock()
+	var err error
+	for _, o := range objs {
+		if e := o.Close(); e != nil {
+			err = errors.Join(err, e)
+			continue
+		}
+		d.untrackObj(o)
+	}
+	if err != nil {
+		return err
+	}
+	d.mu.Lock()
+	cx := d.cx
+	d.mu.Unlock()
+	if cx != nil {
+		if e := cx.Close(); e != nil {
+			return e
+		}
+		d.mu.Lock()
+		d.cx = nil
+		d.mu.Unlock()
+		if ReleasedForTest != nil {
+			ReleasedForTest(d)
+		}
+	}
+	return nil
+}
+
 // LedgerLen reports how many allocations and non-buffer objects this Device still
 // owns — the observability hook for leak tests (ReleaseObjects must drive both to
 // 0). Mirrors metal.go's LedgerLen.
@@ -513,6 +637,14 @@ func AllocFailedPanic(what string, nBytes int, err error) *AllocFailure {
 func (d *Device) MustBufOn(line string, nBytes, n int, what string) Buffer {
 	if d.cx == nil {
 		panic(fmt.Sprintf("cuda: allocation on a released device (%s, %d bytes)", what, nBytes))
+	}
+	d.mu.Lock()
+	hook := d.allocHookForTest
+	d.mu.Unlock()
+	if hook != nil {
+		if err := hook(what, nBytes); err != nil {
+			panic(AllocFailedPanic(what, nBytes, err))
+		}
 	}
 	buf, err := gc.Alloc[uint8](d.cx, nBytes)
 	if err != nil {
@@ -1141,7 +1273,18 @@ func (q Queue) Launch(p Pipeline, cfg LaunchConfig, args ...KernelArg) error {
 
 // Sync blocks until every kernel enqueued on this queue has completed — the
 // explicit boundary the async Launch model is built around.
-func (q Queue) Sync() error { return q.sync() }
+func (q Queue) Sync() error {
+	err := q.sync()
+	if q.d != nil {
+		q.d.mu.Lock()
+		hook := q.d.syncHookForTest
+		q.d.mu.Unlock()
+		if hook != nil {
+			hook(err)
+		}
+	}
+	return err
+}
 
 // Graph is a replayable capture of a FIXED sequence of stream work: record it once with Capture,
 // then Replay it per iteration as a SINGLE driver call instead of re-issuing every kernel launch —
