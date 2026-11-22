@@ -40,6 +40,10 @@ func (e *Encoder) bindVisionAccel() {
 		v.accel.Close()
 		v.accel, v.device = nil, ""
 	}
+	if e.deviceSelected {
+		v.device = selectedDeviceTowerReason
+		return
+	}
 	name := e.accel.Name()
 	if !slices.Contains(multimodal.Gemma4Towers(), name) {
 		v.device = "CPU (no " + name + " tower in this binary)"

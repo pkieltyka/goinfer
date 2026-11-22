@@ -28,6 +28,7 @@ func init() {
 	embeddinggemma2.RegisterAccelerator("cuda", func(m *embeddinggemma2.Model) (embeddinggemma2.Accelerator, error) {
 		return newEG2Accel(m, false)
 	})
+	embeddinggemma2.RegisterSelectedAccelerator("cuda", selectedEG2Factory(false))
 }
 
 // eg2MaxTokens is the longest input the accelerator takes: a full layer's score row is T float32 in attention_seg's
@@ -164,19 +165,6 @@ func isCUDAFatalExec(err error) bool {
 	return false
 }
 
-// classifyCUDAAttach maps raw or wrapped native CUDA OOM during attach (primary
-// retain, kernel compile, or partial weight upload) to common
-// ErrDeviceOutOfMemory (never ErrBatchOutOfMemory), preserving the native cause.
-func classifyCUDAAttach(err error) error {
-	if err == nil {
-		return nil
-	}
-	if isCUDACommonOOM(err) {
-		return fmt.Errorf("%w: %w", embeddinggemma2.ErrDeviceOutOfMemory, err)
-	}
-	return err
-}
-
 // classifyEG2ForwardErr certifies ErrBatchOutOfMemory ONLY when err is a pure
 // single-chain call-owned CUDA allocation OOM (no joined sibling errors), no
 // launch/copy error was latched, drain and checked rollback release both
@@ -222,9 +210,7 @@ func newEG2Accel(m *embeddinggemma2.Model, combined bool) (*eg2Accel, error) {
 // explicitly selected device openers: open acquires the device while this
 // constructor owns setup, partial-upload rollback, and OOM classification.
 func newEG2AccelOn(m *embeddinggemma2.Model, combined bool, open func() (*Device, error)) (_ *eg2Accel, err error) {
-	defer func() {
-		err = classifyCUDAAttach(err)
-	}()
+	defer func() { err = classifyCUDAAttach(err) }()
 	if open == nil {
 		return nil, errors.New("cuda: EmbeddingGemma 2 nil device opener")
 	}

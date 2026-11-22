@@ -28,17 +28,18 @@ var MatryoshkaWidths = []int{768, 512}
 // HiddenDim), where isQuery selects the checkpoint's own "query" prompt and false its "document" prompt, and offers
 // EncodeTasks for a caller that names the prompt, or none. It is safe for concurrent use.
 type Encoder struct {
-	m       *Model
-	tok     *tokenizer.Tokenizer
-	prompts map[string]string
-	bos     int
-	eos     int
-	accel   Accelerator                                    // nil: the CPU forward (UseAccelerator)
-	dir     string                                         // the checkpoint directory (EnableVision reads the tower from it)
-	vis     *visionTower                                   // nil until EnableVision
-	aud     *audioTower                                    // nil until EnableAudio
-	resize  ImageResize                                    // "" = the default (ImageResizeMode)
-	onTower func(tower, device string, took time.Duration) // OnTowerLoad
+	m              *Model
+	tok            *tokenizer.Tokenizer
+	prompts        map[string]string
+	bos            int
+	eos            int
+	accel          Accelerator                                    // nil: the CPU forward (UseAccelerator)
+	deviceSelected bool                                           // an explicit device selection cannot safely attach the towers
+	dir            string                                         // the checkpoint directory (EnableVision reads the tower from it)
+	vis            *visionTower                                   // nil until EnableVision
+	aud            *audioTower                                    // nil until EnableAudio
+	resize         ImageResize                                    // "" = the default (ImageResizeMode)
+	onTower        func(tower, device string, took time.Duration) // OnTowerLoad
 }
 
 // LoadEncoder loads the model, tokenizer.json and the prompt table from an HF checkpoint directory.

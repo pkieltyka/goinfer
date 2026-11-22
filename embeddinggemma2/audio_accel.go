@@ -64,6 +64,10 @@ func (e *Encoder) bindAudioAccel() {
 		a.accel.Close()
 		a.accel, a.device = nil, ""
 	}
+	if e.deviceSelected {
+		a.device = selectedDeviceTowerReason
+		return
+	}
 	name := e.accel.Name()
 	accelMu.Lock()
 	_, ok := audAccels[name]
