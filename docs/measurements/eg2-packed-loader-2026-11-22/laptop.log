@@ -1,0 +1,159 @@
+goos: linux
+goarch: amd64
+pkg: github.com/pkieltyka/goinfer/embeddinggemma2
+cpu: Intel(R) Core(TM) Ultra 7 255H
+BenchmarkGGUFVerifiedStartup/Q8_0/dense-serial-4         	       1	 824019977 ns/op	      1395 MiB/peak-RSS	      1072 MiB/retained-heap	      1395 MiB/settled-RSS	        75.41 ms/first-query	       673.9 ms/load	       247.4 ms/other-wall	       249.6 ms/token-table	        74.69 ms/verify	       496.9 ms/weights
+PASS
+2026-11-22T14:11:18-05:00
+4.36 3.68 2.69 4/3247 3738213
+MemAvailable:   36612576 kB
+goos: linux
+goarch: amd64
+pkg: github.com/pkieltyka/goinfer/embeddinggemma2
+cpu: Intel(R) Core(TM) Ultra 7 255H
+BenchmarkGGUFVerifiedStartup/Q8_0/packed-serial-4         	       1	 670286892 ns/op	      1026 MiB/peak-RSS	       696.2 MiB/retained-heap	      1026 MiB/settled-RSS	        75.62 ms/first-query	       511.3 ms/load	       251.3 ms/other-wall	        71.88 ms/token-table	        83.41 ms/verify	       323.2 ms/weights
+PASS
+2026-11-22T14:11:19-05:00
+4.41 3.71 2.70 4/3259 3741312
+MemAvailable:   36633424 kB
+goos: linux
+goarch: amd64
+pkg: github.com/pkieltyka/goinfer/embeddinggemma2
+cpu: Intel(R) Core(TM) Ultra 7 255H
+BenchmarkGGUFVerifiedStartup/Q8_0/packed-parallel-4         	       1	 466146681 ns/op	      1030 MiB/peak-RSS	       696.2 MiB/retained-heap	      1030 MiB/settled-RSS	        75.30 ms/first-query	       313.0 ms/load	       133.6 ms/other-wall	        70.78 ms/token-table	        77.89 ms/verify	       133.6 ms/weights
+PASS
+2026-11-22T14:11:20-05:00
+4.41 3.71 2.70 3/3249 3742817
+MemAvailable:   36626616 kB
+goos: linux
+goarch: amd64
+pkg: github.com/pkieltyka/goinfer/embeddinggemma2
+cpu: Intel(R) Core(TM) Ultra 7 255H
+BenchmarkGGUFVerifiedStartup/Q8_0/packed-parallel-4         	       1	 484767200 ns/op	      1030 MiB/peak-RSS	       696.2 MiB/retained-heap	      1030 MiB/settled-RSS	        85.41 ms/first-query	       323.2 ms/load	       145.3 ms/other-wall	        77.68 ms/token-table	        76.11 ms/verify	       145.3 ms/weights
+PASS
+2026-11-22T14:11:20-05:00
+4.41 3.71 2.70 5/3251 3745002
+MemAvailable:   36554824 kB
+goos: linux
+goarch: amd64
+pkg: github.com/pkieltyka/goinfer/embeddinggemma2
+cpu: Intel(R) Core(TM) Ultra 7 255H
+BenchmarkGGUFVerifiedStartup/Q8_0/packed-serial-4         	       1	 660241159 ns/op	      1026 MiB/peak-RSS	       696.2 MiB/retained-heap	      1026 MiB/settled-RSS	        76.95 ms/first-query	       504.8 ms/load	       247.9 ms/other-wall	        71.78 ms/token-table	        78.51 ms/verify	       319.7 ms/weights
+PASS
+2026-11-22T14:11:21-05:00
+4.41 3.71 2.70 8/3246 3747231
+MemAvailable:   36570208 kB
+goos: linux
+goarch: amd64
+pkg: github.com/pkieltyka/goinfer/embeddinggemma2
+cpu: Intel(R) Core(TM) Ultra 7 255H
+BenchmarkGGUFVerifiedStartup/Q8_0/dense-serial-4         	       1	 811286896 ns/op	      1395 MiB/peak-RSS	      1072 MiB/retained-heap	      1395 MiB/settled-RSS	        71.73 ms/first-query	       663.1 ms/load	       239.5 ms/other-wall	       245.7 ms/token-table	        76.46 ms/verify	       485.2 ms/weights
+PASS
+2026-11-22T14:11:22-05:00
+4.41 3.71 2.70 4/3260 3749759
+MemAvailable:   36454652 kB
+goos: linux
+goarch: amd64
+pkg: github.com/pkieltyka/goinfer/embeddinggemma2
+cpu: Intel(R) Core(TM) Ultra 7 255H
+BenchmarkGGUFVerifiedStartup/Q8_0/dense-serial-4         	       1	 794226783 ns/op	      1396 MiB/peak-RSS	      1072 MiB/retained-heap	      1396 MiB/settled-RSS	        73.15 ms/first-query	       644.6 ms/load	       234.5 ms/other-wall	       237.3 ms/token-table	        76.44 ms/verify	       471.7 ms/weights
+PASS
+2026-11-22T14:11:23-05:00
+4.41 3.71 2.70 7/3261 3751776
+MemAvailable:   36222288 kB
+goos: linux
+goarch: amd64
+pkg: github.com/pkieltyka/goinfer/embeddinggemma2
+cpu: Intel(R) Core(TM) Ultra 7 255H
+BenchmarkGGUFVerifiedStartup/Q8_0/packed-serial-4         	       1	 648646100 ns/op	      1026 MiB/peak-RSS	       696.2 MiB/retained-heap	      1026 MiB/settled-RSS	        77.87 ms/first-query	       490.9 ms/load	       245.5 ms/other-wall	        68.40 ms/token-table	        79.89 ms/verify	       313.9 ms/weights
+PASS
+2026-11-22T14:11:24-05:00
+4.38 3.71 2.71 6/3262 3753930
+MemAvailable:   35791876 kB
+goos: linux
+goarch: amd64
+pkg: github.com/pkieltyka/goinfer/embeddinggemma2
+cpu: Intel(R) Core(TM) Ultra 7 255H
+BenchmarkGGUFVerifiedStartup/Q8_0/packed-parallel-4         	       1	 468558562 ns/op	      1030 MiB/peak-RSS	       696.2 MiB/retained-heap	      1030 MiB/settled-RSS	        78.36 ms/first-query	       310.0 ms/load	       130.1 ms/other-wall	        75.55 ms/token-table	        80.22 ms/verify	       130.1 ms/weights
+PASS
+2026-11-22T14:11:25-05:00
+4.38 3.71 2.71 5/3285 3755387
+MemAvailable:   35899868 kB
+goos: linux
+goarch: amd64
+pkg: github.com/pkieltyka/goinfer/embeddinggemma2
+cpu: Intel(R) Core(TM) Ultra 7 255H
+BenchmarkGGUFVerifiedStartup/UD-Q6_K_XL/dense-serial-4         	       1	 947211729 ns/op	      1340 MiB/peak-RSS	      1072 MiB/retained-heap	      1340 MiB/settled-RSS	        76.28 ms/first-query	       805.1 ms/load	       304.6 ms/other-wall	       320.1 ms/token-table	        65.80 ms/verify	       624.7 ms/weights
+PASS
+2026-11-22T14:11:26-05:00
+4.38 3.71 2.71 3/3294 3757062
+MemAvailable:   36235696 kB
+goos: linux
+goarch: amd64
+pkg: github.com/pkieltyka/goinfer/embeddinggemma2
+cpu: Intel(R) Core(TM) Ultra 7 255H
+BenchmarkGGUFVerifiedStartup/UD-Q6_K_XL/packed-serial-4         	       1	 651817388 ns/op	       932.4 MiB/peak-RSS	       665.2 MiB/retained-heap	       932.4 MiB/settled-RSS	        73.12 ms/first-query	       516.9 ms/load	       298.9 ms/other-wall	        50.92 ms/token-table	        61.82 ms/verify	       349.8 ms/weights
+PASS
+2026-11-22T14:11:27-05:00
+4.38 3.71 2.71 6/3277 3758348
+MemAvailable:   36090016 kB
+goos: linux
+goarch: amd64
+pkg: github.com/pkieltyka/goinfer/embeddinggemma2
+cpu: Intel(R) Core(TM) Ultra 7 255H
+BenchmarkGGUFVerifiedStartup/UD-Q6_K_XL/packed-parallel-4         	       1	 433675094 ns/op	       933.9 MiB/peak-RSS	       665.2 MiB/retained-heap	       933.9 MiB/settled-RSS	        72.92 ms/first-query	       300.6 ms/load	       132.5 ms/other-wall	        53.92 ms/token-table	        60.11 ms/verify	       132.5 ms/weights
+PASS
+2026-11-22T14:11:28-05:00
+4.38 3.71 2.71 7/3279 3759662
+MemAvailable:   35837056 kB
+goos: linux
+goarch: amd64
+pkg: github.com/pkieltyka/goinfer/embeddinggemma2
+cpu: Intel(R) Core(TM) Ultra 7 255H
+BenchmarkGGUFVerifiedStartup/UD-Q6_K_XL/packed-parallel-4         	       1	 447579177 ns/op	       933.2 MiB/peak-RSS	       665.2 MiB/retained-heap	       933.2 MiB/settled-RSS	        72.46 ms/first-query	       311.2 ms/load	       135.7 ms/other-wall	        62.64 ms/token-table	        63.96 ms/verify	       135.7 ms/weights
+PASS
+2026-11-22T14:11:28-05:00
+4.38 3.71 2.71 5/3299 3760890
+MemAvailable:   35743456 kB
+goos: linux
+goarch: amd64
+pkg: github.com/pkieltyka/goinfer/embeddinggemma2
+cpu: Intel(R) Core(TM) Ultra 7 255H
+BenchmarkGGUFVerifiedStartup/UD-Q6_K_XL/packed-serial-4         	       1	 660490816 ns/op	       933.0 MiB/peak-RSS	       665.2 MiB/retained-heap	       933.0 MiB/settled-RSS	        75.16 ms/first-query	       519.9 ms/load	       294.5 ms/other-wall	        52.25 ms/token-table	        65.42 ms/verify	       346.8 ms/weights
+PASS
+2026-11-22T14:11:29-05:00
+4.35 3.72 2.72 5/3287 3763887
+MemAvailable:   35747836 kB
+goos: linux
+goarch: amd64
+pkg: github.com/pkieltyka/goinfer/embeddinggemma2
+cpu: Intel(R) Core(TM) Ultra 7 255H
+BenchmarkGGUFVerifiedStartup/UD-Q6_K_XL/dense-serial-4         	       1	 924049224 ns/op	      1339 MiB/peak-RSS	      1072 MiB/retained-heap	      1339 MiB/settled-RSS	        76.14 ms/first-query	       782.5 ms/load	       308.0 ms/other-wall	       301.7 ms/token-table	        65.38 ms/verify	       609.7 ms/weights
+PASS
+2026-11-22T14:11:30-05:00
+4.35 3.72 2.72 9/3293 3766403
+MemAvailable:   35873156 kB
+goos: linux
+goarch: amd64
+pkg: github.com/pkieltyka/goinfer/embeddinggemma2
+cpu: Intel(R) Core(TM) Ultra 7 255H
+BenchmarkGGUFVerifiedStartup/UD-Q6_K_XL/dense-serial-4         	       1	 946145407 ns/op	      1339 MiB/peak-RSS	      1072 MiB/retained-heap	      1339 MiB/settled-RSS	        72.16 ms/first-query	       810.5 ms/load	       302.3 ms/other-wall	       314.6 ms/token-table	        63.44 ms/verify	       616.9 ms/weights
+PASS
+2026-11-22T14:11:32-05:00
+4.35 3.72 2.72 3/3293 3768347
+MemAvailable:   36177600 kB
+goos: linux
+goarch: amd64
+pkg: github.com/pkieltyka/goinfer/embeddinggemma2
+cpu: Intel(R) Core(TM) Ultra 7 255H
+BenchmarkGGUFVerifiedStartup/UD-Q6_K_XL/packed-serial-4         	       1	 662915915 ns/op	       931.9 MiB/peak-RSS	       665.2 MiB/retained-heap	       931.9 MiB/settled-RSS	        72.41 ms/first-query	       529.9 ms/load	       301.0 ms/other-wall	        51.15 ms/token-table	        60.60 ms/verify	       352.2 ms/weights
+PASS
+2026-11-22T14:11:33-05:00
+4.35 3.72 2.72 4/3289 3770663
+MemAvailable:   36165316 kB
+goos: linux
+goarch: amd64
+pkg: github.com/pkieltyka/goinfer/embeddinggemma2
+cpu: Intel(R) Core(TM) Ultra 7 255H
+BenchmarkGGUFVerifiedStartup/UD-Q6_K_XL/packed-parallel-4         	       1	 454883866 ns/op	       933.2 MiB/peak-RSS	       665.2 MiB/retained-heap	       933.2 MiB/settled-RSS	        75.41 ms/first-query	       317.9 ms/load	       137.9 ms/other-wall	        55.16 ms/token-table	        61.62 ms/verify	       137.9 ms/weights
+PASS

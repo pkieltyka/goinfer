@@ -288,6 +288,48 @@ func TestBlockAlignedReads(t *testing.T) {
 	}
 }
 
+func TestPackedRowsOwnEncodedBlocks(t *testing.T) {
+	block, want := q6Example()
+	second := slices.Clone(block)
+	binary.LittleEndian.PutUint16(second[208:], 0x3c00)
+	raw := bytes.Join([][]byte{block, second, second, block}, nil)
+	b := fixture(nil, []entry{{"matrix", []uint64{512, 2}, Q6_K, 0}}, 32, raw)
+	source := bytes.NewReader(b)
+	f, err := Open(source, int64(len(b)))
+	if err != nil {
+		t.Fatal(err)
+	}
+	matrix, _ := f.Tensor("matrix")
+	rows, err := matrix.ReadPackedRows()
+	if err != nil {
+		t.Fatal(err)
+	}
+	dense, err := matrix.ReadFloat32()
+	if err != nil {
+		t.Fatal(err)
+	}
+	clear(b)
+	source.Reset(nil)
+	got := make([]float32, 512)
+	for _, i := range []int{1, 0, 1} {
+		rows.DecodeRow(i, got)
+		if !slices.Equal(got, dense[i*512:(i+1)*512]) {
+			t.Fatalf("row %d differs from dense decode after the reader is cleared", i)
+		}
+	}
+	if !slices.Equal(got[256:], want) || got[0] != 2*want[0] {
+		t.Fatal("packed rows did not preserve both Q6_K blocks in order")
+	}
+	if rows, err := matrix.ReadPackedRows(); rows != nil || err == nil {
+		t.Fatalf("truncated packed read returned %p, %v", rows, err)
+	}
+	vector := openFixture(t, fixture(nil, []entry{{"vector", []uint64{256}, Q6_K, 0}}, 32, block))
+	handle, _ := vector.Tensor("vector")
+	if rows, err := handle.ReadPackedRows(); rows != nil || err == nil {
+		t.Fatalf("rank-one packed read returned %p, %v", rows, err)
+	}
+}
+
 func TestRejectsMalformedGGUF(t *testing.T) {
 	e := entry{"test", []uint64{16}, F32, 0}
 	other := func(name string, shape []uint64, typ Type, off uint64) []byte {

@@ -15,8 +15,8 @@ import (
 const ggufArchitecture = "gemma-embedding2"
 
 // LoadGGUFEncoder loads a text EmbeddingGemma 2 GGUF with embedded tokenizer metadata.
-// It supports the 24-layer Q8_0 and UD-Q6_K_XL weight profiles. Their tensors
-// are expanded to FP32 once, including for an accelerator attached after loading.
+// It supports the 24-layer Q8_0 and UD-Q6_K_XL weight profiles. Transformer weights
+// decode to FP32. Token embeddings stay packed and are decoded by row.
 // Prompts are the caller's named text prefixes. A nil table permits unprompted text
 // and prepared input IDs. The returned encoder does not hold the file open.
 func LoadGGUFEncoder(path string, prompts map[string]string) (*Encoder, error) {
@@ -40,9 +40,14 @@ func LoadGGUFEncoder(path string, prompts map[string]string) (*Encoder, error) {
 }
 
 // LoadGGUFEncoderReaderAt loads the same text checkpoint formats as LoadGGUFEncoder
-// from the size bytes in r. Keep those bytes unchanged until the call returns.
+// from the size bytes in r. Reads may run concurrently. Keep the bytes unchanged
+// until the call returns.
 // The encoder and its tokenizer retain neither r nor its backing data.
 func LoadGGUFEncoderReaderAt(r io.ReaderAt, size int64, prompts map[string]string) (*Encoder, error) {
+	return loadGGUFEncoderReaderAt(r, size, prompts, loadWeights)
+}
+
+func loadGGUFEncoderReaderAt(r io.ReaderAt, size int64, prompts map[string]string, schedule func(int, func(int) error) error) (*Encoder, error) {
 	f, err := gguf.Open(r, size)
 	if err != nil {
 		return nil, err
@@ -60,9 +65,16 @@ func LoadGGUFEncoderReaderAt(r io.ReaderAt, size int64, prompts map[string]strin
 	if err != nil {
 		return nil, err
 	}
-	refs = append(refs, weightRef{&model.embed, "embed_tokens.weight", []int{cfg.VocabSize, cfg.Hidden}})
-	if got := f.TensorCount(); got != len(refs) {
-		return nil, fmt.Errorf("tensor count %d, want %d for the text encoder", got, len(refs))
+	if want := len(refs) + 1; f.TensorCount() != want {
+		return nil, fmt.Errorf("tensor count %d, want %d for the text encoder", f.TensorCount(), want)
+	}
+	const tokenName = "token_embd.weight"
+	token, ok := f.Tensor(tokenName)
+	if !ok {
+		return nil, fmt.Errorf("missing tensor %q", tokenName)
+	}
+	if err := validateGGUFTensor(token, tokenName, []int{cfg.VocabSize, cfg.Hidden}, quant); err != nil {
+		return nil, err
 	}
 	tensors := make([]gguf.Tensor, 0, len(refs))
 	for _, ref := range refs {
@@ -96,11 +108,24 @@ func LoadGGUFEncoderReaderAt(r io.ReaderAt, size int64, prompts map[string]strin
 	if encoder.bos != 2 || encoder.eos != 1 {
 		return nil, fmt.Errorf("tokenizer <bos>/<eos> pieces do not match their declared IDs")
 	}
-	for i, t := range tensors {
-		*refs[i].dst, err = t.ReadFloat32()
-		if err != nil {
-			return nil, fmt.Errorf("read %s: %w", refs[i].name, err)
+	if err := schedule(len(tensors)+1, func(job int) error {
+		if job == 0 {
+			packed, err := token.ReadPackedRows()
+			if err != nil {
+				return fmt.Errorf("read %s: %w", tokenName, err)
+			}
+			model.embedGGUF = packed
+			return nil
 		}
+		i := job - 1
+		values, err := tensors[i].ReadFloat32()
+		if err != nil {
+			return fmt.Errorf("read %s: %w", refs[i].name, err)
+		}
+		*refs[i].dst = values
+		return nil
+	}); err != nil {
+		return nil, err
 	}
 	model.setScalars(scalars)
 	return encoder, nil
@@ -234,7 +259,6 @@ func validateGGUFTensor(t gguf.Tensor, name string, shape []int, quant gguf.Type
 }
 
 var ggufGlobalWeights = map[string]string{
-	"embed_tokens.weight":                   "token_embd.weight",
 	"ple.per_layer_model_projection.weight": "per_layer_model_proj.weight",
 	"ple.per_layer_projection_norm.weight":  "per_layer_proj_norm.weight",
 	"norm.weight":                           "output_norm.weight",
