@@ -3,6 +3,7 @@
 change to the root README.md (which Go tests read) or to a docs file a test reads is code. Each case is a real commit in
 a scratch worktree of this checkout, classified by the real script. Run: python3 -B scripts/test_ci_docs_only.py"""
 import os
+import re
 import shutil
 import subprocess
 import tempfile
@@ -112,8 +113,17 @@ class FullPathReads(unittest.TestCase):
     def test_a_mix_of_quick_classes_is_quick(self):
         self.assertEqual(self.cls({"docs/zz-ci-test.md": "x\n", "docs/measurements/zz-ci-test.md": "x\n"}), "quick")
 
+    def goinfer_version_bump(self):
+        path = "backend/metal/go.mod"
+        with open(os.path.join(self.wt, path)) as f:
+            match = re.search(r"(?m)^[ \t]*(?:require[ \t]+)?(github\.com/pkieltyka/goinfer[ \t]+)(v\S+)", f.read())
+        self.assertIsNotNone(match, f"{path} has no goinfer requirement")
+        prefix, version = match.groups()
+        new_version = "v998.0.0" if version == "v999.0.0" else "v999.0.0"
+        return {path: (prefix + version, prefix + new_version)}
+
     def test_a_goinfer_version_bump_is_version_only(self):
-        bump = {"backend/metal/go.mod": ("github.com/pkieltyka/goinfer v0.24.1", "github.com/pkieltyka/goinfer v0.24.2")}
+        bump = self.goinfer_version_bump()
         self.assertEqual(self.cls({}, bump), "version")
 
     def test_other_changes_to_a_go_mod_are_full(self):
@@ -121,8 +131,8 @@ class FullPathReads(unittest.TestCase):
         self.assertEqual(self.cls({}, aikit), "full")
         self.assertEqual(self.cls({"go.mod": "require example.com/other v1.0.0\n"}), "full")
         # a goinfer bump riding with a different dependency's bump is not version-only either
-        mixed = {"backend/metal/go.mod": ("github.com/pkieltyka/goinfer v0.24.1", "github.com/pkieltyka/goinfer v0.24.2"),
-                 "go.mod": ("golang.org/x/sys v", "golang.org/x/sys v9.")}
+        mixed = self.goinfer_version_bump()
+        mixed["go.mod"] = ("golang.org/x/sys v", "golang.org/x/sys v9.")
         self.assertEqual(self.cls({}, mixed), "full")
 
     def test_a_goinfer_lookalike_is_not_a_goinfer_version(self):
@@ -141,7 +151,7 @@ class FullPathReads(unittest.TestCase):
 
     def test_backend_with_quick_path_files_is_backend(self):
         self.assertEqual(self.cls({"backend/cuda/doc.go": "//x\n", "docs/zz-ci-test.md": "x\n"}), "backend")
-        bump = {"backend/metal/go.mod": ("github.com/pkieltyka/goinfer v0.24.1", "github.com/pkieltyka/goinfer v0.24.2")}
+        bump = self.goinfer_version_bump()
         self.assertEqual(self.cls({"backend/cuda/doc.go": "//x\n"}, bump), "backend")
 
     def test_a_backend_go_mod_dependency_change_is_backend(self):
@@ -165,7 +175,7 @@ class FullPathReads(unittest.TestCase):
     def test_the_default_mode_does_not_widen(self):
         for edits in ({"changelog.d/zz-ci-test.md": "x\n"}, {"SECURITY.md": "x\n"}, {"apps/site/different/zz-ci-test.md": "x\n"}):
             self.assertEqual(self.classify(edits), "false", edits)
-        bump = {"backend/metal/go.mod": ("github.com/pkieltyka/goinfer v0.24.1", "github.com/pkieltyka/goinfer v0.24.2")}
+        bump = self.goinfer_version_bump()
         self.assertEqual(self.classify({}, bump), "false")
         self.assertEqual(self.classify({"docs/zz-ci-test.md": "x\n"}), "true")
         self.assertEqual(self.classify({"backend/cuda/doc.go": "//x\n"}), "false")

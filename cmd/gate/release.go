@@ -92,7 +92,7 @@ func runRelease(args []string, w io.Writer) int {
 			fmt.Fprintf(w, "gate: the run record was not written: %v\n", err)
 		} else {
 			writeRunRecord(w, *logDir, &gateConfig{Name: "release", Decision: "rows"}, nil, gatherProvenance(nil), false,
-				runRecordExtra{Release: &releaseInputs{Tag: e.tag, Prev: e.prev, Offline: e.offline, Looks: e.looks}})
+				runRecordExtra{Release: &releaseInputs{Tag: e.tag, Prev: e.prev, Offline: e.offline, Looks: e.looks, Modules: e.releaseModules()}})
 		}
 	}
 	return code
@@ -200,8 +200,13 @@ func replayRelease(w io.Writer, path string) int {
 		fmt.Fprintf(w, "gate release -replay: %s is not a release run record\n", path)
 		return 2
 	}
+	modules := in.Modules
+	if modules == nil {
+		// Older records used the original five-module qualification.
+		modules = []string{".", "backend/webgpu", "backend/cuda", "backend/metal", "demo/agent"}
+	}
 	var missing []string
-	e := &relEnv{tag: in.Tag, prev: in.Prev, offline: in.Offline, look: relReplayLook(in.Looks, &missing)}
+	e := &relEnv{tag: in.Tag, prev: in.Prev, offline: in.Offline, modules: modules, look: relReplayLook(in.Looks, &missing)}
 	var buf bytes.Buffer
 	code := reportRelease(&buf, e, releaseRows)
 	if len(missing) > 0 {

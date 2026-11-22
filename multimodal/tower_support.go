@@ -27,7 +27,7 @@ const (
 // declaredTowers is, per backend (decoder's backend names), the tower families its build registers a GPU tower for.
 var declaredTowers = map[string][]string{
 	"metal":  {TowerSigLIP, TowerQwen25VL, TowerQwen3, TowerGlmOcr, TowerGemma4, TowerGemma4Audio, TowerEmbeddingGemma2},
-	"cuda":   {TowerSigLIP, TowerQwen25VL, TowerQwen3, TowerGlmOcr, TowerGemma4},
+	"cuda":   {TowerSigLIP, TowerQwen25VL, TowerQwen3, TowerGlmOcr, TowerGemma4, TowerEmbeddingGemma2},
 	"webgpu": {TowerSigLIP, TowerQwen25VL, TowerGemma4, TowerQwen3, TowerGlmOcr},
 }
 

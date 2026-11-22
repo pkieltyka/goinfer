@@ -113,4 +113,12 @@ func TestReleaseReplay_plants(t *testing.T) {
 	if rc != 2 || !strings.Contains(report, "holds no answer for: read backend/metal/go.mod") || strings.Contains(report, "gate release v") {
 		t.Errorf("a read the record lacks: exit %d\n%s", rc, report)
 	}
+
+	// A record that explicitly includes Vulkan must carry its readings.
+	report, rc = replayEditedRelease(t, func(in *releaseInputs) {
+		in.Modules = relModules
+	})
+	if rc != 2 || !strings.Contains(report, "holds no answer for: read backend/vulkan/go.mod") {
+		t.Errorf("Vulkan reading missing from a new-format record: exit %d\n%s", rc, report)
+	}
 }
