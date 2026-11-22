@@ -278,6 +278,34 @@ When a selector names an explicit device, the vision and audio towers stay on th
 `VisionDevice()` and `AudioDevice()` report this after the respective tower is loaded.
 Bare selectors can attach a registered tower accelerator as before.
 
+To list the devices from all linked EmbeddingGemma 2 backends before loading a model,
+call `embeddinggemma2.Devices(embeddinggemma2.ProbeOptions{})`. It returns device rows
+in backend-name order and a separate list of backend probe failures. Use successful rows
+even when a different backend failed. Each row describes the device's dedicated or shared
+memory and whether that backend's default selector can run a native text batch.
+
+Call `encoder.UseDevice(device.ID, "")` to attach a particular device with its default
+selector, or pass a selector from `embeddinggemma2.DeviceSelectors(device.Backend)`.
+For example, a CUDA build with `eg2_combined` can use `"cuda-eg2-combined"` with a CUDA ID.
+The ID and selector must belong to the same backend. Attachment errors leave the encoder
+unchanged. A selector being listed does not guarantee the device can load a given model.
+Read the actual attached device through the accelerator's
+`embeddinggemma2.AttachedDeviceReporter` interface.
+
+| Backend | Device ID and alias | Bare selector |
+| --- | --- | --- |
+| CUDA | The driver's GPU UUID follows the card across slot and ordinal changes. The ordinal alias follows the visible CUDA order. Rows with missing or duplicate UUIDs have no ID or alias. | `"cuda"` opens ordinal 0. |
+| Vulkan | The UUID identifies a visible adapter. Under RADV it encodes the PCI address and can change with the slot or bus numbering. The ordinal alias follows the current Vulkan inventory. | `"vulkan"` requires a unique eligible card. |
+| Metal | Discovery describes the system default device without an ID or alias. | `"metal"` selects the system default device. |
+
+Passing `ProbeOptions{IncludeMemory: true}` requests headroom as well as known capacity.
+CUDA reads capacity without retaining a context. The available-byte query temporarily
+retains the primary context of each eligible device with a unique UUID, which can wake
+the device and consume device memory. Metal reads host memory on a [unified-memory
+device](https://developer.apple.com/documentation/metal/mtldevice/hasunifiedmemory) and
+uses the existing Metal headroom estimate. It omits capacity and headroom when the
+default device has dedicated memory. Read the basis of each snapshot before using it.
+
 Import the Vulkan package by name to list eligible adapters with `vulkan.Devices()` before
 loading a model. To include estimated available bytes, call
 `vulkan.Probe(embeddinggemma2.ProbeOptions{IncludeMemory: true})`. Both calls create a
