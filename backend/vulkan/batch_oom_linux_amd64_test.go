@@ -7,6 +7,8 @@ import (
 	"os"
 	"path/filepath"
 	"slices"
+	"strings"
+	"sync"
 	"testing"
 	"time"
 
@@ -67,6 +69,84 @@ func attachFakeVulkan(t *testing.T, hooks *vk.FakeHooksForTest) (*embeddinggemma
 		t.Fatalf("attach fake vulkan: %v", err)
 	}
 	return e, acc.(*encoder)
+}
+
+func drainPendingVulkanCleanups() error {
+	vulkanAttachCleanup.mu.Lock()
+	defer vulkanAttachCleanup.mu.Unlock()
+	return drainPendingVulkanCleanupLocked()
+}
+
+func pendingVulkanCleanupsLen() int {
+	vulkanAttachCleanup.mu.Lock()
+	defer vulkanAttachCleanup.mu.Unlock()
+	if vulkanAttachCleanup.pending != nil {
+		return 1
+	}
+	return 0
+}
+
+func TestVulkanAttachReportsStickyLossFirst(t *testing.T) {
+	model := loadTinyVulkanEncoder(t).Model()
+	stagingLoss := &vk.ResultError{Op: "close staging buffer", Code: -4}
+	stagingFailure := errors.New("staging cleanup failed")
+	drains := 0
+	for _, tt := range []struct {
+		name       string
+		hooks      vk.FakeHooksForTest
+		stagingErr error
+		lossOp     string
+	}{
+		{
+			name:       "upload error already joins staging loss",
+			hooks:      vk.FakeHooksForTest{QueueSubmit: func() int32 { return -1 }},
+			stagingErr: stagingLoss,
+			lossOp:     stagingLoss.Op,
+		},
+		{
+			name: "device loss during upload drain",
+			hooks: vk.FakeHooksForTest{
+				WaitFences:     func() int32 { return -1 },
+				DeviceWaitIdle: func() int32 { return -4 },
+			},
+			lossOp: "drain submitted work",
+		},
+		{
+			name: "device loss during final attach close",
+			hooks: vk.FakeHooksForTest{
+				WaitFences: func() int32 { return -1 },
+				DeviceWaitIdle: func() int32 {
+					drains++
+					if drains == 1 {
+						return -1
+					}
+					return -4
+				},
+			},
+			stagingErr: stagingFailure,
+			lossOp:     "drain submitted work",
+		},
+	} {
+		t.Run(tt.name, func(t *testing.T) {
+			dev := vk.NewFakeDeviceForTest(&tt.hooks)
+			dev.SetCloseBufferHookForTest(func() error { return tt.stagingErr })
+			acc, err := attachWithOpener(model, func() (*vk.Device, error) { return dev, nil })
+			if acc != nil || !errors.Is(err, embeddinggemma2.ErrDeviceLost) ||
+				errors.Is(err, embeddinggemma2.ErrBatchOutOfMemory) || errors.Is(err, embeddinggemma2.ErrDeviceOutOfMemory) {
+				t.Errorf("attach returned (%v, %v), want nil and sticky loss only", acc, err)
+			}
+			var first *vk.ResultError
+			if !errors.As(err, &first) || first.Code != -4 || first.Op != tt.lossOp {
+				t.Errorf("first native error = %v, want %s (-4)", first, tt.lossOp)
+			}
+			if !errors.Is(err, vk.ErrOutOfMemory) || tt.stagingErr != nil && !errors.Is(err, tt.stagingErr) {
+				t.Errorf("attach dropped the upload or staging cleanup cause: %v", err)
+			}
+			if n := pendingVulkanCleanupsLen(); n != 0 || dev.LiveBuffersForTest() != 0 {
+				t.Errorf("confirmed loss should permit teardown, pending=%d live buffers=%d", n, dev.LiveBuffersForTest())
+			}
+		})
+	}
 }
 
 // TestVulkanRetryOOM_FakeDriverAcceptance verifies the full #25 Vulkan
@@ -499,6 +579,152 @@ func TestVulkanRetryOOM_FakeDriverAcceptance(t *testing.T) {
 		if attachDev.LiveBuffersForTest() != 0 {
 			t.Fatalf("unrelated attach failure leaked buffers: %d", attachDev.LiveBuffersForTest())
 		}
+
+		// Upload QueueSubmit VK_ERROR_DEVICE_LOST (-4) + DeviceWaitIdle non-loss (-1)
+		// leaves Device.Close unable to drain: attach must retain the single unfinished
+		// device owner, preserve sticky -4 first and cleanup diagnostic without retry,
+		// block repeated and simultaneous attaches with zero new opens, then release
+		// all handles and recover attachment once DeviceWaitIdle succeeds.
+		t.Run("failed-attach-undrained-close-owner-and-recovery", func(t *testing.T) {
+			var waitMu sync.Mutex
+			waitResult := int32(-1) // VK_ERROR_OUT_OF_HOST_MEMORY on drain
+			var stuckDev *vk.Device
+			got, err := attachWithOpener(m, func() (*vk.Device, error) {
+				stuckDev = vk.NewFakeDeviceForTest(&vk.FakeHooksForTest{
+					QueueSubmit: func() int32 { return -4 }, // VK_ERROR_DEVICE_LOST on upload submit
+					DeviceWaitIdle: func() int32 {
+						waitMu.Lock()
+						r := waitResult
+						waitMu.Unlock()
+						return r
+					},
+				})
+				return stuckDev, nil
+			})
+			t.Cleanup(func() {
+				waitMu.Lock()
+				waitResult = 0
+				waitMu.Unlock()
+				if err := drainPendingVulkanCleanups(); err != nil {
+					t.Errorf("release retained fake device: %v", err)
+				}
+			})
+			if got != nil || err == nil || errors.Is(err, embeddinggemma2.ErrBatchOutOfMemory) {
+				t.Fatalf("undrained attach failure = (%v, %v), want nil + error without retry", got, err)
+			}
+			var lost *embeddinggemma2.DeviceLostError
+			var native *vk.ResultError
+			if !errors.Is(err, embeddinggemma2.ErrDeviceLost) || !errors.As(err, &lost) {
+				t.Fatalf("undrained attach failure missing sticky DeviceLostError: %v", err)
+			}
+			if !errors.As(err, &native) || native.Code != -4 {
+				t.Fatalf("undrained attach first native cause = %v, want VK_ERROR_DEVICE_LOST (-4)", native)
+			}
+			if !strings.Contains(err.Error(), "drain submitted work") || !errors.Is(err, vk.ErrOutOfMemory) {
+				t.Fatalf("undrained attach failure dropped cleanup drain diagnostic: %v", err)
+			}
+			if n := pendingVulkanCleanupsLen(); n != 1 {
+				t.Fatalf("pending Vulkan cleanups = %d, want 1", n)
+			}
+			liveStuck := stuckDev.LiveBuffersForTest()
+			if liveStuck == 0 {
+				t.Fatal("undrained failed attach dropped live buffers prematurely")
+			}
+
+			// Repeated public Model.NewAccelerator("vulkan") and simultaneous attachWithOpener
+			// calls while drain still fails: every call must fail closed with sticky -4 first +
+			// cleanup diagnostic, literal nil interface, no retry sentinel, zero new opens, and
+			// pending count bounded at 1.
+			var openMu sync.Mutex
+			blockedOpens := 0
+			if accPub, errPub := m.NewAccelerator("vulkan"); accPub != nil || errors.Is(errPub, embeddinggemma2.ErrBatchOutOfMemory) ||
+				!errors.Is(errPub, embeddinggemma2.ErrDeviceLost) || !strings.Contains(errPub.Error(), "drain submitted work") {
+				t.Fatalf("public Model.NewAccelerator(vulkan) while stuck = (%v, %v), want nil + sticky loss + drain diagnostic without retry", accPub, errPub)
+			}
+			for attempt := range 2 {
+				accBlocked, errBlocked := attachWithOpener(m, func() (*vk.Device, error) {
+					openMu.Lock()
+					blockedOpens++
+					openMu.Unlock()
+					return vk.NewFakeDeviceForTest(&vk.FakeHooksForTest{}), nil
+				})
+				var nativeB *vk.ResultError
+				if accBlocked != nil || errors.Is(errBlocked, embeddinggemma2.ErrBatchOutOfMemory) ||
+					!errors.Is(errBlocked, embeddinggemma2.ErrDeviceLost) ||
+					!errors.As(errBlocked, &nativeB) || nativeB.Code != -4 ||
+					!strings.Contains(errBlocked.Error(), "drain submitted work") {
+					t.Fatalf("blocked attach attempt %d = (%v, %v), want sticky -4 + drain diagnostic without retry", attempt, accBlocked, errBlocked)
+				}
+			}
+			var wg sync.WaitGroup
+			simErrs := make([]error, 4)
+			for i := range simErrs {
+				wg.Add(1)
+				go func(idx int) {
+					defer wg.Done()
+					accSim, errSim := attachWithOpener(m, func() (*vk.Device, error) {
+						openMu.Lock()
+						blockedOpens++
+						openMu.Unlock()
+						return vk.NewFakeDeviceForTest(&vk.FakeHooksForTest{}), nil
+					})
+					if accSim != nil {
+						t.Errorf("simultaneous blocked attach %d returned non-nil accelerator", idx)
+					}
+					simErrs[idx] = errSim
+				}(i)
+			}
+			wg.Wait()
+			for i, errSim := range simErrs {
+				var nativeS *vk.ResultError
+				if errors.Is(errSim, embeddinggemma2.ErrBatchOutOfMemory) ||
+					!errors.Is(errSim, embeddinggemma2.ErrDeviceLost) ||
+					!errors.As(errSim, &nativeS) || nativeS.Code != -4 ||
+					!strings.Contains(errSim.Error(), "drain submitted work") {
+					t.Fatalf("simultaneous blocked attach %d = %v, want sticky -4 + drain diagnostic without retry", i, errSim)
+				}
+			}
+			if blockedOpens != 0 {
+				t.Fatalf("blocked attaches invoked opener %d times, want 0", blockedOpens)
+			}
+			if n := pendingVulkanCleanupsLen(); n != 1 || stuckDev.LiveBuffersForTest() != liveStuck {
+				t.Fatalf("blocked attaches altered retained owner: pending=%d live=%d want (1, %d)", n, stuckDev.LiveBuffersForTest(), liveStuck)
+			}
+
+			// Allow DeviceWaitIdle to succeed: the next attach drains and closes the retained
+			// device (0 live buffers, device closed) and opens one fresh healthy encoder.
+			waitMu.Lock()
+			waitResult = 0
+			waitMu.Unlock()
+			recoveredOpens := 0
+			recovAcc, errRecov := attachWithOpener(m, func() (*vk.Device, error) {
+				recoveredOpens++
+				return vk.NewFakeDeviceForTest(&vk.FakeHooksForTest{}), nil
+			})
+			if errRecov != nil || recovAcc == nil {
+				t.Fatalf("recovered attach = (%v, %v), want healthy accelerator", recovAcc, errRecov)
+			}
+			defer func() {
+				if err := recovAcc.Close(); err != nil {
+					t.Errorf("recovAcc.Close: %v", err)
+				}
+			}()
+			if recoveredOpens != 1 {
+				t.Fatalf("recovered attach opens = %d, want 1", recoveredOpens)
+			}
+			if n := pendingVulkanCleanupsLen(); n != 0 {
+				t.Fatalf("pending Vulkan cleanups after recovery = %d, want 0", n)
+			}
+			if live := stuckDev.LiveBuffersForTest(); live != 0 {
+				t.Fatalf("old device buffers not released on recovery: live=%d", live)
+			}
+			if st := stuckDev.Status(); st == nil || !strings.Contains(st.Error(), "closed") {
+				t.Fatalf("old device status after recovery = %v, want closed", st)
+			}
+			if out, _, err := recovAcc.Forward(orig[0], false); err != nil || len(out) == 0 {
+				t.Fatalf("recovered Vulkan encoder Forward = (%d, %v)", len(out), err)
+			}
+		})
 	})
 
 	// (4) Non-OOM input/limit/closed distinctions.

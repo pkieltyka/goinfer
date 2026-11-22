@@ -59,9 +59,36 @@ func attachWithOpener(m *embeddinggemma2.Model, openDev func() (*vk.Device, erro
 func newEncoder(m *embeddinggemma2.Model, selector vk.Selector) (*encoder, error) {
 	return newEncoderWithOpener(m, func() (*vk.Device, error) { return vk.Open(selector) })
 }
+
+// vulkanAttachCleanup serializes Vulkan encoder attach admission and
+// failed-attach cleanup so at most one unfinished *vk.Device can exist at a
+// time. While an earlier failed attach cannot drain and Close its device,
+// subsequent attach attempts retry Close under the admission lock and fail
+// closed before calling openDev(). Healthy attached encoders remain
+// independent.
+var vulkanAttachCleanup struct {
+	mu      sync.Mutex
+	pending *vk.Device
+}
+
+func drainPendingVulkanCleanupLocked() error {
+	if vulkanAttachCleanup.pending == nil {
+		return nil
+	}
+	d := vulkanAttachCleanup.pending
+	if err := d.Close(); err != nil {
+		return fmt.Errorf("vulkan: previous failed attach cleanup still pending: %w", errors.Join(d.LossCause(), err))
+	}
+	vulkanAttachCleanup.pending = nil
+	return nil
+}
+
 func newEncoderWithOpener(m *embeddinggemma2.Model, openDev func() (*vk.Device, error)) (*encoder, error) {
 	if m == nil {
 		return nil, errors.New("vulkan: nil model")
+	}
+	if openDev == nil {
+		return nil, errors.New("vulkan: nil device opener")
 	}
 	w := m.TransformerWeights()
 	cfg := w.Config
@@ -78,6 +105,11 @@ func newEncoderWithOpener(m *embeddinggemma2.Model, openDev func() (*vk.Device, 
 		a.maxQ = max(a.maxQ, cfg.Heads*l.HeadDim)
 		a.maxKV = max(a.maxKV, l.KVHeads*l.HeadDim)
 	}
+	vulkanAttachCleanup.mu.Lock()
+	defer vulkanAttachCleanup.mu.Unlock()
+	if err := drainPendingVulkanCleanupLocked(); err != nil {
+		return nil, err
+	}
 	d, err := openDev()
 	if err != nil {
 		return nil, err
@@ -85,7 +117,13 @@ func newEncoderWithOpener(m *embeddinggemma2.Model, openDev func() (*vk.Device, 
 	a.device = d
 	info := d.Info()
 	a.identity = describeDevice(info)
-	fail := func(err error) (*encoder, error) { return nil, errors.Join(err, d.Close()) }
+	fail := func(err error) (*encoder, error) {
+		closeErr := d.Close()
+		if closeErr != nil {
+			vulkanAttachCleanup.pending = d
+		}
+		return nil, errors.Join(d.LossCause(), err, closeErr)
+	}
 	for _, s := range []struct {
 		name            string
 		bindings, words int

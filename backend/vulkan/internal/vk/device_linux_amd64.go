@@ -521,6 +521,16 @@ func (d *Device) Status() error {
 	return d.usable()
 }
 
+// LossCause reports the first recorded device loss, including after Close.
+func (d *Device) LossCause() error {
+	d.mu.Lock()
+	defer d.mu.Unlock()
+	if errors.Is(d.broken, ErrDeviceLost) {
+		return d.broken
+	}
+	return nil
+}
+
 func (d *Device) poisonOnLoss(err error) {
 	if !errors.Is(d.broken, ErrDeviceLost) && errors.Is(err, ErrDeviceLost) {
 		d.broken = err
