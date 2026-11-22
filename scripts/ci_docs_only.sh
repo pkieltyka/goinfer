@@ -13,11 +13,10 @@
 #     does not widen). --classify, which ci.yml's `changes` job uses, counts these paths as quick (the class
 #     names are for the log; the quick path is one path):
 #       records  docs/measurements/**
-#       docs     the rest of docs/**, RELEASING.md, .claude/**, changelog.d/**, a top-level *.md other than README.md,
-#                and apps/site content (anything under apps/site/ that is not Go, go.mod/go.sum, wrangler.jsonc or cmd/)
-#       version  a go.mod or go.sum (any module except apps/site) whose diff changes only lines for
+#       docs     the rest of docs/**, RELEASING.md, .claude/**, changelog.d/**, and a top-level *.md other than README.md
+#       version  a go.mod or go.sum whose diff changes only lines for
 #                github.com/pkieltyka/goinfer or goinfer/backend/* module versions
-#     backend  every change is inside backend/webgpu, backend/cuda or backend/metal, or on the quick path,
+#     backend  every change is inside backend/cuda, backend/metal or backend/vulkan, or on the quick path,
 #              with at least one backend change. This is not quick and rule 2 still applies.
 #     Everything else takes the ordinary CI path: code, scripts, workflows, assets, README.md, and other dependencies.
 #  2. A docs file that Go code READS is not "docs-only", whatever its path. Measured 2026-09-22
@@ -92,8 +91,6 @@ class_of() {
   case "$1" in
     README.md) echo code ;;
     changelog.d/*) echo docs ;;
-    apps/site/cmd/*|apps/site/*.go|apps/site/go.mod|apps/site/go.sum|apps/site/wrangler.jsonc) echo code ;;
-    apps/site/*) echo docs ;;
     go.mod|go.sum|*/go.mod|*/go.sum) echo gomod ;;
     */*) echo code ;;
     *.md) echo docs ;;
@@ -119,7 +116,7 @@ version_only() {
 
 # in_backend PATH -> exit 0 if PATH is inside one of the three backend modules
 in_backend() {
-  case "$1" in backend/webgpu/*|backend/cuda/*|backend/metal/*) return 0 ;; esac
+  case "$1" in backend/cuda/*|backend/metal/*|backend/vulkan/*) return 0 ;; esac
   return 1
 }
 
