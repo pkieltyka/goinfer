@@ -290,6 +290,9 @@ func poolNormalize(h []float32, T, d int) []float32 {
 // forward is the encoder. With keepLayers it also returns every layer's input and the last layer's output (before the
 // final norm), for per-layer differencing in tests.
 func (m *Model) forward(ids []int, keepLayers bool) ([]float32, [][]float32, error) {
+	if max := m.cfg.MaxPositions; max > 0 && len(ids) > max {
+		return nil, nil, fmt.Errorf("embeddinggemma2: %d positions, over max_position_embeddings %d", len(ids), max)
+	}
 	x, err := m.EmbedTokens(ids)
 	if err != nil {
 		return nil, nil, err

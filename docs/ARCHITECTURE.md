@@ -1184,7 +1184,7 @@ Every import from one goinfer package to another, by repository-relative directo
 | `demo/agent/cmd/agent-web` | `backend/webgpu`, `demo/agent/agent`, `demo/agent/internal/embedmodel` |  |
 | `demo/agent/cmd/stdlib-agent` | `demo/agent/agent`, `demo/agent/internal/embedmodel` |  |
 | `demo/chat` | `internal/app/chatapp` |  |
-| `embeddinggemma2` | `internal/audio`, `internal/vision`, `multimodal`, `tokenizer` |  |
+| `embeddinggemma2` | `internal/audio`, `internal/gguf`, `internal/vision`, `multimodal`, `tokenizer` |  |
 | `engine` | `constrain`, `decoder`, `internal/cost` |  |
 | `engine/enginetest` | `engine` |  |
 | `internal/app/chatapp` | `chat`, `constrain`, `decoder`, `internal/app/cliutil`, `internal/app/decidecmd`, `internal/app/fitcmd`, `internal/app/loadflags`, `internal/app/pullcmd`, `internal/batchio`, `internal/codec`, `internal/diag/hwreport`, `internal/runtime/giw`, `internal/runtime/modelload`, `internal/runtime/prequant`, `internal/vision`, `multimodal`, `pull`, `tokenizer` |  |
@@ -1201,6 +1201,7 @@ Every import from one goinfer package to another, by repository-relative directo
 | `internal/decide` | `chat`, `decoder`, `internal/codec`, `internal/confidence`, `tokenizer` |  |
 | `internal/diag/hwreport` | `decoder`, `internal/app/fitcmd` |  |
 | `internal/diag/towerid` | `embeddinggemma2`, `internal/audio`, `internal/diag/kernelprint`, `internal/vision`, `multimodal` |  |
+| `internal/gguf` | `internal/runtime/f16` |  |
 | `internal/guard/memgate` | `decoder`, `decoder/fit`, `internal/runtime/mem` | `internal/diag/sb2census` |
 | `internal/guard/servecheck` | `decoder`, `internal/diag/hwreport` |  |
 | `internal/guard/swapguard` | `decoder`, `internal/runtime/logs`, `internal/runtime/mem/probe` |  |
