@@ -60,9 +60,9 @@ By the pre-registered decision rule, MC3 ships enabled under `serve`'s existing 
 - The tagged Metal suite ran 182 pass, 0 fail; the decoder suite 648 pass, bar the parity manifest, refreshed
   goldens-proven (38 passed, 0 failed); serveapp ok.
 
-Logs: [`mc3-metal-identity.log`](concurrency-mc3-2026-09-26/mc3-metal-identity.log),
-[`metal-suite-tagged.log`](concurrency-mc3-2026-09-26/metal-suite-tagged.log),
-[`decoder-suite.log`](concurrency-mc3-2026-09-26/decoder-suite.log).
+Logs: [`mc3-metal-identity.log`](https://github.com/townsendmerino/goinfer/blob/36dbfbaf149aabdff43dce5766b49a65183113a7/docs/measurements/concurrency-mc3-2026-09-26/mc3-metal-identity.log),
+[`metal-suite-tagged.log`](https://github.com/townsendmerino/goinfer/blob/36dbfbaf149aabdff43dce5766b49a65183113a7/docs/measurements/concurrency-mc3-2026-09-26/metal-suite-tagged.log),
+[`decoder-suite.log`](https://github.com/townsendmerino/goinfer/blob/36dbfbaf149aabdff43dce5766b49a65183113a7/docs/measurements/concurrency-mc3-2026-09-26/decoder-suite.log).
 
 ## The W7 grading
 
@@ -79,11 +79,11 @@ As registered (`505cc6fc`):
 
 The first launch (22:32) was stopped before any cell ran: the bench's free-page wait (1500 MB) cannot be met when model
 mmaps leave ~150 MB of pages free with 72% reclaimable. It was relaunched with a 100 MB floor
-([`w7-run-attempt1-memwait.log`](concurrency-mc3-2026-09-26/w7-run-attempt1-memwait.log)).
+([`w7-run-attempt1-memwait.log`](https://github.com/townsendmerino/goinfer/blob/36dbfbaf149aabdff43dce5766b49a65183113a7/docs/measurements/concurrency-mc3-2026-09-26/w7-run-attempt1-memwait.log)).
 
-Raw: [`w7.json`](concurrency-mc3-2026-09-26/w7.json), [`w7-run.log`](concurrency-mc3-2026-09-26/w7-run.log),
-[`w7-servers.log`](concurrency-mc3-2026-09-26/w7-servers.log), [`run-w7.sh`](concurrency-mc3-2026-09-26/run-w7.sh).
-Gates computed by [`gates.py`](concurrency-mc3-2026-09-26/gates.py) → [`gates-output.txt`](concurrency-mc3-2026-09-26/gates-output.txt).
+Raw: [`w7.json`](concurrency-mc3-2026-09-26/w7.json), [`w7-run.log`](https://github.com/townsendmerino/goinfer/blob/36dbfbaf149aabdff43dce5766b49a65183113a7/docs/measurements/concurrency-mc3-2026-09-26/w7-run.log),
+[`w7-servers.log`](https://github.com/townsendmerino/goinfer/blob/36dbfbaf149aabdff43dce5766b49a65183113a7/docs/measurements/concurrency-mc3-2026-09-26/w7-servers.log), [`run-w7.sh`](concurrency-mc3-2026-09-26/run-w7.sh).
+Gates computed by [`gates.py`](concurrency-mc3-2026-09-26/gates.py) → [`gates-output.txt`](https://github.com/townsendmerino/goinfer/blob/36dbfbaf149aabdff43dce5766b49a65183113a7/docs/measurements/concurrency-mc3-2026-09-26/gates-output.txt).
 
 | gate (pre-registered) | result |
 |---|---|

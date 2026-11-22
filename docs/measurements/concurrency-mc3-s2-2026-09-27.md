@@ -48,9 +48,9 @@ Pre-registered in `16c27bd7`, committed before the S2 build:
   2026-09-27 03:55–04:01 PDT.
 - The server logs show the MC3 banner in all 12 old and new cells, and the pre-MC3 build in the ref cell.
 
-Raw: [`w7-s2.json`](concurrency-mc3-s2-2026-09-27/w7-s2.json), [`w7-s2-run.log`](concurrency-mc3-s2-2026-09-27/w7-s2-run.log),
-[`w7-s2-servers.log`](concurrency-mc3-s2-2026-09-27/w7-s2-servers.log), [`run-w7.sh`](concurrency-mc3-s2-2026-09-27/run-w7.sh);
-gates by MC3's [`gates.py`](concurrency-mc3-2026-09-26/gates.py) → [`gates-output.txt`](concurrency-mc3-s2-2026-09-27/gates-output.txt).
+Raw: [`w7-s2.json`](concurrency-mc3-s2-2026-09-27/w7-s2.json), [`w7-s2-run.log`](https://github.com/townsendmerino/goinfer/blob/36dbfbaf149aabdff43dce5766b49a65183113a7/docs/measurements/concurrency-mc3-s2-2026-09-27/w7-s2-run.log),
+[`w7-s2-servers.log`](https://github.com/townsendmerino/goinfer/blob/36dbfbaf149aabdff43dce5766b49a65183113a7/docs/measurements/concurrency-mc3-s2-2026-09-27/w7-s2-servers.log), [`run-w7.sh`](concurrency-mc3-s2-2026-09-27/run-w7.sh);
+gates by MC3's [`gates.py`](concurrency-mc3-2026-09-26/gates.py) → [`gates-output.txt`](https://github.com/townsendmerino/goinfer/blob/36dbfbaf149aabdff43dce5766b49a65183113a7/docs/measurements/concurrency-mc3-s2-2026-09-27/gates-output.txt).
 
 | gate (pre-registered) | result |
 |---|---|

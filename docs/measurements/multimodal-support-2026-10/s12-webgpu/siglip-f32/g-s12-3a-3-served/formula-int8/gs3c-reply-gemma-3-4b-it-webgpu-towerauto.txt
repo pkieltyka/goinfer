@@ -1,1 +1,0 @@
-The image shows a note about the Gaussian integral and its connection to the normal distribution (or bell curve) in statistics. It presents the integral  ∫ e⁻

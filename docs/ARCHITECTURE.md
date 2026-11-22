@@ -1044,23 +1044,17 @@ not a binding strategy.
 
 ### Modules
 
-Eight Go modules live in the workspace (a ninth `go.mod`, `.github/actions/staticcheck`, pins the CI linter build).
-Six support release tags, and two (`apps/sdktest` and `apps/site`) are never tagged. The backends are separate
-modules so that their dependencies never enter a build that did not ask for them. `demo/agent` is separate so that the MCP SDK
-stays out of the root's `go.mod`.
+Four Go modules share a workspace. The backend dependencies stay outside root-only builds.
+A separate module under `.github/actions/staticcheck/` pins the linter.
 
 | Module | Contents | Requires beyond the root and `aikit` |
 |---|---|---|
-| `github.com/pkieltyka/goinfer` | everything in the Packages table below except the four backends | `golang.org/x/text` |
-| `github.com/pkieltyka/goinfer/backend/webgpu` | the WebGPU backend (`-tags gpu`), `backend/webgpu/cmd/chat`, `backend/webgpu/cmd/serve` | `oliverbestmann/webgpu` (cgo) |
+| `github.com/pkieltyka/goinfer` | everything in the Packages table below except the three backend modules | `golang.org/x/text` |
 | `github.com/pkieltyka/goinfer/backend/cuda` | the CUDA backend (`-tags cuda`), `backend/cuda/cmd/chat`, `backend/cuda/cmd/serve` | `eitamring/gocudrv`, `ebitengine/purego` |
 | `github.com/pkieltyka/goinfer/backend/metal` | the Metal backend (darwin), `backend/metal/cmd/chat`, `backend/metal/cmd/serve` | `ebitengine/purego`, `golang.org/x/sys` |
 | `github.com/pkieltyka/goinfer/backend/vulkan` | direct Vulkan EmbeddingGemma 2 text accelerator (Linux amd64) | `ebitengine/purego` |
-| `github.com/pkieltyka/goinfer/demo/agent` | a local RAG coding agent over MCP | the MCP Go SDK; `goinfer/backend/webgpu` for its WebGPU web build |
-| `github.com/pkieltyka/goinfer/sdktest` | (`apps/sdktest`, never tagged) official OpenAI and Anthropic SDK tests against the in-process server | the OpenAI and Anthropic Go SDKs |
-| `github.com/pkieltyka/goinfer/site` | (`apps/site`, never tagged) the website generator (`goinfer.dev`) | stdlib only |
 
-**The library modules are the root and four GPU backends.** `demo/agent` is a demo.
+**The workspace is the root and three GPU modules.**
 [api-tiers.md](api-tiers.md) describes the API stability tiers.
 
 **`go.work` is gitignored, but needed for any cross-module change.** Without it, a submodule resolves
@@ -1080,7 +1074,7 @@ The fork inherited upstream’s `v0.3.0` tag for `github.com/townsendmerino/goin
 release skips to `v0.4.0` pending the fork owner’s approval.
 To build a matching backend, use the release checkout and its workspace. When also publishing submodule versions, follow the multi-module release procedure. [RELEASING.md](../RELEASING.md) is the authority: tag the
 root, then point each submodule at that tag and tag it. Submodule tags carry the module path as a
-prefix (`backend/cuda/vX.Y.Z`, `backend/webgpu/vX.Y.Z`, `backend/metal/vX.Y.Z`, `demo/agent/vX.Y.Z`), which is how the module
+prefix (`backend/cuda/vX.Y.Z`, `backend/metal/vX.Y.Z`, `backend/vulkan/vX.Y.Z`), which is how the module
 proxy resolves a submodule. Bare `vX.Y.Z` tags are the root's. The
 [releases page](https://github.com/pkieltyka/goinfer/releases) has what is current.
 
@@ -1088,8 +1082,8 @@ proxy resolves a submodule. Bare `vX.Y.Z` tags are the root's. The
 
 | binary | main package | notes |
 |---|---|---|
-| `goinfer-chat` | `demo/chat` (CPU only); `backend/cuda/cmd/chat`, `backend/metal/cmd/chat`, `backend/webgpu/cmd/chat` | the release builds darwin from `backend/metal/cmd/chat`, Linux from `backend/cuda/cmd/chat` and Windows from `demo/chat`, all `CGO_ENABLED=0`, plus the baked-in-model builds (§2) |
-| `goinfer-serve` | `cmd/serve` (CPU only); `backend/cuda/cmd/serve`, `backend/metal/cmd/serve`, `backend/webgpu/cmd/serve` | the same split |
+| `goinfer-chat` | `demo/chat` (CPU only); `backend/cuda/cmd/chat`, `backend/metal/cmd/chat` | the release builds darwin from `backend/metal/cmd/chat`, Linux from `backend/cuda/cmd/chat` and Windows from `demo/chat`, all `CGO_ENABLED=0`, plus the baked-in-model builds (§2) |
+| `goinfer-serve` | `cmd/serve` (CPU only); `backend/cuda/cmd/serve`, `backend/metal/cmd/serve` | the same split |
 | `prequant` | `cmd/prequant` | builds `.giw` bundles |
 | `gate` | `cmd/gate` | the gate runner over `go test -json`: `census`, `heavy`, `parity`, `composition`, `selector`, `gpu`, `mutation` |
 
@@ -1118,7 +1112,6 @@ file, held against the tree by `TestLayout_arrows` and against this file by `Tes
 | `internal/app/chatapp`, `internal/app/serveapp` | the logic of the two binaries |
 | `internal/app/fitcmd`, `internal/app/pullcmd`, `internal/guard/servecheck`, `internal/guard/swapguard` | `fit`; `pull`; `serve check`; the swap tripwire |
 | `internal/runtime/diskfree` | a filesystem's free space, for the checks that refuse a large write up front |
-| `backend/webgpu` (`-tags gpu`) | the WebGPU backend |
 | `backend/cuda` (`-tags cuda`) | the CUDA backend |
 | `backend/metal` (darwin) | the Metal backend |
 
@@ -1153,8 +1146,6 @@ Every import from one goinfer package to another, by repository-relative directo
 | `apps/examples/embeddinggemma2` | `embeddinggemma2` |  |
 | `apps/examples/invoice` | `chat`, `constrain`, `decoder`, `multimodal`, `tokenizer` |  |
 | `apps/examples/structured` | `chat`, `constrain`, `decoder`, `tokenizer` |  |
-| `apps/sdktest` |  | `server` |
-| `apps/site/cmd/build` | `site/internal/site` |  |
 | `backend/cuda` | `backend/cuda/internal/fitdecide`, `backend/cuda/internal/gpudev`, `backend/cuda/internal/launchgeom`, `backend/cuda/internal/wpack`, `decoder`, `decoder/fit`, `embeddinggemma2`, `internal/audio`, `internal/cost`, `internal/runtime/logs`, `internal/runtime/mem`, `internal/runtime/program`, `internal/runtime/sampling`, `internal/vision`, `multimodal` | `chat`, `internal/app/fitcmd`, `internal/app/loadflags`, `internal/clef`, `internal/diag/sb2census`, `internal/diag/towerid`, `internal/fidelity`, `internal/guard/memgate`, `internal/runtime/giw`, `internal/runtime/mem/probe`, `internal/runtime/modelload`, `internal/runtime/whisper`, `internal/testgate`, `internal/wrappedupload`, `tokenizer` |
 | `backend/cuda/cmd/chat` | `backend/cuda`, `internal/app/chatapp` |  |
 | `backend/cuda/cmd/serve` | `backend/cuda`, `internal/app/serveapp` |  |
@@ -1165,11 +1156,6 @@ Every import from one goinfer package to another, by repository-relative directo
 | `backend/metal/cmd/serve` | `backend/metal`, `internal/app/serveapp` |  |
 | `backend/metal/kernels` | `internal/runtime/f16` | `backend/metal/internal/gpudev`, `internal/runtime/hybridattn`, `internal/runtime/mamba2`, `internal/runtime/sampling` |
 | `backend/vulkan` | `backend/vulkan/internal/vk`, `embeddinggemma2` |  |
-| `backend/webgpu` | `backend/webgpu/internal/kernels`, `backend/webgpu/internal/kvdecl`, `decoder`, `internal/cost`, `internal/runtime/logs`, `internal/runtime/mem`, `internal/runtime/program` | `chat`, `decoder/fit`, `internal/diag/sb2census`, `internal/diag/towerid`, `internal/fidelity`, `internal/guard/memgate`, `internal/runtime/giw`, `internal/runtime/mem/probe`, `internal/testgate`, `internal/vision`, `internal/wrappedupload`, `multimodal`, `tokenizer` |
-| `backend/webgpu/cmd/chat` | `backend/webgpu`, `internal/app/chatapp` |  |
-| `backend/webgpu/cmd/serve` | `backend/webgpu`, `internal/app/serveapp` |  |
-| `backend/webgpu/internal/kernels` | `internal/cost`, `internal/runtime/adapter`, `internal/runtime/mem`, `internal/vision`, `multimodal` | `internal/runtime/hybridattn`, `internal/runtime/sampling`, `internal/testgate` |
-| `backend/webgpu/internal/kvdecl` | `internal/runtime/program` |  |
 | `chat` | `constrain`, `tokenizer` | `internal/codec`, `multimodal` |
 | `cmd/gate` | `internal/guard/paritykey`, `internal/runtime/mem/probe`, `tokenizer` | `internal/testgate` |
 | `cmd/hostmem` | `internal/runtime/mem/probe` |  |
@@ -1180,9 +1166,6 @@ Every import from one goinfer package to another, by repository-relative directo
 | `decoder` | `chat`, `constrain`, `decoder/config`, `decoder/fit`, `decoder/quant`, `decoder/resident`, `internal/cost`, `internal/runtime/adapter`, `internal/runtime/diskfree`, `internal/runtime/f16`, `internal/runtime/giw`, `internal/runtime/hybridattn`, `internal/runtime/kvmgr`, `internal/runtime/logs`, `internal/runtime/mamba2`, `internal/runtime/mem`, `internal/runtime/mem/probe`, `internal/runtime/program`, `internal/runtime/sampling`, `tokenizer` | `internal/audio`, `internal/diag/sb2census`, `internal/fidelity`, `internal/guard/paritykey`, `internal/testgate`, `internal/vision`, `multimodal` |
 | `decoder/fit` | `internal/runtime/mem` |  |
 | `decoder/resident` | `internal/cost`, `internal/runtime/adapter` |  |
-| `demo/agent/agent` | `chat`, `constrain`, `decoder`, `multimodal`, `tokenizer` |  |
-| `demo/agent/cmd/agent-web` | `backend/webgpu`, `demo/agent/agent`, `demo/agent/internal/embedmodel` |  |
-| `demo/agent/cmd/stdlib-agent` | `demo/agent/agent`, `demo/agent/internal/embedmodel` |  |
 | `demo/chat` | `internal/app/chatapp` |  |
 | `embeddinggemma2` | `internal/audio`, `internal/gguf`, `internal/vision`, `multimodal`, `tokenizer` |  |
 | `engine` | `constrain`, `decoder`, `internal/cost` |  |
@@ -1226,9 +1209,9 @@ No import, made or recorded, may break one; they are edited by hand in `imports.
 | quant-leaf | `decoder/quant`, tests included | any goinfer package | decoder/quant (Tier 3, docs/layout.md) parses safetensors checkpoint quantization configs and reconstructs FP8, GPTQ, AWQ, NVFP4 and MLX quantized weights behind Reconstructor/RowStreamReconstructor. It sits below decoder and imports no goinfer package, decoder included. |
 | towers-standalone | `internal/vision`, `internal/audio`, tests included | any goinfer package; (`internal/audio` may import `internal/vision`); anything outside the standard library but `github.com/pkieltyka/aikit/linalg`, `github.com/pkieltyka/aikit/embed` | The towers moved from aikit (AX) as model semantics over aikit's kernels: no goinfer package, and from outside the standard library only aikit's linalg and embed. One exception: internal/audio may import internal/vision, whose tower program type the audio towers walk (Francis, 2026-10-29). |
 | gpudev-standalone | `backend/cuda/internal/gpudev`, `backend/metal/internal/gpudev`, tests included | any goinfer package | The device substrate (AX) sits under every backend package and imports none of them, nor anything else of goinfer's. |
-| kernels-free-of-decoder | `backend/cuda/kernels`, `backend/metal/kernels`, `backend/webgpu/internal/kernels`, tests included | `decoder` | Backend kernel tests left the packages that import decoder (SB1 step 1) so a decoder edit stops re-running them. |
+| kernels-free-of-decoder | `backend/cuda/kernels`, `backend/metal/kernels`, tests included | `decoder` | Backend kernel tests left the packages that import decoder (SB1 step 1) so a decoder edit stops re-running them. |
 | probe-standalone | `internal/runtime/mem/probe`, tests included | any goinfer package | The one reader of the OS's memory account (MM0) imports no goinfer package; that it is the only reader is TestOnlyProbeReadsOSMemory. |
-| root-free-of-backends | `module:root`, tests included | `backend/cuda`; `backend/metal`; `backend/vulkan`; `backend/webgpu`; `github.com/pkieltyka/aikit/gpu`; `github.com/ebitengine/purego`; `github.com/eitamring/gocudrv`; (the root go.mod requires none of them) | The root module builds without a GPU toolchain or binding: the backends are their own modules, which import the root, never the reverse. |
+| root-free-of-backends | `module:root`, tests included | `backend/cuda`; `backend/metal`; `backend/vulkan`; `github.com/pkieltyka/aikit/gpu`; `github.com/ebitengine/purego`; `github.com/eitamring/gocudrv`; (the root go.mod requires none of them) | The root module builds without a GPU toolchain or binding: the backends are their own modules, which import the root, never the reverse. |
 | scheduler-standard-library | `internal/runtime/scheduler`, tests included | any goinfer package | The scheduling policy (SB6) is decisions over plain values: no goinfer package and nothing outside the standard library, so it can be tested on a virtual clock with nothing loaded. |
 | engine-below-the-shell | `engine`, `engine/enginetest`, tests included | `internal/app/serveapp`; `internal/app/chatapp`; `cmd` | The engine package (SB7) is what the serving shell asks of a model; the shell imports it and its fakes, never the reverse, so a fake engine needs no server. |
 | serveapp-fakes-test-only | `internal/app/serveapp` | `engine/enginetest` | The engine fakes are test code: the serving shell's production files do not link them. A test supplies its engine through loadedModel.fakeEngine. |

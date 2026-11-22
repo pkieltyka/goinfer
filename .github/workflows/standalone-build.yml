@@ -17,14 +17,12 @@ on:
   push:
     tags:
       - 'v*'
-      - 'backend/webgpu/v*'
       - 'backend/cuda/v*'
       - 'backend/metal/v*'
       - 'backend/vulkan/v*'
       - 'gpu/v*'
       - 'cuda/v*'
       - 'metal/v*'
-      - 'demo/agent/v*'
   workflow_dispatch: {}
 
 permissions:
@@ -37,15 +35,11 @@ jobs:
       fail-fast: false
       matrix:
         include:
-          - module: backend/webgpu
-            tags: gpu
           - module: backend/cuda
             tags: cuda
           - module: backend/metal
             tags: metal
           - module: backend/vulkan
-            tags: ""
-          - module: demo/agent
             tags: ""
     steps:
       - uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09 # v5.1.0
@@ -56,7 +50,6 @@ jobs:
       # metal/ is darwin-only and cuda/ is linux-only for its cgo-free dlopen path; both still
       # COMPILE cross-target with GOOS set, which is what this gate needs — it is asking whether
       # the module resolves without a workspace, not whether it runs here.
-      # No X11/GL packages for the gpu module's cgo build: see ci.yml's gpu job (removed 2026-09-25).
 
       # NO `go work init`. That is the whole point: this must resolve the goinfer root from the
       # proxy, the way `go install github.com/pkieltyka/goinfer/<module>@<tag>` does for a

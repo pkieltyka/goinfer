@@ -12,7 +12,7 @@ cross-compile it like anything else. No Python, no llama.cpp, no C toolchain, no
   invalid token is unreachable, not retried.
 - **One static binary** — and, if you want, the model baked into it.
 - **44 model families**, each behind a HuggingFace logit-parity gate.
-- **CPU, CUDA and Metal**, cgo-free; **WebGPU** as an opt-in cgo build.
+- **CPU, CUDA and Metal** for generation, plus **Vulkan** for EmbeddingGemma 2 text, all cgo-free.
 - **Runs offline** — no telemetry, no update check, no account. The one thing that reaches the network is fetching a
   model when you ask for one, from HuggingFace: `pull`, an `hf:` or `demo:` model reference, or the web UI's search and
   download. A model already on disk, or baked into the binary, needs no network at all.
@@ -336,7 +336,7 @@ Every speed in this README came from one of them and does not carry over to othe
 narrower path, or emulation), and which have never executed at all.
 
 What stands between you and a wrong answer on a machine we have not seen is a check goinfer runs at start: it runs the compute kernels it is about to use against a reference on a small fixed input, and if one disagrees
-it steps down to a slower path, or declines that backend, rather than giving wrong numbers. Today that covers the CPU kernels, CUDA, WebGPU on a real GPU (not on a software renderer), and Metal; each GPU backend's margins were
+it steps down to a slower path, or declines that backend, rather than giving wrong numbers. Today that covers the CPU kernels, CUDA, and Metal; each GPU backend's margins were
 measured on one device so far ([docs/server.md](docs/server.md)). `goinfer-serve check --hardware` prints what it found on your machine and sends nothing anywhere. If you submit a [fix to this fork](https://github.com/pkieltyka/goinfer/pulls), include the hardware report and steps to reproduce the problem.
 
 ## What it is, and isn't
@@ -355,7 +355,7 @@ in-process. Longer form: [docs/positioning.md](docs/positioning.md).
 
 - **44 model families** — Gemma 1/2/3/4 (and CodeGemma), the Qwen line (Qwen2, Qwen2.5, Qwen3, Qwen3-MoE, Qwen3-Next, Qwen3.5-MoE, Qwen3.8, Qwen2.5-VL,
   Qwen3-VL and its MoE, Qwen3-ASR), Llama, Mistral, Mixtral, Phi-3, DeepSeek/MLA,
-  GLM, Kimi, Granite, Nemotron, Mellum, Olmo 3, Olmo Hybrid (on Metal at `int4` only; on WebGPU read only on the M1 Pro's adapter), Flint and more; one page each at
+  GLM, Kimi, Granite, Nemotron, Mellum, Olmo 3, Olmo Hybrid (on Metal at `int4` only), Flint and more; one page each at
   [goinfer.dev/models](https://goinfer.dev/models/), generated from the `decoder` registry
   ([capability-matrix.md](docs/capability-matrix.md)).
 - **All four sequence-mixing families** — softmax·GQA, gated-linear (DeltaNet), state-space
@@ -367,10 +367,8 @@ in-process. Longer form: [docs/positioning.md](docs/positioning.md).
   (`28 ran / 20 skipped / 0 failed`): see `docs/parity-coverage-policy.md`.
 - **GPU** — CUDA and Metal are cgo-free: at runtime they open the vendor's own driver API
   (`libcuda.so.1`, Metal.framework) and run kernels shipped in the binary, so there is no CUDA
-  toolkit to build against, and without the driver the load declines to the CPU path. WebGPU
-  (opt-in, `-tags gpu`) is the one cgo build: it links the prebuilt wgpu-native library, which
-  drives the system's Vulkan, Metal or DX12 driver, so it needs a C toolchain and is not in the
-  release binaries. Nothing that performs inference is loaded from outside the binary: no
+  toolkit to build against, and without the driver the load declines to the CPU path. The optional
+  Vulkan backend accelerates EmbeddingGemma 2 text on Linux. Nothing that performs inference is loaded from outside the binary: no
   llama.cpp, no libllama, no Python runtime. The library's `go.mod` has two direct requirements,
   `github.com/pkieltyka/aikit` and `golang.org/x/text`; each GPU backend is its own module.
   Dense and MoE models; anything unsupported declines at load and falls back to CPU. See [docs/cuda-backend.md](docs/cuda-backend.md)
@@ -391,25 +389,24 @@ endpoints. Notes per model, and how fast each runs, are in [docs/multimodal.md](
 
 Each cell: where the image or audio **tower** runs / where the **decoder** runs after the image.
 
-| family (`model_type`) | CPU | CUDA | Metal | WebGPU |
-|---|---|---|---|---|
-| Gemma 3 (`gemma3`) | CPU / CPU | GPU / GPU | GPU / GPU | GPU / GPU |
-| Gemma 4 E2B, E4B (`gemma4`) | CPU / CPU | GPU / GPU | GPU / GPU | GPU / GPU |
-| Gemma 4 E2B, E4B audio (`gemma4`) | CPU / CPU | CPU / GPU | GPU / GPU | CPU / GPU |
-| Gemma 4 26B (`gemma4`) | CPU / CPU | GPU / GPU | GPU / GPU | GPU / GPU |
-| Gemma 4 31B (`gemma4`) | CPU / CPU | GPU / GPU | GPU / GPU | GPU / GPU |
-| Qwen2.5-VL (`qwen2_5_vl`) | CPU / CPU | GPU / GPU | GPU / GPU | GPU / GPU |
-| Qwen3.5+ dense (`qwen3_5`) | CPU / CPU | GPU / GPU | GPU / CPU | GPU / CPU |
-| Qwen3.5+ MoE (`qwen3_5_moe`) | CPU / CPU | GPU / CPU | GPU / CPU | GPU / CPU |
-| Qwen3-VL (`qwen3_vl`) | CPU / CPU | GPU / GPU | GPU / GPU | GPU / GPU |
-| Qwen3-VL MoE (`qwen3_vl_moe`) | CPU / CPU | GPU / GPU | GPU / GPU | GPU / GPU |
-| GLM-OCR (`glm_ocr`) | CPU / CPU | GPU / GPU | GPU / GPU | GPU / CPU |
-| LFM2.5-VL (`lfm2_vl`) | CPU / CPU | CPU / CPU | CPU / CPU | CPU / CPU |
-| Ministral 3 (`mistral3`) | CPU / CPU | CPU / GPU | CPU / GPU | CPU / CPU |
+| family (`model_type`) | CPU | CUDA | Metal |
+|---|---|---|---|
+| Gemma 3 (`gemma3`) | CPU / CPU | GPU / GPU | GPU / GPU |
+| Gemma 4 E2B, E4B (`gemma4`) | CPU / CPU | GPU / GPU | GPU / GPU |
+| Gemma 4 E2B, E4B audio (`gemma4`) | CPU / CPU | CPU / GPU | GPU / GPU |
+| Gemma 4 26B (`gemma4`) | CPU / CPU | GPU / GPU | GPU / GPU |
+| Gemma 4 31B (`gemma4`) | CPU / CPU | GPU / GPU | GPU / GPU |
+| Qwen2.5-VL (`qwen2_5_vl`) | CPU / CPU | GPU / GPU | GPU / GPU |
+| Qwen3.5+ dense (`qwen3_5`) | CPU / CPU | GPU / GPU | GPU / CPU |
+| Qwen3.5+ MoE (`qwen3_5_moe`) | CPU / CPU | GPU / CPU | GPU / CPU |
+| Qwen3-VL (`qwen3_vl`) | CPU / CPU | GPU / GPU | GPU / GPU |
+| Qwen3-VL MoE (`qwen3_vl_moe`) | CPU / CPU | GPU / GPU | GPU / GPU |
+| GLM-OCR (`glm_ocr`) | CPU / CPU | GPU / GPU | GPU / GPU |
+| LFM2.5-VL (`lfm2_vl`) | CPU / CPU | CPU / CPU | CPU / CPU |
+| Ministral 3 (`mistral3`) | CPU / CPU | CPU / GPU | CPU / GPU |
 
 <!-- END images-and-audio support table -->
 
-Not yet: video. Under `--backend webgpu` the Gemma 3, Gemma 4, Qwen2.5-VL, Qwen3.5+, Qwen3-VL and GLM-OCR towers run on the GPU by default on a unified-memory Mac (the table's WebGPU column; `--vision-device cpu` keeps them on the CPU). A discrete GPU keeps the CPU tower until `--vision-device gpu` asks, since WebGPU cannot price a card's memory, and a Qwen3.5+ `.gguf` mmproj tower likewise; the other families' towers have no WebGPU form.
 Qwen3-VL MoE (a 30B model, too large for a 16 GB Mac or an 8 GB card) has been checked against HuggingFace on the CPU; its served check on a GPU has not passed, because a two-image request on CUDA's paged path read as a fail and is still open.
 
 ## Docs
@@ -436,6 +433,8 @@ is the one to read if you read only one. Source: [docs/book/](docs/book).
 Demos: `demo/chat` (single-binary local chat), `demo/agent` (fully-local stdlib RAG coding agent).
 
 Built on [`aikit`](https://github.com/pkieltyka/aikit)'s embedding and tensor primitives.
+
+See the [upstream archive](docs/upstream-archive.md) for retired components and raw measurement artifacts.
 
 ## Status
 

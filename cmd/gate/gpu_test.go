@@ -347,51 +347,6 @@ func TestGPUGate_populatedAndUnfilteredCellsAreNotFlagged(t *testing.T) {
 	}
 }
 
-// TestClassifyAdapterProbe_distinguishesNoAdapterFromProbeFailure pins the other half of V-21:
-// a regex miss on the found-adapter line used to mean "no adapter" regardless of WHY it missed —
-// a genuine "TestAdapterProbe ran and found nothing" (which prints its own explicit
-// "ADAPTER_PROBE: none" line) looked identical to a build break of ./gpu/, a panic, or anything
-// else that kept the subprocess from ever reaching either print.
-func TestClassifyAdapterProbe_distinguishesNoAdapterFromProbeFailure(t *testing.T) {
-	for name, tc := range map[string]struct {
-		out          string
-		wantPresent  bool
-		wantBackend  string
-		wantNoteText string // "" = no note expected
-	}{
-		"found an adapter": {
-			out:         "=== RUN   TestAdapterProbe\nADAPTER_PROBE: backend=vulkan software=false\n--- PASS: TestAdapterProbe (0.01s)\n",
-			wantPresent: true, wantBackend: "vulkan",
-		},
-		"genuinely no adapter (the test ran and said so)": {
-			out:          "=== RUN   TestAdapterProbe\nADAPTER_PROBE: none (no adapter found)\n--- SKIP: TestAdapterProbe (0.00s)\n",
-			wantPresent:  false,
-			wantNoteText: "", // no note — this IS the hardware case
-		},
-		"build break (V-21): neither line ever printed": {
-			out:          "# github.com/pkieltyka/goinfer/gpu\ngpu/adapter_probe_test.go:9:2: undefined: someSymbol\nFAIL\tgithub.com/pkieltyka/goinfer/gpu [build failed]\n",
-			wantPresent:  false,
-			wantNoteText: "not \"no hardware\"",
-		},
-	} {
-		t.Run(name, func(t *testing.T) {
-			present, backend, note := classifyAdapterProbe([]byte(tc.out), nil)
-			if present != tc.wantPresent {
-				t.Errorf("present = %v, want %v", present, tc.wantPresent)
-			}
-			if backend != tc.wantBackend {
-				t.Errorf("backend = %q, want %q", backend, tc.wantBackend)
-			}
-			if tc.wantNoteText == "" && note != "" {
-				t.Errorf("unexpected note for %q: %q", name, note)
-			}
-			if tc.wantNoteText != "" && !strings.Contains(note, tc.wantNoteText) {
-				t.Errorf("note = %q, want it to contain %q (V-21)", note, tc.wantNoteText)
-			}
-		})
-	}
-}
-
 // The fresh-process group is derived from needsFreshProcess() the same way the drain group is derived from
 // drainsDevice(). Run from the repo root so the derivation has a cuda/ to read: from cmd/gate it finds
 // nothing, which is why the drain test above skips on every run and this one must not.
@@ -509,56 +464,6 @@ func TestGPU_mainTierReconcileFindsMissingAndDoubled(t *testing.T) {
 	missing, doubled = reconcileGroups(listed, []*results{half("a", "TestAlpha", "TestBeta", "TestMiddle"), half("b", "TestMiddle")})
 	if !slices.Equal(missing, []string{"TestZeta"}) || !slices.Equal(doubled, []string{"TestMiddle"}) {
 		t.Fatalf("got missing %v, doubled %v; want [TestZeta], [TestMiddle]", missing, doubled)
-	}
-}
-
-// A probe that never answered fails group W; the opt-out and a genuine "no adapter" skip it (V-21,
-// docs/code-notes/cmd-gate.md#detectWebGPU). Each case grades the group alone, then the whole gate.
-func TestGPU_webgpuProbeThatNeverAnsweredFailsTheGroup(t *testing.T) {
-	probe := func(out string, err error) webgpuProbe {
-		present, backend, note := classifyAdapterProbe([]byte(out), err)
-		return webgpuProbe{present: present, backend: backend, failed: note}
-	}
-	for name, tc := range map[string]struct {
-		p                  webgpuProbe
-		wantFail, wantSkip int
-		wantRC             int
-	}{
-		"the probe fails to build": {
-			p: probe("# github.com/pkieltyka/goinfer/gpu/internal/kernels\ngpu/internal/kernels/attn_keys_rows_test.go:128:37: undefined: b2i\n"+
-				"FAIL\tgithub.com/pkieltyka/goinfer/gpu/internal/kernels [build failed]\n", fmt.Errorf("exit status 1")),
-			wantFail: 1, wantRC: 1,
-		},
-		"the probe exits non-zero before it answers": {
-			p:        probe("=== RUN   TestAdapterProbe\npanic: wgpu: instance creation failed\nexit status 2\nFAIL\tgithub.com/pkieltyka/goinfer/gpu/internal/kernels\t0.1s\n", fmt.Errorf("exit status 1")),
-			wantFail: 1, wantRC: 1,
-		},
-		"GOINFER_GATE_SKIP_WEBGPU opts out": {
-			p:        webgpuProbe{optOut: true},
-			wantSkip: 1, wantRC: 0,
-		},
-		"the probe ran and found no adapter": {
-			p:        probe("=== RUN   TestAdapterProbe\nADAPTER_PROBE: none (no adapter found)\n--- SKIP: TestAdapterProbe (0.00s)\n", nil),
-			wantSkip: 1, wantRC: 0,
-		},
-	} {
-		t.Run(name, func(t *testing.T) {
-			var buf strings.Builder
-			g := newTestGate(&buf, "none", "seam", "webgpu")
-			g.grp("seam")
-			g.ok("seam ran")
-			g.ran++
-			g.runIn.WebGPU = tc.p.record()
-			if err := g.webgpuGroup(liveInputs{g}); err != nil {
-				t.Fatal(err)
-			}
-			if g.fail != tc.wantFail || g.skipped != tc.wantSkip {
-				t.Fatalf("group W: fail=%d skip=%d, want fail=%d skip=%d\n%s", g.fail, g.skipped, tc.wantFail, tc.wantSkip, buf.String())
-			}
-			if rc := g.verdict(); rc != tc.wantRC {
-				t.Errorf("gate rc=%d, want %d\n%s", rc, tc.wantRC, buf.String())
-			}
-		})
 	}
 }
 

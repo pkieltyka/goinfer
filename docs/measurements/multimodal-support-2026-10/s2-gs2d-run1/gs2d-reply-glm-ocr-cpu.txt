@@ -1,1 +1,0 @@
-<table class="table table-bordered"><thead><tr><th>Region</th><th>Q1</th><th>Q2</th><

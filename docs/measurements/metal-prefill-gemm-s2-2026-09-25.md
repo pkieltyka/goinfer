@@ -84,7 +84,7 @@ A classic-`kernel_mul_mm`-shaped kernel adapted to goinfer's data, test-only unt
 `gemm_w4f16_tg` (`metal/prefill_gemm_s2_test.go`), the design above, swapped into `TestMetalPrefillDecomp`'s
 production-faithful replay by `GOINFER_METAL_S2=1`. M1 Pro, 1.5B q4_k_m (`~/models`, v14 sidecar), goinfer
 `7d9a1048` + the two uncommitted test files; K=512; 5 paired reps, arms alternating; idle at start (load1 1.87);
-14:41:35–14:43:32 local. Raw: [`run1-prototype1-k512.log`](metal-prefill-gemm-s2-2026-09-25/run1-prototype1-k512.log).
+14:41:35–14:43:32 local. Raw: [`run1-prototype1-k512.log`](https://github.com/townsendmerino/goinfer/blob/36dbfbaf149aabdff43dce5766b49a65183113a7/docs/measurements/metal-prefill-gemm-s2-2026-09-25/run1-prototype1-k512.log).
 
 **Fidelity — met, bit for bit.** On real layer inputs, 0 differing elements on all four GEMMs (1,048,576 / 786,432 /
 9,175,040 / 786,432). A full prefill replay with the prototype as every GEMM reproduces `PrefillLast`'s logits
@@ -142,7 +142,7 @@ are unchanged, so prototype 2 must also be bit-identical, and the harness checks
 
 `gemm_w4f16_tg2` (the review's staging fixes on prototype 1), same protocol and build (`e32ffa8d`, clean tree),
 K=512, 5 paired reps, 14:54:03–14:56:00 local, idle at start (load1 1.95). Raw:
-[`run2-prototype2-k512.log`](metal-prefill-gemm-s2-2026-09-25/run2-prototype2-k512.log).
+[`run2-prototype2-k512.log`](https://github.com/townsendmerino/goinfer/blob/36dbfbaf149aabdff43dce5766b49a65183113a7/docs/measurements/metal-prefill-gemm-s2-2026-09-25/run2-prototype2-k512.log).
 
 - **Bit-identical** — 0 differing elements on all four GEMMs; full-replay logits exact (0 / 151,936).
 - **GEMM category 1537.2 → 551.4 ms: 2.80×** (per rep 2.59 · 2.84 · 2.80 · 2.77 · 2.83) — PARK, and within noise of
@@ -164,7 +164,7 @@ step 2, and the design doc's), and **more work per simdgroup** (a 32×32 simdgro
 
 Both on prototype 2, one variable each, same protocol (K=512, 1.5B, 5 paired reps, clean tree `4ca23125`), run back
 to back with an idle wait before each: prototype 3 15:02:07–15:04:04, prototype 4 15:04:04–15:05:56 local
-(load1 1.79 / 1.70). Raw: [`run34-prototypes3-4-k512.log`](metal-prefill-gemm-s2-2026-09-25/run34-prototypes3-4-k512.log).
+(load1 1.79 / 1.70). Raw: [`run34-prototypes3-4-k512.log`](https://github.com/townsendmerino/goinfer/blob/36dbfbaf149aabdff43dce5766b49a65183113a7/docs/measurements/metal-prefill-gemm-s2-2026-09-25/run34-prototypes3-4-k512.log).
 **Per R16's amendment these runs select a candidate; the grade is the confirmation run below.**
 
 | | GEMM category speedup (median; per rep) | gate/up | down | qkv | o | full replay (GPU) |
@@ -188,7 +188,7 @@ to back with an idle wait before each: prototype 3 15:02:07–15:04:04, prototyp
 
 Per R16's amendment: prototype 4 alone, a fresh session, the current kernel as the do-nothing arm, K=512, 1.5B,
 **7 paired reps** (fixed before the run, above the ≥ 5 minimum). Clean tree `4ca23125`; idle at start (load1 1.55);
-15:06:45–15:09:20 local (22:06–22:09 UTC). Raw: [`confirm-prototype4-k512.log`](metal-prefill-gemm-s2-2026-09-25/confirm-prototype4-k512.log).
+15:06:45–15:09:20 local (22:06–22:09 UTC). Raw: [`confirm-prototype4-k512.log`](https://github.com/townsendmerino/goinfer/blob/36dbfbaf149aabdff43dce5766b49a65183113a7/docs/measurements/metal-prefill-gemm-s2-2026-09-25/confirm-prototype4-k512.log).
 
 | | current | prototype 4 | speedup |
 |---|---:|---:|---:|

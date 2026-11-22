@@ -7,9 +7,7 @@ directory and module.
 
 ## Build
 
-The repository is seven Go modules: the root, `backend/webgpu/`, `backend/cuda/`, `backend/metal/`, `demo/agent/`,
-`apps/sdktest/` (tests only: the official OpenAI and Anthropic SDKs against the in-process server; never tagged) and
-`apps/site/` (the website generator).
+The workspace has four modules: the root, CUDA, Metal, and Vulkan.
 
 ```sh
 bash scripts/make_work.sh   # writes go.work from go.work.example
@@ -21,7 +19,7 @@ resolves the root from the module proxy at its last published tag, so "method no
 between releases, not a bug.
 
 **Build tags gate real code:** `realckpt` (real checkpoints, heavy), `goinfer_testhooks` (cross-module test seams), and
-`cuda`, `gpu` and `metal` for the backends. A change that compiles untagged can still be broken under a tag, so vet the
+`cuda` and `metal` for the backends. A change that compiles untagged can still be broken under a tag, so vet the
 variants your change touches, for example `go vet -tags realckpt ./...` and `go vet -tags 'cuda goinfer_testhooks' ./backend/cuda/`.
 
 ## Test
@@ -45,7 +43,7 @@ Run the smallest check that can answer the question; the day loop is seconds, no
 
 Pushes and pull requests run Linux short tests, CUDA and Vulkan device-free checks, and lint. Docs-only changes
 with a green base can reuse that test result. The extended Linux race and census tests, macOS and Windows
-matrix, WebGPU, SDK integration and README install smoke run weekly. Run the **ci** workflow manually in
+matrix, Metal checks and README install smoke run weekly. Run the **ci** workflow manually in
 GitHub Actions to check those lanes on a branch before merging a change that depends on one of them.
 
 **CI runs no CUDA or Metal device test.** A green CI run, or goldens run on another architecture, does not verify a change to a

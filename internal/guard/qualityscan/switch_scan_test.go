@@ -13,7 +13,7 @@ import (
 
 // switchScanDirs are the packages whose tests set package-level switches and seams; backend/metal keeps its own
 // guard (TestSwitchGuard_coversEveryAssignedSwitch).
-var switchScanDirs = []string{"decoder", "backend/cuda", "backend/webgpu"}
+var switchScanDirs = []string{"decoder", "backend/cuda"}
 
 func inSwitchScan(p string) bool {
 	for _, d := range switchScanDirs {

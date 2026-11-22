@@ -15,7 +15,7 @@ property of goinfer's kernel, not of the GPU's clock or power state.
 - **Machine:** Apple M1 Pro, 16 GB, macOS 26.6.2. Idle at start (load1 1.95), 80% memory free.
 - **Instrument:** [`metal-gemm-ceiling-2026-09-25/mps_gemm_ceiling.swift`](metal-gemm-ceiling-2026-09-25/mps_gemm_ceiling.swift),
   `xcrun swiftc -O` (Apple Swift 6.4). Run 2026-09-25 14:15:15–14:16:16 local (21:15–21:16 UTC), 5 reps. Raw:
-  [`run.log`](metal-gemm-ceiling-2026-09-25/run.log).
+  [`run.log`](https://github.com/townsendmerino/goinfer/blob/36dbfbaf149aabdff43dce5766b49a65183113a7/docs/measurements/metal-gemm-ceiling-2026-09-25/run.log).
 - **What it computes:** C = A · Wᵀ, f16 in and out, A = [M × K] activations, W = [N × K] weights — the layout
   goinfer's prefill uses. Shapes are the 1.5B's (H=1536, I=8960): qkv N=2048/K=1536, o 1536/1536, gate/up 17920/1536,
   down 1536/8960; M = 512 and 3904 (the padded 3900).
@@ -70,7 +70,7 @@ K=3900). With goinfer's GEMM category at MPS's sustained rate:
 `llama-bench` (llama.cpp `c1d0e7a00`, build 10621, Homebrew, ggml 0.22.0; Metal, `-ngl 99`, flash attention at its
 default `auto`, f16 KV, `n_ubatch` 512) on **the same `~/models/qwen2.5-coder-1.5b-instruct-q4_k_m.gguf`**, `-p 512,3904
 -n 0 -r 5`. It repeats back to back after its own warm-up, so it is sustained. 14:21:00–14:21:27 local. Raw:
-[`run-llamabench.log`](metal-gemm-ceiling-2026-09-25/run-llamabench.log).
+[`run-llamabench.log`](https://github.com/townsendmerino/goinfer/blob/36dbfbaf149aabdff43dce5766b49a65183113a7/docs/measurements/metal-gemm-ceiling-2026-09-25/run-llamabench.log).
 
 | prompt | llama.cpp prefill (5 samples) | GEMM FLOPs (4 projections × 28) | implied GEMM rate | goinfer `PrefillLast` |
 |---:|---|---:|---|---:|

@@ -41,7 +41,7 @@ Chunking takes a long prompt in pieces while others decode, yielding one decode 
 
 The control reruns the chunked prefill with one token changed, at position 700. Nothing differs before 700 and
 3,746,400 elements differ from it on. The comparison sees a difference and places it.
-Log: [`mc5-chunk-invariance.log`](chunked-prefill-2026-09-27/mc5-chunk-invariance.log).
+Log: [`mc5-chunk-invariance.log`](https://github.com/townsendmerino/goinfer/blob/36dbfbaf149aabdff43dce5766b49a65183113a7/docs/measurements/chunked-prefill-2026-09-27/mc5-chunk-invariance.log).
 
 **2026-10-01 addendum: the steel build** (F-G02, `docs/audit-metal-2026-09-30.md`). The table above is from the
 fused-kernel build. Since R19 (2026-09-27) production's head-dim-128 prefill attention is `attention_prefill_steel`. The
@@ -59,7 +59,7 @@ start chunks off the kernel's 32-row tiles:
 | 77 (off the tiles) | **0** | **0** |
 
 The control: nothing differs before position 700, and 3,747,365 elements differ from it on.
-Log: [`mc5-chunk-invariance-steel-2026-10-01.log`](chunked-prefill-2026-09-27/mc5-chunk-invariance-steel-2026-10-01.log).
+Log: [`mc5-chunk-invariance-steel-2026-10-01.log`](https://github.com/townsendmerino/goinfer/blob/36dbfbaf149aabdff43dce5766b49a65183113a7/docs/measurements/chunked-prefill-2026-09-27/mc5-chunk-invariance-steel-2026-10-01.log).
 
 The test now lives in `backend/metal/mc5_chunk_invariance_test.go` and runs by default on a generated fixture
 (`backend/metal/mc3_fixture_test.go`). The off-tile sizes are there because the aligned ones cannot see a bug at a tile edge:
@@ -86,9 +86,9 @@ decodes), and a lone request keeps today's path exactly.
 - *old* = `serve-metal` at `731f4f4e` (S3), *new* = at `d4293d41`; serve defaults, the 1.5B from `~/models`.
 - Idle-gated, 3 interleaved pairs per arm; 2026-09-27 04:43–04:48 PDT.
 
-Raw: [`stall-c256.json`](chunked-prefill-2026-09-27/stall-c256.json), [`stall-run-c256.log`](chunked-prefill-2026-09-27/stall-run-c256.log),
-[`stall-servers-c256.log`](chunked-prefill-2026-09-27/stall-servers-c256.log), [`run-stall-c256.sh`](chunked-prefill-2026-09-27/run-stall-c256.sh);
-gates by [`gates.py`](chunked-prefill-2026-09-27/gates.py) → [`gates-output-c256.txt`](chunked-prefill-2026-09-27/gates-output-c256.txt).
+Raw: [`stall-c256.json`](chunked-prefill-2026-09-27/stall-c256.json), [`stall-run-c256.log`](https://github.com/townsendmerino/goinfer/blob/36dbfbaf149aabdff43dce5766b49a65183113a7/docs/measurements/chunked-prefill-2026-09-27/stall-run-c256.log),
+[`stall-servers-c256.log`](https://github.com/townsendmerino/goinfer/blob/36dbfbaf149aabdff43dce5766b49a65183113a7/docs/measurements/chunked-prefill-2026-09-27/stall-servers-c256.log), [`run-stall-c256.sh`](chunked-prefill-2026-09-27/run-stall-c256.sh);
+gates by [`gates.py`](chunked-prefill-2026-09-27/gates.py) → [`gates-output-c256.txt`](https://github.com/townsendmerino/goinfer/blob/36dbfbaf149aabdff43dce5766b49a65183113a7/docs/measurements/chunked-prefill-2026-09-27/gates-output-c256.txt).
 
 The bench's summary print crashed for the solo arm (no decoder gaps to format), after each cell had saved its result.
 It is fixed; no data was lost.
@@ -140,7 +140,7 @@ Reading:
 - Bigger chunks cost less wall time and stall longer. With the tail fixed, the stall is set by one C-token pass at
   full depth.
 
-Logs: [`mc5-chunk-cost.log`](chunked-prefill-2026-09-27/mc5-chunk-cost.log), [`mc5-pass-cost.log`](chunked-prefill-2026-09-27/mc5-pass-cost.log).
+Logs: [`mc5-chunk-cost.log`](https://github.com/townsendmerino/goinfer/blob/36dbfbaf149aabdff43dce5766b49a65183113a7/docs/measurements/chunked-prefill-2026-09-27/mc5-chunk-cost.log), [`mc5-pass-cost.log`](https://github.com/townsendmerino/goinfer/blob/36dbfbaf149aabdff43dce5766b49a65183113a7/docs/measurements/chunked-prefill-2026-09-27/mc5-pass-cost.log).
 
 ## 4. The revised candidate, and its grading
 
@@ -153,12 +153,12 @@ Registered in `b69c73ad`, the build it grades, before any timing of it. Two chan
 five gates are the first candidate's, bars unchanged; 2026-09-27 04:58–05:03 PDT.
 - A first launch (04:57) was stopped in its first cell, before any new cell ran: the run script passed `--serve-args
   -prefill-chunk=512` as two words, which argparse refuses
-  ([`stall-c512-run-attempt1-argparse.log`](chunked-prefill-2026-09-27/stall-c512-run-attempt1-argparse.log)). It
+  ([`stall-c512-run-attempt1-argparse.log`](https://github.com/townsendmerino/goinfer/blob/36dbfbaf149aabdff43dce5766b49a65183113a7/docs/measurements/chunked-prefill-2026-09-27/stall-c512-run-attempt1-argparse.log)). It
   was relaunched with `--serve-args=-prefill-chunk=512`.
 
-Raw: [`stall-c512.json`](chunked-prefill-2026-09-27/stall-c512.json), [`stall-c512-run.log`](chunked-prefill-2026-09-27/stall-c512-run.log),
-[`stall-c512-servers.log`](chunked-prefill-2026-09-27/stall-c512-servers.log), [`run-stall-c512.sh`](chunked-prefill-2026-09-27/run-stall-c512.sh);
-→ [`gates-output-c512.txt`](chunked-prefill-2026-09-27/gates-output-c512.txt).
+Raw: [`stall-c512.json`](chunked-prefill-2026-09-27/stall-c512.json), [`stall-c512-run.log`](https://github.com/townsendmerino/goinfer/blob/36dbfbaf149aabdff43dce5766b49a65183113a7/docs/measurements/chunked-prefill-2026-09-27/stall-c512-run.log),
+[`stall-c512-servers.log`](https://github.com/townsendmerino/goinfer/blob/36dbfbaf149aabdff43dce5766b49a65183113a7/docs/measurements/chunked-prefill-2026-09-27/stall-c512-servers.log), [`run-stall-c512.sh`](chunked-prefill-2026-09-27/run-stall-c512.sh);
+→ [`gates-output-c512.txt`](https://github.com/townsendmerino/goinfer/blob/36dbfbaf149aabdff43dce5766b49a65183113a7/docs/measurements/chunked-prefill-2026-09-27/gates-output-c512.txt).
 
 | gate (pre-registered) | result |
 |---|---|

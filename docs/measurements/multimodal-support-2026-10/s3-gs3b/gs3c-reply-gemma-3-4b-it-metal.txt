@@ -1,1 +1,0 @@
-The image shows quarterly unit sales data by region, broken down into North, South, East, West, and Central, along with a total for all regions.

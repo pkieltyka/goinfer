@@ -151,7 +151,7 @@ WebGPU), which the gate forgives by name. All four plants (dense, experts, kv, s
        exclusive, using #1175's command.
      - **Result:** PASS, 16/16 tokens match, the CPU's and the GPU's first token both 31. The GPU decoded at 266.7 tok/s,
        so it ran on the card and not on a software adapter.
-     - **Log:** [`nobara-e2e-2026-11-20.log`](nobara-e2e-2026-11-20.log).
+     - **Log:** [`nobara-e2e-2026-11-20.log`](https://github.com/townsendmerino/goinfer/blob/36dbfbaf149aabdff43dce5766b49a65183113a7/docs/measurements/webgpu-intel-2026-11/nobara-e2e-2026-11-20.log).
      - **Reading:** the swap is the Intel adapter's rounding meeting the 0.037-logit tie; NVIDIA lands on the CPU's
        side. The finding stands as written: a near-tie on a degenerate prompt, with the test bar to fix.
 2. **The relative L2 of a whole-model prefill against the CPU is 0.07 to 0.12 here,** above the self-test's 0.10

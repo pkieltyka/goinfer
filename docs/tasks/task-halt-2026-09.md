@@ -41,7 +41,7 @@
 goinfer is the **model server**. `serve` turns prompts into tokens and, when a client asks for
 tools, emits `tool_calls` (`internal/app/serveapp/openai.go:chatMessage`); **the client executes them**.
 The one in-tree agent (`demo/agent`) has a single read-only tool — ken `search` over MCP
-(`demo/agent/agent/kenclient.go:kenClient.search`). So goinfer cannot, by itself, stop a client that already
+([`kenClient.search`](https://github.com/townsendmerino/goinfer/blob/36dbfbaf149aabdff43dce5766b49a65183113a7/demo/agent/agent/kenclient.go)). So goinfer cannot, by itself, stop a client that already
 received a `tool_call` from acting on it, and it cannot undo anything. What it can do, and what
 this doc is about:
 

@@ -17,9 +17,9 @@ Registered in `docs/tasks/task-subsystems-2026-10.md`, "SB2 step 2", before the 
 
 ## Layer B-webgpu
 
-`backend/webgpu/sb2_census_test.go:TestBackendAdmissionCensus_webgpu`, golden `gpu/testdata/sb2_webgpu_census.<goarch>.txt.gz`.
+[`TestBackendAdmissionCensus_webgpu`](https://github.com/townsendmerino/goinfer/blob/36dbfbaf149aabdff43dce5766b49a65183113a7/backend/webgpu/sb2_census_test.go), golden `gpu/testdata/sb2_webgpu_census.<goarch>.txt.gz`.
 
-- The refactor moves WebGPU's static gates into `backend/webgpu/residency.go:staticResidentDecline`, in their order. These are the five checks
+- The refactor moves WebGPU's static gates into [`staticResidentDecline`](https://github.com/townsendmerino/goinfer/blob/36dbfbaf149aabdff43dce5766b49a65183113a7/backend/webgpu/residency.go), in their order. These are the five checks
   before the build's lock, plus the quantized-KV layout decline, which read the model alone. `BuildResident` calls it first.
 - 218 cells reach the build. 207 pass the static gates, and 11 take the quantized-KV decline (qwen3_5, nemotron, mla at `--kv f16`).
 - Plant: `quantKVDeclineOffForTest` turns those 11 red, and no other cell changes.

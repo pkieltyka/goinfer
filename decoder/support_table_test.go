@@ -28,7 +28,7 @@ const (
 )
 
 // supportBackends are the table's columns, in order (decoder's backend names; "cpu" is the CPU column).
-var supportBackends = []struct{ name, label string }{{"cpu", "CPU"}, {"cuda", "CUDA"}, {"metal", "Metal"}, {"webgpu", "WebGPU"}}
+var supportBackends = []struct{ name, label string }{{"cpu", "CPU"}, {"cuda", "CUDA"}, {"metal", "Metal"}}
 
 // supportRow is one family of the table: its label, the model_type serve dispatches on, its tower family, the config its
 // decoder cells are computed from, and the notes.
@@ -69,27 +69,27 @@ func bidirectional(c *Config) { c.UseBidirectionalAttention = "vision" }
 
 var supportRows = []supportRow{
 	{"Gemma 3", "gemma3", multimodal.TowerSigLIP, rep("gemma3", nil),
-		"CUDA: float32 tower by default, int8 when the card cannot hold it (2026-10-08). WebGPU: the float32 tower on the GPU by default on a unified-memory Mac (since 2026-11-07; a discrete GPU keeps the CPU tower unless `--vision-device gpu` asks; its speed gate read 0.43 of the CPU tower's time); `--vision-quant int8` puts the int8 one there and `--vision-device cpu` keeps it on the CPU. Metal: resident by default on a 16 GB Mac (G-S18a, 2026-10-08)."},
+		"CUDA: float32 tower by default, int8 when the card cannot hold it (2026-10-08). Metal: resident by default on a 16 GB Mac (G-S18a, 2026-10-08)."},
 	{"Gemma 4 E2B, E4B", "gemma4", multimodal.TowerGemma4, jsonConfig(eModelConfig),
-		"E4B validated on CUDA (2026-10-08) and on Metal (2026-10-11), on the quantization-aware checkpoint. WebGPU: the tower on the GPU by default on a unified-memory Mac (since 2026-11-07; a discrete GPU keeps the CPU tower unless `--vision-device gpu` asks; speed gate 0.37 of the CPU tower's time); `--vision-device cpu` keeps it on the CPU."},
+		"E4B validated on CUDA (2026-10-08) and on Metal (2026-10-11), on the quantization-aware checkpoint."},
 	{"Gemma 4 E2B, E4B audio", "gemma4", multimodal.TowerGemma4Audio, jsonConfig(eModelConfig),
 		"One clip per request; 16-bit WAV, any rate (2026-10-09)."},
 	{"Gemma 4 26B", "gemma4", multimodal.TowerGemma4, rep("gemma4_unified_text", bidirectional),
-		"Tower checked on E2B (2026-10-07). CUDA: the image prefill runs on the GPU too (S19, 2026-10-23). WebGPU: the decoder is checked on tiny fixtures only; no real 26B has run there (2026-10-11)."},
+		"Tower checked on E2B (2026-10-07). CUDA: the image prefill runs on the GPU too (S19, 2026-10-23)."},
 	{"Gemma 4 31B", "gemma4", multimodal.TowerGemma4, rep("gemma4", bidirectional),
-		"Validation in flight on nobara (2026-10-09); too large for a 16 GB Mac."},
+		"Validation in flight on CUDA (2026-10-09); too large for a 16 GB Mac."},
 	{"Qwen2.5-VL", "qwen2_5_vl", multimodal.TowerQwen25VL, rep("qwen2_5_vl", nil),
-		"WebGPU: the tower runs on the GPU by default on a unified-memory Mac (since 2026-11-07; a discrete GPU keeps the CPU tower unless `--vision-device gpu` asks; `--vision-device cpu` keeps it on the CPU)."},
+		""},
 	{"Qwen3.5+ dense", "qwen3_5", multimodal.TowerQwen3, rep("qwen3_5", nil),
-		"A hybrid's image turn decodes resident only where the backend builds its recurrent state (CUDA); text turns are resident where the decoder column of docs/hardware-matrix.md says (2026-10-09). WebGPU: the tower runs on the GPU by default on a unified-memory Mac (since 2026-11-07; a discrete GPU keeps the CPU tower unless `--vision-device gpu` asks; `--vision-device cpu` keeps it on the CPU)."},
+		"A hybrid's image turn decodes resident only where the backend builds its recurrent state (CUDA); text turns are resident where the decoder column of docs/hardware-matrix.md says (2026-10-09)."},
 	{"Qwen3.5+ MoE", "qwen3_5_moe", multimodal.TowerQwen3, rep("qwen3_5_moe", nil),
 		"Served on CUDA (S6, 2026-10-09)."},
 	{"Qwen3-VL", "qwen3_vl", multimodal.TowerQwen3, rep("qwen3_vl", nil),
-		"DeepStack. Several images in one message take the CPU prefill and upload (2026-10-09). WebGPU: the tower runs on the GPU by default on a unified-memory Mac (since 2026-11-07; a discrete GPU keeps the CPU tower unless `--vision-device gpu` asks; `--vision-device cpu` keeps it on the CPU)."},
+		"DeepStack. Several images in one message take the CPU prefill and upload (2026-10-09)."},
 	{"Qwen3-VL MoE", "qwen3_vl_moe", multimodal.TowerQwen3, rep("qwen3_vl_moe", nil),
 		"Qwen3-VL-30B-A3B: too large for a 16 GB Mac or an 8 GB card at once. Decoder, tower and the full model (CPU, int8int8 and int4) checked against HF (G-S10q-a, b, c); the served check is pending (S10, 2026-10-10)."},
 	{"GLM-OCR", "glm_ocr", multimodal.TowerGlmOcr, rep("glm_ocr", nil),
-		"One image per request (2026-10-09). WebGPU: the tower runs on the GPU by default on a unified-memory Mac (since 2026-11-07; a discrete GPU keeps the CPU tower unless `--vision-device gpu` asks; `--vision-device cpu` keeps it on the CPU)."},
+		"One image per request (2026-10-09)."},
 	{"LFM2.5-VL", "lfm2_vl", multimodal.TowerSiglip2NaFlex, rep("lfm2_vl", nil),
 		"SigLIP2 NaFlex tower, CPU float32; the lfm2 decoder runs on the CPU only (no backend implements its short convolution) (S10, 2026-10-09)."},
 	{"Ministral 3", "mistral3", multimodal.TowerPixtral, rep("mistral3", nil),
@@ -211,7 +211,7 @@ func TestSupportTable_plantedDefects(t *testing.T) {
 	}
 	for _, label := range []string{"Ministral 3", "LFM2.5-VL"} {
 		if got := supportCell(t, byLabel[label], "webgpu"); !strings.HasPrefix(got, "CPU / ") {
-			t.Errorf("%s on WebGPU: %q, want a CPU tower (no backend declares one)", label, got)
+			t.Errorf("%s on WebGPU: %q, want a CPU tower", label, got)
 		}
 	}
 	// A causal, non-E Gemma 4 decodes on the CPU after an image, whatever the backend.
@@ -221,8 +221,8 @@ func TestSupportTable_plantedDefects(t *testing.T) {
 	}
 	// A README cell that differs from the doc's: the two blocks share every cell, so one edited cell differs.
 	doc, readme := generateSupportTable(t, true), generateSupportTable(t, false)
-	if !strings.Contains(doc, "| Qwen3.5+ dense (`qwen3_5`) | CPU / CPU | GPU / GPU | GPU / CPU | GPU / CPU |") ||
-		!strings.Contains(readme, "| Qwen3.5+ dense (`qwen3_5`) | CPU / CPU | GPU / GPU | GPU / CPU | GPU / CPU |") {
+	if !strings.Contains(doc, "| Qwen3.5+ dense (`qwen3_5`) | CPU / CPU | GPU / GPU | GPU / CPU |") ||
+		!strings.Contains(readme, "| Qwen3.5+ dense (`qwen3_5`) | CPU / CPU | GPU / GPU | GPU / CPU |") {
 		t.Errorf("the README and doc blocks do not carry the same Qwen3.5+ row:\n%s\n%s", doc, readme)
 	}
 	mutated, _ := spliceSupportBlock(supportBegin+"\n"+supportEnd, strings.Replace(readme, "GPU / CPU", "GPU / GPU", 1))

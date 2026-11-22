@@ -4,7 +4,6 @@ import (
 	"os"
 	"regexp"
 	"strconv"
-	"strings"
 	"testing"
 )
 
@@ -30,42 +29,6 @@ func TestResidentMoECap_pinsKernelConstant(t *testing.T) {
 	cudaG := grep("../backend/cuda/moe.cu", `#define MOE_MAX_G (\d+)`)
 	if got := residentBackendMoECap["cuda"]; got.experts != cudaE || got.groups != cudaG {
 		t.Errorf("cuda cap %+v != kernel (experts %d, groups %d) — one-source-of-truth broken (M-17)", got, cudaE, cudaG)
-	}
-	// webgpu: array<f32, 256> score / array<f32, 32> gscore
-	wE := grep("../backend/webgpu/internal/kernels/moe.go", `var score: array<f32, (\d+)>`)
-	wG := grep("../backend/webgpu/internal/kernels/moe.go", `var gscore: array<f32, (\d+)>`)
-	if got := residentBackendMoECap["webgpu"]; got.experts != wE || got.groups != wG {
-		t.Errorf("webgpu cap %+v != kernel (experts %d, groups %d) (M-17)", got, wE, wG)
-	}
-}
-
-// M-31: the pin above reads the KERNEL sources and features_test.go asserts ResidentEligible, and neither reads the
-// file that makes the runtime decision. This one asserts the RUNTIME decline site (backend/webgpu/residency.go) does not restate
-// a literal cap: the numbers must come from ResidentBackendMoECap, because a literal there is the drift the map
-// exists to prevent and is invisible to a test that only greps the kernel.
-func TestResidentMoECap_runtimeDeclineReadsTheDeclaration(t *testing.T) {
-	b, err := os.ReadFile("../backend/webgpu/residency.go")
-	if err != nil {
-		t.Fatalf("backend/webgpu/residency.go unavailable: %v", err)
-	}
-	src := string(b)
-	if !regexp.MustCompile(`ResidentBackendMoECap\(`).MatchString(src) {
-		t.Error("backend/webgpu/residency.go does not call decoder.ResidentBackendMoECap: its MoE decline " +
-			"restates the cap instead of reading it, which is how residency.go and the feature " +
-			"map disagreed about 256 vs 512 (M-31)")
-	}
-	// And no literal cap comparison survives. Comment lines are skipped — the explanation of
-	// the rule is not an instance of it, a trap two earlier guards in this audit fell into.
-	lit := regexp.MustCompile(`nE\s*>\s*\d+|nGroup\s*>\s*\d+`)
-	for i, ln := range strings.Split(src, "\n") {
-		if strings.HasPrefix(strings.TrimSpace(ln), "//") {
-			continue
-		}
-		if lit.MatchString(ln) {
-			t.Errorf("backend/webgpu/residency.go:%d compares the expert/group count against a LITERAL: %s\n"+
-				"the cap belongs to residentBackendMoECap, which the kernel pin above keeps "+
-				"honest; a literal here is invisible to both (M-31)", i+1, strings.TrimSpace(ln))
-		}
 	}
 }
 

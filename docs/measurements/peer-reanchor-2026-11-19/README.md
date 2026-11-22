@@ -146,7 +146,7 @@ each step; this one did not.
   phi3-mini finished both arms. gpt-oss has goinfer's arm only, so v2 is VOID for this night.
 
 **Records:**
-- [`results/grade-2026-11-20.jsonl`](results/grade-2026-11-20.jsonl): `grade.py results/cuda results/cpu`.
+- [`results/grade-2026-11-20.jsonl`](https://github.com/townsendmerino/goinfer/blob/36dbfbaf149aabdff43dce5766b49a65183113a7/docs/measurements/peer-reanchor-2026-11-19/results/grade-2026-11-20.jsonl): `grade.py results/cuda results/cpu`.
 - `results/{cuda,cpu}/`: the results, the step logs, night 1's refused attempts and the provenance.
 - `results/reanchor-*.log`: both nights' job logs.
 - `results/reanchor-*-2.mem.tsv.gz`: night 2's per-second memory samples.

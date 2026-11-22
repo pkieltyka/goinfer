@@ -1,12 +1,8 @@
 # Releasing goinfer
 
-The fork publishes the root module, `github.com/pkieltyka/goinfer`, independently of the backends and demo.
-The fork inherited upstream’s `v0.3.0` tag for `github.com/townsendmerino/goinfer`, so its next
-release skips to `v0.4.0` pending the fork owner’s approval. See the [fork tags](https://github.com/pkieltyka/goinfer/tags).
+The fork publishes the root module, `github.com/pkieltyka/goinfer`, independently of the CUDA, Metal and
+Vulkan backend modules. Use Step 2 only when publishing one of those modules.
 
-The workspace also includes five separately versioned modules in `backend/webgpu/`,
-`backend/cuda/`, `backend/metal/`, `backend/vulkan/` and `demo/agent/`. Use Step 2 only when publishing
-one of those modules. The other two workspace modules serve the SDK tests and website.
 A separate `go.mod` in `.github/actions/staticcheck/` pins the CI linter.
 
 The procedure for publishing submodules follows the upstream module-graph fix.
@@ -34,15 +30,15 @@ survives to a tag unless caught here.
   version = B-05 — both publish a broken dependency permanently). **Do NOT re-add the replace.**
 - **`go.work` is gitignored, per-machine, and now MANDATORY for cross-module dev.** With the replaces
   gone, a submodule build outside a workspace resolves the root from the proxy; local cross-module
-  work needs a `go.work` covering **all eight workspace modules** (`.`, `./backend/webgpu`, `./backend/cuda`, `./backend/metal`,
-  `./backend/vulkan`, `./demo/agent`, `./apps/sdktest`, `./apps/site`). It stays dev-only — nothing in the shipped tag may depend on it, which the
+  work needs a `go.work` covering **all four workspace modules** (`.`, `./backend/cuda`, `./backend/metal`,
+  `./backend/vulkan`). It stays dev-only — nothing in the shipped tag may depend on it, which the
   `standalone-build` workflow proves. That workflow runs on TAG pushes, not on every push, and
   the reason is structural rather than a preference: a submodule built with `GOWORK=off`
   resolves the goinfer root from the proxy at its LAST PUBLISHED TAG, so between releases it
   legitimately fails on perfectly good code that uses a root symbol added since. At tag time the
   root tag is published, which is when the answer means anything. Until 2026-09-02 the sentence
   here claimed a CI step that did not exist, and Step 2 below was the only thing checking it.
-- **Version alignment (B-07):** the root and the five releasable submodules must agree on `aikit`. **Read the versions, do not read them
+- **Version alignment (B-07):** the root and the three releasable submodules must agree on `aikit`. **Read the versions, do not read them
   here.** No module requires `aikit/gpu`: the device package is goinfer's own since Track AX
   (`backend/cuda/internal/gpudev`, `backend/metal/internal/gpudev`), and `internal/guard/movedpaths` fails on a require of it.
   The `aikit` they agree on must be a **tag**: `main` may require an aikit pseudo-version between weekly aikit
@@ -50,7 +46,7 @@ survives to a tag unless caught here.
   and bump to the tag first.
 
   ```sh
-  for m in . backend/webgpu backend/cuda backend/metal backend/vulkan demo/agent; do printf '%-16s ' "$m"; grep -h aikit $m/go.mod | tr '\n' ' '; echo; done
+  for m in . backend/cuda backend/metal backend/vulkan; do printf '%-16s ' "$m"; grep -h aikit $m/go.mod | tr '\n' ' '; echo; done
   ```
 
   This used to name the versions, and it has gone stale **twice** — first telling you to align on
@@ -121,7 +117,7 @@ the report is shown. Upstream reserved approval to Francis, as with `swap_guard_
    recorded CUDA one. Queue the CUDA run at night (about 2 h 20 min) as soon as the release commit is chosen; a run at an earlier commit counts only if nothing under `backend/metal/`, `backend/cuda/`, `backend/webgpu/` or `decoder/` changed since.
    Every run writes a record, `docs/measurements/gpu-gate/<backend>-<time>-<commit>.json`: **commit it** (the Mac's from the Mac, as a model transfer is). `go run ./cmd/gate gpu-records` then says, per backend, `done` or `OWED` against HEAD, by that rule: the newest record made at the same code decides, and only a PASS on a clean tree with the heavy tier run (no `GOINFER_GATE_SKIP_HEAVY`) counts. Exit 0 only when both backends are done.
    **The tests the day loop defers, on BOTH boxes:** `go run ./cmd/gate quick -full -base <the previous tag>`. By day `gate quick` leaves out each
-   package's real-checkpoint tests and, for a change that does not touch `backend/metal/`, `backend/webgpu/` or `backend/cuda/`, that module's long kernel tests; it prints each as
+   package's real-checkpoint tests and, for a change that does not touch `backend/metal/` or `backend/cuda/`, that module's long kernel tests; it prints each as
    `DEFERRED`. `-full` runs them all against everything since the last tag. About 10 minutes on the Mac; night-queue it with the GPU gate. Each run writes a
    record, `docs/measurements/quick-full/<os>-<arch>-<time>-<commit>.json`: **commit it**. `gate release` has a row for it: per box (darwin, linux),
    the newest record made at the same code decides, and only a `-full` PASS on a clean tree counts. A change under `docs/`, `apps/site/`, `.github/` or `changelog.d/`,
@@ -164,15 +160,12 @@ git push origin main ${TAG}        # published BEFORE any submodule go-gets it
 > <paths>`) — Step 2 in particular stages each selected module’s release changes.
 
 **Optional Step 2 — point each selected submodule at the tagged root, prove the standalone build, tag.**
-Do the selected backend modules first, then `demo/agent/` LAST (it also requires `goinfer/backend/webgpu`, so
-`backend/webgpu/vX` must be tagged and pushed before demo/agent can `go get` it).
 ```
 cd <mod>
 # The go.mods are replace-free (2026-08-15) — nothing to remove/restore. Just point at the tag:
 GOWORK=off go get github.com/pkieltyka/goinfer@${TAG}        # B-01/B-05: real version, not placeholder/pseudo
-GOWORK=off go get github.com/pkieltyka/goinfer/backend/webgpu@${TAG}    # demo/agent ONLY (it requires goinfer/backend/webgpu too)
 GOWORK=off go mod tidy                                             # B-02/B-03/B-04: complete go.sum for the SELECTED versions
-GOWORK=off go build -tags <cuda|gpu|metal> ./...                  # PROVE it builds with no workspace
+GOWORK=off go build -tags <cuda|metal> ./...                  # PROVE it builds with no workspace
 # NO replace to restore — do not re-add it (it breaks `go install …@vX`; see the Invariants).
 ```
 `metal` on a Linux box prints `matched no packages` (its files are darwin-gated) — that is
@@ -181,15 +174,14 @@ For Vulkan, use `CGO_ENABLED=0 GOWORK=off go build ./...` inside `backend/vulkan
 device check runs separately on a discrete Radeon. When publishing Vulkan, commit its dependency
 bumps and run `git tag backend/vulkan/${TAG}` followed by `git push origin main backend/vulkan/${TAG}`.
 
-Then commit the go.mod/go.sum bumps and tag the modules being published. The example below covers CUDA, WebGPU, Metal and the demo. **`git tag` takes ONE name per call** (unlike
-`git push`, which takes many):
-```
-git commit -am "release: backend/{webgpu,cuda,metal} require goinfer ${TAG}"
-git tag backend/cuda/${TAG} ; git tag backend/webgpu/${TAG} ; git tag backend/metal/${TAG}
-# a SEPARATE commit for demo/agent (requires goinfer + goinfer/backend/webgpu):
-git commit -am "release: demo/agent requires goinfer + goinfer/backend/webgpu ${TAG}"
-git tag demo/agent/${TAG}
-git push origin main backend/cuda/${TAG} backend/webgpu/${TAG} backend/metal/${TAG} demo/agent/${TAG}
+For each backend being published, commit its dependency bumps and create and push that backend's tag.
+For example, for CUDA:
+
+```sh
+git add -- backend/cuda/go.mod backend/cuda/go.sum
+git commit -m "release: backend/cuda requires goinfer ${TAG}"
+git tag "backend/cuda/${TAG}"
+git push origin main "backend/cuda/${TAG}"
 ```
 
 ## Where users download a fork release
@@ -304,9 +296,8 @@ Add to CI, one job per submodule — **no workspace**, so `replace` and the borr
 ```
 cd <mod> && GOWORK=off go build -tags <tag> ./... && GOWORK=off go vet -tags <tag> ./...
 ```
-`backend/cuda` runs on the Linux/NVIDIA runner; `backend/metal` on macOS; `backend/webgpu` anywhere with the `gpu` tag.
-Also add `./backend/cuda` and `./demo/agent` to the dev `go.work` (B-05) so local backend work resolves
-from the tree, and document that a workspace is mandatory for cross-module development.
+The standalone workflow checks CUDA and Vulkan on Linux and cross-builds Metal for Darwin.
+Use `scripts/make_work.sh` to set up local cross-module development.
 
 ## §C1 — parity re-validation (the ⛔ numeric gate)
 
@@ -422,11 +413,8 @@ GOINFER_GATE_MODELS=/path/to/models go run ./cmd/gate gpu
 
 **What green means — all four, or it is not green:**
 
-1. **All 9 declared check groups report a verdict** (N-53, docs/audit-2026-09-10.md: `parity` and
-   `webgpu` joined since this said 7). Metal declares
-   `cleangpu seam suite parity cgofree lifecycle prefill webgpu repo`. The script reconciles
-   declared against emitted, because a block that died mid-run used to vanish and still report
-   PASS (audit G-01). A group that emits nothing is itself a FAIL.
+1. **All declared groups report a verdict.** Metal runs `cleangpu seam suite parity cgofree lifecycle prefill repo`.
+   A group that emits nothing fails the run.
 2. **Zero FAIL**, and the verdict line names the commit. A dirty tree is reported as a
    PROVENANCE failure even when every check passed — the verdict names a commit, and an
    uncommitted edit means it does not describe what that commit contains.
@@ -475,8 +463,8 @@ group. The whole run is about 2 h 20 min (basis: `docs/code-notes/cmd-gate.md`, 
 
 **What green means — all four, or it is not green:**
 
-1. **All 10 declared check groups report a verdict** (`cleangpu seam suite parity heavy graphsforced cgofree ptx webgpu repo`; read the current list in `cmd/gate/gpu.go`, which this file must not restate). A group that
-   emits nothing is itself a FAIL (audit G-01).
+1. **All declared groups report a verdict.** CUDA runs `cleangpu seam suite parity heavy graphsforced cgofree ptx repo`.
+   A group that emits nothing fails the run.
 2. **Zero FAIL**, and the verdict line names the commit; a dirty tree is a PROVENANCE failure.
 3. **The heavy tier ran.** A SKIP IS NOT A PASS: with `GOINFER_GATE_SKIP_HEAVY` the verdict can read PASS while the 26B expert streaming, the real-weight GEMV parity, the resident spec-serve and the bandwidth benchmarks
    did NOT run, and the gate lists that under "this gate does NOT cover". For a tag that list must not contain the heavy tier, unless an exception is written down in the tag's record.

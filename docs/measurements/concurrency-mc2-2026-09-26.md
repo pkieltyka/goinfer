@@ -46,8 +46,8 @@ qwen2.5-coder-0.5b at int4 and int8int8.
 - idle-gated (load1 1.87 at start), 2026-09-26 16:51–16:53 PDT.
 
 The first launch ran nothing: `go` was not on the launchd job's PATH
-([`run-mac-attempt1-nogo.log`](concurrency-mc2-2026-09-26/run-mac-attempt1-nogo.log)). Raw:
-[`run-mac.log`](concurrency-mc2-2026-09-26/run-mac.log).
+([`run-mac-attempt1-nogo.log`](https://github.com/townsendmerino/goinfer/blob/36dbfbaf149aabdff43dce5766b49a65183113a7/docs/measurements/concurrency-mc2-2026-09-26/run-mac-attempt1-nogo.log)). Raw:
+[`run-mac.log`](https://github.com/townsendmerino/goinfer/blob/36dbfbaf149aabdff43dce5766b49a65183113a7/docs/measurements/concurrency-mc2-2026-09-26/run-mac.log).
 
 Aggregate decode tok/s, median, and × serial x1, the production forward on one sequence:
 
@@ -88,8 +88,8 @@ MC3's first new piece is a small-M W4 GEMM, and S0 of MC2 flagged that Metal's b
 decode per extra row (R12). `TestMC3SmallMProbe` (`backend/metal/gemm_smallm_mc3_test.go`) extends R18's shipped
 rows-per-simdgroup kernel to M activation rows. It is timed standalone per dispatch, with SLC-defeating rotation,
 against the shipped M = 1 kernel run M times. Every variant's outputs are checked bit for bit against the shipped kernel
-row by row, and all are identical. Logs: [`mc3-s0-probe.log`](concurrency-mc2-2026-09-26/mc3-s0-probe.log),
-[`mc3-s0-probe2.log`](concurrency-mc2-2026-09-26/mc3-s0-probe2.log).
+row by row, and all are identical. Logs: [`mc3-s0-probe.log`](https://github.com/townsendmerino/goinfer/blob/36dbfbaf149aabdff43dce5766b49a65183113a7/docs/measurements/concurrency-mc2-2026-09-26/mc3-s0-probe.log),
+[`mc3-s0-probe2.log`](https://github.com/townsendmerino/goinfer/blob/36dbfbaf149aabdff43dce5766b49a65183113a7/docs/measurements/concurrency-mc2-2026-09-26/mc3-s0-probe2.log).
 
 Best gain against M sequential dispatches:
 
@@ -125,7 +125,7 @@ Best gain against M sequential dispatches:
 ## Linux CPU cells (`nobara`, added 2026-09-26 evening)
 
 Setup: amd64 with VNNI and split-half kernels, the same test at `1fce456b`, 2026-09-26 20:38–20:45 PDT, load 0.34 at
-start. Raw: [`run-linux.log`](concurrency-mc2-2026-09-26/run-linux.log), [`run-linux.sh`](concurrency-mc2-2026-09-26/run-linux.sh).
+start. Raw: [`run-linux.log`](https://github.com/townsendmerino/goinfer/blob/36dbfbaf149aabdff43dce5766b49a65183113a7/docs/measurements/concurrency-mc2-2026-09-26/run-linux.log), [`run-linux.sh`](concurrency-mc2-2026-09-26/run-linux.sh).
 The identity gate passes on amd64 too: every logit is bit-identical, on llama-tiny and on the 0.5B at int4 and int8int8.
 
 | model | depth | serial x1 | batched B=1 | B=2 | **B=4 (metric, paired)** | B=8 | J8 N=2 | **J8 N=4** |
@@ -138,7 +138,7 @@ The identity gate passes on amd64 too: every logit is bit-identical, on llama-ti
 \* This cell overlapped a 1.2 GB rsync from this box (the set-A reference copy). Its reps 4–5 dip in every arm, so the
 paired ratio holds, but it is the least clean cell here. **Re-run clean 2026-09-27 06:27 PDT** at `35feb843`, with load1
 0.94 and nothing else running: batched B = 4 **1.185×** (1.16–1.20, paired), J8 N = 4 1.613×, serial ×1 47.7 tok/s
-([`run-linux-0.5b-d128-clean-2026-09-27.log`](concurrency-mc2-2026-09-26/run-linux-0.5b-d128-clean-2026-09-27.log)).
+([`run-linux-0.5b-d128-clean-2026-09-27.log`](https://github.com/townsendmerino/goinfer/blob/36dbfbaf149aabdff43dce5766b49a65183113a7/docs/measurements/concurrency-mc2-2026-09-26/run-linux-0.5b-d128-clean-2026-09-27.log)).
 The reading does not change: the 0.5B at depth 128 stays in the owner band on Linux, and the workers still win there.
 
 Against the registered band (earn ≥ 1.25×, kill < 1.1×, the owner decides in between):
@@ -167,13 +167,13 @@ Pre-registered in `2f5185c0` before any timing (the task doc's MC3c section):
 Setup: `nobara`, Ryzen 7 3700X (16 threads), qwen2.5-7b-instruct q4_k_m from `~/models`, int4, and the same test at
 `2f5185c0`. Each depth ran in its own `go test`, idle-gated: load1 ≤ 1.0 with no other go, test or serve process.
 Depth 128 ran 10:36–10:42 PDT (load1 0.43 at start), and depth 512 ran 10:44–10:53 (0.99). Raw:
-[`run-linux-7b-2026-09-27.log`](concurrency-mc2-2026-09-26/run-linux-7b-2026-09-27.log) (driver),
-[`run-linux-7b-d128-2026-09-27.log`](concurrency-mc2-2026-09-26/run-linux-7b-d128-2026-09-27.log),
-[`run-linux-7b-d512-2026-09-27.log`](concurrency-mc2-2026-09-26/run-linux-7b-d512-2026-09-27.log),
+[`run-linux-7b-2026-09-27.log`](https://github.com/townsendmerino/goinfer/blob/36dbfbaf149aabdff43dce5766b49a65183113a7/docs/measurements/concurrency-mc2-2026-09-26/run-linux-7b-2026-09-27.log) (driver),
+[`run-linux-7b-d128-2026-09-27.log`](https://github.com/townsendmerino/goinfer/blob/36dbfbaf149aabdff43dce5766b49a65183113a7/docs/measurements/concurrency-mc2-2026-09-26/run-linux-7b-d128-2026-09-27.log),
+[`run-linux-7b-d512-2026-09-27.log`](https://github.com/townsendmerino/goinfer/blob/36dbfbaf149aabdff43dce5766b49a65183113a7/docs/measurements/concurrency-mc2-2026-09-26/run-linux-7b-d512-2026-09-27.log),
 [`run-linux-7b-2026-09-27.sh`](concurrency-mc2-2026-09-26/run-linux-7b-2026-09-27.sh).
 
 **Identity passes on the 7B.** 4 sequences × 12 steps are bit-identical to the single-token forward at int4 and
-int8int8 ([`identity-linux-7b-2026-09-27.log`](concurrency-mc2-2026-09-26/identity-linux-7b-2026-09-27.log)).
+int8int8 ([`identity-linux-7b-2026-09-27.log`](https://github.com/townsendmerino/goinfer/blob/36dbfbaf149aabdff43dce5766b49a65183113a7/docs/measurements/concurrency-mc2-2026-09-26/identity-linux-7b-2026-09-27.log)).
 
 | model | depth | serial x1 | batched B=1 | B=2 | **B=4 (metric, paired)** | B=8 | J8 N=2 | **J8 N=4** | **B=4 ÷ J8 N=4 (trigger)** |
 |---|---:|---:|---:|---:|---:|---:|---:|---:|---:|
@@ -213,7 +213,7 @@ measured.
 **Setup:**
 - the M1 Pro (8P + 2E cores), qwen2.5-7b-instruct q4_k_m, int4;
 - loaded from its `.int4.cpu-arm64.giw`, transcoded by `cmd/prequant` for this cell
-  ([`prequant-mac-7b-2026-09-27.log`](concurrency-mc2-2026-09-26/prequant-mac-7b-2026-09-27.log)). The `.gguf`'s CPU
+  ([`prequant-mac-7b-2026-09-27.log`](https://github.com/townsendmerino/goinfer/blob/36dbfbaf149aabdff43dce5766b49a65183113a7/docs/measurements/concurrency-mc2-2026-09-26/prequant-mac-7b-2026-09-27.log)). The `.gguf`'s CPU
   int4 load needs ~13.3 GB, which this Mac's fit guard refuses, and it was not bypassed;
 - the test loads with `GOINFER_MC2_BACKEND=cpu`, new and test-only, because a row4-only bundle needs the CPU backend
   named;
@@ -226,13 +226,13 @@ measured.
   the identity line before the relaunch at 19:09.
 - No timing ran in the first attempt, and its logs are not kept in the record.
 
-Raw: [`run-mac-7b-2026-09-27.log`](concurrency-mc2-2026-09-26/run-mac-7b-2026-09-27.log),
-[`run-mac-7b-d128-2026-09-27.log`](concurrency-mc2-2026-09-26/run-mac-7b-d128-2026-09-27.log),
-[`run-mac-7b-d512-2026-09-27.log`](concurrency-mc2-2026-09-26/run-mac-7b-d512-2026-09-27.log),
+Raw: [`run-mac-7b-2026-09-27.log`](https://github.com/townsendmerino/goinfer/blob/36dbfbaf149aabdff43dce5766b49a65183113a7/docs/measurements/concurrency-mc2-2026-09-26/run-mac-7b-2026-09-27.log),
+[`run-mac-7b-d128-2026-09-27.log`](https://github.com/townsendmerino/goinfer/blob/36dbfbaf149aabdff43dce5766b49a65183113a7/docs/measurements/concurrency-mc2-2026-09-26/run-mac-7b-d128-2026-09-27.log),
+[`run-mac-7b-d512-2026-09-27.log`](https://github.com/townsendmerino/goinfer/blob/36dbfbaf149aabdff43dce5766b49a65183113a7/docs/measurements/concurrency-mc2-2026-09-26/run-mac-7b-d512-2026-09-27.log),
 [`run-mac-7b-2026-09-27.sh`](concurrency-mc2-2026-09-26/run-mac-7b-2026-09-27.sh).
 
 **Identity passes on the Mac's 7B:** 4 sequences × 12 steps are bit-identical to the single-token forward at int4
-([`identity-mac-7b-2026-09-27.log`](concurrency-mc2-2026-09-26/identity-mac-7b-2026-09-27.log)).
+([`identity-mac-7b-2026-09-27.log`](https://github.com/townsendmerino/goinfer/blob/36dbfbaf149aabdff43dce5766b49a65183113a7/docs/measurements/concurrency-mc2-2026-09-26/identity-mac-7b-2026-09-27.log)).
 
 | model | depth | serial x1 | batched B=1 | B=2 | **B=4** | B=8 | J8 N=2 | **J8 N=4** | **B=4 ÷ J8 N=4 (per rep → median)** |
 |---|---:|---:|---:|---:|---:|---:|---:|---:|---:|

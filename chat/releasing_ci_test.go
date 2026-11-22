@@ -6,15 +6,7 @@ import (
 	"testing"
 )
 
-// M-34: RELEASING.md relies on the standalone-build workflow to prove the no-workspace build, so
-// `.github/workflows/standalone-build.yml` must exist and do it: GOWORK=off, tag-triggered, every shipped
-// submodule, never `go work init`; and ci.yml must build demo/agent on every push. Otherwise the B-01…B-04
-// class is caught only by a human running Step 2 by hand at tag time, and demo/agent — the fifth module —
-// compiles for the first time there.
-//
-// A prose claim about CI is exactly the kind that rots silently, so this asserts the artifact
-// exists and does what the sentence says. It lives in chat/ only because the repo has no test
-// package for repo-root concerns; the paths are explicit.
+// Check that shipped backend modules can build in module mode.
 func TestReleasing_standaloneBuildGateExists(t *testing.T) {
 	wf, err := os.ReadFile("../.github/workflows/standalone-build.yml")
 	if err != nil {
@@ -30,7 +22,7 @@ func TestReleasing_standaloneBuildGateExists(t *testing.T) {
 		}
 	}
 	// Every shipped submodule must be covered, or the gate proves less than the doc claims.
-	for _, mod := range []string{"backend/webgpu", "backend/cuda", "backend/metal", "demo/agent"} {
+	for _, mod := range []string{"backend/cuda", "backend/metal", "backend/vulkan"} {
 		if !strings.Contains(src, "module: "+mod) {
 			t.Errorf("standalone-build.yml does not cover the %s module", mod)
 		}
@@ -49,12 +41,4 @@ func TestReleasing_standaloneBuildGateExists(t *testing.T) {
 		}
 	}
 
-	// And demo/agent must be built by ordinary CI too, or its only coverage is at tag time.
-	ci, err := os.ReadFile("../.github/workflows/ci.yml")
-	if err != nil {
-		t.Fatalf("read ci.yml: %v", err)
-	}
-	if !strings.Contains(string(ci), "./demo/agent/...") {
-		t.Error("ci.yml never builds ./demo/agent/...: the fifth module has no per-push coverage")
-	}
 }

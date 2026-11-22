@@ -135,7 +135,7 @@ Rows are (spoke × its home workload). `α̅` = mean per-position acceptance.
 > | agent-json | 115.6 | 0.96× | 0.96× | 8.42 |
 >
 > **Why (reverses the earlier "GPU should win bigger" guess):** the resident
-> `ForwardN` is **not** an M=K batched GEMM. `backend/webgpu/internal/kernels/decoderunner.go:RunBatch` records K
+> `ForwardN` is **not** an M=K batched GEMM. [`RunBatch`](https://github.com/townsendmerino/goinfer/blob/36dbfbaf149aabdff43dce5766b49a65183113a7/backend/webgpu/internal/kernels/decoderunner.go) records K
 > separate **M=1** runners into one command pass with a single Submit/Poll — it
 > amortizes only the sync, not the per-token weight stream (each runner re-reads all
 > weights). So committing 7.6 tok/verify still costs ~7.6 forwards of GPU compute →

@@ -24,7 +24,7 @@ sys.path.insert(0, os.path.join(ROOT, "scripts"))
 import timing_lock  # noqa: E402  (a build and test run loads the box, so it must not run under a timed one: TE9)
 import touched_scans  # noqa: E402
 SLOW = {"decoder", "internal/runtime/sampling", "backend/cuda", "internal/app/serveapp"}  # packages whose cold `go test` takes minutes; their ten-second tests call slowTest and are skipped by -short
-TAGS = {"backend/cuda": "cuda goinfer_testhooks", "backend/webgpu": "gpu goinfer_testhooks", "": "goinfer_testhooks"}
+TAGS = {"backend/cuda": "cuda goinfer_testhooks", "": "goinfer_testhooks"}
 
 
 def sh(*a, **k):

@@ -63,7 +63,7 @@ var (
 		Serial: true, Extra: []string{"-short"}}
 	webgpuParityCell = cell{Name: "webgpu-parity", Pkgs: []string{"./backend/webgpu/", "./backend/webgpu/internal/kernels/"},
 		Tags:    []string{"gpu", "goinfer_testhooks"},
-		Run:     webgpuParityRun, // parity.go; checked by TestWebGPUGateIsListedOrExplicitlyNotRequired
+		Run:     "Parity|_parity|matchesCPU|matchesSequential",
 		Serial:  true,
 		Timeout: "10m",
 		Env:     map[string]string{"GOINFER_DNET_PARITY": "1", "GOINFER_SSM_PARITY": "1"}}
@@ -104,14 +104,20 @@ func gradeWebGPUParity(cr cellResult, out string) groupVerdict {
 }
 
 // gpuExpect is the check groups a run on backend declares, in order.
-func gpuExpect(backend string) []string {
+func gpuExpect(backend string, legacyWebGPU bool) []string {
+	var groups []string
 	switch backend {
 	case "cuda":
-		return []string{"cleangpu", "seam", "suite", "parity", "heavy", "graphsforced", "cgofree", "ptx", "webgpu", "repo"}
+		groups = []string{"cleangpu", "seam", "suite", "parity", "heavy", "graphsforced", "cgofree", "ptx"}
 	case "metal":
-		return []string{"cleangpu", "seam", "suite", "parity", "cgofree", "lifecycle", "prefill", "webgpu", "repo"}
+		groups = []string{"cleangpu", "seam", "suite", "parity", "cgofree", "lifecycle", "prefill"}
+	default:
+		groups = []string{"cleangpu", "seam", "suite"}
 	}
-	return []string{"cleangpu", "seam", "suite", "webgpu", "repo"}
+	if legacyWebGPU {
+		groups = append(groups, "webgpu")
+	}
+	return append(groups, "repo")
 }
 
 // cleanGPUInput is what the clean-GPU group read: the backend, whether nvidia-smi was found, and its compute processes and

@@ -1,31 +1,6 @@
 name: coverage
 
-# Test coverage, uploaded to Codecov for the README badge and the coverage link awesome-go asks for: the
-# root module (flag `root`) and demo/agent (flag `agent`), one flag per module so each number means something on its own
-# (docs/completed/task-coverage-all-modules.md).
-#
-# Measured and left out, by that task's pre-registered 25% bar (deviceless ubuntu-24.04, each module's own tags, the
-# workspace stitched; the coverage-probe run, 2026-10-08):
-#   gpu/   3.2% of statements, 34 top-level tests passed, 168 skipped (no adapter), 29 s
-#   cuda/ 12.2% of statements, 87 passed, 329 skipped (no device), 23 s
-# metal/ needs a macOS runner and is a separate decision; apps/site/ (the website generator) is out of scope.
-#
-# The root run stays in module mode (no go.work in the checkout): in workspace mode `./...` from the root would also
-# match the nested workspace modules and change what the root number measures. demo/agent resolves the root from this
-# checkout through a go.work in RUNNER_TEMP, as release-assets.yml does. A separate workflow rather than a step in ci.yml's sharded `test-*`
-# jobs: those run under -race and split ./decoder across five runners, so their profiles would
-# have to be merged, and -race is not what a coverage number needs. This runs the same suite
-# once, without -race, nightly against main's tip -- not per push or on pull requests, so it takes no runner from a
-# busy day's pool. A failure that only this suite sees therefore surfaces up to a day after the commit that caused it.
-#
-# Per-package coverage (no -coverpkg): each package is credited only with what its own tests
-# execute. GPU backends whose tests skip without a device count as uncovered here, honestly.
-#
-# Upload: CODECOV_TOKEN if the secret is set, else codecov-action's tokenless path for public
-# repos. fail_ci_if_error is false, so a Codecov outage or a missing token never turns the run
-# red; the total is also written to the job summary, so the number is readable without Codecov.
-# 10:23 UTC (02:23 PST, 03:23 PDT): clear of the 07:00 and 08:00 UTC weekly and nightly jobs and of the 15:17 UTC
-# heartbeat, and in the quietest hours of the ci pool. Off the top of the hour, when GitHub's scheduler is busiest.
+# Root module statement coverage, run nightly and on demand.
 on:
   schedule:
     - cron: "23 10 * * *"
@@ -74,41 +49,14 @@ jobs:
       - uses: actions/setup-go@924ae3a1cded613372ab5595356fb5720e22ba16 # v6.5.0
         with:
           go-version-file: go.mod
-          cache-dependency-path: |
-            go.sum
-            demo/agent/go.sum
+          cache-dependency-path: go.sum
       - name: test with coverage (root)
         run: go test -timeout 40m -tags goinfer_testhooks -covermode=atomic -coverprofile=cov-root.out ./...
-      - name: test with coverage (demo/agent)
-        run: |
-          gowork="$RUNNER_TEMP/coverage.go.work"
-          GOWORK="$gowork" go work init . ./demo/agent
-          GOWORK="$gowork" go test -C demo/agent -covermode=atomic -coverprofile="$GITHUB_WORKSPACE/cov-agent.out" ./...
       - name: coverage summary
-        run: |
-          root=$(go tool cover -func=cov-root.out | tail -1 | awk '{print $NF}')
-          agent=$(GOWORK="$RUNNER_TEMP/coverage.go.work" go tool cover -func=cov-agent.out | tail -1 | awk '{print $NF}')
-          echo "statement coverage: root $root, demo/agent $agent"
-          {
-            echo "### Coverage, per module (per-package, no -coverpkg)"
-            echo "| module | statements |"
-            echo "|---|---|"
-            echo "| root | $root |"
-            echo "| demo/agent | $agent |"
-            echo ""
-            echo "Not uploaded (measured under 25% on a deviceless runner, see the workflow header): gpu/ 3.2%, cuda/ 12.2%; metal/ needs macOS."
-          } >> "$GITHUB_STEP_SUMMARY"
-      # One upload per module: codecov-action applies its flags to every file in an upload, so a single upload of both
-      # profiles would credit each to both flags.
+        run: go tool cover -func=cov-root.out | tail -1 >> "$GITHUB_STEP_SUMMARY"
       - uses: codecov/codecov-action@0fb7174895f61a3b6b78fc075e0cd60383518dac # v5.5.5
         with:
           files: cov-root.out
           flags: root
-          token: ${{ secrets.CODECOV_TOKEN }}
-          fail_ci_if_error: false
-      - uses: codecov/codecov-action@0fb7174895f61a3b6b78fc075e0cd60383518dac # v5.5.5
-        with:
-          files: cov-agent.out
-          flags: agent
           token: ${{ secrets.CODECOV_TOKEN }}
           fail_ci_if_error: false

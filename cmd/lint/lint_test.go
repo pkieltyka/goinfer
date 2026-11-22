@@ -1,9 +1,6 @@
 package main
 
 import (
-	"fmt"
-	"go/build"
-	"io/fs"
 	"os"
 	"path/filepath"
 	"reflect"
@@ -98,10 +95,9 @@ exit 0
 	for _, c := range cells {
 		got[c.name] = c.outcome
 	}
-	_, cgoOS := platformEnv(target{cgo: true}, runtime.GOOS, runtime.GOARCH)
 	want := map[string]outcome{
-		"staticcheck version": ok, "canary/linux": ok, "canary/" + cgoOS + "-cgo": ok,
-		"staticcheck/root": ok, "staticcheck/vulkan": ok, "staticcheck/gpu": ok, "staticcheck/demo/agent": ok, "staticcheck/cuda": fail,
+		"staticcheck version": ok, "canary/linux": ok,
+		"staticcheck/root": ok, "staticcheck/vulkan": ok, "staticcheck/cuda": fail,
 	}
 	if !reflect.DeepEqual(got, want) {
 		t.Errorf("cells = %v, want %v", got, want)
@@ -199,63 +195,6 @@ func TestPlatformEnv(t *testing.T) {
 	}
 	if env, goos := platformEnv(c, "darwin", "arm64"); goos != "darwin" || !reflect.DeepEqual(env, []string{"GOOS=darwin", "GOARCH=arm64", "CGO_ENABLED=1"}) {
 		t.Errorf("a cgo target on darwin: %v %s", env, goos)
-	}
-}
-
-// TestCgoTargets_noPlatformFiles is what lets a cgo target's host-platform run stand in for CI's linux/amd64: every .go
-// file in its module, at any depth, must be in or out of the build identically on darwin and linux, amd64 and arm64.
-func TestCgoTargets_noPlatformFiles(t *testing.T) {
-	for _, tg := range targets {
-		if !tg.cgo {
-			continue
-		}
-		var tags []string
-		for i, a := range tg.args {
-			if a == "-tags" && i+1 < len(tg.args) {
-				tags = strings.Fields(tg.args[i+1])
-			}
-		}
-		ctx := func(goos, goarch string) build.Context {
-			c := build.Default
-			c.GOOS, c.GOARCH, c.CgoEnabled, c.BuildTags = goos, goarch, true, tags
-			return c
-		}
-		plats := []build.Context{ctx("darwin", "arm64"), ctx("darwin", "amd64"), ctx("linux", "amd64"), ctx("linux", "arm64")}
-		dir := filepath.Join(repoRoot, strings.TrimSuffix(strings.TrimPrefix(tg.args[len(tg.args)-1], "./"), "/..."))
-		n := 0
-		err := filepath.WalkDir(dir, func(p string, d fs.DirEntry, err error) error {
-			if err != nil {
-				return err
-			}
-			if d.IsDir() && d.Name() == "testdata" {
-				return filepath.SkipDir
-			}
-			if d.IsDir() || !strings.HasSuffix(p, ".go") {
-				return nil
-			}
-			n++
-			var in []string
-			for _, c := range plats {
-				m, err := c.MatchFile(filepath.Dir(p), d.Name())
-				if err != nil {
-					return err
-				}
-				in = append(in, fmt.Sprintf("%s/%s=%v", c.GOOS, c.GOARCH, m))
-			}
-			for _, x := range in[1:] {
-				if strings.HasSuffix(x, "=true") != strings.HasSuffix(in[0], "=true") {
-					t.Errorf("%s: in or out of the build by platform (%s); target %s's host-platform run no longer covers CI's", p, strings.Join(in, " "), tg.name)
-					break
-				}
-			}
-			return nil
-		})
-		if err != nil {
-			t.Fatal(err)
-		}
-		if n == 0 {
-			t.Errorf("target %s: no .go files under %s", tg.name, dir)
-		}
 	}
 }
 
@@ -378,19 +317,5 @@ func TestResolveBin(t *testing.T) {
 		if got := resolveBin(in, cwd); got != filepath.FromSlash(want) && got != want {
 			t.Errorf("resolveBin(%q) = %q, want %q", in, got, want)
 		}
-	}
-}
-
-// TestCanaryPerPlatform: a target is judged only by the canary of the environment it runs in, so the cgo target needs a
-// canary run under cgo.
-func TestCanaryPerPlatform(t *testing.T) {
-	cells := checks(repoRoot, pinnedFake(t, pin(t)), nil)
-	names := map[string]bool{}
-	for _, c := range cells {
-		names[c.name] = true
-	}
-	_, goos := platformEnv(target{cgo: true}, runtime.GOOS, runtime.GOARCH)
-	if !names["canary/"+goos+"-cgo"] {
-		t.Errorf("no cgo canary cell; cells: %v", names)
 	}
 }

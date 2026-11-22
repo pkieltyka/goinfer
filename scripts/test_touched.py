@@ -93,7 +93,7 @@ class PlanSelectsTheScanTests(unittest.TestCase):
     def test_a_ci_workflow_change_selects_its_readers(self):
         got = selected([".github/workflows/ci.yml"])
         for t in [("internal/runtime/sampling", "TestSweepCoverage_fullSweepRunsSomewhere"), ("multimodal", "TestRaceSubset_runsInFullSomewhere"),
-                  ("internal/runtime/kvmgr", "TestOracle_runsInFullSomewhere"), ("chat", "TestReleasing_standaloneBuildGateExists")]:
+                  ("internal/runtime/kvmgr", "TestOracle_runsInFullSomewhere")]:
             self.assertIn(t, got)
 
     def test_an_unscanned_change_selects_nothing_extra(self):

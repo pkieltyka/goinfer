@@ -33,10 +33,10 @@ Run on the 7B's `.int4.metal.giw` with weights aliased, as S1 ran it. The `.gguf
 | `TestMC3_concurrentMatchesAloneOnMetal`: 4 conversations × 3 turns through `Model.Generate`, greedy | ids and reuse identical; 96 steps served 379 tokens |
 | `TestMC3_concurrentSampledMatchesAloneOnMetal`: the same at T = 0.8, fixed seeds | ids identical; 38 steps served 129 tokens |
 
-Log: [`mc3-7b-identity.log`](concurrency-mc3-7b-w7-2026-09-27/mc3-7b-identity.log).
+Log: [`mc3-7b-identity.log`](https://github.com/townsendmerino/goinfer/blob/36dbfbaf149aabdff43dce5766b49a65183113a7/docs/measurements/concurrency-mc3-7b-w7-2026-09-27/mc3-7b-identity.log).
 
 The first launch (08:15) pointed the tests at the `.gguf`. The fit guard refused every load, and nothing was
-bypassed ([`mc3-7b-identity-attempt1-fitguard.log`](concurrency-mc3-7b-w7-2026-09-27/mc3-7b-identity-attempt1-fitguard.log)).
+bypassed ([`mc3-7b-identity-attempt1-fitguard.log`](https://github.com/townsendmerino/goinfer/blob/36dbfbaf149aabdff43dce5766b49a65183113a7/docs/measurements/concurrency-mc3-7b-w7-2026-09-27/mc3-7b-identity-attempt1-fitguard.log)).
 
 That launch also showed the sampled concurrent test passing *on the 1.5B*. It had hard-coded the 1.5B and ignored
 `GOINFER_METAL_MC3_MODEL`. Both concurrent tests now read it, plus `GOINFER_METAL_MC3_TOKENIZER`, since a `.giw`
@@ -62,10 +62,10 @@ As registered (`21e88ae4`, committed and pushed before any timing):
 - The bench header reads `goinfer_dirty: true`. The dirty entries were untracked docs: another session's prompt file,
   and this record's run script.
 
-Raw: [`w7-7b.json`](concurrency-mc3-7b-w7-2026-09-27/w7-7b.json), [`w7-7b-run.log`](concurrency-mc3-7b-w7-2026-09-27/w7-7b-run.log),
-[`w7-7b-servers.log`](concurrency-mc3-7b-w7-2026-09-27/w7-7b-servers.log), [`run-w7.sh`](concurrency-mc3-7b-w7-2026-09-27/run-w7.sh).
+Raw: [`w7-7b.json`](concurrency-mc3-7b-w7-2026-09-27/w7-7b.json), [`w7-7b-run.log`](https://github.com/townsendmerino/goinfer/blob/36dbfbaf149aabdff43dce5766b49a65183113a7/docs/measurements/concurrency-mc3-7b-w7-2026-09-27/w7-7b-run.log),
+[`w7-7b-servers.log`](https://github.com/townsendmerino/goinfer/blob/36dbfbaf149aabdff43dce5766b49a65183113a7/docs/measurements/concurrency-mc3-7b-w7-2026-09-27/w7-7b-servers.log), [`run-w7.sh`](concurrency-mc3-7b-w7-2026-09-27/run-w7.sh).
 The gates are computed by MC3's own [`gates.py`](concurrency-mc3-2026-09-26/gates.py), output in
-[`gates-output.txt`](concurrency-mc3-7b-w7-2026-09-27/gates-output.txt).
+[`gates-output.txt`](https://github.com/townsendmerino/goinfer/blob/36dbfbaf149aabdff43dce5766b49a65183113a7/docs/measurements/concurrency-mc3-7b-w7-2026-09-27/gates-output.txt).
 
 | gate (pre-registered) | result |
 |---|---|
@@ -100,7 +100,7 @@ item closes.
 
 `TestMC3Step_throughput` on the same `.giw`, in sequence (no serve, no prefill between steps): median GPU step time,
 7 reps, arms interleaved. 08:46–08:50 PDT. The before column is S1's 7B run, before S2 and S3 changed the step
-([`identity-throughput-7b.log`](concurrency-mc3-s1-2026-09-26/identity-throughput-7b.log)).
+([`identity-throughput-7b.log`](https://github.com/townsendmerino/goinfer/blob/36dbfbaf149aabdff43dce5766b49a65183113a7/docs/measurements/concurrency-mc3-s1-2026-09-26/identity-throughput-7b.log)).
 
 | depth | B | step before (S1) | **step now** | step ÷ one token now | aggregate vs one stream, now |
 |---:|---:|---:|---:|---:|---:|
@@ -114,7 +114,7 @@ item closes.
 
 Production's single-token decode: 33.1 ms at depth 128, 35.2 ms at depth 512.
 
-Log: [`mc3-7b-step-throughput.log`](concurrency-mc3-7b-w7-2026-09-27/mc3-7b-step-throughput.log).
+Log: [`mc3-7b-step-throughput.log`](https://github.com/townsendmerino/goinfer/blob/36dbfbaf149aabdff43dce5766b49a65183113a7/docs/measurements/concurrency-mc3-7b-w7-2026-09-27/mc3-7b-step-throughput.log).
 
 **Reading.**
 - **On the 7B, a step has a floor of ~1.9× a token.** A step of one sequence already costs 1.94× production's token.

@@ -13,7 +13,7 @@ preconditions were registered in `red-october.md` § R19 before any prototype.
 - medians of 5 paired reps, in sequence;
 - 2026-09-27 17:49–17:56 PDT.
 
-The replica's logits are bit-identical to `PrefillLast`'s at both lengths. Log: [`s0-decomp.log`](metal-prefill-attn-2026-09-27/s0-decomp.log).
+The replica's logits are bit-identical to `PrefillLast`'s at both lengths. Log: [`s0-decomp.log`](https://github.com/townsendmerino/goinfer/blob/36dbfbaf149aabdff43dce5766b49a65183113a7/docs/measurements/metal-prefill-attn-2026-09-27/s0-decomp.log).
 
 | in-sequence cost | K=512 | K=3900 |
 |---|---:|---:|
@@ -70,13 +70,13 @@ Three kernels were compared:
 
 ## The prototype, confirmed and wired (R19 SHIPS)
 
-**Exploratory run 1** ([`r19-explore1.log`](metal-prefill-attn-2026-09-27/r19-explore1.log)): the first prototype,
+**Exploratory run 1** ([`r19-explore1.log`](https://github.com/townsendmerino/goinfer/blob/36dbfbaf149aabdff43dce5766b49a65183113a7/docs/measurements/metal-prefill-attn-2026-09-27/r19-explore1.log)): the first prototype,
 `attention_prefill_steel`, built from the read above.
 - In sequence at K=3900 it read **7.32×** the fused kernel (4432 → 606 ms), and at K=512 6.25×.
 - Against the fused kernel on the same inputs: relative L2 6.4e-5, cosine 0.999999998.
 - It was selected as the candidate.
 
-**The confirmation run** ([`r19-confirm-1.5b.log`](metal-prefill-attn-2026-09-27/r19-confirm-1.5b.log)): a fresh
+**The confirmation run** ([`r19-confirm-1.5b.log`](https://github.com/townsendmerino/goinfer/blob/36dbfbaf149aabdff43dce5766b49a65183113a7/docs/measurements/metal-prefill-attn-2026-09-27/r19-confirm-1.5b.log)): a fresh
 process with the candidate alone, 7 paired reps, 2026-09-27 18:08–18:17 PDT.
 
 | | fused | prototype | speedup |
@@ -89,9 +89,9 @@ process with the candidate alone, 7 paired reps, 2026-09-27 18:08–18:17 PDT.
 1. **Fidelity, set A's §3.2 pooled gate, passes on both models with the new kernel as production's prefill
    attention.** `TestPrefillGateVsReference` ran with the `.int4.metal.giw` bundles and the tokenizers from their
    `.gguf`s (a new `GOINFER_METAL_MODEL[_D7]_TOKENIZER` in the test), 2026-09-27 18:29–19:01 PDT
-   ([`gate-setA-steel.log`](metal-prefill-attn-2026-09-27/gate-setA-steel.log)).
+   ([`gate-setA-steel.log`](https://github.com/townsendmerino/goinfer/blob/36dbfbaf149aabdff43dce5766b49a65183113a7/docs/measurements/metal-prefill-attn-2026-09-27/gate-setA-steel.log)).
    - A first launch stopped at once: the test read its tokenizer from the model path, and a `.giw` has none
-     ([`gate-setA-steel-attempt1-tokenizer.log`](metal-prefill-attn-2026-09-27/gate-setA-steel-attempt1-tokenizer.log)).
+     ([`gate-setA-steel-attempt1-tokenizer.log`](https://github.com/townsendmerino/goinfer/blob/36dbfbaf149aabdff43dce5766b49a65183113a7/docs/measurements/metal-prefill-attn-2026-09-27/gate-setA-steel-attempt1-tokenizer.log)).
 
    | model | pooled verdict (K = 256 / 512 / 1024) | hard flips, fast vs exact | agreement, fast vs exact |
    |---|---|---|---|
@@ -114,8 +114,8 @@ process with the candidate alone, 7 paired reps, 2026-09-27 18:08–18:17 PDT.
 
 **Wired into production** (`backend/metal/prefill.go`): head dim 128 runs `attention_prefill_steel`, and every other head dim
 keeps `attention_prefill_fused`. A test-only `prefillSteelAttnOff` restores the fused kernel for baselines. Checked on
-the wired build ([`r19-wired.log`](metal-prefill-attn-2026-09-27/r19-wired.log),
-[`metal-suite-r19.log`](metal-prefill-attn-2026-09-27/metal-suite-r19.log)):
+the wired build ([`r19-wired.log`](https://github.com/townsendmerino/goinfer/blob/36dbfbaf149aabdff43dce5766b49a65183113a7/docs/measurements/metal-prefill-attn-2026-09-27/r19-wired.log),
+[`metal-suite-r19.log`](https://github.com/townsendmerino/goinfer/blob/36dbfbaf149aabdff43dce5766b49a65183113a7/docs/measurements/metal-prefill-attn-2026-09-27/metal-suite-r19.log)):
 - the decomposition replica still reproduces `PrefillLast`'s logits bit for bit at K=512 and 3900;
 - production against the retired fused kernel reads 7.35× in sequence at K=3900;
 - the tagged Metal suite: 183 pass, 0 fail;

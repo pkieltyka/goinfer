@@ -110,8 +110,8 @@ the simplest (step 0's integer math unchanged), so it went to the confirmation r
 A fresh run of `i2244` alone against the shipped kernels, one process per model, with the parameters fixed in
 `afd77749`: 7 paired reps, 20 step pairs per category, 16 identity positions, and 3 after-idle samples. The 1.5B ran
 13:26:46–13:29:50 PDT and the 7B 13:29:50–13:38:01 PDT, with load1 1.55 and 1.68 at start. Logs:
-[`confirm-1.5b.log`](metal-decode-gemv-r18-2026-09-26/confirm-1.5b.log) and
-[`confirm-7b.log`](metal-decode-gemv-r18-2026-09-26/confirm-7b.log).
+[`confirm-1.5b.log`](https://github.com/townsendmerino/goinfer/blob/36dbfbaf149aabdff43dce5766b49a65183113a7/docs/measurements/metal-decode-gemv-r18-2026-09-26/confirm-1.5b.log) and
+[`confirm-7b.log`](https://github.com/townsendmerino/goinfer/blob/36dbfbaf149aabdff43dce5766b49a65183113a7/docs/measurements/metal-decode-gemv-r18-2026-09-26/confirm-7b.log).
 
 **Precondition 1, bit-identity.** At every depth (128, 2048 and 3900) on both models, 0 of 16 teacher-forced positions
 differ, and 0 of 151,936 / 152,064 logits differ at any position, through the production executor
@@ -212,9 +212,9 @@ Gates, all on the wired tree:
 
 | gate | result |
 |---|---|
-| bit-identity vs the shipped kernels, through the executor (`TestR18InSequence`, 16 teacher-forced positions) | **0 differ** at 128/2048/3900 on both models ([`wired-1.5b.log`](metal-decode-gemv-r18-2026-09-26/wired-1.5b.log), [`wired-7b.log`](metal-decode-gemv-r18-2026-09-26/wired-7b.log)) |
+| bit-identity vs the shipped kernels, through the executor (`TestR18InSequence`, 16 teacher-forced positions) | **0 differ** at 128/2048/3900 on both models ([`wired-1.5b.log`](https://github.com/townsendmerino/goinfer/blob/36dbfbaf149aabdff43dce5766b49a65183113a7/docs/measurements/metal-decode-gemv-r18-2026-09-26/wired-1.5b.log), [`wired-7b.log`](https://github.com/townsendmerino/goinfer/blob/36dbfbaf149aabdff43dce5766b49a65183113a7/docs/measurements/metal-decode-gemv-r18-2026-09-26/wired-7b.log)) |
 | `TestMetalSnapshotGolden` (mixtral-tiny, llama-attnfa-tiny, gemma4-dense-scaled) | 10/10 byte-identical |
-| tagged Metal suite (`-tags goinfer_testhooks ./metal/`) | 179 pass, 0 fail ([`metal-suite-tagged.log`](metal-decode-gemv-r18-2026-09-26/metal-suite-tagged.log)). Its first run caught a nil dereference: a DeltaNet layer has no attention geometry, so it is now skipped in the qkv row rule. |
+| tagged Metal suite (`-tags goinfer_testhooks ./metal/`) | 179 pass, 0 fail ([`metal-suite-tagged.log`](https://github.com/townsendmerino/goinfer/blob/36dbfbaf149aabdff43dce5766b49a65183113a7/docs/measurements/metal-decode-gemv-r18-2026-09-26/metal-suite-tagged.log)). Its first run caught a nil dereference: a DeltaNet layer has no attention geometry, so it is now skipped in the qkv row rule. |
 | production vs shipped, GEMV work (5 reps) | 1.5B 1.169× / 1.232× / 1.249×; 7B 1.318× / 1.330× / 1.323× at 128 / 2048 / 3900 |
 | production vs shipped, full token (GPU ms) | 1.5B 12.99 → 11.30 at 128, 14.06 → 12.37 at 2048, 14.85 → 13.05 at 3900; 7B 45.67 → 35.96, 49.50 → 39.68, 52.19 → 42.37 |
 
@@ -231,9 +231,9 @@ The setup was `scripts/bench_peer.py`, following R17's end-to-end protocol:
 
 The run was 2026-09-26 15:06–15:35 PDT. A first attempt at 14:10 waited its whole idle window and never ran: load
 stayed at 2.5–4.6, held there by two orphaned sampler loops of this session's own (see
-[`e2e/run-attempt1-not-idle.log`](metal-decode-gemv-r18-2026-09-26/e2e/run-attempt1-not-idle.log)). Raw:
+[`e2e/run-attempt1-not-idle.log`](https://github.com/townsendmerino/goinfer/blob/36dbfbaf149aabdff43dce5766b49a65183113a7/docs/measurements/metal-decode-gemv-r18-2026-09-26/e2e/run-attempt1-not-idle.log)). Raw:
 [`e2e/r18-e2e-metal-decode.json`](metal-decode-gemv-r18-2026-09-26/e2e/r18-e2e-metal-decode.json) and
-[`e2e/run.log`](metal-decode-gemv-r18-2026-09-26/e2e/run.log). Decode tok/s is the mean of 3 runs, and every
+[`e2e/run.log`](https://github.com/townsendmerino/goinfer/blob/36dbfbaf149aabdff43dce5766b49a65183113a7/docs/measurements/metal-decode-gemv-r18-2026-09-26/e2e/run.log). Decode tok/s is the mean of 3 runs, and every
 spread is ≤ 0.5.
 
 | model | depth | R18 | previous build | Ollama | R18 ÷ previous | **R18 ÷ Ollama** | previous ÷ Ollama |

@@ -4,7 +4,7 @@
 // VERDICT line and exits 0 (PASS), 1 (FAIL) or 2 (INCONCLUSIVE).
 //
 //	go run ./cmd/lint                             # every target, staticcheck from PATH
-//	go run ./cmd/lint -only cuda,gpu              # some targets; the rest print n/a
+//	go run ./cmd/lint -only cuda,vulkan              # some targets; the rest print n/a
 //	go run ./cmd/lint -staticcheck /path/to/bin
 //
 // GOOS is set for staticcheck's analysis only, never for `go run`: a GOOS=linux `go run` of staticcheck builds a binary
@@ -25,7 +25,7 @@ import (
 
 func main() {
 	bin := flag.String("staticcheck", "staticcheck", "staticcheck binary")
-	onlyFlag := flag.String("only", "", "comma-separated targets to run (root, vulkan, gpu, demo/agent, cuda); empty runs all")
+	onlyFlag := flag.String("only", "", "comma-separated targets to run (root, vulkan, cuda); empty runs all")
 	underLock := flag.Bool("under-timing-lock", false, "internal: set by lint's own re-run under the shared timing lock")
 	flag.Parse()
 	out, err := exec.Command("git", "rev-parse", "--show-toplevel").Output()

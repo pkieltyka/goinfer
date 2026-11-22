@@ -1617,7 +1617,7 @@ was described as, before any of the above.
 
 ### The measurement that mattered: ablate, don't attribute
 
-`TestDecode_dispatchProfile` (`backend/webgpu/decode_dispatch_profile_test.go`) re-records the whole token plan
+`TestDecode_dispatchProfile` ([upstream WebGPU source](upstream-archive.md)) re-records the whole token plan
 R×8 into one pass with one pipeline class **omitted**, one Submit, one blocking Poll, and differences
 against the unablated plan. Ablation, not per-kernel attribution, because the question is "what would
 deleting this buy" — a dispatch that fully overlaps its neighbours costs wall-clock nothing to remove,
@@ -1803,7 +1803,7 @@ the dim-split arm was re-measured after the key-split arm to close the interleav
 ### Combined with G35 — the end-to-end number for the two changes together
 
 Measured separately afterwards, because the table above is the attention A/B *on top of* G35's
-`quantize` fix and multiplying two deltas is not a measurement. Both-off is HEAD with `backend/webgpu/internal/kernels/device.go`
+`quantize` fix and multiplying two deltas is not a measurement. Both-off is HEAD with [upstream WebGPU source](upstream-archive.md)
 reverted to its pre-G35 state (verified: no other commit has touched that file since) and
 `GOINFER_ATTN_KEYS=0`; both-on is the shipped binary. Same server, same prompt, interleaved.
 
@@ -2026,11 +2026,11 @@ key-split attention (2.5× at 1k context). R10's "Standing" numbers (137.6 tok/s
 both and are stale. Only the argmax item and the prefill profile were genuinely open.
 
 **Box:** RTX 2070 SUPER, driver 595.91.07, Qwen2.5-Coder-1.5B and -0.5B (`int8int8`, GPU-resident),
-greedy, `TestDecodeArgmaxHeadroom` (`backend/webgpu/decode_argmax_headroom_test.go`, committed).
+greedy, `TestDecodeArgmaxHeadroom` ([upstream WebGPU source](upstream-archive.md), committed).
 
 ### The readback is not the cost — checked directly, not assumed
 
-`ForwardSample`'s greedy branch (`backend/webgpu/resident_sample.go`, `invT == +Inf`) calls `Run()`: full
+`ForwardSample`'s greedy branch ([upstream WebGPU source](upstream-archive.md), `invT == +Inf`) calls `Run()`: full
 LM-head GEMV → copy `vocab*4` bytes to a staging buffer → `MapAsync` → a host linear scan for the
 max. `RunNoLogits` (already in tree, unused by any test until now) skips the GEMV, the copy, and the
 readback entirely, so `Run() − RunNoLogits()` bounds what ANY logits-avoiding scheme — a device-side
@@ -2062,7 +2062,7 @@ corrected itself out of for attention occupancy). Not built.
 The GEMV cost scales near-linearly with `hidden` (8,512 → 4,264 µs as hidden drops 1536 → 896, ratio
 0.58 vs the shape's 0.50 — real, not noise), which rules out a **fixed-per-workgroup / dispatch-count**
 defect (that would cost the SAME regardless of K) — this is genuine, proportional compute, just at
-low measured efficiency. It is the SAME shared kernel (`gemvW8A8ShaderWGSL`, `backend/webgpu/internal/kernels/gemv.go`) every
+low measured efficiency. It is the SAME shared kernel (`gemvW8A8ShaderWGSL`, [upstream WebGPU source](upstream-archive.md)) every
 trunk projection uses — one workgroup per output row, 64-lane parallel tree reduce (not a serial
 scan; no G35-class bug in the kernel body itself), `gemvGrid` sizes a proper 2D grid for N>32768
 (151,936 → 5×32,768 = 163,840 workgroups, far more than this card's SM count — not an occupancy

@@ -17,7 +17,7 @@ before any code.
 
 ## Why this lever (S0, exploratory)
 
-`TestCPUBatchS0_matmulScaling` ([`s0-matmul-7b.log`](concurrency-mc3c-s1-2026-09-27/s0-matmul-7b.log)) times the 7B's
+`TestCPUBatchS0_matmulScaling` ([`s0-matmul-7b.log`](https://github.com/townsendmerino/goinfer/blob/36dbfbaf149aabdff43dce5766b49a65183113a7/docs/measurements/concurrency-mc3c-s1-2026-09-27/s0-matmul-7b.log)) times the 7B's
 layer-0 shapes (canonical int4, amd64) at M rows against one row:
 
 | shape | one row | M = 2 | M = 4 | M = 8 |
@@ -41,7 +41,7 @@ fork/join and compute, not bandwidth. Perfect amortisation everywhere would save
   alternating by rep.
 - 5 reps; one `go test` per depth; idle-gated (load1 ≤ 1.0, no other go, test or serve process).
 - Run 2026-09-27 16:45–16:56 PDT.
-- Raw: [`s1-d128.log`](concurrency-mc3c-s1-2026-09-27/s1-d128.log), [`s1-d512.log`](concurrency-mc3c-s1-2026-09-27/s1-d512.log),
+- Raw: [`s1-d128.log`](https://github.com/townsendmerino/goinfer/blob/36dbfbaf149aabdff43dce5766b49a65183113a7/docs/measurements/concurrency-mc3c-s1-2026-09-27/s1-d128.log), [`s1-d512.log`](https://github.com/townsendmerino/goinfer/blob/36dbfbaf149aabdff43dce5766b49a65183113a7/docs/measurements/concurrency-mc3c-s1-2026-09-27/s1-d512.log),
   [`run-s1.sh`](concurrency-mc3c-s1-2026-09-27/run-s1.sh).
 
 Fused ÷ unfused, paired per rep, median of 5 (per-rep range in brackets):
@@ -52,14 +52,14 @@ Fused ÷ unfused, paired per rep, median of 5 (per-rep range in brackets):
 | 512 | 1.040× (1.037–1.041) | **1.058×** (1.056–1.060) | 1.059× (1.047–1.059) | 13.53 / 12.80 |
 
 Reported: the 1.5B (qwen2.5-coder-1.5b, depth 128) reads B = 2 1.091×, **B = 4 1.142×** and B = 8 1.148×
-([`s1-1.5b.log`](concurrency-mc3c-s1-2026-09-27/s1-1.5b.log)). The fork/join the fusion removes is a larger share of a
+([`s1-1.5b.log`](https://github.com/townsendmerino/goinfer/blob/36dbfbaf149aabdff43dce5766b49a65183113a7/docs/measurements/concurrency-mc3c-s1-2026-09-27/s1-1.5b.log)). The fork/join the fusion removes is a larger share of a
 smaller model's step.
 
 ## Gates (pre-registered in `5f7480e0`)
 
 | gate | result |
 |---|---|
-| 1 identity (hard): the fixture sweep, concurrent == alone (tiny; 1.5B on; 7B auto), the 7B's MC2 identity (int4, int8int8), all with fusion on | **pass** ([`identity.log`](concurrency-mc3c-s1-2026-09-27/identity.log)); and every S1 step's logits bit-identical between the arms |
+| 1 identity (hard): the fixture sweep, concurrent == alone (tiny; 1.5B on; 7B auto), the 7B's MC2 identity (int4, int8int8), all with fusion on | **pass** ([`identity.log`](https://github.com/townsendmerino/goinfer/blob/36dbfbaf149aabdff43dce5766b49a65183113a7/docs/measurements/concurrency-mc3c-s1-2026-09-27/identity.log)); and every S1 step's logits bit-identical between the arms |
 | 2 speed: B = 4 fused ÷ unfused, the lower depth's median ≥ 1.03× ships; the higher < 1.01× parks | **1.058× at both depths → ships** |
 | 3 no regression (hard for ship): B = 2 and B = 8 medians ≥ 0.99× at both depths | **pass** (1.039–1.062×) |
 
@@ -69,8 +69,8 @@ smaller model's step.
 - Setup: the 7B at 4 clients, serve defaults, 6 turns × 128 greedy tokens, `--fixed-nonce`, 3 pairs in the order old
   new new old old new, idle-gated.
 - Run 2026-09-27 17:02–17:40 PDT.
-- Raw: [`w7.json`](concurrency-mc3c-s1-2026-09-27/w7.json), [`w7-run.log`](concurrency-mc3c-s1-2026-09-27/w7-run.log),
-  [`w7-servers.log`](concurrency-mc3c-s1-2026-09-27/w7-servers.log), [`gates-output.txt`](concurrency-mc3c-s1-2026-09-27/gates-output.txt).
+- Raw: [`w7.json`](concurrency-mc3c-s1-2026-09-27/w7.json), [`w7-run.log`](https://github.com/townsendmerino/goinfer/blob/36dbfbaf149aabdff43dce5766b49a65183113a7/docs/measurements/concurrency-mc3c-s1-2026-09-27/w7-run.log),
+  [`w7-servers.log`](https://github.com/townsendmerino/goinfer/blob/36dbfbaf149aabdff43dce5766b49a65183113a7/docs/measurements/concurrency-mc3c-s1-2026-09-27/w7-servers.log), [`gates-output.txt`](https://github.com/townsendmerino/goinfer/blob/36dbfbaf149aabdff43dce5766b49a65183113a7/docs/measurements/concurrency-mc3c-s1-2026-09-27/gates-output.txt).
 
 | pair | step 2 tok/s | S1 tok/s | ratio | p99 turn |
 |---|---:|---:|---:|---:|
@@ -87,18 +87,18 @@ smaller model's step.
 ## Suites
 
 The full decoder suite at `000efe2e`, run after timing, passes: 707 pass, 105 skip, 0 fail
-([`decoder-suite.log`](concurrency-mc3c-s1-2026-09-27/decoder-suite.log)). The sampler throughput gate that sat near
+([`decoder-suite.log`](https://github.com/townsendmerino/goinfer/blob/36dbfbaf149aabdff43dce5766b49a65183113a7/docs/measurements/concurrency-mc3c-s1-2026-09-27/decoder-suite.log)). The sampler throughput gate that sat near
 its bar in step 2's run reads 4.09× here, under its 5.0× bar.
 
 ## Exploratory probes after S1 (not gates)
 
-**S0b** ([`s0b-7b.log`](concurrency-mc3c-s1-2026-09-27/s0b-7b.log)) times the shapes the step now issues at M rows
+**S0b** ([`s0b-7b.log`](https://github.com/townsendmerino/goinfer/blob/36dbfbaf149aabdff43dce5766b49a65183113a7/docs/measurements/concurrency-mc3c-s1-2026-09-27/s0b-7b.log)) times the shapes the step now issues at M rows
 against one row: q‖k‖v fused 1.83× at M = 4, o 1.95×, down 1.36×, gate‖up 1.10×. Its width sweep (E2) is **discarded**.
 Its "default" and "w16" arms are the same configuration (the default width is GOMAXPROCS = 16 here), and they read
 1.41× apart. The arms' position after a long serial run, which leaves the workers parked, mattered more than the
 width.
 
-**S0c** ([`s0c-7b.log`](concurrency-mc3c-s1-2026-09-27/s0c-7b.log)) re-runs the width sweep without a serial arm, with
+**S0c** ([`s0c-7b.log`](https://github.com/townsendmerino/goinfer/blob/36dbfbaf149aabdff43dce5766b49a65183113a7/docs/measurements/concurrency-mc3c-s1-2026-09-27/s0c-7b.log)) re-runs the width sweep without a serial arm, with
 an untimed warm block before each timed one and an A/A control:
 
 | shape | M = 4: A' (control) | M = 4: 8 workers | M = 1: A' (control) | M = 1: 8 workers | M = 1: 12 workers |

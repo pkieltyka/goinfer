@@ -30,9 +30,9 @@ Median of 15 steps per arm, arms interleaved; 1.5B, M1 Pro.
   sequence: norm + quantisation ×2, RoPE, KV store, ctx quantisation, SwiGLU. Each is a single-threadgroup dispatch,
   28 layers deep. Attention ran each sequence's heads as its own dispatch.
 
-Logs: [`s3-breakdown.log`](concurrency-mc3-s3-2026-09-27/s3-breakdown.log),
-[`s3a-breakdown.log`](concurrency-mc3-s3-2026-09-27/s3a-breakdown.log),
-[`s3b-breakdown.log`](concurrency-mc3-s3-2026-09-27/s3b-breakdown.log).
+Logs: [`s3-breakdown.log`](https://github.com/townsendmerino/goinfer/blob/36dbfbaf149aabdff43dce5766b49a65183113a7/docs/measurements/concurrency-mc3-s3-2026-09-27/s3-breakdown.log),
+[`s3a-breakdown.log`](https://github.com/townsendmerino/goinfer/blob/36dbfbaf149aabdff43dce5766b49a65183113a7/docs/measurements/concurrency-mc3-s3-2026-09-27/s3a-breakdown.log),
+[`s3b-breakdown.log`](https://github.com/townsendmerino/goinfer/blob/36dbfbaf149aabdff43dce5766b49a65183113a7/docs/measurements/concurrency-mc3-s3-2026-09-27/s3b-breakdown.log).
 
 ## The build (`731f4f4e`)
 
@@ -69,7 +69,7 @@ B = 4) is what still grows.
   The deep test runs attention_fa rows and per-head rows in one step, one row crossing the floor mid-run.
 - Both concurrent-vs-alone tests through `Model.Generate` pass, greedy and sampled.
 - MC1's slot tests pass on the new allocation. The tagged Metal suite ran 182 pass, 0 fail
-  ([`metal-suite-tagged-s3.log`](concurrency-mc3-s3-2026-09-27/metal-suite-tagged-s3.log)).
+  ([`metal-suite-tagged-s3.log`](https://github.com/townsendmerino/goinfer/blob/36dbfbaf149aabdff43dce5766b49a65183113a7/docs/measurements/concurrency-mc3-s3-2026-09-27/metal-suite-tagged-s3.log)).
 
 ## The W7 grading
 
@@ -79,9 +79,9 @@ Pre-registered in `767cffac`, committed before the S3 code:
 - 4, 1 and 2 clients, 3 interleaved pairs each; idle-gated per cell; 2026-09-27 04:28–04:33 PDT.
 - All 18 servers logged the batched-decode banner.
 
-Raw: [`w7-s3.json`](concurrency-mc3-s3-2026-09-27/w7-s3.json), [`w7-s3-run.log`](concurrency-mc3-s3-2026-09-27/w7-s3-run.log),
-[`w7-s3-servers.log`](concurrency-mc3-s3-2026-09-27/w7-s3-servers.log), [`run-w7.sh`](concurrency-mc3-s3-2026-09-27/run-w7.sh);
-gates → [`gates-output.txt`](concurrency-mc3-s3-2026-09-27/gates-output.txt).
+Raw: [`w7-s3.json`](concurrency-mc3-s3-2026-09-27/w7-s3.json), [`w7-s3-run.log`](https://github.com/townsendmerino/goinfer/blob/36dbfbaf149aabdff43dce5766b49a65183113a7/docs/measurements/concurrency-mc3-s3-2026-09-27/w7-s3-run.log),
+[`w7-s3-servers.log`](https://github.com/townsendmerino/goinfer/blob/36dbfbaf149aabdff43dce5766b49a65183113a7/docs/measurements/concurrency-mc3-s3-2026-09-27/w7-s3-servers.log), [`run-w7.sh`](concurrency-mc3-s3-2026-09-27/run-w7.sh);
+gates → [`gates-output.txt`](https://github.com/townsendmerino/goinfer/blob/36dbfbaf149aabdff43dce5766b49a65183113a7/docs/measurements/concurrency-mc3-s3-2026-09-27/gates-output.txt).
 
 | gate (pre-registered) | result |
 |---|---|

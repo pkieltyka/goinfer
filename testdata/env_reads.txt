@@ -3,7 +3,6 @@
 # This list may only shrink: see docs/env-vars.md, "Policy — where a new setting goes".
 GOINFER_API_KEY	startup: serve — bearer token; a secret belongs in the environment, not argv
 GOINFER_ATTNFA_DEBUG	diagnostic: docs/env-vars.md — Metal attention_fa split trace
-GOINFER_ATTN_KEYS	diagnostic: docs/env-vars.md — WebGPU key-split attention A/B (=0: the old dim-split kernel)
 GOINFER_CPU_FUSED_GATEUP	diagnostic: docs/env-vars.md — CPU fused gate/up A/B; arm64 default awaits a Mac measurement
 GOINFER_CUDA_GRAPHS	diagnostic: docs/cuda-graphs-investigation.md — safe-gated, measured not worth defaulting
 GOINFER_CUDA_GRAPHS_ONLY	diagnostic: docs/cuda-graphs-investigation.md — replay only named segments
@@ -20,10 +19,8 @@ GOINFER_GATE_BACKEND	startup: cmd/gate — gate runner configuration
 GOINFER_GATE_HEARTBEAT	startup: cmd/gate — gate runner heartbeat interval
 GOINFER_GATE_MODELS	startup: cmd/gate — gate runner model directory
 GOINFER_GATE_SKIP_HEAVY	startup: cmd/gate — gate runner scope
-GOINFER_GATE_SKIP_WEBGPU	startup: cmd/gate — gate runner scope
 GOINFER_GGUF_DIRECT	startup: chat, serve (internal/loadflags, --direct-load's default) — load a .gguf directly instead of via its .giw sidecar
 GOINFER_GIW_VERIFY	startup: decoder, every .giw load — =always forces the whole-payload CRC on every load instead of once per file
-GOINFER_GPU_CAPTURE	diagnostic: docs/env-vars.md — WebGPU per-layer capture
 GOINFER_HEAVY_PKGS	startup: cmd/gate — heavy tier package list
 GOINFER_HEAVY_RUN	startup: cmd/gate — heavy tier test selector
 GOINFER_HEAVY_TIMEOUT	startup: cmd/gate — heavy tier timeout
@@ -39,4 +36,3 @@ GOINFER_SWAP_GUARD	startup: serve, chat — swap-guard threshold
 GOINFER_TOOL_UNION	startup: serve — tool-call union policy, read once at init
 GOINFER_W4A8_BATCH	diagnostic: docs/env-vars.md — R-06 fused q/k/v A/B; on for non-arm64, arm64 default awaits a Mac measurement
 GOINFER_W4A8_SPLITHALF	diagnostic: docs/env-vars.md — re-openable decision's arm
-GOINFER_WEBGPU_GEMM	diagnostic: docs/env-vars.md — WebGPU prefill GEMM A/B (tiled16: the kernel rb64 replaced)

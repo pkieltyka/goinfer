@@ -18,7 +18,7 @@ import (
 // progress and the internal/app command-line front ends (and internal/guard/servecheck, internal/diag/hwreport: subcommands), whose output
 // is their interface. cmd directories under a root are binaries, and are skipped.
 var libraryRoots = []string{
-	"backend/cuda", "backend/metal", "backend/webgpu", "chat", "constrain", "decoder", "embeddinggemma2", "engine", "multimodal", "server",
+	"backend/cuda", "backend/metal", "chat", "constrain", "decoder", "embeddinggemma2", "engine", "multimodal", "server",
 	"tokenizer", "internal/audio", "internal/batchio", "internal/clef", "internal/codec", "internal/config", "internal/confidence",
 	"internal/cost", "internal/decide", "internal/fidelity", "internal/guard/memgate", "internal/guard/paritykey", "internal/guard/swapguard",
 	"internal/runtime", "internal/vision", "internal/wrappedupload",

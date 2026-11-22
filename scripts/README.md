@@ -70,7 +70,7 @@ format update) — the output is what's committed, not the script's own executio
 
 ## Site / book build
 
-- [`build_search_index.py`](build_search_index.py) — builds the client-side heading-level search index for the published book site (GitHub Pages' Jekyll safe mode can't run a search plugin). **CI-wired** (`.github/workflows/book-pages.yml:112`).
+- [`build_search_index.py`](build_search_index.py) — builds the client-side heading-level search index for the published book site (GitHub Pages' Jekyll safe mode can't run a search plugin).
 
 `book_link_lint.py` is listed above under hygiene since it's a lint, not a build step.
 

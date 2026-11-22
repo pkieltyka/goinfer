@@ -150,21 +150,6 @@ func realQuickConfig(root string) (*quickConfig, error) {
 			},
 		},
 		{
-			Name: "gpu", Dir: "backend/webgpu", Work: []string{".", "backend/webgpu"},
-			ListTags: []string{"gpu", "goinfer_testhooks"}, TestTags: []string{"gpu", "goinfer_testhooks"},
-			TestArgs: []string{"-short"}, Device: true,
-			// The first two were measured on the Mac; the last two on Vulkan (150 device creations each, no model, built with
-			// the gpu tag alone, so gate gpu's webgpu-suite runs them): docs/measurements/integration-harness-2026-10/gate-quick-slow-cuda-2026-10-13.md.
-			Slow: `^(TestGumbelDeviceAgreesWithHost|TestDecodeRunnerW4A8_geometries|TestContextClose_finalizerRace|TestContextClose_lateWrapperClose)$`,
-			Lint: []lintSpec{
-				{"build", []string{"gpu", "goinfer_testhooks"}, "", "affected", "gpu-darwin: go build -tags 'gpu goinfer_testhooks' ./gpu/..."},
-				{"vet", []string{"gpu", "goinfer_testhooks"}, "", "affected", "gpu-darwin: go vet -tags 'gpu goinfer_testhooks' ./gpu/..."},
-				// CI runs this one on linux. WebGPU is cgo, and cgo does not cross-compile from here (CGO_ENABLED=0
-				// leaves webgpu's types undefined), so this is the host's analysis of the same packages.
-				{"staticcheck", []string{"gpu", "goinfer_testhooks"}, "", "changed", "gpu: staticcheck -tags 'gpu goinfer_testhooks' ./gpu/... (host target)"},
-			},
-		},
-		{
 			Name: "cuda", Dir: "backend/cuda", Work: []string{".", "backend/cuda"},
 			ListTags: []string{"cuda", "goinfer_testhooks"}, TestTags: []string{"cuda", "goinfer_testhooks"},
 			TestArgs: []string{"-short"}, Env: map[string]string{"CGO_ENABLED": "0"},
@@ -190,25 +175,11 @@ func realQuickConfig(root string) (*quickConfig, error) {
 			// that need nothing from decoder live in metal/kernels, where the test cache alone keeps them off a decoder diff.
 			Slow: `^(TestWeightAlias_closeCycles|TestProfileKernels)$`,
 			Lint: []lintSpec{
-				{"build", nil, "darwin/arm64", "affected", "gpu-darwin (metal part): go build ./metal/..."},
-				{"vet", nil, "darwin/arm64", "affected", "gpu-darwin (metal part): go vet ./metal/..."},
-				{"vet", testhooks, "darwin/arm64", "affected", "gpu-darwin (metal part): go vet -tags goinfer_testhooks ./metal/..."},
+				{"build", nil, "darwin/arm64", "affected", "metal-darwin: go build ./backend/metal/..."},
+				{"vet", nil, "darwin/arm64", "affected", "metal-darwin: go vet ./backend/metal/..."},
+				{"vet", testhooks, "darwin/arm64", "affected", "metal-darwin: go vet -tags goinfer_testhooks ./backend/metal/..."},
 				// Not a CI step. Run because a local staticcheck is the only one this module gets.
-				{"staticcheck", testhooks, "darwin/arm64", "changed", "(not in CI) staticcheck -tags goinfer_testhooks ./metal/..."},
-			},
-		},
-		{
-			Name: "apps/sdktest", Dir: "apps/sdktest", Work: []string{".", "apps/sdktest"},
-			Lint: []lintSpec{
-				{"build", nil, "", "affected", "sdktest: go build ./apps/sdktest/..."},
-				{"vet", nil, "", "affected", "sdktest: go vet ./apps/sdktest/..."},
-			},
-		},
-		{
-			Name: "demo/agent", Dir: "demo/agent", Work: []string{".", "backend/webgpu", "demo/agent"},
-			Lint: []lintSpec{
-				{"build", nil, "", "affected", "gpu: go build ./demo/agent/..."},
-				{"vet", nil, "", "affected", "(not in CI) go vet ./demo/agent/..."},
+				{"staticcheck", testhooks, "darwin/arm64", "changed", "(not in CI) staticcheck -tags goinfer_testhooks ./backend/metal/..."},
 			},
 		},
 	}

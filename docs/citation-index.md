@@ -79,11 +79,6 @@ than papered over.
 | `decoder/resident_reuse.go` | goinfer |
 | `decoder/spec_optfwd.go` | goinfer |
 | `decoder/tree_verify_test.go` | goinfer |
-| `backend/webgpu/decode_argmax_headroom_test.go` | goinfer |
-| `backend/webgpu/decode_dispatch_profile_test.go` | goinfer |
-| `backend/webgpu/internal/kernels/device.go` | goinfer |
-| `backend/webgpu/internal/kernels/gemv.go` | goinfer |
-| `backend/webgpu/resident_sample.go` | goinfer |
 | `internal/app/serveapp/chaos_test.go` | goinfer |
 | `internal/app/serveapp/fuzz_test.go` | goinfer |
 | `internal/app/serveapp/openai.go` | goinfer |

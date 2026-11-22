@@ -48,8 +48,8 @@ shipped attention kernel), no speculation and no LoRA.
 The test can go red, and did. The first cut composed a sub-row offset as `row.At(off)`, but aikit's `Buffer.At`
 *sets* the offset from the allocation's start. So sequences 1–3 read sequence 0's K/V and up-projection. Every one
 of their logits differed (max |diff| 12–41) while sequence 0's matched. Logs:
-[`identity-1.5b.log`](concurrency-mc3-s1-2026-09-26/identity-1.5b.log) (after the fix),
-[`identity-throughput-7b.log`](concurrency-mc3-s1-2026-09-26/identity-throughput-7b.log).
+[`identity-1.5b.log`](https://github.com/townsendmerino/goinfer/blob/36dbfbaf149aabdff43dce5766b49a65183113a7/docs/measurements/concurrency-mc3-s1-2026-09-26/identity-1.5b.log) (after the fix),
+[`identity-throughput-7b.log`](https://github.com/townsendmerino/goinfer/blob/36dbfbaf149aabdff43dce5766b49a65183113a7/docs/measurements/concurrency-mc3-s1-2026-09-26/identity-throughput-7b.log).
 
 ## In-sequence cost
 
@@ -63,8 +63,8 @@ of their logits differed (max |diff| 12–41) while sequence 0's matched. Logs:
   - the batched step at B = 1, 2, 4 and 8.
 - GPU time per command buffer, median per arm per rep, 7 reps.
 - aggregate = B × production ÷ step(B), paired per rep; the median and range are shown.
-- 2026-09-26 21:30–21:37 PDT. Logs: [`throughput-1.5b.log`](concurrency-mc3-s1-2026-09-26/throughput-1.5b.log),
-  [`identity-throughput-7b.log`](concurrency-mc3-s1-2026-09-26/identity-throughput-7b.log).
+- 2026-09-26 21:30–21:37 PDT. Logs: [`throughput-1.5b.log`](https://github.com/townsendmerino/goinfer/blob/36dbfbaf149aabdff43dce5766b49a65183113a7/docs/measurements/concurrency-mc3-s1-2026-09-26/throughput-1.5b.log),
+  [`identity-throughput-7b.log`](https://github.com/townsendmerino/goinfer/blob/36dbfbaf149aabdff43dce5766b49a65183113a7/docs/measurements/concurrency-mc3-s1-2026-09-26/identity-throughput-7b.log).
 
 | model | depth | production token | B = 1 | B = 2 | **B = 4** | B = 8 |
 |---|---:|---:|---:|---:|---:|---:|

@@ -42,7 +42,7 @@ As registered: nobara-pc, RTX 2070 SUPER 8 GB, driver 595.91.07.
 Raw: [`copy-15b.json`](spec-vs-batching-cuda-2026-09-28/copy-15b.json),
 [`chat-15b.json`](spec-vs-batching-cuda-2026-09-28/chat-15b.json),
 [`copy-7b.json`](spec-vs-batching-cuda-2026-09-28/copy-7b.json),
-[`servers.log`](spec-vs-batching-cuda-2026-09-28/servers.log),
+[`servers.log`](https://github.com/townsendmerino/goinfer/blob/36dbfbaf149aabdff43dce5766b49a65183113a7/docs/measurements/spec-vs-batching-cuda-2026-09-28/servers.log),
 [`run.sh`](spec-vs-batching-cuda-2026-09-28/run.sh). (Files live under the 2026-09-28 run directory —
 the run started 2026-09-28 evening and finished after midnight PDT; this record is dated by the grading.)
 
@@ -161,5 +161,5 @@ kernels? A `GOINFER_SPEC_ADAPTIVE_NEVER_YIELD` diagnostic knob was added (`decod
 chat — its graded workload). No further work without a real design and owner sign-off. The diagnostic
 knob stays for whoever picks this up next; it is not a shipped policy.
 
-Raw: [`smoke.log`](spec-vs-batching-cuda-2026-09-29-inside-batch-smoke/smoke.log).
+Raw: [`smoke.log`](https://github.com/townsendmerino/goinfer/blob/36dbfbaf149aabdff43dce5766b49a65183113a7/docs/measurements/spec-vs-batching-cuda-2026-09-29-inside-batch-smoke/smoke.log).
 
