@@ -298,6 +298,9 @@ Read the actual attached device through the accelerator's
 | Vulkan | The UUID identifies a visible adapter. Under RADV it encodes the PCI address and can change with the slot or bus numbering. The ordinal alias follows the current Vulkan inventory. | `"vulkan"` requires a unique eligible card. |
 | Metal | Discovery describes the system default device without an ID or alias. | `"metal"` selects the system default device. |
 
+Metal discovery and attachment cover the system default device only. Enumerating
+additional Metal devices and selecting one explicitly remain open work.
+
 Passing `ProbeOptions{IncludeMemory: true}` requests headroom as well as known capacity.
 CUDA reads capacity without retaining a context. The available-byte query temporarily
 retains the primary context of each eligible device with a unique UUID, which can wake
