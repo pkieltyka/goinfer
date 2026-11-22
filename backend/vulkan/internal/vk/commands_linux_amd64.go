@@ -16,9 +16,10 @@ type Commands struct {
 
 // Run records a group, submits it to one queue, and waits for completion.
 // Record synchronously and use only the supplied Commands inside the callback.
-func (d *Device) Run(record func(*Commands) error) error {
+func (d *Device) Run(record func(*Commands) error) (err error) {
 	d.mu.Lock()
 	defer d.mu.Unlock()
+	defer func() { d.poisonOnLoss(err) }()
 	if err := d.usable(); err != nil {
 		return err
 	}
@@ -49,7 +50,10 @@ func (d *Device) Run(record func(*Commands) error) error {
 	if r := a.queueSubmit(d.queue, 1, &info, d.fence); r != success {
 		err := r.check("submit command buffer")
 		if r == deviceLost {
-			d.broken = err
+			// A lost-device submit can still have made the buffers pending.
+			d.inFlight = true
+			d.poisonOnLoss(err)
+			return errors.Join(err, d.drain())
 		}
 		return err
 	}
@@ -64,11 +68,15 @@ func (d *Device) Run(record func(*Commands) error) error {
 		return nil
 	case deviceLost:
 		d.inFlight = false
-		d.broken = r.check("wait for fence")
-		return d.broken
+		return r.check("wait for fence")
 	default:
-		d.broken = r.check("wait for fence")
-		return errors.Join(d.broken, d.drain())
+		waitErr := r.check("wait for fence")
+		d.broken = waitErr
+		drainErr := d.drain()
+		if errors.Is(d.broken, ErrDeviceLost) {
+			return fmt.Errorf("%w (after %v)", d.broken, waitErr)
+		}
+		return errors.Join(waitErr, drainErr)
 	}
 }
 

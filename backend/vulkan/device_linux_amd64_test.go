@@ -75,6 +75,18 @@ func TestVulkanClassifiesNativeErrors(t *testing.T) {
 	}
 }
 
+func TestVulkanDeviceLossPreservesNativeCause(t *testing.T) {
+	cause := &vk.ResultError{Op: "submit command buffer", Code: -4}
+	err := classify(cause)
+	var typed *embeddinggemma2.DeviceLostError
+	var native *vk.ResultError
+	if !errors.Is(err, embeddinggemma2.ErrDeviceLost) || !errors.As(err, &typed) ||
+		!errors.As(err, &native) || native != cause || typed.Unwrap() != cause ||
+		errors.Is(err, embeddinggemma2.ErrDeviceOutOfMemory) || errors.Is(err, embeddinggemma2.ErrDeviceUnavailable) {
+		t.Fatalf("wrong classification for %v (typed %v, native %v)", err, typed, native)
+	}
+}
+
 func TestVulkanDeviceMemoryConversion(t *testing.T) {
 	known := deviceMemory(math.MaxUint64, math.MaxUint64, true)
 	if known != (embeddinggemma2.DeviceMemory{TotalBytes: math.MaxInt64, AvailableBytes: math.MaxInt64, Basis: embeddinggemma2.MemoryEstimated}) {

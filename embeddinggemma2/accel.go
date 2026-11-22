@@ -34,7 +34,25 @@ var (
 	// ErrDeviceOutOfMemory means a native memory allocation failed. It is a
 	// separate category from ErrDeviceUnavailable and carries no retry guarantee.
 	ErrDeviceOutOfMemory = errors.New("embeddinggemma2: device out of memory")
+	// ErrDeviceLost means the accelerator can no longer run forwards.
+	// Close it. A later attempt requires a fresh accelerator.
+	ErrDeviceLost = errors.New("embeddinggemma2: device lost")
 )
+
+// DeviceLostError preserves the accelerator's native failure.
+type DeviceLostError struct {
+	Cause error
+}
+
+func (e *DeviceLostError) Error() string {
+	if e.Cause == nil {
+		return ErrDeviceLost.Error()
+	}
+	return ErrDeviceLost.Error() + ": " + e.Cause.Error()
+}
+
+func (e *DeviceLostError) Unwrap() error        { return e.Cause }
+func (e *DeviceLostError) Is(target error) bool { return target == ErrDeviceLost }
 
 var (
 	accelMu        sync.Mutex

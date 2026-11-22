@@ -2,14 +2,15 @@
 
 layout(local_size_x = 64) in;
 layout(std430, set = 0, binding = 0) buffer Scores { float scores[]; };
-layout(std430, set = 0, binding = 1) readonly buffer Segments { vec2 segments[]; };
 layout(push_constant) uniform Shape {
-    uint tokens;
     uint queryStart;
     uint blockRows;
     uint heads;
     uint kvHeads;
     uint headDim;
+    uint keyStart;
+    uint keys;
+    uint sequenceStart;
     uint radius;
 } p;
 
@@ -23,14 +24,15 @@ void main() {
     }
     uint query = p.queryStart + row;
     uint lane = gl_LocalInvocationID.x;
-    uint radius = min(p.radius, p.tokens);
-    uint first = max(uint(segments[query].x), query - min(query, radius));
-    uint end = min(uint(segments[query].y), query + radius + 1u);
-    uint base = (head * p.blockRows + row) * p.tokens;
+    uint first = max(p.keyStart, query - min(query, p.radius)) - p.keyStart;
+    uint end = min(p.keyStart + p.keys, query + p.radius + 1u) - p.keyStart;
+    uint base = (head * p.blockRows + row) * p.keys;
 
-    // Assign every key to the same lane for all storage accesses.
+    // Key ownership is relative to the sequence, even when this tile clips
+    // earlier keys. This preserves the singleton summation order.
+    uint firstOwned = (p.sequenceStart + lane - p.keyStart) & 63u;
     float peak = uintBitsToFloat(0xff7fffffu);
-    for (uint key = lane; key < p.tokens; key += 64u) {
+    for (uint key = firstOwned; key < p.keys; key += 64u) {
         if (key >= first && key < end) {
             peak = max(peak, scores[base + key]);
         }
@@ -47,7 +49,7 @@ void main() {
     barrier();
 
     float total = 0.0;
-    for (uint key = lane; key < p.tokens; key += 64u) {
+    for (uint key = firstOwned; key < p.keys; key += 64u) {
         float value = 0.0;
         if (key >= first && key < end) {
             value = exp(scores[base + key] - rowMax);
@@ -64,7 +66,7 @@ void main() {
         barrier();
     }
     float inverse = 1.0 / partial[0];
-    for (uint key = lane; key < p.tokens; key += 64u) {
+    for (uint key = firstOwned; key < p.keys; key += 64u) {
         if (key >= first && key < end) {
             scores[base + key] *= inverse;
         }

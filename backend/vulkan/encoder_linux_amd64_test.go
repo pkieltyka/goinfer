@@ -1,10 +1,8 @@
 package vulkan
 
 import (
-	"crypto/sha256"
 	"encoding/json"
 	"fmt"
-	"io"
 	"math"
 	"os"
 	"path/filepath"
@@ -102,23 +100,34 @@ func checkRowError(t *testing.T, label string, got, want []float32, width int, r
 		t.Errorf("%s row parity outside tolerance, min cosine %.12f, max row-relative %.7g at [%d,%d]", label, minCos, maxRowRelative, worstRow, worstCol)
 	}
 }
-func checkedActivity(t *testing.T, a *encoder, prev vk.Activity, rows int, keep bool) {
+func checkedActivity(t *testing.T, a *encoder, prev vk.Activity, lengths []int, keep bool) {
 	t.Helper()
 	after := a.device.Activity()
 	ds := after.Dispatches - prev.Dispatches
 	submissions := after.Submissions - prev.Submissions
 	waits := after.Waits - prev.Waits
 	copies := after.Copies - prev.Copies
-	// 24 row-wise dispatches per layer plus a score/softmax/value triplet for each block.
-	want := uint64(5 + a.cfg.Layers*(24+3*ceilDiv(rows, 128)))
+	rows := 0
+	for _, n := range lengths {
+		rows += n
+	}
+	f := forward{a: a, rows: rows, lengths: lengths, maxGroupX: int(a.device.Info().MaxGroupCount[0])}
+	var want, maxWork uint64
 	wantCopies := uint64(2)
 	if keep {
+		f.snapshots = make([]*vk.Buffer, a.cfg.Layers+1)
 		wantCopies += uint64(a.cfg.Layers + 1)
 	}
-	if ds != want || submissions != 1 || waits != 1 || copies != wantCopies {
-		t.Fatalf("%d rows: dispatch/submit/wait/copy=%d/%d/%d/%d, want %d/1/1/%d", rows, ds, submissions, waits, copies, want, wantCopies)
+	plan := f.plan(keep)
+	for _, group := range plan.groups {
+		want += uint64(group.dispatches)
+		maxWork = max(maxWork, group.units)
 	}
-	t.Logf("%d rows: %d dispatches, one submission and fence, %d copies", rows, ds, copies)
+	groups := uint64(len(plan.groups))
+	if plan.err != nil || ds == 0 || ds != want || submissions != groups || waits != groups || copies != wantCopies {
+		t.Fatalf("%d rows: dispatch/submit/wait/copy=%d/%d/%d/%d, want %d/%d/%d/%d, plan error %v", rows, ds, submissions, waits, copies, want, groups, groups, wantCopies, plan.err)
+	}
+	t.Logf("%d rows: %d dispatches, %d submissions and fences, %d copies, at most %d estimated work units per submit", rows, ds, groups, copies, maxWork)
 }
 func TestVulkanEncoderTiny(t *testing.T) {
 	id := requiredDevice(t)
@@ -155,7 +164,7 @@ func TestVulkanEncoderTiny(t *testing.T) {
 		if err != nil {
 			t.Fatal(err)
 		}
-		checkedActivity(t, a, prev, len(item.IDs), true)
+		checkedActivity(t, a, prev, []int{len(item.IDs)}, true)
 		_, cpu, err := m.ForwardCPU(item.IDs, true)
 		if err != nil {
 			t.Fatal(err)
@@ -206,7 +215,7 @@ func TestVulkanEncoderTiny(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	checkedActivity(t, a, prev, 135, false)
+	checkedActivity(t, a, prev, []int{len(left), len(fixed), len(right)}, false)
 	for i, ids := range batch {
 		single, _, err := a.Forward(ids, false)
 		if err != nil {
@@ -263,12 +272,8 @@ func TestVulkanEncoderTiny(t *testing.T) {
 }
 
 // The hashes pin google/embeddinggemma-2 f9972ac22e696a105c482202646979e33e4b5a1e.
-func TestVulkanEncoderRealPreparedIDs(t *testing.T) {
-	id := requiredDevice(t)
-	dir := os.Getenv("GOINFER_EG2_DIR")
-	if dir == "" {
-		t.Skip("set GOINFER_EG2_DIR to the pinned local checkpoint")
-	}
+func loadPinnedOfficial(t *testing.T, dir string) *embeddinggemma2.Encoder {
+	t.Helper()
 	pins := map[string]string{
 		"config.json":                       "b8f1e9931b57fbc054acdb445c41765d55b0074c58d145fa82839941ad1b5bb3",
 		"tokenizer.json":                    "4d777ef5bdc1aa36227abdfb77c3e49e7b9c892d16e1b6bda41c393504828be4",
@@ -276,21 +281,22 @@ func TestVulkanEncoderRealPreparedIDs(t *testing.T) {
 		"model.safetensors":                 "197a32965d4b1105faf060417baa899e193fb73cd401f42ec9295234d5553d79",
 	}
 	for name, pin := range pins {
-		f, err := os.Open(filepath.Join(dir, name))
-		if err != nil {
-			t.Fatal(err)
-		}
-		hash := sha256.New()
-		_, err = io.Copy(hash, f)
-		closeErr := f.Close()
-		if err != nil || closeErr != nil || fmt.Sprintf("%x", hash.Sum(nil)) != pin {
-			t.Fatalf("cannot verify %s: read=%v close=%v", name, err, closeErr)
-		}
+		verifyPinnedCheckpoint(t, filepath.Join(dir, name), pin)
 	}
 	e, err := embeddinggemma2.LoadEncoder(dir)
 	if err != nil {
 		t.Fatal(err)
 	}
+	return e
+}
+
+func TestVulkanEncoderRealPreparedIDs(t *testing.T) {
+	id := requiredDevice(t)
+	dir := os.Getenv("GOINFER_EG2_DIR")
+	if dir == "" {
+		t.Skip("set GOINFER_EG2_DIR to the pinned local checkpoint")
+	}
+	e := loadPinnedOfficial(t, dir)
 	query := []int{2, 8071, 236787, 3927, 1354, 1109, 7609, 236787, 1217, 1440, 740, 2536, 577, 1680, 901, 974, 3463, 1135, 1}
 	doc := []int{2, 3250, 236787, 7293, 1109, 1816, 236787, 87215, 1}
 	for _, tc := range []struct {
@@ -327,7 +333,7 @@ func TestVulkanEncoderRealPreparedIDs(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	checkedActivity(t, a, prev, len(query)+len(doc)+len(edge), false)
+	checkedActivity(t, a, prev, []int{len(query), len(doc), len(edge)}, false)
 	for i, v := range got {
 		checkRows(t, fmt.Sprintf("pooled %d-token input", len(ids[i])), v, want[i], m.Dim())
 		var norm float64
@@ -351,7 +357,7 @@ func TestVulkanEncoderRealPreparedIDs(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	checkedActivity(t, a, before, len(edge), true)
+	checkedActivity(t, a, before, []int{len(edge)}, true)
 	if len(layers) != len(refLayers) || !slices.Equal(layers[0], refLayers[0]) {
 		t.Fatal("real layer count or initial snapshot differs")
 	}

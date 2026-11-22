@@ -109,6 +109,8 @@ func resolveSelector(id string, inventory func() ([]DeviceInfo, error)) (vk.Sele
 func classify(err error) error {
 	var category error
 	switch {
+	case errors.Is(err, vk.ErrDeviceLost):
+		return &embeddinggemma2.DeviceLostError{Cause: err}
 	case errors.Is(err, vk.ErrOutOfMemory):
 		category = embeddinggemma2.ErrDeviceOutOfMemory
 	case errors.Is(err, vk.ErrRuntimeUnavailable):

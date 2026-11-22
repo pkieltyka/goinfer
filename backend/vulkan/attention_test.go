@@ -33,9 +33,10 @@ func TestAttentionGroupedSegments(t *testing.T) {
 		t.Fatalf("opened the wrong device: %+v", info)
 	}
 
-	// A partial query block straddles a document boundary at a non-tile-aligned offset.
+	// A partial query block clips its key tile inside a packed sequence.
 	const tokens, heads, kvHeads, headDim = 133, 4, 2, 21
-	const queryStart, blockRows, radius, split = 65, 11, 4, 70
+	const queryStart, blockRows, radius, sequenceStart = 65, 11, 4, 43
+	const keyStart, keyCount = queryStart - radius, blockRows + 2*radius
 	rng := rand.New(rand.NewPCG(27, 339))
 	samples := func(n int) []float32 {
 		data := make([]float32, n)
@@ -53,15 +54,9 @@ func TestAttentionGroupedSegments(t *testing.T) {
 			}
 		}
 	}
-	segments := make([]float32, 2*tokens)
-	for row := range tokens {
-		if row < split {
-			segments[2*row+1] = split
-		} else {
-			segments[2*row], segments[2*row+1] = split, tokens
-		}
-	}
-
+	// Only the first query admits this key. A masked in-tile NaN must not
+	// reach the value accumulation in subsequent queries.
+	values[keyStart*kvHeads*headDim] = float32(math.NaN())
 	buffer := func(n int, memory vk.Memory) *vk.Buffer {
 		b, err := device.NewBuffer(uint64(n)*4, memory)
 		if err != nil {
@@ -98,18 +93,18 @@ func TestAttentionGroupedSegments(t *testing.T) {
 		return p
 	}
 
-	qBuf, kBuf, vBuf, segmentBuf := input(queries), input(keys), input(values), input(segments)
-	probBuf := buffer(heads*blockRows*tokens, vk.DeviceLocal)
+	qBuf, kBuf, vBuf := input(queries), input(keys), input(values)
+	probBuf := buffer(heads*blockRows*keyCount, vk.DeviceLocal)
 	ctxBuf := buffer(tokens*heads*headDim, vk.DeviceLocal)
-	probRead := buffer(heads*blockRows*tokens, vk.HostVisible)
+	probRead := buffer(heads*blockRows*keyCount, vk.HostVisible)
 	ctxRead := buffer(blockRows*heads*headDim, vk.HostVisible)
-	score, softmax, value := pipeline("scores", 3, 24), pipeline("softmax", 2, 28), pipeline("values", 3, 24)
-	push := []uint32{tokens, queryStart, blockRows, heads, kvHeads, headDim}
+	score, softmax, value := pipeline("scores", 3, 36), pipeline("softmax", 1, 36), pipeline("values", 3, 36)
+	push := []uint32{queryStart, blockRows, heads, kvHeads, headDim, keyStart, keyCount, sequenceStart, radius}
 	err = device.Run(func(c *vk.Commands) error {
-		if err := c.Dispatch(score, []*vk.Buffer{qBuf, kBuf, probBuf}, push, [3]uint32{9, 2, heads}); err != nil {
+		if err := c.Dispatch(score, []*vk.Buffer{qBuf, kBuf, probBuf}, push, [3]uint32{2, 2, heads}); err != nil {
 			return err
 		}
-		if err := c.Dispatch(softmax, []*vk.Buffer{probBuf, segmentBuf}, append(push, radius), [3]uint32{blockRows, heads, 1}); err != nil {
+		if err := c.Dispatch(softmax, []*vk.Buffer{probBuf}, push, [3]uint32{blockRows, heads, 1}); err != nil {
 			return err
 		}
 		if err := c.Dispatch(value, []*vk.Buffer{probBuf, vBuf, ctxBuf}, push, [3]uint32{2, 2, heads}); err != nil {
@@ -123,7 +118,7 @@ func TestAttentionGroupedSegments(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	gotProb := make([]float32, heads*blockRows*tokens)
+	gotProb := make([]float32, heads*blockRows*keyCount)
 	gotCtx := make([]float32, blockRows*heads*headDim)
 	if err := probRead.ReadF32(0, gotProb); err != nil {
 		t.Fatal(err)
@@ -134,8 +129,7 @@ func TestAttentionGroupedSegments(t *testing.T) {
 
 	for row := range blockRows {
 		q := queryStart + row
-		first := max(q-radius, int(segments[2*q]))
-		end := min(q+radius+1, int(segments[2*q+1]))
+		first, end := q-radius, q+radius+1
 		for h := range heads {
 			kh := h / (heads / kvHeads)
 			qBase := (q*heads + h) * headDim
@@ -153,8 +147,8 @@ func TestAttentionGroupedSegments(t *testing.T) {
 				wants[k] = math.Exp(wants[k] - peak)
 				sum += wants[k]
 			}
-			for k := range tokens {
-				got := gotProb[(h*blockRows+row)*tokens+k]
+			for k := keyStart; k < keyStart+keyCount; k++ {
+				got := gotProb[(h*blockRows+row)*keyCount+k-keyStart]
 				if k < first || k >= end {
 					if got != 0 {
 						t.Fatalf("row %d head %d key %d was unmasked: %g", q, h, k, got)
@@ -172,6 +166,12 @@ func TestAttentionGroupedSegments(t *testing.T) {
 					want += wants[k] * float64(values[(k*kvHeads+kh)*headDim+d])
 				}
 				got := gotCtx[(row*heads+h)*headDim+d]
+				if math.IsNaN(want) {
+					if !math.IsNaN(float64(got)) {
+						t.Fatalf("row %d head %d coordinate %d: got %g, want NaN", q, h, d, got)
+					}
+					continue
+				}
 				if !(math.Abs(float64(got)-want) <= 6e-5) {
 					t.Fatalf("row %d head %d coordinate %d: got %g, want %g", q, h, d, got, want)
 				}

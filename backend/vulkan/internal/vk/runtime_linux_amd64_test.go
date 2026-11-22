@@ -212,6 +212,108 @@ func TestFenceWaitFailurePreservesInFlightObjects(t *testing.T) {
 	}
 }
 
+func TestDeviceLossPoisonsCommandsAndPreservesPendingObjects(t *testing.T) {
+	const unavailable result = -3
+	for _, tt := range []struct {
+		name               string
+		submit, wait, idle result
+		cause              string
+		pending            bool
+	}{
+		{"submit", deviceLost, success, deviceLost, "submit command buffer", false},
+		{"submit-undrained", deviceLost, success, unavailable, "submit command buffer", true},
+		{"wait", success, deviceLost, success, "wait for fence", false},
+		{"drain", success, unavailable, deviceLost, "drain submitted work", false},
+	} {
+		t.Run(tt.name, func(t *testing.T) {
+			d := &Device{device: 1, queue: 2, fence: 3, cmd: 4}
+			var calls []string
+			d.api.resetCmdPool = func(handle, handle, uint32) result { return success }
+			d.api.resetDescPool = func(handle, handle, uint32) result { return success }
+			d.api.beginCmd = func(handle, *cmdBegin) result { return success }
+			d.api.endCmd = func(handle) result { return success }
+			d.api.resetFences = func(handle, uint32, *handle) result { return success }
+			d.api.queueSubmit = func(handle, uint32, *submitInfo, handle) result {
+				calls = append(calls, "submit")
+				return tt.submit
+			}
+			d.api.waitFences = func(handle, uint32, *handle, uint32, uint64) result {
+				calls = append(calls, "wait")
+				return tt.wait
+			}
+			d.api.deviceWaitIdle = func(handle) result {
+				calls = append(calls, "idle")
+				return tt.idle
+			}
+			d.api.destroyFence = func(handle, handle, unsafe.Pointer) { calls = append(calls, "fence") }
+			d.api.destroyDevice = func(handle, unsafe.Pointer) { calls = append(calls, "destroy") }
+			runErr := d.Run(func(*Commands) error { return nil })
+			var cause *ResultError
+			if !errors.Is(runErr, ErrDeviceLost) || !errors.As(runErr, &cause) || cause.Op != tt.cause || cause.Code != -4 || d.inFlight != tt.pending {
+				t.Fatalf("inFlight=%t, result=%v, cause=%+v", d.inFlight, runErr, cause)
+			}
+			first := d.Status()
+			if !errors.Is(first, cause) {
+				t.Fatalf("status %v lost first cause %v", first, cause)
+			}
+			if err := d.Run(func(*Commands) error { t.Fatal("recorded on lost device"); return nil }); err != first {
+				t.Fatalf("later submit error %v, want %v", err, first)
+			}
+			if b, err := d.NewBuffer(4, DeviceLocal); b != nil || err != first {
+				t.Fatalf("later buffer %v, %v, want %v", b, err, first)
+			}
+			if tt.pending {
+				if err := d.Close(); err == nil || !d.inFlight || d.device == 0 || d.fence == 0 || slices.Contains(calls, "fence") {
+					t.Fatalf("destroyed resources on failed drain: %v, %v", calls, err)
+				}
+				d.api.deviceWaitIdle = func(handle) result {
+					calls = append(calls, "idle")
+					return deviceLost
+				}
+			}
+			must(t, d.Close())
+			want := []string{"submit", "wait", "fence", "destroy"}
+			switch tt.name {
+			case "submit":
+				want = []string{"submit", "idle", "fence", "destroy"}
+			case "submit-undrained":
+				want = []string{"submit", "idle", "idle", "idle", "fence", "destroy"}
+			case "drain":
+				want = []string{"submit", "wait", "idle", "fence", "destroy"}
+			}
+			if !slices.Equal(calls, want) {
+				t.Fatalf("native calls %v, want %v", calls, want)
+			}
+		})
+	}
+}
+
+func TestDeviceLossDuringAllocationStopsNativeWork(t *testing.T) {
+	d := &Device{device: 1, maxAllocations: 1}
+	d.properties.Count = 1
+	d.properties.Types[0].Flags = memoryDeviceLocal
+	allocations, releases := 0, 0
+	d.api.createBuffer = func(_ handle, _ *bufferInfo, _ unsafe.Pointer, out *handle) result {
+		*out = 2
+		return success
+	}
+	d.api.bufferRequirements = func(_, _ handle, out *memoryRequirements) {
+		*out = memoryRequirements{Size: 4, Bits: 1}
+	}
+	d.api.allocateMemory = func(handle, *memoryInfo, unsafe.Pointer, *handle) result {
+		allocations++
+		return deviceLost
+	}
+	d.api.destroyBuffer = func(handle, handle, unsafe.Pointer) { releases++ }
+	b, first := d.NewBuffer(4, DeviceLocal)
+	if b != nil || !errors.Is(first, ErrDeviceLost) || releases != 1 {
+		t.Fatalf("buffer %v, error %v, releases %d", b, first, releases)
+	}
+	if b, err := d.NewBuffer(4, DeviceLocal); b != nil || err != first || allocations != 1 {
+		t.Fatalf("later buffer %v, error %v, allocations %d", b, err, allocations)
+	}
+}
+
 func TestDiscreteAMDGroupedCommands(t *testing.T) {
 	pin := os.Getenv("GOINFER_TEST_VULKAN_DEVICE")
 	if pin == "" {

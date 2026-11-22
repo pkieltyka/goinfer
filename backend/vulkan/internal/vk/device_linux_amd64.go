@@ -316,14 +316,31 @@ func (d *Device) usable() error {
 	return d.broken
 }
 
+// Status reports whether commands and allocations may proceed.
+func (d *Device) Status() error {
+	d.mu.Lock()
+	defer d.mu.Unlock()
+	return d.usable()
+}
+
+func (d *Device) poisonOnLoss(err error) {
+	if !errors.Is(d.broken, ErrDeviceLost) && errors.Is(err, ErrDeviceLost) {
+		d.broken = err
+	}
+}
+
 // drain permits destruction only once Vulkan confirms idle or device loss.
 func (d *Device) drain() error {
 	if !d.inFlight {
 		return nil
 	}
 	switch r := d.api.deviceWaitIdle(d.device); r {
-	case success, deviceLost:
+	case success:
 		d.inFlight = false
+		return nil
+	case deviceLost:
+		d.inFlight = false
+		d.poisonOnLoss(r.check("drain submitted work"))
 		return nil
 	default:
 		return r.check("drain submitted work")
