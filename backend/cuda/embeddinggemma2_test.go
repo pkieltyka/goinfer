@@ -20,6 +20,7 @@ import (
 	"testing"
 	"time"
 
+	gc "github.com/eitamring/gocudrv/cuda"
 	gpu "github.com/pkieltyka/goinfer/backend/cuda/internal/gpudev"
 	"github.com/pkieltyka/goinfer/embeddinggemma2"
 	"github.com/pkieltyka/goinfer/tokenizer"
@@ -379,7 +380,12 @@ func TestEG2CUDA_batchRopeSegments(t *testing.T) {
 	lens := []int{5, 9, 3}
 	if err := a.ops.do(func() error {
 		defer a.ops.releaseScratch()
-		tabs := a.batchRope(lens)
+		var pending []Buffer
+		var relErr error
+		tabs, err := a.batchRope(lens, &pending, &relErr)
+		if err != nil {
+			return err
+		}
 		if err := a.ops.finish(); err != nil {
 			return err
 		}
@@ -387,7 +393,10 @@ func TestEG2CUDA_batchRopeSegments(t *testing.T) {
 			return fmt.Errorf("%d (head dim, theta) pairs, want the fixture's 2", len(tabs))
 		}
 		for k, tb := range tabs {
-			cs, sn := a.rope(9, k.hd, k.theta)
+			cs, sn, err := a.rope(9, k.hd, k.theta, &pending, &relErr)
+			if err != nil {
+				return err
+			}
 			for j, src := range []Buffer{cs, sn} {
 				ref := make([]float32, 9*k.hd)
 				got := make([]float32, 17*k.hd)
@@ -1345,4 +1354,514 @@ func eg2FixedBatch(e *embeddinggemma2.Encoder, count, length int) [][]int {
 		batch[i] = eg2SeqIDs(length, i+1, e.Model().Config().VocabSize)
 	}
 	return batch
+}
+
+func TestEG2CUDA_RetryOOM_ClassificationContract(t *testing.T) {
+	oomPanic := fmt.Errorf("cuda: executor job panicked: %w", gpu.AllocFailedPanic("typed-len", 4096, gc.ErrOutOfMemory))
+	nonOOMAlloc := fmt.Errorf("cuda: executor job panicked: %w", gpu.AllocFailedPanic("typed-len", 4096, gc.ErrInvalidValue))
+	latched := errors.New("cuda: latched launch error")
+	drainErr := errors.New("cuda: drain failed")
+	relErr := errors.New("cuda: close failed")
+	broken := fmt.Errorf("cuda: broken: %w", drainErr)
+
+	// Clean recovered CUDA OOM authorizes retry.
+	got := classifyEG2ForwardErr(oomPanic, nil, nil, nil, nil, false)
+	if !errors.Is(got, embeddinggemma2.ErrBatchOutOfMemory) ||
+		!errors.Is(got, embeddinggemma2.ErrDeviceOutOfMemory) ||
+		!errors.Is(got, gc.ErrOutOfMemory) {
+		t.Fatalf("clean OOM = %v, want ErrBatchOutOfMemory + ErrDeviceOutOfMemory + gc.ErrOutOfMemory", got)
+	}
+	var af *gpu.AllocFailure
+	if !errors.As(got, &af) {
+		t.Fatalf("clean OOM lost *gpu.AllocFailure: %v", got)
+	}
+
+	// Non-OOM AllocFailure matches neither retry nor common OOM.
+	gotNonOOM := classifyEG2ForwardErr(nonOOMAlloc, nil, nil, nil, nil, false)
+	if errors.Is(gotNonOOM, embeddinggemma2.ErrBatchOutOfMemory) || errors.Is(gotNonOOM, embeddinggemma2.ErrDeviceOutOfMemory) || !errors.Is(gotNonOOM, gc.ErrInvalidValue) {
+		t.Fatalf("non-OOM alloc = %v", gotNonOOM)
+	}
+
+	// Any latched, drain, release, broken, or closed condition suppresses ErrBatchOutOfMemory
+	// while keeping common OOM, native OOM cause, and the fatal cause visible.
+	for _, tc := range []struct {
+		name                        string
+		latched, drain, rel, broken error
+		closed                      bool
+		wantFatal                   error
+	}{
+		{"latched", latched, nil, nil, nil, false, latched},
+		{"drain", nil, drainErr, nil, broken, false, drainErr},
+		{"release", nil, nil, relErr, fmt.Errorf("rollback: %w", relErr), false, relErr},
+		{"broken-no-drain", nil, nil, nil, broken, false, broken},
+		{"closed", nil, nil, nil, nil, true, nil},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			err := classifyEG2ForwardErr(oomPanic, tc.latched, tc.drain, tc.rel, tc.broken, tc.closed)
+			if errors.Is(err, embeddinggemma2.ErrBatchOutOfMemory) {
+				t.Fatalf("%s must not match ErrBatchOutOfMemory: %v", tc.name, err)
+			}
+			if !errors.Is(err, embeddinggemma2.ErrDeviceOutOfMemory) || !errors.Is(err, gc.ErrOutOfMemory) {
+				t.Fatalf("%s lost common/native OOM: %v", tc.name, err)
+			}
+			if tc.wantFatal != nil && !errors.Is(err, tc.wantFatal) {
+				t.Fatalf("%s lost fatal cause %v: %v", tc.name, tc.wantFatal, err)
+			}
+		})
+	}
+
+	// Attach classification maps OOM to common ErrDeviceOutOfMemory only, never ErrBatchOutOfMemory.
+	m := eg2TinyModel(t)
+	if _, err := newEG2AccelWithDevice(m, false, func() (*Device, error) {
+		return nil, gpu.AllocFailedPanic("attach", 1024, gc.ErrOutOfMemory)
+	}); !errors.Is(err, embeddinggemma2.ErrDeviceOutOfMemory) || !errors.Is(err, gc.ErrOutOfMemory) || errors.Is(err, embeddinggemma2.ErrBatchOutOfMemory) {
+		t.Fatalf("attach OOM = %v, want ErrDeviceOutOfMemory + gc.ErrOutOfMemory without ErrBatchOutOfMemory", err)
+	}
+	unrelated := errors.New("cuda: synthetic unrelated attach failure")
+	if _, err := newEG2AccelWithDevice(m, false, func() (*Device, error) {
+		return nil, unrelated
+	}); !errors.Is(err, unrelated) || errors.Is(err, embeddinggemma2.ErrDeviceOutOfMemory) || errors.Is(err, embeddinggemma2.ErrBatchOutOfMemory) {
+		t.Fatalf("unrelated attach = %v", err)
+	}
+}
+
+func TestEG2CUDA_RetryOOM_DeviceAcceptance(t *testing.T) {
+	probe, err := CreateSystemDefaultDevice()
+	if err != nil {
+		t.Skipf("no CUDA device: %v", err)
+	}
+	probe.ReleaseObjects()
+
+	for _, combined := range []bool{false, true} {
+		arm := "packed"
+		if combined {
+			arm = "combined"
+		}
+		t.Run(arm, func(t *testing.T) {
+			enc, err := embeddinggemma2.LoadEncoder(eg2TinyDir)
+			if err != nil {
+				t.Fatal(err)
+			}
+			m := enc.Model()
+			V := m.Config().VocabSize
+			orig := [][]int{
+				eg2SeqIDs(6, 1, V),
+				eg2SeqIDs(8, 2, V),
+				eg2SeqIDs(5, 3, V),
+				eg2SeqIDs(7, 4, V),
+			}
+
+			// Helper that attaches a fresh eg2Accel on enc with the chosen selector.
+			attachFresh := func(t *testing.T) (*embeddinggemma2.Encoder, *eg2Accel) {
+				t.Helper()
+				e, err := embeddinggemma2.LoadEncoder(eg2TinyDir)
+				if err != nil {
+					t.Fatal(err)
+				}
+				name := fmt.Sprintf("cuda-issue25-test-%s-%d", arm, time.Now().UnixNano())
+				embeddinggemma2.RegisterAccelerator(name, func(mod *embeddinggemma2.Model) (embeddinggemma2.Accelerator, error) {
+					return newEG2Accel(mod, combined)
+				})
+				acc, err := e.UseAccelerator(name)
+				if err != nil {
+					t.Fatalf("attach %s: %v", arm, err)
+				}
+				return e, acc.(*eg2Accel)
+			}
+
+			// Baseline outputs on a healthy encoder for exact bit comparison.
+			eBase, aBase := attachFresh(t)
+			baseBatch, err := eBase.EmbedIDsBatch(orig)
+			if err != nil {
+				t.Fatalf("baseline EmbedIDsBatch: %v", err)
+			}
+			baseSingle, err := eBase.EmbedIDs(orig[0])
+			if err != nil {
+				t.Fatalf("baseline EmbedIDs: %v", err)
+			}
+			if err := aBase.Close(); err != nil {
+				t.Fatalf("baseline Close: %v", err)
+			}
+
+			// (1) Pristine multi-input OOM before submit, then split retry on the same encoder.
+			t.Run("pristine-batch-oom-and-split-retry", func(t *testing.T) {
+				e, a := attachFresh(t)
+				defer func() {
+					if err := a.Close(); err != nil {
+						t.Errorf("Close: %v", err)
+					}
+				}()
+				dev := a.ops.dev
+				heldBefore, _ := dev.LedgerLen()
+				allocs := 0
+				dev.SetAllocHookForTest(func(what string, nBytes int) error {
+					allocs++
+					if allocs == 5 {
+						return gc.ErrOutOfMemory
+					}
+					return nil
+				})
+				in := make([][]int, len(orig))
+				for i := range orig {
+					in[i] = slices.Clone(orig[i])
+				}
+				got, err := e.EmbedIDsBatch(in)
+				dev.SetAllocHookForTest(nil)
+				if got != nil {
+					t.Fatalf("pristine OOM returned non-nil outputs")
+				}
+				if !errors.Is(err, embeddinggemma2.ErrBatchOutOfMemory) ||
+					!errors.Is(err, embeddinggemma2.ErrDeviceOutOfMemory) ||
+					!errors.Is(err, gc.ErrOutOfMemory) {
+					t.Fatalf("pristine OOM err = %v", err)
+				}
+				for i := range orig {
+					if !slices.Equal(in[i], orig[i]) {
+						t.Fatalf("input %d mutated", i)
+					}
+				}
+				if heldAfter, _ := dev.LedgerLen(); heldAfter != heldBefore {
+					t.Fatalf("scratch leaked on pristine OOM: ledger %d, want %d", heldAfter, heldBefore)
+				}
+				// Halve between complete inputs on the same encoder and check bit-exact match.
+				left, err := e.EmbedIDsBatch(in[:2])
+				if err != nil {
+					t.Fatalf("left split retry: %v", err)
+				}
+				right, err := e.EmbedIDsBatch(in[2:])
+				if err != nil {
+					t.Fatalf("right split retry: %v", err)
+				}
+				combinedVecs := append(left, right...)
+				for i := range orig {
+					if diff := eg2FirstDiff(combinedVecs[i], baseBatch[i], m.Dim()); diff != "" {
+						t.Fatalf("split output %d differed from baseline at %s", i, diff)
+					}
+				}
+			})
+
+			// (2a) Post-enqueue OOM (fail 2nd batchRope scratch pair after 1st key's Copy2DAsync queued).
+			// (2b) Repeatedly fail 2nd RoPE allocation (sin) to prove zero partial-pair leak.
+			t.Run("post-enqueue-oom-and-rope-second-alloc-leak", func(t *testing.T) {
+				e, a := attachFresh(t)
+				defer func() {
+					if err := a.Close(); err != nil {
+						t.Errorf("Close: %v", err)
+					}
+				}()
+				dev := a.ops.dev
+				// First prove repeated 2nd RoPE allocation failure leaks 0 buffers.
+				// Singleton allocates 20 base scratch buffers, then rope() allocates cos (#21) and sin (#22).
+				heldCold, _ := dev.LedgerLen()
+				for attempt := range 5 {
+					allocs := 0
+					dev.SetAllocHookForTest(func(what string, nBytes int) error {
+						allocs++
+						if allocs == 22 { // 20 scratch + cos (#21), fail sin (#22)
+							return gc.ErrOutOfMemory
+						}
+						return nil
+					})
+					_, err := e.EmbedIDs(orig[0])
+					dev.SetAllocHookForTest(nil)
+					if !errors.Is(err, embeddinggemma2.ErrBatchOutOfMemory) {
+						t.Fatalf("attempt %d: 2nd RoPE alloc OOM = %v, want ErrBatchOutOfMemory", attempt, err)
+					}
+					if n, _ := dev.LedgerLen(); n != heldCold {
+						t.Fatalf("attempt %d: partial RoPE pair leaked: ledger %d, want %d", attempt, n, heldCold)
+					}
+					if len(a.ropes) != 0 {
+						t.Fatalf("attempt %d: partial RoPE pair published in a.ropes: %d", attempt, len(a.ropes))
+					}
+				}
+				// Warm up caches on orig[0] (length 6) so subsequent singleton at length 10 grows RoPE
+				// AFTER layer 0 has queued work on the sliding head_dim and hits the full layer's RoPE growth.
+				v0, err := e.EmbedIDs(orig[0])
+				if err != nil {
+					t.Fatalf("post-recovery singleton: %v", err)
+				}
+				if diff := eg2FirstDiff(v0, baseSingle, m.Dim()); diff != "" {
+					t.Fatalf("post-recovery singleton differed at %s", diff)
+				}
+				// Now run a multi-input batch whose caches are already warm at >=8:
+				// Warm caches up to 8 first.
+				if _, err := e.EmbedIDsBatch(orig[:2]); err != nil {
+					t.Fatalf("warm batch: %v", err)
+				}
+				heldWarm, _ := dev.LedgerLen()
+				lBefore, wBefore := dev.Activity()
+				// On warm batch: 20 base scratch + 2 batchRope buffers for key 0 (#21,#22) + Copy2DAsync queued,
+				// then fail key 1's batchRope buffer (#23) AFTER copies were enqueued.
+				allocs := 0
+				dev.SetAllocHookForTest(func(what string, nBytes int) error {
+					allocs++
+					if allocs == 23 {
+						return gc.ErrOutOfMemory
+					}
+					return nil
+				})
+				got, err := e.EmbedIDsBatch(orig)
+				dev.SetAllocHookForTest(nil)
+				_, wAfter := dev.Activity()
+				if got != nil || !errors.Is(err, embeddinggemma2.ErrBatchOutOfMemory) {
+					t.Fatalf("post-enqueue OOM = (%v, %v), want nil + ErrBatchOutOfMemory", got, err)
+				}
+				if wAfter <= wBefore {
+					t.Fatalf("post-enqueue OOM did not drain queue: waits %d -> %d (launches before %d)", wBefore, wAfter, lBefore)
+				}
+				if n, _ := dev.LedgerLen(); n != heldWarm {
+					t.Fatalf("post-enqueue OOM leaked buffers: ledger %d, want %d", n, heldWarm)
+				}
+				retryOut, err := e.EmbedIDsBatch(orig)
+				if err != nil {
+					t.Fatalf("retry after post-enqueue OOM: %v", err)
+				}
+				for i := range orig {
+					if diff := eg2FirstDiff(retryOut[i], baseBatch[i], m.Dim()); diff != "" {
+						t.Fatalf("post-enqueue retry output %d differed at %s", i, diff)
+					}
+				}
+			})
+
+			// (3) Fatal combinations: OOM + latched launch error, OOM + failed drain, OOM + failed free.
+			t.Run("fatal-combinations-never-retry", func(t *testing.T) {
+				// 3a: OOM + latched launch error (plant failForward on layer 0, then OOM on layer 1's RoPE alloc).
+				// eg2TinyModel has layer 0 sliding (hd=16) and a full layer (hd=32), so singleton hits layer 0 first
+				// (latching failForward) and allocates the full layer's RoPE later.
+				eLatch, aLatch := attachFresh(t)
+				devLatch := aLatch.ops.dev
+				aLatch.defect.failForward = true
+				allocs := 0
+				devLatch.SetAllocHookForTest(func(what string, nBytes int) error {
+					allocs++
+					if allocs == 23 { // 20 scratch + layer-0 cos(#21), sin(#22); fail full-layer cos(#23)
+						return gc.ErrOutOfMemory
+					}
+					return nil
+				})
+				_, err := eLatch.EmbedIDs(orig[0])
+				devLatch.SetAllocHookForTest(nil)
+				aLatch.defect.failForward = false
+				if err == nil || errors.Is(err, embeddinggemma2.ErrBatchOutOfMemory) {
+					t.Fatalf("OOM+latched must not match ErrBatchOutOfMemory: %v", err)
+				}
+				if !errors.Is(err, embeddinggemma2.ErrDeviceOutOfMemory) || !errors.Is(err, gc.ErrOutOfMemory) || !strings.Contains(err.Error(), "planted forward failure") {
+					t.Fatalf("OOM+latched missing OOM or latched cause: %v", err)
+				}
+				if err := aLatch.Close(); err != nil {
+					t.Fatalf("aLatch.Close: %v", err)
+				}
+
+				// 3b: OOM + failed drain -> no retry, sticky broken, no premature free, Close obeys drain contract.
+				eDrain, aDrain := attachFresh(t)
+				devDrain := aDrain.ops.dev
+				heldBefore, _ := devDrain.LedgerLen()
+				aDrain.defect.drainFails = 1
+				allocs = 0
+				devDrain.SetAllocHookForTest(func(what string, nBytes int) error {
+					allocs++
+					if allocs == 5 {
+						return gc.ErrOutOfMemory
+					}
+					return nil
+				})
+				_, err = eDrain.EmbedIDsBatch(orig)
+				devDrain.SetAllocHookForTest(nil)
+				if err == nil || errors.Is(err, embeddinggemma2.ErrBatchOutOfMemory) {
+					t.Fatalf("OOM+failed-drain must not match ErrBatchOutOfMemory: %v", err)
+				}
+				if !errors.Is(err, embeddinggemma2.ErrDeviceOutOfMemory) || !errors.Is(err, gc.ErrOutOfMemory) {
+					t.Fatalf("OOM+failed-drain lost OOM cause: %v", err)
+				}
+				kept, _ := devDrain.LedgerLen()
+				if aDrain.broken == nil || kept <= heldBefore {
+					t.Fatalf("OOM+failed-drain did not retain pending buffers: broken=%v ledger=%d before=%d", aDrain.broken, kept, heldBefore)
+				}
+				if _, err := eDrain.EmbedIDsBatch(orig[:1]); !errors.Is(err, aDrain.broken) || errors.Is(err, embeddinggemma2.ErrBatchOutOfMemory) {
+					t.Fatalf("post-broken batch = %v, want aDrain.broken without retry", err)
+				}
+				aDrain.defect.drainFails = 1
+				if err := aDrain.Close(); err == nil {
+					t.Fatal("Close succeeded despite planted drain failure")
+				}
+				if n, _ := devDrain.LedgerLen(); n != kept {
+					t.Fatalf("failed Close altered ledger: %d vs %d", n, kept)
+				}
+				if err := aDrain.Close(); err != nil {
+					t.Fatalf("Close retry after drain recovery: %v", err)
+				}
+				if allocsLeft, objsLeft := devDrain.LedgerLen(); allocsLeft != 0 || objsLeft != 0 {
+					t.Fatalf("Close left ledger (%d, %d)", allocsLeft, objsLeft)
+				}
+
+				// 3c: OOM + failed rollback free -> no retry, sticky broken, ledger retains failed buffer.
+				eFree, aFree := attachFresh(t)
+				devFree := aFree.ops.dev
+				heldBeforeFree, _ := devFree.LedgerLen()
+				freeErr := errors.New("cuda: planted buffer close failure")
+				closeCalls := 0
+				devFree.SetCloseBufHookForTest(func(closeReal func() error) error {
+					closeCalls++
+					if closeCalls == 1 {
+						return freeErr // leave real buffer open so Close->ReleaseAll frees it cleanly
+					}
+					return closeReal()
+				})
+				allocs = 0
+				devFree.SetAllocHookForTest(func(what string, nBytes int) error {
+					allocs++
+					if allocs == 5 {
+						return gc.ErrOutOfMemory
+					}
+					return nil
+				})
+				_, err = eFree.EmbedIDsBatch(orig)
+				devFree.SetAllocHookForTest(nil)
+				devFree.SetCloseBufHookForTest(nil)
+				if err == nil || errors.Is(err, embeddinggemma2.ErrBatchOutOfMemory) {
+					t.Fatalf("OOM+failed-free must not match ErrBatchOutOfMemory: %v", err)
+				}
+				if !errors.Is(err, embeddinggemma2.ErrDeviceOutOfMemory) || !errors.Is(err, gc.ErrOutOfMemory) || !errors.Is(err, freeErr) {
+					t.Fatalf("OOM+failed-free missing cause: %v", err)
+				}
+				if aFree.broken == nil {
+					t.Fatal("OOM+failed-free did not poison accelerator")
+				}
+				if n, _ := devFree.LedgerLen(); n != heldBeforeFree+1 {
+					t.Fatalf("failed rollback free dropped ledger ownership: got %d, want %d", n, heldBeforeFree+1)
+				}
+				if _, err := eFree.EmbedIDsBatch(orig[:1]); !errors.Is(err, aFree.broken) || errors.Is(err, embeddinggemma2.ErrBatchOutOfMemory) {
+					t.Fatalf("subsequent call after failed free = %v", err)
+				}
+				if err := aFree.Close(); err != nil {
+					t.Fatalf("aFree.Close: %v", err)
+				}
+				if allocsLeft, objsLeft := devFree.LedgerLen(); allocsLeft != 0 || objsLeft != 0 {
+					t.Fatalf("aFree.Close left ledger (%d, %d)", allocsLeft, objsLeft)
+				}
+			})
+
+			// (4) Singleton EmbedIDs OOM + attach partial-weight-upload OOM + unrelated attach error.
+			t.Run("singleton-and-attach-oom", func(t *testing.T) {
+				e, a := attachFresh(t)
+				defer func() {
+					if err := a.Close(); err != nil {
+						t.Errorf("Close: %v", err)
+					}
+				}()
+				dev := a.ops.dev
+				allocs := 0
+				dev.SetAllocHookForTest(func(what string, nBytes int) error {
+					allocs++
+					if allocs == 4 {
+						return gc.ErrOutOfMemory
+					}
+					return nil
+				})
+				in := slices.Clone(orig[0])
+				v, err := e.EmbedIDs(in)
+				dev.SetAllocHookForTest(nil)
+				if v != nil || !errors.Is(err, embeddinggemma2.ErrBatchOutOfMemory) || !slices.Equal(in, orig[0]) {
+					t.Fatalf("singleton OOM = (%v, %v)", v, err)
+				}
+				retryV, err := e.EmbedIDs(in)
+				if err != nil {
+					t.Fatalf("singleton retry: %v", err)
+				}
+				if diff := eg2FirstDiff(retryV, baseSingle, m.Dim()); diff != "" {
+					t.Fatalf("singleton retry differed at %s", diff)
+				}
+
+				// Attach OOM after several real weight uploads -> ErrDeviceOutOfMemory only, 0 leaks.
+				var attachDev *Device
+				attachAllocs := 0
+				gotAcc, err := newEG2AccelWithDevice(m, combined, func() (*Device, error) {
+					d, err := CreateSystemDefaultDevice()
+					if err != nil {
+						return nil, err
+					}
+					attachDev = d
+					d.SetAllocHookForTest(func(what string, nBytes int) error {
+						attachAllocs++
+						if attachAllocs == 8 {
+							return gc.ErrOutOfMemory
+						}
+						return nil
+					})
+					return d, nil
+				})
+				if gotAcc != nil || !errors.Is(err, embeddinggemma2.ErrDeviceOutOfMemory) || !errors.Is(err, gc.ErrOutOfMemory) || errors.Is(err, embeddinggemma2.ErrBatchOutOfMemory) {
+					t.Fatalf("attach partial-upload OOM = (%v, %v)", gotAcc, err)
+				}
+				if allocsLeft, objsLeft := attachDev.LedgerLen(); allocsLeft != 0 || objsLeft != 0 {
+					t.Fatalf("attach OOM leaked ledger (%d, %d)", allocsLeft, objsLeft)
+				}
+
+				// Unrelated attach allocation error (gc.ErrInvalidValue) -> neither OOM sentinel, 0 leaks.
+				attachAllocs = 0
+				gotAcc, err = newEG2AccelWithDevice(m, combined, func() (*Device, error) {
+					d, err := CreateSystemDefaultDevice()
+					if err != nil {
+						return nil, err
+					}
+					attachDev = d
+					d.SetAllocHookForTest(func(what string, nBytes int) error {
+						attachAllocs++
+						if attachAllocs == 8 {
+							return gc.ErrInvalidValue
+						}
+						return nil
+					})
+					return d, nil
+				})
+				if gotAcc != nil || err == nil || !errors.Is(err, gc.ErrInvalidValue) ||
+					errors.Is(err, embeddinggemma2.ErrDeviceOutOfMemory) || errors.Is(err, embeddinggemma2.ErrBatchOutOfMemory) {
+					t.Fatalf("unrelated attach failure = (%v, %v)", gotAcc, err)
+				}
+				if allocsLeft, objsLeft := attachDev.LedgerLen(); allocsLeft != 0 || objsLeft != 0 {
+					t.Fatalf("unrelated attach failure leaked ledger (%d, %d)", allocsLeft, objsLeft)
+				}
+			})
+
+			// (5) Non-OOM errors stay distinguishable from retry-safe OOM.
+			t.Run("non-oom-distinctions", func(t *testing.T) {
+				e, a := attachFresh(t)
+				checkNotOOM := func(label string, err error) {
+					t.Helper()
+					if err == nil {
+						t.Fatalf("%s: expected error", label)
+					}
+					if errors.Is(err, embeddinggemma2.ErrBatchOutOfMemory) || errors.Is(err, embeddinggemma2.ErrDeviceOutOfMemory) {
+						t.Fatalf("%s must not match OOM sentinels: %v", label, err)
+					}
+				}
+				_, err := e.EmbedIDsBatch(nil)
+				checkNotOOM("empty batch", err)
+				_, err = e.EmbedIDsBatch([][]int{{1}, {}})
+				checkNotOOM("empty member", err)
+				_, err = e.EmbedIDsBatch([][]int{{1, 2}, {3, V}})
+				checkNotOOM("invalid last ID", err)
+				overMaxPos := make([]int, m.Config().MaxPositions+1)
+				_, err = e.EmbedIDsBatch([][]int{overMaxPos})
+				checkNotOOM("over MaxPositions", err)
+				overAgg := make([][]int, a.batchRowLimit()+1)
+				for i := range overAgg {
+					overAgg[i] = []int{1}
+				}
+				_, err = e.EmbedIDsBatch(overAgg)
+				checkNotOOM("over batchRowLimit", err)
+
+				a.defect.failForward = true
+				_, err = e.EmbedIDsBatch(orig[:1])
+				a.defect.failForward = false
+				checkNotOOM("ordinary execution failure", err)
+
+				if err := a.Close(); err != nil {
+					t.Fatalf("Close: %v", err)
+				}
+				_, err = e.EmbedIDsBatch(orig[:1])
+				checkNotOOM("closed encoder", err)
+			})
+		})
+	}
 }

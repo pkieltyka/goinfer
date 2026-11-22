@@ -72,14 +72,32 @@ type Device struct {
 	cx  *gc.Context
 	dev *gc.Device
 
-	mu     sync.Mutex
-	allocs []devAlloc // every device allocation handed out, for ReleaseAll
-	objs   []closer   // modules + streams, for ReleaseObjects
-	hosts  map[closer]func()
-	leaser Leaser // every allocation's lease; nil leases nothing
+	mu                  sync.Mutex
+	allocs              []devAlloc // every device allocation handed out, for ReleaseAll
+	objs                []closer   // modules + streams, for ReleaseObjects
+	hosts               map[closer]func()
+	leaser              Leaser // every allocation's lease; nil leases nothing
+	allocHookForTest    func(what string, nBytes int) error
+	closeBufHookForTest func(closeReal func() error) error
 	// launches and waits count every kernel launch and every host wait on the device (Activity), always on: the device-level
 	// count the resident's per-kernel cost counts are checked against.
 	launches, waits atomic.Int64
+}
+
+// SetAllocHookForTest installs an optional per-device allocation hook checked
+// in MustBufOn before calling gc.Alloc. Nil clears the hook.
+func (d *Device) SetAllocHookForTest(fn func(what string, nBytes int) error) {
+	d.mu.Lock()
+	d.allocHookForTest = fn
+	d.mu.Unlock()
+}
+
+// SetCloseBufHookForTest installs an optional per-device hook called by
+// ReleaseBufChecked in place of Buffer.Close. Nil clears the hook.
+func (d *Device) SetCloseBufHookForTest(fn func(closeReal func() error) error) {
+	d.mu.Lock()
+	d.closeBufHookForTest = fn
+	d.mu.Unlock()
 }
 
 // noteWait counts one host wait on d (nil: a Buffer built without a device, which counts nowhere).
@@ -340,6 +358,43 @@ func (d *Device) ReleaseBuf(b Buffer) {
 	_ = b.b.Close()
 }
 
+// ReleaseBufChecked frees one allocation and drops its ledger entry and lease
+// ONLY when the native Buffer.Close succeeds. Because gocudrv's Buffer.Close
+// leaves a failed free open, preserving the ledger entry on error ensures a
+// later ReleaseBufChecked or ReleaseAll still owns and retries it rather than
+// reporting a false zero-leak state. A zero Buffer or sub-allocation is a no-op.
+func (d *Device) ReleaseBufChecked(b Buffer) error {
+	if b.b == nil || b.lim != 0 {
+		return nil
+	}
+	d.mu.Lock()
+	hook := d.closeBufHookForTest
+	d.mu.Unlock()
+	var err error
+	if hook != nil {
+		err = hook(b.b.Close)
+	} else {
+		err = b.b.Close()
+	}
+	if err != nil {
+		return err
+	}
+	d.mu.Lock()
+	for i, x := range d.allocs {
+		if x.b == b.b {
+			x.release()
+			d.allocs[i] = d.allocs[len(d.allocs)-1]
+			d.allocs = d.allocs[:len(d.allocs)-1]
+			break
+		}
+	}
+	d.mu.Unlock()
+	if TraceForTest != nil {
+		TraceForTest(TraceEvent{Op: TraceFree, Dst: uint64(b.b.DevicePtr())})
+	}
+	return nil
+}
+
 // LedgerLen reports how many allocations and non-buffer objects this Device still
 // owns — the observability hook for leak tests (ReleaseObjects must drive both to
 // 0). Mirrors metal.go's LedgerLen.
@@ -503,6 +558,14 @@ func AllocFailedPanic(what string, nBytes int, err error) *AllocFailure {
 func (d *Device) MustBufOn(line string, nBytes, n int, what string) Buffer {
 	if d.cx == nil {
 		panic(fmt.Sprintf("cuda: allocation on a released device (%s, %d bytes)", what, nBytes))
+	}
+	d.mu.Lock()
+	hook := d.allocHookForTest
+	d.mu.Unlock()
+	if hook != nil {
+		if err := hook(what, nBytes); err != nil {
+			panic(AllocFailedPanic(what, nBytes, err))
+		}
 	}
 	buf, err := gc.Alloc[uint8](d.cx, nBytes)
 	if err != nil {

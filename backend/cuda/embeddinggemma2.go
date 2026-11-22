@@ -9,8 +9,10 @@ import (
 	"slices"
 	"sync"
 
+	gc "github.com/eitamring/gocudrv/cuda"
 	gpu "github.com/pkieltyka/goinfer/backend/cuda/internal/gpudev"
 	"github.com/pkieltyka/goinfer/embeddinggemma2"
+	"github.com/pkieltyka/goinfer/internal/runtime/mem"
 )
 
 // EmbeddingGemma 2's text encoder on CUDA: the CPU forward of embeddinggemma2/model.go in float32 with every weight
@@ -73,7 +75,82 @@ type eg2Accel struct {
 	defect                                  eg2Defect
 }
 
+func isCUDADeviceOOM(err error) bool {
+	var af *gpu.AllocFailure
+	return errors.As(err, &af) && errors.Is(af.Err, gc.ErrOutOfMemory)
+}
+
+func isCUDAFatalExec(err error) bool {
+	return errors.Is(err, gc.ErrIllegalAddress) ||
+		errors.Is(err, gc.ErrLaunchFailed) ||
+		errors.Is(err, gc.ErrLaunchTimeout) ||
+		errors.Is(err, gc.ErrInvalidContext) ||
+		errors.Is(err, gc.ErrDeinitialized) ||
+		errors.Is(err, gc.ErrNotInitialized)
+}
+
+// classifyEG2AttachErr maps CUDA constructor/upload allocation OOM to the
+// common ErrDeviceOutOfMemory category (never ErrBatchOutOfMemory), preserving
+// the original native cause.
+func classifyEG2AttachErr(err error) error {
+	if err == nil {
+		return nil
+	}
+	if isCUDADeviceOOM(err) {
+		return fmt.Errorf("%w: %w", embeddinggemma2.ErrDeviceOutOfMemory, err)
+	}
+	return err
+}
+
+// classifyEG2ForwardErr certifies ErrBatchOutOfMemory ONLY when err is a
+// call-owned CUDA OOM allocation failure, no launch/copy error was latched,
+// drain and checked rollback release both succeeded, and the accelerator stays
+// healthy. On any fatal or unrecovered combination it never attaches
+// ErrBatchOutOfMemory regardless of join order.
+func classifyEG2ForwardErr(err, latchedErr, drainErr, releaseErr, broken error, closed bool) error {
+	if err == nil && latchedErr == nil && drainErr == nil && releaseErr == nil {
+		return nil
+	}
+	if err != nil && isCUDADeviceOOM(err) && latchedErr == nil && drainErr == nil && releaseErr == nil && broken == nil && !closed {
+		return fmt.Errorf("cuda: EmbeddingGemma 2 forward: %w: %w", embeddinggemma2.ErrBatchOutOfMemory, err)
+	}
+	var parts []error
+	if err != nil {
+		if isCUDADeviceOOM(err) {
+			parts = append(parts, fmt.Errorf("%w: %w", embeddinggemma2.ErrDeviceOutOfMemory, err))
+		} else {
+			parts = append(parts, err)
+		}
+	}
+	if latchedErr != nil && latchedErr != err {
+		parts = append(parts, latchedErr)
+	}
+	if broken != nil {
+		parts = append(parts, broken)
+	}
+	if drainErr != nil && !errors.Is(broken, drainErr) {
+		parts = append(parts, drainErr)
+	}
+	if releaseErr != nil && !errors.Is(broken, releaseErr) {
+		parts = append(parts, releaseErr)
+	}
+	return fmt.Errorf("cuda: EmbeddingGemma 2 forward: %w", errors.Join(parts...))
+}
+
 func newEG2Accel(m *embeddinggemma2.Model, combined bool) (*eg2Accel, error) {
+	return newEG2AccelWithDevice(m, combined, CreateSystemDefaultDevice)
+}
+
+// newEG2AccelWithDevice is the single classified EmbeddingGemma 2 CUDA attach
+// path shared by legacy default attach, the combined attention selector, and
+// explicitly selected device openers: openDev acquires the device while this
+// constructor owns setup, partial-upload rollback, and OOM classification.
+func newEG2AccelWithDevice(m *embeddinggemma2.Model, combined bool, openDev func() (*Device, error)) (_ *eg2Accel, err error) {
+	defer func() {
+		if err != nil {
+			err = classifyEG2AttachErr(err)
+		}
+	}()
 	w := m.TransformerWeights()
 	c := w.Config
 	maxN := max(c.Layers*c.PLEDim, c.Intermediate, c.Hidden, c.EmbeddingDim)
@@ -85,7 +162,7 @@ func newEG2Accel(m *embeddinggemma2.Model, combined bool) (*eg2Accel, error) {
 		maxN = max(maxN, c.Heads*ly.HeadDim)
 		maxHD = max(maxHD, ly.HeadDim)
 	}
-	ops, err := newTowerOps(maxN)
+	ops, err := newTowerOpsWithDevice(maxN, openDev)
 	if err != nil {
 		return nil, err
 	}
@@ -199,19 +276,36 @@ func (a *eg2Accel) Forward(ids []int, keepLayers bool) ([]float32, [][]float32, 
 	return a.forwardRows(x, []int{len(ids)}, keepLayers)
 }
 
-// rope returns the tables for at least T rows at this head dim and theta, rebuilding them from the CPU's own values
-// when T is past what is held. The caller is on the executor.
-func (a *eg2Accel) rope(T, hd int, theta float64) (Buffer, Buffer) {
+// rope returns the tables for at least T rows at this head dim and theta,
+// rebuilding them from the CPU's own values when T is past what is held. Each
+// handle is registered in pending before upload and before allocating its
+// sibling so a mid-pair allocation or upload failure never leaks an unowned
+// buffer; only complete cos/sin pairs are published into a.ropes. Retiring an
+// older smaller table uses ReleaseBufChecked so a failed native close preserves
+// ownership and records releaseErr. The caller is on the executor.
+func (a *eg2Accel) rope(T, hd int, theta float64, pending *[]Buffer, releaseErr *error) (Buffer, Buffer, error) {
 	for i := range a.ropes {
 		r := &a.ropes[i]
 		if r.hd != hd || r.theta != theta {
 			continue
 		}
 		if r.rows >= T {
-			return r.cos, r.sin
+			return r.cos, r.sin, nil
 		}
-		a.ops.dev.ReleaseBuf(r.cos)
-		a.ops.dev.ReleaseBuf(r.sin)
+		if r.cos != (Buffer{}) {
+			if err := a.ops.dev.ReleaseBufChecked(r.cos); err != nil {
+				*releaseErr = errors.Join(*releaseErr, fmt.Errorf("cuda: release retired RoPE cos table: %w", err))
+				return Buffer{}, Buffer{}, *releaseErr
+			}
+			r.cos = Buffer{}
+		}
+		if r.sin != (Buffer{}) {
+			if err := a.ops.dev.ReleaseBufChecked(r.sin); err != nil {
+				*releaseErr = errors.Join(*releaseErr, fmt.Errorf("cuda: release retired RoPE sin table: %w", err))
+				return Buffer{}, Buffer{}, *releaseErr
+			}
+			r.sin = Buffer{}
+		}
 		a.ropes = append(a.ropes[:i], a.ropes[i+1:]...)
 		break
 	}
@@ -224,9 +318,20 @@ func (a *eg2Accel) rope(T, hd int, theta float64) (Buffer, Buffer) {
 			sf[t*hd+i], sf[t*hd+half+i] = sn[t*half+i], sn[t*half+i]
 		}
 	}
-	r := eg2Rope{hd: hd, theta: theta, rows: T, cos: a.ops.up(cf), sin: a.ops.up(sf)}
+	cos := gpu.NewBufferLenOfOn[float32](a.ops.dev, mem.LineCompanion, len(cf))
+	*pending = append(*pending, cos)
+	if err := gpu.Upload(cos, cf); err != nil {
+		return Buffer{}, Buffer{}, fmt.Errorf("cuda: upload RoPE cos table: %w", err)
+	}
+	sin := gpu.NewBufferLenOfOn[float32](a.ops.dev, mem.LineCompanion, len(sf))
+	*pending = append(*pending, sin)
+	if err := gpu.Upload(sin, sf); err != nil {
+		return Buffer{}, Buffer{}, fmt.Errorf("cuda: upload RoPE sin table: %w", err)
+	}
+	*pending = (*pending)[:len(*pending)-2]
+	r := eg2Rope{hd: hd, theta: theta, rows: T, cos: cos, sin: sin}
 	a.ropes = append(a.ropes, r)
-	return r.cos, r.sin
+	return r.cos, r.sin, nil
 }
 
 // eg2Bounds is each query row's key range [lo, hi) on a sliding layer of radius W (|i - j| <= W) or, with W < 0, a full one.
@@ -358,7 +463,7 @@ type eg2RopeKey struct {
 // table is grown before the first copy is queued, so no source a copy reads is replaced under it; the tables are
 // per-call scratch (towerOps.af), freed when the forward's scratch is. Copy errors latch as launch errors do. The
 // caller is on the executor.
-func (a *eg2Accel) batchRope(lens []int) map[eg2RopeKey][2]Buffer {
+func (a *eg2Accel) batchRope(lens []int, pending *[]Buffer, releaseErr *error) (map[eg2RopeKey][2]Buffer, error) {
 	o := a.ops
 	T, maxT := 0, 0
 	for _, n := range lens {
@@ -369,7 +474,10 @@ func (a *eg2Accel) batchRope(lens []int) map[eg2RopeKey][2]Buffer {
 	for _, ly := range a.layers {
 		k := eg2RopeKey{ly.w.HeadDim, ly.w.RopeTheta}
 		if _, ok := src[k]; !ok {
-			cs, sn := a.rope(maxT, k.hd, k.theta)
+			cs, sn, err := a.rope(maxT, k.hd, k.theta, pending, releaseErr)
+			if err != nil {
+				return nil, err
+			}
 			src[k] = [2]Buffer{cs, sn}
 			keys = append(keys, k)
 		}
@@ -389,7 +497,7 @@ func (a *eg2Accel) batchRope(lens []int) map[eg2RopeKey][2]Buffer {
 		}
 		out[k] = dst
 	}
-	return out
+	return out, nil
 }
 
 // forwardRows is the forward over inputs of the given lengths whose prepared rows x0 holds end to end. One input takes
@@ -421,20 +529,55 @@ func (a *eg2Accel) forwardRows(x0 []float32, lens []int, keepLayers bool) ([]flo
 	if keepLayers {
 		layers = append(layers, append([]float32(nil), x0...))
 	}
+	var (
+		latchedErr     error
+		drainErr       error
+		releaseErr     error
+		ropeReleaseErr error
+	)
 	err := a.ops.do(func() error {
 		o := a.ops
 		done := false
+		var pendingRope []Buffer
 		defer func() {
-			// A failed or panicking forward may leave copies and launches queued on its scratch: drain them before it is
-			// freed. If the drain fails, keep the scratch (Close frees it once a drain succeeds) and refuse later forwards.
+			// A failed or panicking forward may leave copies and launches queued on its scratch: capture any latched
+			// launch/copy error before clearing o.err, then drain before freeing. If drain fails, retain all possibly
+			// pending buffers (Close frees them once a drain succeeds) and poison the accelerator. If rollback release
+			// fails, preserve ledger ownership of failed frees and poison the accelerator.
 			if !done {
+				latchedErr = o.err
 				o.err = nil
 				if e := a.drainQueue(); e != nil {
-					a.broken = fmt.Errorf("cuda: a failed EmbeddingGemma 2 forward could not be drained: %w", e)
+					drainErr = e
+					if a.broken == nil {
+						a.broken = fmt.Errorf("cuda: a failed EmbeddingGemma 2 forward could not be drained: %w", e)
+					}
+					o.scratch = append(o.scratch, pendingRope...)
+					pendingRope = nil
 					return
 				}
+				releaseErr = o.releaseScratchChecked()
+				for _, b := range pendingRope {
+					if e := o.dev.ReleaseBufChecked(b); e != nil {
+						releaseErr = errors.Join(releaseErr, e)
+						o.scratch = append(o.scratch, b)
+					}
+				}
+				pendingRope = nil
+				if ropeReleaseErr != nil {
+					releaseErr = errors.Join(ropeReleaseErr, releaseErr)
+				}
+				if releaseErr != nil && a.broken == nil {
+					a.broken = fmt.Errorf("cuda: EmbeddingGemma 2 rollback release failed: %w", releaseErr)
+				}
+				return
 			}
-			o.releaseScratch()
+			if e := o.releaseScratchChecked(); e != nil {
+				releaseErr = e
+				if a.broken == nil {
+					a.broken = fmt.Errorf("cuda: EmbeddingGemma 2 scratch release failed: %w", e)
+				}
+			}
 		}()
 		af := o.af
 		x, xn := af(T*H), af(T*H)
@@ -457,7 +600,11 @@ func (a *eg2Accel) forwardRows(x0 []float32, lens []int, keepLayers bool) ([]flo
 		}
 		var batchRope map[eg2RopeKey][2]Buffer
 		if len(lens) > 1 {
-			batchRope = a.batchRope(lens)
+			var e error
+			batchRope, e = a.batchRope(lens, &pendingRope, &ropeReleaseErr)
+			if e != nil {
+				return e
+			}
 		}
 		eps := float32(c.RMSNormEps)
 		// Per-layer inputs, as the CPU forms them: RMSNorm(W · x0 · hidden^-0.5) over [T, L, P].
@@ -484,7 +631,11 @@ func (a *eg2Accel) forwardRows(x0 []float32, lens []int, keepLayers bool) ([]flo
 			if r, ok := batchRope[eg2RopeKey{hd, ly.w.RopeTheta}]; ok {
 				cs, sn = r[0], r[1]
 			} else {
-				cs, sn = a.rope(T, hd, ly.w.RopeTheta)
+				var e error
+				cs, sn, e = a.rope(T, hd, ly.w.RopeTheta, &pendingRope, &ropeReleaseErr)
+				if e != nil {
+					return e
+				}
 			}
 			o.ropeHalfTo(q, cs, sn, T, nH, hd)
 			o.ropeHalfTo(k, cs, sn, T, nKV, hd)
@@ -561,8 +712,17 @@ func (a *eg2Accel) forwardRows(x0 []float32, lens []int, keepLayers bool) ([]flo
 		done = true
 		return nil
 	})
-	if err != nil {
-		return nil, nil, fmt.Errorf("cuda: EmbeddingGemma 2 forward: %w", errors.Join(err, a.broken))
+	if isCUDAFatalExec(latchedErr) || isCUDAFatalExec(err) {
+		if a.broken == nil {
+			fatal := latchedErr
+			if fatal == nil {
+				fatal = err
+			}
+			a.broken = fmt.Errorf("cuda: fatal EmbeddingGemma 2 execution error: %w", fatal)
+		}
+	}
+	if classified := classifyEG2ForwardErr(err, latchedErr, drainErr, releaseErr, a.broken, a.closed); classified != nil {
+		return nil, nil, classified
 	}
 	return out, layers, nil
 }

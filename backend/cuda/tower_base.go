@@ -3,6 +3,7 @@
 package cuda
 
 import (
+	"errors"
 	"fmt"
 	"runtime"
 
@@ -41,7 +42,15 @@ type towerOps struct {
 }
 
 // newTowerOps creates the device and loads the kernels on a pinned executor goroutine. maxN is the widest output of any projection run without a bias.
-func newTowerOps(maxN int) (t *towerOps, err error) {
+func newTowerOps(maxN int) (*towerOps, error) {
+	return newTowerOpsWithDevice(maxN, CreateSystemDefaultDevice)
+}
+
+// newTowerOpsWithDevice creates towerOps using openDev to acquire the CUDA device on the executor goroutine.
+func newTowerOpsWithDevice(maxN int, openDev func() (*Device, error)) (t *towerOps, err error) {
+	if openDev == nil {
+		openDev = CreateSystemDefaultDevice
+	}
 	t = &towerOps{reqCh: make(chan func() error), ackCh: make(chan error)}
 	go func() {
 		runtime.LockOSThread()
@@ -52,7 +61,7 @@ func newTowerOps(maxN int) (t *towerOps, err error) {
 	}()
 	err = t.do(func() error {
 		var e error
-		if t.dev, e = CreateSystemDefaultDevice(); e != nil {
+		if t.dev, e = openDev(); e != nil {
 			return e
 		}
 		t.q = t.dev.NewCommandQueue()
@@ -139,6 +148,22 @@ func (t *towerOps) releaseScratch() {
 		t.dev.ReleaseBuf(b)
 	}
 	t.scratch = t.scratch[:0]
+}
+
+// releaseScratchChecked frees each scratch buffer via ReleaseBufChecked,
+// retaining any buffer whose native close fails so ownership and ledger
+// charges are never discarded.
+func (t *towerOps) releaseScratchChecked() error {
+	var err error
+	var kept []Buffer
+	for _, b := range t.scratch {
+		if e := t.dev.ReleaseBufChecked(b); e != nil {
+			err = errors.Join(err, e)
+			kept = append(kept, b)
+		}
+	}
+	t.scratch = kept
+	return err
 }
 
 // launch enqueues one kernel and latches the first error.
