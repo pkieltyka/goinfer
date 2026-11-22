@@ -844,6 +844,25 @@ class TestPinnedDocs(_LintRepo):
         self.doc(self.pinned("see `linalg/quant.go:3`\n", commit=c))
         self.assertRed("CANNOT SEARCH", "go mod download")
 
+    def test_historical_upstream_root_and_metal_gpu_pins_resolve_at_record_commit(self):
+        self.write("go.mod", "module github.com/townsendmerino/goinfer\nrequire github.com/townsendmerino/aikit v1.63.0\n")
+        self.write("metal/go.mod", "module github.com/townsendmerino/goinfer/metal\n"
+                   "require (\n\tgithub.com/townsendmerino/aikit/gpu v0.33.5\n)\n")
+        commit = _git_commit_all(self.repo, "pin historical aikit modules")
+        self.write("go.mod", "module github.com/pkieltyka/goinfer\nrequire github.com/pkieltyka/aikit v1.79.0\n")
+        cache = pathlib.Path(self.repo) / "mc"
+        (cache / "github.com/pkieltyka/aikit@v1.79.0").mkdir(parents=True)
+        for versioned, rel in (("aikit@v1.63.0", "linalg/quant.go"), ("aikit/gpu@v0.33.5", "metal.go")):
+            path = cache / "github.com/townsendmerino" / versioned / rel
+            path.parent.mkdir(parents=True)
+            path.write_text("package fixture\n\nfunc Present() {}\n")
+        qcl._MODCACHE = cache
+        self.doc(self.pinned("see `linalg/quant.go:3` and `metal.go:Present`\n", commit=commit))
+        code, out = self.run_lint(["--pinned-modules"])
+        self.assertEqual((code, out.split()), (0, ["github.com/townsendmerino/aikit/gpu@v0.33.5",
+                                                   "github.com/townsendmerino/aikit@v1.63.0"]))
+        self.assertGreen()
+
     def test_aikit_path_in_a_pinned_doc_resolves_from_sibling_git_repo_when_modcache_cold(self):
         self.write("go.mod", "module example.com/goinfer\n\ngo 1.22\n\nrequire github.com/pkieltyka/aikit v9.9.9\n")
         c = _git_commit_all(self.repo, "go.mod pins aikit v9.9.9")
@@ -853,9 +872,10 @@ class TestPinnedDocs(_LintRepo):
             _git(sib, "init", "-q")
             _git(sib, "config", "user.email", "test@example.com")
             _git(sib, "config", "user.name", "Test")
+            pathlib.Path(sib, "go.mod").write_text("module github.com/pkieltyka/aikit\n")
             with open(os.path.join(sib, "linalg", "quant.go"), "w") as f:
                 f.write("package linalg\n\nfunc Quant() {}\n")
-            _git(sib, "add", "linalg/quant.go")
+            _git(sib, "add", "go.mod", "linalg/quant.go")
             _git(sib, "commit", "-q", "-m", "add quant")
             _git(sib, "tag", "v9.9.9")
             orig_sib = qcl.sibling_repos
@@ -864,6 +884,10 @@ class TestPinnedDocs(_LintRepo):
             try:
                 self.doc(self.pinned("see `linalg/quant.go:3`\n", commit=c))
                 self.assertGreen()
+                self.write("go.mod", "module example.com/goinfer\nrequire github.com/townsendmerino/aikit v9.9.9\n")
+                upstream = _git_commit_all(self.repo, "pin upstream aikit")
+                self.doc(self.pinned("see `linalg/quant.go:3`\n", commit=upstream))
+                self.assertRed("CANNOT SEARCH", "github.com/townsendmerino/aikit@v9.9.9")
             finally:
                 qcl.sibling_repos = orig_sib
                 qcl.PINNED_FILE_CACHE.clear()

@@ -255,7 +255,7 @@ SCANS = [
     Scan("backend/cuda/kernels", "TestKernelFMALint", CU("backend/cuda")),
     Scan("backend/cuda", "TestPTX_matchesSourcesAndBindings", F("backend/cuda/kernels.go") + NT("backend/cuda") + CU("backend/cuda")),
     Scan("backend/cuda", "TestPTXModules_coverEveryEmbed", F("backend/cuda/kernels.go")),
-    Scan("backend/cuda", "TestPipelineLint_boundKernelsAreLaunched", NT("backend/cuda")),
+    Scan("backend/cuda/kernels", "TestPipelineLint_boundKernelsAreLaunched", NT("backend/cuda")),
     Scan("backend/cuda", "TestPrefillCoreAndDraftBlockCallTheShmemGuards", F("backend/cuda/prefill.go", "backend/cuda/drafter.go")),
     Scan("backend/cuda", "TestPrefillCoreCallsMropePosWindow", F("backend/cuda/prefill.go")),
     Scan("backend/cuda", "TestKV8_everyFusedPrefillLaunchPassesScales", F("backend/cuda/prefill.go", "backend/cuda/prefill_pass.go")),

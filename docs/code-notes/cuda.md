@@ -6186,7 +6186,7 @@ hybrid whose recurrent state the plain constructor does not allocate.)
 
 ## TestPipelineLint_boundKernelsAreLaunched
 
-Moved from `backend/cuda/pipeline_lint_test.go` (the comment above `TestPipelineLint_boundKernelsAreLaunched`) on 2026-10-09.
+Moved on 2026-10-09 from the comment above `TestPipelineLint_boundKernelsAreLaunched`, then in backend/cuda/pipeline_lint_test.go; the test is now in `backend/cuda/kernels/pipeline_lint_test.go`.
 
 ```text
 TestPipelineLint_boundKernelsAreLaunched closes the FIFTH state a kernel can be in.
