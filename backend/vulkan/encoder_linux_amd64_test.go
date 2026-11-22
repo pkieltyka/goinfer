@@ -46,24 +46,46 @@ func checkDevice(t *testing.T, a *encoder, id uint32) {
 		}
 	})
 }
-func checkVector(t *testing.T, label string, got, want []float32) {
+
+// Compare every component as well as each row's cosine. One wrong token
+// must be visible even if hundreds of other rows match.
+func checkRows(t *testing.T, label string, got, want []float32, width int) {
 	t.Helper()
-	if len(got) != len(want) || len(got) == 0 {
-		t.Fatalf("%s length %d, want %d", label, len(got), len(want))
+	if width <= 0 || len(want) == 0 || len(want)%width != 0 || len(got) != len(want) {
+		t.Fatalf("%s: incompatible row width %d and lengths %d/%d", label, width, len(got), len(want))
 	}
-	var dot, aa, bb, maxAbs float64
-	for i, v := range got {
-		x, y := float64(v), float64(want[i])
-		dot += x * y
-		aa += x * x
-		bb += y * y
-		maxAbs = max(maxAbs, math.Abs(x-y))
+	minCos, maxAbs, maxFraction, maxRowRelative := 1.0, 0.0, 0.0, 0.0
+	for row := 0; row < len(want)/width; row++ {
+		var dot, aa, bb, rowMax, rowErr float64
+		for j := range width {
+			i := row*width + j
+			x, y := float64(got[i]), float64(want[i])
+			delta := math.Abs(x - y)
+			limit := 1e-4 * max(1, math.Abs(y))
+			if !(delta <= limit) {
+				t.Fatalf("%s row %d col %d: got %g want %g absolute error %g exceeds %g", label, row, j, x, y, delta, limit)
+			}
+			maxFraction = max(maxFraction, delta/limit)
+			rowMax = max(rowMax, math.Abs(y))
+			rowErr = max(rowErr, delta)
+			dot += x * y
+			aa += x * x
+			bb += y * y
+		}
+		if rowMax > 0 {
+			maxRowRelative = max(maxRowRelative, rowErr/rowMax)
+		}
+		maxAbs = max(maxAbs, rowErr)
+		if aa == 0 && bb == 0 {
+			continue
+		}
+		cosine := dot / math.Sqrt(aa*bb)
+		if !(cosine >= 0.9999) {
+			t.Fatalf("%s row %d cosine %.12f", label, row, cosine)
+		}
+		minCos = min(minCos, cosine)
 	}
-	cosine := dot / math.Sqrt(aa*bb)
-	if !(cosine >= 0.9999) {
-		t.Fatalf("%s cosine %.12f max absolute error %.7g", label, cosine, maxAbs)
-	}
-	t.Logf("%s cosine %.12f max absolute error %.7g", label, cosine, maxAbs)
+	t.Logf("%s min row cosine %.12f max abs %.7g max row-relative %.7g max fraction of limit %.7g", label, minCos, maxAbs, maxRowRelative, maxFraction)
 }
 func checkedActivity(t *testing.T, a *encoder, prev vk.Activity, rows int, keep bool) {
 	t.Helper()
@@ -126,16 +148,39 @@ func TestVulkanEncoderTiny(t *testing.T) {
 		if len(states) != len(cpu) || len(states) != len(item.Layers) {
 			t.Fatal("layer count mismatch")
 		}
+		if !slices.Equal(states[0], cpu[0]) {
+			t.Fatal("initial GPU snapshot differs from the host input")
+		}
 		for i, s := range states {
-			checkVector(t, fmt.Sprintf("layer %d CPU", i), s, cpu[i])
+			checkRows(t, fmt.Sprintf("layer %d CPU", i), s, cpu[i], a.cfg.Hidden)
 			// Transformers records the projection in its final hidden-state slot.
 			if i < len(states)-1 {
-				checkVector(t, fmt.Sprintf("layer %d Transformers", i), s, slices.Concat(item.Layers[i]...))
+				checkRows(t, fmt.Sprintf("layer %d Transformers", i), s, slices.Concat(item.Layers[i]...), a.cfg.Hidden)
 			}
 		}
-		checkVector(t, "projected rows Transformers", got, slices.Concat(item.Last...))
+		checkRows(t, "projected rows Transformers", got, slices.Concat(item.Last...), m.Dim())
 	}
 	fixed := fixture.Cases[3].IDs
+	full, fullStates, err := a.Forward(fixed, true)
+	if err != nil {
+		t.Fatal(err)
+	}
+	beforeSplit := a.device.Activity()
+	budget := a.dispatchBudget
+	a.dispatchBudget = 5 + 2*(24+3) // one score block, exactly two layers per submission
+	split, splitStates, err := a.Forward(fixed, true)
+	a.dispatchBudget = budget
+	if err != nil {
+		t.Fatal(err)
+	}
+	afterSplit := a.device.Activity()
+	if afterSplit.Submissions-beforeSplit.Submissions != 3 || afterSplit.Waits-beforeSplit.Waits != 3 {
+		t.Fatalf("split forward used %d submits and %d waits", afterSplit.Submissions-beforeSplit.Submissions, afterSplit.Waits-beforeSplit.Waits)
+	}
+	if !slices.Equal(full, split) || !slices.EqualFunc(fullStates, splitStates, slices.Equal[[]float32]) {
+		t.Fatal("split changed output or a layer snapshot")
+	}
+	t.Log("forced three submissions: all layer snapshots and projected rows match one submission exactly")
 	left, right := make([]int, 115), []int{2, 7, 1}
 	for i := range left {
 		left[i] = i % 213
@@ -152,7 +197,7 @@ func TestVulkanEncoderTiny(t *testing.T) {
 		if err != nil {
 			t.Fatal(err)
 		}
-		checkVector(t, fmt.Sprintf("packed member %d vs singleton", i), packed[i], single)
+		checkRows(t, fmt.Sprintf("packed member %d vs singleton", i), packed[i], single, m.Dim())
 	}
 	for i := range left {
 		left[i] = (left[i] + 35) % 213
@@ -184,7 +229,7 @@ func TestVulkanEncoderTiny(t *testing.T) {
 	if !slices.Equal(x, original) {
 		t.Fatal("forward changed prepared embeddings")
 	}
-	checkVector(t, "prepared embeddings", got, want)
+	checkRows(t, "prepared embeddings", got, want, m.Dim())
 	prev = a.device.Activity()
 	for _, bad := range [][][]int{nil, {{1}, {}}, {{1}, {m.Config().VocabSize}}, {make([]int, embeddinggemma2.MaxTokens), {1}}} {
 		if output, err := a.ForwardBatch(bad); err == nil || output != nil {
@@ -259,6 +304,7 @@ func TestVulkanEncoderRealPreparedIDs(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
+	m := e.Model()
 	a := acc.(*encoder)
 	checkDevice(t, a, id)
 	prev := a.device.Activity()
@@ -268,7 +314,7 @@ func TestVulkanEncoderRealPreparedIDs(t *testing.T) {
 	}
 	checkedActivity(t, a, prev, len(query)+len(doc)+len(edge), false)
 	for i, v := range got {
-		checkVector(t, fmt.Sprintf("pooled %d-token input", len(ids[i])), v, want[i])
+		checkRows(t, fmt.Sprintf("pooled %d-token input", len(ids[i])), v, want[i], m.Dim())
 		var norm float64
 		for _, x := range v {
 			norm += float64(x) * float64(x)
@@ -277,6 +323,23 @@ func TestVulkanEncoderRealPreparedIDs(t *testing.T) {
 			t.Fatalf("pooled squared norm %g", norm)
 		}
 	}
+	ref, refLayers, err := m.ForwardCPU(edge, true)
+	if err != nil {
+		t.Fatal(err)
+	}
+	before := a.device.Activity()
+	last, layers, err := a.Forward(edge, true)
+	if err != nil {
+		t.Fatal(err)
+	}
+	checkedActivity(t, a, before, len(edge), true)
+	if len(layers) != len(refLayers) || !slices.Equal(layers[0], refLayers[0]) {
+		t.Fatal("real layer count or initial snapshot differs")
+	}
+	for i, state := range layers {
+		checkRows(t, fmt.Sprintf("real window edge layer %d", i), state, refLayers[i], m.Config().Hidden)
+	}
+	checkRows(t, "real window edge projected", last, ref, m.Dim())
 }
 func TestBufferLimits(t *testing.T) {
 	for _, d := range [][]int{{0}, {-1, 1}, {129, 2}, {math.MaxInt, 2}} {

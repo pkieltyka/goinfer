@@ -24,6 +24,7 @@ type encoder struct {
 	pleProj, pleNorm, finalNorm, projection, ones *vk.Buffer
 	layers                                        []layer
 	maxQ, maxKV                                   int
+	dispatchBudget                                int // descriptor sets available in one command buffer
 }
 type rotation struct {
 	dim   int
@@ -55,7 +56,7 @@ func newEncoder(m *embeddinggemma2.Model, selector vk.Selector) (*encoder, error
 	if cfg.Hidden <= 0 || cfg.PLEDim <= 0 || cfg.Intermediate <= 0 || cfg.Heads <= 0 || len(w.Layers) == 0 || cfg.Layers != len(w.Layers) || cfg.SlidingWindow < 0 {
 		return nil, errors.New("vulkan: invalid encoder geometry")
 	}
-	a := &encoder{model: m, cfg: cfg, pipes: make(map[string]*vk.Pipeline)}
+	a := &encoder{model: m, cfg: cfg, pipes: make(map[string]*vk.Pipeline), dispatchBudget: 4096}
 	maxDim := 0
 	for i, l := range w.Layers {
 		if l.HeadDim <= 0 || l.HeadDim%2 != 0 || l.KVHeads <= 0 || cfg.Heads%l.KVHeads != 0 || l.RopeTheta <= 0 {

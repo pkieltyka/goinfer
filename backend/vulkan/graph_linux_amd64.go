@@ -111,7 +111,7 @@ func (a *encoder) forwardRows(x []float32, lengths []int, keep bool) (out []floa
 	// At most 4096 descriptor sets per command buffer. Reserve room for the
 	// initial and final operations and bound long documents by the block count.
 	perLayer := 24 + 3*ceilDiv(t, f.block)
-	perRun := (4096 - 5) / perLayer
+	perRun := (a.dispatchBudget - 5) / perLayer
 	for first := 0; first < cfg.Layers; first += perRun {
 		end := min(first+perRun, cfg.Layers)
 		if err := a.device.Run(func(c *vk.Commands) error {
