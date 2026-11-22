@@ -1438,11 +1438,37 @@ func TestEG2CUDA_RetryOOM_DeviceAcceptance(t *testing.T) {
 			arm = "combined"
 		}
 		t.Run(arm, func(t *testing.T) {
-			enc, err := embeddinggemma2.LoadEncoder(eg2TinyDir)
-			if err != nil {
-				t.Fatal(err)
+			newTinyEnc := func(t *testing.T) *embeddinggemma2.Encoder {
+				t.Helper()
+				mod := eg2TinyModel(t)
+				raw, err := json.Marshal(map[string]any{
+					"added_tokens": []map[string]any{
+						{"id": 0, "content": "<pad>"},
+						{"id": 1, "content": "<eos>"},
+						{"id": 2, "content": "<bos>"},
+						{"id": 3, "content": "<unk>"},
+					},
+					"model": map[string]any{
+						"type":      "BPE",
+						"unk_token": "<unk>",
+						"vocab":     map[string]int{"<pad>": 0, "<eos>": 1, "<bos>": 2, "<unk>": 3},
+						"merges":    [][2]string{},
+					},
+				})
+				if err != nil {
+					t.Fatal(err)
+				}
+				tok, err := tokenizer.LoadJSONBytes(raw)
+				if err != nil {
+					t.Fatal(err)
+				}
+				e, err := embeddinggemma2.NewEncoder(mod, tok, nil)
+				if err != nil {
+					t.Fatal(err)
+				}
+				return e
 			}
-			m := enc.Model()
+			m := eg2TinyModel(t)
 			V := m.Config().VocabSize
 			orig := [][]int{
 				eg2SeqIDs(6, 1, V),
@@ -1454,10 +1480,7 @@ func TestEG2CUDA_RetryOOM_DeviceAcceptance(t *testing.T) {
 			// Helper that attaches a fresh eg2Accel on enc with the chosen selector.
 			attachFresh := func(t *testing.T) (*embeddinggemma2.Encoder, *eg2Accel) {
 				t.Helper()
-				e, err := embeddinggemma2.LoadEncoder(eg2TinyDir)
-				if err != nil {
-					t.Fatal(err)
-				}
+				e := newTinyEnc(t)
 				name := fmt.Sprintf("cuda-issue25-test-%s-%d", arm, time.Now().UnixNano())
 				embeddinggemma2.RegisterAccelerator(name, func(mod *embeddinggemma2.Model) (embeddinggemma2.Accelerator, error) {
 					return newEG2Accel(mod, combined)
