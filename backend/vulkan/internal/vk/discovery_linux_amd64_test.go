@@ -268,6 +268,16 @@ func TestVulkanCompleteInventory(t *testing.T) {
 	}
 }
 
+func TestVulkanInventoryWithoutEligibleCards(t *testing.T) {
+	f := testDriver()
+	f.order = []handle{3, 4, 5, 6}
+	f.install(t, true)
+	found, err := Devices(false)
+	if err != nil || len(found) != 0 || f.created != 1 || f.destroyed != 1 || len(f.selected) != 0 {
+		t.Fatalf("empty inventory %v: %v; lifecycle %+v", found, err, f)
+	}
+}
+
 func TestVulkanAttachedBudget(t *testing.T) {
 	for _, order := range [][]handle{{1, 2}, {2, 1}} {
 		f := testDriver()

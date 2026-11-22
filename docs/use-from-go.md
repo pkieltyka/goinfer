@@ -270,8 +270,10 @@ when the application has finished using that encoder.
 Import the Vulkan package by name to list eligible adapters with `vulkan.Devices()` before
 loading a model. To include estimated available bytes, call
 `vulkan.Probe(embeddinggemma2.ProbeOptions{IncludeMemory: true})`. Both calls create a
-temporary Vulkan instance. They create no logical device. goinfer emits no diagnostics for
-these calls. The Vulkan loader and driver may write diagnostics to stderr.
+temporary Vulkan instance, which can load every installed Vulkan driver. They create no
+logical device. `IncludeMemory` also enumerates extensions and queries memory properties
+on each eligible adapter. goinfer emits no diagnostics for these calls. The Vulkan loader
+and driver may write diagnostics to stderr.
 
 Pass a device's `ID` to `encoder.UseAccelerator` to select its exact Vulkan UUID.
 An ID can change when a card moves or the PCI bus is renumbered. On RADV it encodes
@@ -289,6 +291,20 @@ Vulkan uses `VK_EXT_memory_budget` and reports the sum of the device-local heap
 budgets minus their estimated usage, clamped per heap to capacity and zero. The
 estimate reserves no memory and can change before an allocation.
 [Vulkan memory budget specification](https://docs.vulkan.org/refpages/latest/refpages/source/VkPhysicalDeviceMemoryBudgetPropertiesEXT.html)
+
+For example, after obtaining a reporter and checking the error from `DeviceMemory()`,
+an application can describe the snapshot as follows.
+
+```text
+switch memory.Basis {
+case embeddinggemma2.MemoryLive:
+    fmt.Printf("Free device memory: %d bytes\n", memory.AvailableBytes)
+case embeddinggemma2.MemoryEstimated:
+    fmt.Printf("Estimated device headroom: %d bytes\n", memory.AvailableBytes)
+default:
+    fmt.Println("Available device memory is unknown")
+}
+```
 
 Use `errors.Is` to distinguish `embeddinggemma2.ErrBackendUnavailable` (runtime or driver
 startup), `ErrNoDevice` (no match), `ErrAmbiguousDevice` (multiple matches) and
