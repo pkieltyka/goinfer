@@ -24,6 +24,7 @@ func init() {
 	embeddinggemma2.RegisterAccelerator("cuda", func(m *embeddinggemma2.Model) (embeddinggemma2.Accelerator, error) {
 		return newEG2Accel(m, false)
 	})
+	embeddinggemma2.RegisterSelectedAccelerator("cuda", selectedEG2Factory(false))
 }
 
 // eg2MaxTokens is the longest input the accelerator takes: a full layer's score row is T float32 in attention_seg's
@@ -75,6 +76,11 @@ type eg2Accel struct {
 }
 
 func newEG2Accel(m *embeddinggemma2.Model, combined bool) (*eg2Accel, error) {
+	return newEG2AccelOn(m, combined, CreateSystemDefaultDevice)
+}
+
+func newEG2AccelOn(m *embeddinggemma2.Model, combined bool, open func() (*Device, error)) (_ *eg2Accel, err error) {
+	defer func() { err = classifyCUDAAttach(err) }()
 	w := m.TransformerWeights()
 	c := w.Config
 	maxN := max(c.Layers*c.PLEDim, c.Intermediate, c.Hidden, c.EmbeddingDim)
@@ -86,7 +92,7 @@ func newEG2Accel(m *embeddinggemma2.Model, combined bool) (*eg2Accel, error) {
 		maxN = max(maxN, c.Heads*ly.HeadDim)
 		maxHD = max(maxHD, ly.HeadDim)
 	}
-	ops, err := newTowerOps(maxN)
+	ops, err := newTowerOpsOn(open, maxN)
 	if err != nil {
 		return nil, err
 	}

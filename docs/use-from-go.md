@@ -267,6 +267,17 @@ before calling this API. To prefer Radeon, call
 adapter and returns an error if none or several are eligible. Close an attached accelerator
 when the application has finished using that encoder.
 
+On CUDA, the bare `"cuda"` selector opens driver ordinal 0. To require a specific
+CUDA device, pass `"cuda:GPU-…"` with the complete UUID reported by the driver,
+or an alias such as `"cuda:1"`. An alias follows the driver's visible ordinal
+order and requires a reported UUID. Qualified CUDA selectors require compute
+capability 7.5 or later and fail if the requested device cannot be attached.
+See the [CUDA device management reference](https://docs.nvidia.com/cuda/cuda-driver-api/cuda_driver_api/group__CUDA__DEVICE.html).
+
+When a selector names an explicit device, the vision and audio towers stay on the CPU.
+`VisionDevice()` and `AudioDevice()` report this after the respective tower is loaded.
+Bare selectors can attach a registered tower accelerator as before.
+
 Import the Vulkan package by name to list eligible adapters with `vulkan.Devices()` before
 loading a model. To include estimated available bytes, call
 `vulkan.Probe(embeddinggemma2.ProbeOptions{IncludeMemory: true})`. Both calls create a
@@ -287,6 +298,7 @@ For a fresh snapshot after attachment, type-assert `encoder.Accelerator()` to
 `AvailableBytes`. A known basis can report zero available bytes. `MemoryUnknown`
 has no usable available-byte figure. `MemoryLive` reports current free capacity, and
 `MemoryEstimated` is an advisory estimate.
+CUDA reads free and total bytes from its attached context with `MemoryLive`.
 Vulkan uses `VK_EXT_memory_budget` and reports the sum of the device-local heap
 budgets minus their estimated usage, clamped per heap to capacity and zero. The
 estimate reserves no memory and can change before an allocation.
