@@ -1,3 +1,5 @@
+github.com/ebitengine/purego v0.10.1 h1:dewVBCBT2GaMu1SrNTYxQhgQBethzfhiwvZiLGP/qyY=
+github.com/ebitengine/purego v0.10.1/go.mod h1:iIjxzd6CiRiOG0UyXP+V1+jWqUXVjPKLAI0mRfJZTmQ=
 github.com/pkieltyka/aikit v1.79.0 h1:V+jzZQK05MtAZTx21cuNOY3SXODIKMw2uWLhVwiA3uc=
 github.com/pkieltyka/aikit v1.79.0/go.mod h1:VoICCiLubSklB6hXh3LvUOA6lSBOPE/IDb2fDTHMeuc=
 golang.org/x/sys v0.47.0 h1:o7XGOvZQCADBQQ4Y7VNq2dRWQR7JmOUW8Kxx4ZsNgWs=
