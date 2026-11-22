@@ -118,7 +118,7 @@ func (a *eg2Accel) DeviceMemory() (reading embeddinggemma2.DeviceMemory, err err
 }
 
 func cudaMemory(dev *Device) (embeddinggemma2.DeviceMemory, error) {
-	free, total, err := dev.Context().MemInfo()
+	free, total, err := cudaMemInfo(dev.Context())
 	if err != nil {
 		return embeddinggemma2.DeviceMemory{}, err
 	}

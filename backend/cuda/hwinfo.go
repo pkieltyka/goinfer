@@ -40,11 +40,17 @@ func cudaHardwareInfo() []string {
 	if n := dev.SMCount(); n > 0 {
 		out = append(out, fmt.Sprintf("multiprocessors: %d", n))
 	}
-	if free, total, err := ctx.MemInfo(); err == nil {
+	if free, total, err := cudaMemInfo(ctx); err == nil {
 		out = append(out, fmt.Sprintf("memory: %.1f GiB total, %.1f GiB free", float64(total)/(1<<30), float64(free)/(1<<30)))
 	}
 	if v, err := gc.DriverVersion(); err == nil {
 		out = append(out, fmt.Sprintf("driver supports CUDA %d.%d", v/1000, (v%1000)/10))
 	}
 	return out
+}
+
+func cudaMemInfo(ctx interface {
+	MemInfo() (uint64, uint64, error)
+}) (free, total uint64, err error) {
+	return ctx.MemInfo()
 }
