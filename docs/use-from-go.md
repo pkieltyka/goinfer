@@ -267,6 +267,17 @@ before calling this API. To prefer Radeon, call
 adapter and returns an error if none or several are eligible. Close an attached accelerator
 when the application has finished using that encoder.
 
+### EmbeddingGemma 2 text GGUF
+
+Pass the text file to `embeddinggemma2.LoadGGUFEncoder(path, prompts)`. The loader supports
+the 24-layer EmbeddingGemma 2 Q8_0 and UD-Q6_K_XL weight profiles published by Unsloth. Give it the query and document prompt strings used
+by your application. With a nil prompt map, use unprompted text or prepared IDs.
+
+The loader decodes the weight payload to FP32 in memory. To require CUDA, link the backend
+as above and call `encoder.UseAccelerator("cuda")`. `EmbedIDsBatch` runs a prepared batch
+through that accelerator. Keep separate vector caches for different GGUF files and
+prompt configurations, and re-embed both sides of a retrieval index when changing those inputs.
+
 ## Closing a model
 
 `defer m.Close()` is the right way to finish, and it is safe while a generation is still running:

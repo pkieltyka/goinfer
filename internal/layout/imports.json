@@ -367,6 +367,7 @@
     ],
     "embeddinggemma2": [
       "internal/audio",
+      "internal/gguf",
       "internal/vision",
       "multimodal",
       "tokenizer"
@@ -485,6 +486,9 @@
       "internal/diag/kernelprint",
       "internal/vision",
       "multimodal"
+    ],
+    "internal/gguf": [
+      "internal/runtime/f16"
     ],
     "internal/guard/memgate": [
       "decoder",
@@ -708,6 +712,7 @@
     ],
     "embeddinggemma2": [
       "internal/audio",
+      "internal/gguf",
       "internal/vision",
       "multimodal",
       "tokenizer"

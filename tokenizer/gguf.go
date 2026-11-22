@@ -3,6 +3,7 @@ package tokenizer
 import (
 	"bytes"
 	"fmt"
+	"io"
 	"strconv"
 	"strings"
 
@@ -73,15 +74,35 @@ func LoadGGUF(path string) (*Tokenizer, error) {
 // inflated //go:embed asset) — the bytes counterpart of LoadGGUF, touching no
 // filesystem. raw only needs to live until this returns.
 func LoadGGUFBytes(raw []byte) (*Tokenizer, error) {
-	g, err := readGGUFMeta(bytes.NewReader(raw), int64(len(raw)))
-	if err != nil {
-		return nil, fmt.Errorf("tokenizer.LoadGGUFBytes: %w", err)
-	}
-	t, err := fromGGUF(g)
+	t, err := loadGGUFReaderAt(bytes.NewReader(raw), int64(len(raw)))
 	if err != nil {
 		return nil, fmt.Errorf("tokenizer.LoadGGUFBytes: %w", err)
 	}
 	return t, nil
+}
+
+// LoadGGUFReaderAt reads the embedded tokenizer from a GGUF already open for
+// random access. The reader only needs to remain valid until this returns.
+func LoadGGUFReaderAt(r io.ReaderAt, size int64) (*Tokenizer, error) {
+	t, err := loadGGUFReaderAt(r, size)
+	if err != nil {
+		return nil, fmt.Errorf("tokenizer.LoadGGUFReaderAt: %w", err)
+	}
+	return t, nil
+}
+
+func loadGGUFReaderAt(r io.ReaderAt, size int64) (*Tokenizer, error) {
+	if r == nil {
+		return nil, fmt.Errorf("missing GGUF reader")
+	}
+	if size < 0 {
+		return nil, fmt.Errorf("invalid GGUF size %d", size)
+	}
+	g, err := readGGUFMeta(io.NewSectionReader(r, 0, size), size)
+	if err != nil {
+		return nil, err
+	}
+	return fromGGUF(g)
 }
 
 func fromGGUF(g *ggufMeta) (*Tokenizer, error) {
