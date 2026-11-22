@@ -32,8 +32,7 @@ func checkDevice(t *testing.T, a *encoder, id uint32) {
 	t.Helper()
 	info := a.device.Info()
 	bound, ok := AttachedDevice(a)
-	if !ok || bound != (DeviceInfo{Name: info.Name, VendorID: info.VendorID, DeviceID: info.DeviceID,
-		APIVersion: info.APIVersion, DriverVersion: info.DriverVersion, Type: "discrete-gpu"}) {
+	if !ok || bound != describeDevice(info) {
 		t.Fatalf("attached identity %+v differs from physical device %+v", bound, info)
 	}
 	if info.VendorID != 0x1002 || info.DeviceID != id {

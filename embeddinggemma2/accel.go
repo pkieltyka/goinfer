@@ -1,9 +1,11 @@
 package embeddinggemma2
 
 import (
+	"errors"
 	"fmt"
 	"reflect"
 	"sort"
+	"strings"
 	"sync"
 )
 
@@ -20,9 +22,13 @@ type Accelerator interface {
 	Close() error
 }
 
+// ErrDeviceUnavailable reports an unresolved explicit device selection.
+var ErrDeviceUnavailable = errors.New("embeddinggemma2: device unavailable")
+
 var (
-	accelMu sync.Mutex
-	accels  = map[string]func(*Model) (Accelerator, error){}
+	accelMu        sync.Mutex
+	accels         = map[string]func(*Model) (Accelerator, error){}
+	selectedAccels = map[string]func(*Model, string) (Accelerator, error){}
 )
 
 // RegisterAccelerator makes an accelerator available by name. A backend module registers itself from init (the root
@@ -31,6 +37,14 @@ func RegisterAccelerator(name string, factory func(*Model) (Accelerator, error))
 	accelMu.Lock()
 	defer accelMu.Unlock()
 	accels[name] = factory
+}
+
+// RegisterSelectedAccelerator registers the factory used for a backend-qualified
+// device identifier passed to UseAccelerator or NewAccelerator.
+func RegisterSelectedAccelerator(name string, factory func(*Model, string) (Accelerator, error)) {
+	accelMu.Lock()
+	defer accelMu.Unlock()
+	selectedAccels[name] = factory
 }
 
 // Accelerators lists the registered accelerator names, sorted.
@@ -48,9 +62,17 @@ func Accelerators() []string {
 // NewAccelerator builds the named accelerator over this model's weights.
 func (m *Model) NewAccelerator(name string) (Accelerator, error) {
 	accelMu.Lock()
-	f, ok := accels[name]
+	f := accels[name]
+	backend, id, qualified := strings.Cut(name, ":")
+	selected := selectedAccels[backend]
 	accelMu.Unlock()
-	if !ok || f == nil {
+	if f == nil && qualified && selected != nil {
+		f = func(m *Model) (Accelerator, error) { return selected(m, id) }
+	}
+	if f == nil && qualified {
+		return nil, fmt.Errorf("%w: no %q device selector in this binary", ErrDeviceUnavailable, backend)
+	}
+	if f == nil {
 		return nil, fmt.Errorf("embeddinggemma2: no %q accelerator in this binary (registered: %v)", name, Accelerators())
 	}
 	a, err := f(m)
@@ -133,7 +155,8 @@ func (m *Model) TransformerWeights() Weights {
 // [T, hd/2] each, so an accelerator rotates with the same float32 values.
 func RopeTables(T, hd int, theta float64) (cos, sin []float32) { return ropeTables(T, hd, theta) }
 
-// UseAccelerator makes the encoder run its forward on the named accelerator; EmbedIDs, EmbedText and the aikit methods
+// UseAccelerator makes the encoder run its forward on the named accelerator or
+// a device identified by a linked backend; EmbedIDs, EmbedText and the aikit methods
 // then use it, and the CPU forward is no longer called. The vision tower, loaded or not yet, runs on a tower
 // accelerator of the same name when one is registered (RegisterVisionAccelerator). It returns the accelerator, or an
 // error leaving the CPU path in place.

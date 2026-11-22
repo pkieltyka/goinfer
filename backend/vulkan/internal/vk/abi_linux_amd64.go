@@ -14,11 +14,19 @@ type header struct {
 type instanceInfo struct {
 	header
 	Flags          uint32
-	App            unsafe.Pointer
+	App            *applicationInfo
 	Layers         uint32
 	LayerNames     unsafe.Pointer
 	Extensions     uint32
 	ExtensionNames unsafe.Pointer
+}
+
+type applicationInfo struct {
+	header
+	ApplicationName           *byte
+	ApplicationVersion        uint32
+	EngineName                *byte
+	EngineVersion, APIVersion uint32
 }
 
 type queueInfo struct {
@@ -99,6 +107,18 @@ type physicalProperties struct {
 	PipelineCacheUUID                 [16]byte
 	Limits                            physicalLimits
 	Sparse                            [5]uint32
+}
+
+type physicalProperties2 struct {
+	header
+	Properties physicalProperties
+}
+
+type physicalIDProperties struct {
+	header
+	DeviceUUID, DriverUUID [16]byte
+	LUID                   [8]byte
+	NodeMask, LUIDValid    uint32
 }
 
 type shaderInfo struct {
@@ -236,6 +256,11 @@ const (
 	stCommandAlloc   = 40
 	stCommandBegin   = 42
 	stMemoryBarrier  = 46
+)
+
+const (
+	stPhysicalProperties2  = 1000059001
+	stPhysicalIDProperties = 1000071004
 
 	deviceDiscrete    = 2
 	queueCompute      = 0x2

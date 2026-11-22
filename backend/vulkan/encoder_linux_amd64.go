@@ -41,9 +41,13 @@ type layer struct {
 }
 
 func openAccelerator(m *embeddinggemma2.Model) (embeddinggemma2.Accelerator, error) {
-	a, err := newEncoder(m, vk.Selector{})
+	return attach(m, vk.Selector{})
+}
+
+func attach(m *embeddinggemma2.Model, selector vk.Selector) (embeddinggemma2.Accelerator, error) {
+	a, err := newEncoder(m, selector)
 	if err != nil {
-		return nil, err
+		return nil, deviceError(err)
 	}
 	return a, nil
 }
@@ -72,8 +76,7 @@ func newEncoder(m *embeddinggemma2.Model, selector vk.Selector) (*encoder, error
 	}
 	a.device = d
 	info := d.Info()
-	a.identity = DeviceInfo{Name: info.Name, VendorID: info.VendorID, DeviceID: info.DeviceID,
-		APIVersion: info.APIVersion, DriverVersion: info.DriverVersion, Type: "discrete-gpu"}
+	a.identity = describeDevice(info)
 	fail := func(err error) (*encoder, error) { return nil, errors.Join(err, d.Close()) }
 	for _, s := range []struct {
 		name            string
