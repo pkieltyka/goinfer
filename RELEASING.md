@@ -177,8 +177,9 @@ GOWORK=off go build -tags <cuda|gpu|metal> ./...                  # PROVE it bui
 ```
 `metal` on a Linux box prints `matched no packages` (its files are darwin-gated) — that is
 EXPECTED; the `go mod tidy` go.sum bump is the deliverable, and macOS/CI runs the real build gate.
-For Vulkan, use `CGO_ENABLED=0 GOWORK=off go build ./...` inside `backend/vulkan`, then tag
-`backend/vulkan/${TAG}`. Its native device check runs separately on a discrete Radeon.
+For Vulkan, use `CGO_ENABLED=0 GOWORK=off go build ./...` inside `backend/vulkan`. Its native
+device check runs separately on a discrete Radeon. When publishing Vulkan, commit its dependency
+bumps and run `git tag backend/vulkan/${TAG}` followed by `git push origin main backend/vulkan/${TAG}`.
 
 Then commit the go.mod/go.sum bumps and tag the modules being published. The example below covers CUDA, WebGPU, Metal and the demo. **`git tag` takes ONE name per call** (unlike
 `git push`, which takes many):
