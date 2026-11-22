@@ -161,30 +161,40 @@ version on the **same release commit**:
 
 ### Single-commit release steps
 
-Set `TAG` (for example `v0.6.2`) and `MODULES` (for example `backend/cuda,backend/vulkan`,
-`backend/cuda,backend/vulkan,backend/metal`, or `none`). `scripts/release_prep.py` never creates or
-pushes tags and uses an isolated temporary `GOMODCACHE` with `GONOSUMDB=github.com/pkieltyka/goinfer`
-so global caches stay clean while external dependencies still verify against `sum.golang.org`.
+Export `TAG` (for example `v0.6.2`) and `MODULES` (for example `backend/cuda,backend/vulkan`,
+`backend/cuda,backend/vulkan,backend/metal`, or `none`). Each multi-command block below runs inside
+a `( set -euo pipefail ... )` subshell so pasting it into a shell stops immediately on any failed
+branch check, `prep`, `check`, or `git` step without continuing to `git push` (and without exiting
+your interactive shell). `scripts/release_prep.py` never creates or pushes tags and uses an isolated
+temporary `GOMODCACHE` with `GONOSUMDB=github.com/pkieltyka/goinfer` so global caches stay clean
+while external dependencies still verify against `sum.golang.org`.
 
 **Step 1 — land all root-module release files on `origin/main` first (`BASE`).**
 Every root-module file (`CHANGELOG.md`, `docs/releases/${TAG}-accepted.json`, root `go.mod`/`go.sum`)
 must already be committed and pushed on `BASE` (`origin/main`) before Step 2 runs, so Go can fetch
 the canonical root module zip for `BASE` directly. Do not modify any root-module file after `BASE`.
 ```sh
+export TAG="v0.6.2"
+export MODULES="backend/cuda,backend/vulkan"   # or add ",backend/metal", or "none" for root-only
+
 # Align aikit ONLY if a module disagrees (B-07 above); never downgrade.
 # Fold changelog.d/ if not already folded:
 #   python3 scripts/changelog.py release "${TAG}" --date YYYY-MM-DD
 go mod tidy
-# Commit and push any root release metadata to origin/main first, then record BASE:
-BASE="$(git rev-parse origin/main)"
+# Commit and push any root release metadata to origin/main first, then record BASE on main:
+export BASE="$(git rev-parse --verify origin/main^{commit})"
 ```
 
 **Step 2 — stage Go's canonical root zip under `${TAG}` and pin/verify selected submodules.**
 ```sh
-python3 scripts/release_prep.py prep \
-  --version "${TAG}" \
-  --base "${BASE}" \
-  --modules "${MODULES}"
+(
+  set -euo pipefail
+  test "$(git rev-parse --abbrev-ref HEAD)" = main
+  python3 scripts/release_prep.py prep \
+    --version "${TAG}" \
+    --base "${BASE}" \
+    --modules "${MODULES}"
+)
 ```
 This fetches Go's canonical zip for `${BASE}`, relabels only the zip entry prefix to `${TAG}` in a
 temporary `file://` proxy, verifies the staged zip with `go mod download -json`, updates each
@@ -194,119 +204,145 @@ any omitted backend.
 
 **Step 3 — commit only the selected submodule pins (skip for `MODULES=none`) and verify zero root drift.**
 ```sh
-SELECTED=()
-if [ "${MODULES}" != "none" ]; then
-  IFS=, read -r -a SELECTED <<<"${MODULES}"
-fi
-
-if [ "${#SELECTED[@]}" -gt 0 ]; then
-  PIN_FILES=()
-  for mod in "${SELECTED[@]}"; do
-    PIN_FILES+=("${mod}/go.mod" "${mod}/go.sum")
-  done
-  git add -- "${PIN_FILES[@]}"
-  git commit -m "release: ${TAG} (<one-line summary>)"
-fi
-
-python3 scripts/release_prep.py check \
-  --version "${TAG}" \
-  --base "${BASE}" \
-  --modules "${MODULES}" \
-  --verify-sum
+(
+  set -euo pipefail
+  test "$(git rev-parse --abbrev-ref HEAD)" = main
+  SELECTED=()
+  if [ "${MODULES}" != "none" ]; then
+    IFS=, read -r -a SELECTED <<<"${MODULES}"
+  fi
+  if [ "${#SELECTED[@]}" -gt 0 ]; then
+    PIN_FILES=()
+    for mod in "${SELECTED[@]}"; do
+      PIN_FILES+=("${mod}/go.mod" "${mod}/go.sum")
+    done
+    git add -- "${PIN_FILES[@]}"
+    git commit -m "release: ${TAG} (<one-line summary>)"
+  fi
+  python3 scripts/release_prep.py check \
+    --version "${TAG}" \
+    --base "${BASE}" \
+    --modules "${MODULES}" \
+    --verify-sum
+)
 ```
 `check --verify-sum` refuses any diff outside the selected submodules' `go.mod`/`go.sum` (using
 `--no-renames -z`, so moving a root file into a backend module is caught), confirms `go.mod`
 invariants, and confirms committed `go.sum` hashes match Go's `go mod download -json` sums for `${TAG}`.
 
 **Step 4 — tag the single commit on `main`, verify same-commit tags and `main`, and push in batches of at most three tags.**
-Run Steps 2–4 on `main` (not a side branch); `check --check-tags` verifies that local `main` and
-every selected release tag resolve to the exact same release commit SHA, and `HEAD:main` prevents
-publishing tags off an unpushed branch while leaving `main` behind. GitHub Actions does not create
-tag `push` workflow events if more than three tags are pushed in one `git push` (so a four-tag
-root + CUDA + Vulkan + Metal push would silently skip both `release-assets.yml` and
-`standalone-build.yml`). Keep all tags on the one release commit and push with `--atomic` in chunks
-of at most three tags per push:
+Run Steps 2–4 on `main` (not a side branch). The subshell fails closed on `set -euo pipefail`: if
+the branch guard, `check --verify-sum`, `git tag`, or `check --check-tags` fails, execution aborts
+before any `git push` runs. Pushing the captured `${REL_SHA}:refs/heads/main` guarantees `main` and
+every tag publish that exact verified commit SHA. GitHub Actions does not create tag `push`
+workflow events if more than three tags are pushed in one `git push` (so a four-tag root + CUDA +
+Vulkan + Metal push would silently skip both `release-assets.yml` and `standalone-build.yml`), so
+tags are pushed with `--atomic` in chunks of at most three tags per push:
 ```sh
-test "$(git rev-parse --abbrev-ref HEAD)" = main
-TAGS=("${TAG}")
-for mod in "${SELECTED[@]}"; do
-  TAGS+=("${mod}/${TAG}")
-done
-for t in "${TAGS[@]}"; do
-  git tag "$t"
-done
-
-python3 scripts/release_prep.py check \
-  --version "${TAG}" \
-  --base "${BASE}" \
-  --modules "${MODULES}" \
-  --check-tags
-
-# Push HEAD:main plus the first <=3 tags atomically, then any remaining tags in <=3-tag atomic pushes:
-git push --atomic origin HEAD:main "${TAGS[@]:0:3}"
-if [ "${#TAGS[@]}" -gt 3 ]; then
-  git push --atomic origin "${TAGS[@]:3:3}"
-fi
+(
+  set -euo pipefail
+  test "$(git rev-parse --abbrev-ref HEAD)" = main
+  REL_SHA="$(git rev-parse --verify HEAD^{commit})"
+  SELECTED=()
+  if [ "${MODULES}" != "none" ]; then
+    IFS=, read -r -a SELECTED <<<"${MODULES}"
+  fi
+  TAGS=("${TAG}")
+  for mod in "${SELECTED[@]}"; do
+    TAGS+=("${mod}/${TAG}")
+  done
+  python3 scripts/release_prep.py check \
+    --version "${TAG}" \
+    --base "${BASE}" \
+    --rev "${REL_SHA}" \
+    --modules "${MODULES}"
+  for t in "${TAGS[@]}"; do
+    git tag "$t" "${REL_SHA}"
+  done
+  python3 scripts/release_prep.py check \
+    --version "${TAG}" \
+    --base "${BASE}" \
+    --rev "${REL_SHA}" \
+    --modules "${MODULES}" \
+    --check-tags
+  # Push the verified SHA to main plus the first <=3 tags atomically, then remaining <=3-tag batches:
+  git push --atomic origin "${REL_SHA}:refs/heads/main" "${TAGS[@]:0:3}"
+  if [ "${#TAGS[@]}" -gt 3 ]; then
+    git push --atomic origin "${TAGS[@]:3:3}"
+  fi
+)
 ```
-Concrete examples:
-- Root + CUDA + Vulkan (3 tags): one push — `git push --atomic origin HEAD:main "${TAG}" "backend/cuda/${TAG}" "backend/vulkan/${TAG}"`.
-- Root + CUDA + Vulkan + Metal (4 tags): two atomic pushes — `git push --atomic origin HEAD:main "${TAG}" "backend/cuda/${TAG}" "backend/vulkan/${TAG}"` followed by `git push --atomic origin "backend/metal/${TAG}"`.
-- Root-only (`MODULES=none`, 1 tag): skip the Step 3 commit, create only `git tag "${TAG}"`, and run `git push --atomic origin HEAD:main "${TAG}"`.
+Concrete examples (with `REL_SHA="$(git rev-parse --verify HEAD^{commit})"`):
+- Root + CUDA + Vulkan (3 tags): one push — `git push --atomic origin "${REL_SHA}:refs/heads/main" "${TAG}" "backend/cuda/${TAG}" "backend/vulkan/${TAG}"`.
+- Root + CUDA + Vulkan + Metal (4 tags): two atomic pushes — `git push --atomic origin "${REL_SHA}:refs/heads/main" "${TAG}" "backend/cuda/${TAG}" "backend/vulkan/${TAG}"` followed by `git push --atomic origin "backend/metal/${TAG}"`.
+- Root-only (`MODULES=none`, 1 tag): skip the Step 3 commit, create only `git tag "${TAG}" "${REL_SHA}"`, and run `git push --atomic origin "${REL_SHA}:refs/heads/main" "${TAG}"`.
 
 **Step 5 — verify same-commit tags, public Go proxy checksums, and consumer builds.**
 Run after pushing from a clean temporary `GOMODCACHE` with `GOWORK=off`, `GOPROXY=https://proxy.golang.org`
 (no `,direct` fallback), and `GOSUMDB=sum.golang.org`:
 ```sh
-# 1. Confirm all published tags on origin resolve to the exact same release commit:
-git ls-remote --tags origin "${TAGS[@]}"
+(
+  set -euo pipefail
+  SELECTED=()
+  if [ "${MODULES}" != "none" ]; then
+    IFS=, read -r -a SELECTED <<<"${MODULES}"
+  fi
+  TAGS=("${TAG}")
+  for mod in "${SELECTED[@]}"; do
+    TAGS+=("${mod}/${TAG}")
+  done
 
-# 2. Resolve and verify root + every selected backend strictly from the public Go proxy:
-TMP="$(mktemp -d)"
-MOD_PATHS=("github.com/pkieltyka/goinfer")
-for mod in "${SELECTED[@]}"; do
-  MOD_PATHS+=("github.com/pkieltyka/goinfer/${mod}")
-done
-for mod_path in "${MOD_PATHS[@]}"; do
-  GOMODCACHE="$TMP/modcache" GOWORK=off GOTOOLCHAIN=local \
-    GOPROXY=https://proxy.golang.org GOSUMDB=sum.golang.org \
-    go list -m "${mod_path}@${TAG}"
-  GOMODCACHE="$TMP/modcache" GOWORK=off GOTOOLCHAIN=local \
-    GOPROXY=https://proxy.golang.org GOSUMDB=sum.golang.org \
-    go mod download -json "${mod_path}@${TAG}"
-done
+  # 1. Confirm all published tags on origin resolve to the exact same release commit:
+  git ls-remote --tags origin "${TAGS[@]}"
 
-# 3. Build and vet tiny out-of-tree consumers for root-only plus each selected backend:
-CASES=("root:linux:amd64::")
-for mod in "${SELECTED[@]}"; do
-  case "$mod" in
-    backend/cuda)   CASES+=("cuda:linux:amd64:cuda:github.com/pkieltyka/goinfer/backend/cuda") ;;
-    backend/vulkan) CASES+=("vulkan:linux:amd64::github.com/pkieltyka/goinfer/backend/vulkan") ;;
-    backend/metal)  CASES+=("metal:darwin:arm64:metal:github.com/pkieltyka/goinfer/backend/metal") ;;
-  esac
-done
-for entry in "${CASES[@]}"; do
-  IFS=: read -r name goos goarch tags backend_mod <<<"$entry"
-  dir="$TMP/consumer-$name"; mkdir -p "$dir"
-  cat >"$dir/go.mod" <<EOF
+  # 2. Resolve and verify root + every selected backend strictly from the public Go proxy:
+  TMP="$(mktemp -d)"
+  trap 'chmod -R u+w "$TMP" && rm -rf "$TMP"' EXIT
+  MOD_PATHS=("github.com/pkieltyka/goinfer")
+  for mod in "${SELECTED[@]}"; do
+    MOD_PATHS+=("github.com/pkieltyka/goinfer/${mod}")
+  done
+  for mod_path in "${MOD_PATHS[@]}"; do
+    GOMODCACHE="$TMP/modcache" GOWORK=off GOTOOLCHAIN=local \
+      GOPROXY=https://proxy.golang.org GOSUMDB=sum.golang.org \
+      go list -m "${mod_path}@${TAG}"
+    GOMODCACHE="$TMP/modcache" GOWORK=off GOTOOLCHAIN=local \
+      GOPROXY=https://proxy.golang.org GOSUMDB=sum.golang.org \
+      go mod download -json "${mod_path}@${TAG}"
+  done
+
+  # 3. Build and vet tiny out-of-tree consumers for root-only plus each selected backend:
+  CASES=("root:linux:amd64::")
+  for mod in "${SELECTED[@]}"; do
+    case "$mod" in
+      backend/cuda)   CASES+=("cuda:linux:amd64:cuda:github.com/pkieltyka/goinfer/backend/cuda") ;;
+      backend/vulkan) CASES+=("vulkan:linux:amd64::github.com/pkieltyka/goinfer/backend/vulkan") ;;
+      backend/metal)  CASES+=("metal:darwin:arm64:metal:github.com/pkieltyka/goinfer/backend/metal") ;;
+    esac
+  done
+  for entry in "${CASES[@]}"; do
+    IFS=: read -r name goos goarch tags backend_mod <<<"$entry"
+    dir="$TMP/consumer-$name"; mkdir -p "$dir"
+    cat >"$dir/go.mod" <<EOF
 module example.com/check-$name
 go 1.27.0
 EOF
-  {
-    echo 'package main'
-    echo 'import ('
-    echo '	_ "github.com/pkieltyka/goinfer/embeddinggemma2"'
-    [ -n "$backend_mod" ] && echo "	_ \"$backend_mod\""
-    echo ')'
-    echo 'func main() {}'
-  } >"$dir/main.go"
-  ( cd "$dir" && env GOMODCACHE="$TMP/modcache" GOWORK=off GOTOOLCHAIN=local CGO_ENABLED=0 \
-      GOOS="$goos" GOARCH="$goarch" GOPROXY=https://proxy.golang.org GOSUMDB=sum.golang.org bash -euo pipefail -c "
-      go get github.com/pkieltyka/goinfer@${TAG} ${backend_mod:+${backend_mod}@${TAG}}
-      go mod tidy && go mod verify
-      go vet ${tags:+-tags $tags} ./... && go build ${tags:+-tags $tags} -o /dev/null ./...
-    " )
-done
-chmod -R u+w "$TMP" && rm -rf "$TMP"
+    {
+      echo 'package main'
+      echo 'import ('
+      echo '	_ "github.com/pkieltyka/goinfer/embeddinggemma2"'
+      [ -n "$backend_mod" ] && echo "	_ \"$backend_mod\""
+      echo ')'
+      echo 'func main() {}'
+    } >"$dir/main.go"
+    ( cd "$dir" && env GOMODCACHE="$TMP/modcache" GOWORK=off GOTOOLCHAIN=local CGO_ENABLED=0 \
+        GOOS="$goos" GOARCH="$goarch" GOPROXY=https://proxy.golang.org GOSUMDB=sum.golang.org bash -euo pipefail -c "
+        go get github.com/pkieltyka/goinfer@${TAG} ${backend_mod:+${backend_mod}@${TAG}}
+        go mod tidy && go mod verify
+        go vet ${tags:+-tags $tags} ./... && go build ${tags:+-tags $tags} -o /dev/null ./...
+      " )
+  done
+)
 ```
 
 ## Where users download a fork release
