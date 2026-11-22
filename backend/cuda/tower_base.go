@@ -41,7 +41,11 @@ type towerOps struct {
 }
 
 // newTowerOps creates the device and loads the kernels on a pinned executor goroutine. maxN is the widest output of any projection run without a bias.
-func newTowerOps(maxN int) (t *towerOps, err error) {
+func newTowerOps(maxN int) (*towerOps, error) {
+	return newTowerOpsOn(CreateSystemDefaultDevice, maxN)
+}
+
+func newTowerOpsOn(open func() (*Device, error), maxN int) (t *towerOps, err error) {
 	t = &towerOps{reqCh: make(chan func() error), ackCh: make(chan error)}
 	go func() {
 		runtime.LockOSThread()
@@ -52,7 +56,7 @@ func newTowerOps(maxN int) (t *towerOps, err error) {
 	}()
 	err = t.do(func() error {
 		var e error
-		if t.dev, e = CreateSystemDefaultDevice(); e != nil {
+		if t.dev, e = open(); e != nil {
 			return e
 		}
 		t.q = t.dev.NewCommandQueue()

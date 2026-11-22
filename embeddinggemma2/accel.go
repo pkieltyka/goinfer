@@ -186,19 +186,24 @@ func RopeTables(T, hd int, theta float64) (cos, sin []float32) { return ropeTabl
 
 // UseAccelerator makes the encoder run its forward on the named accelerator or
 // a device identified by a linked backend; EmbedIDs, EmbedText and the aikit methods
-// then use it, and the CPU forward is no longer called. The vision tower, loaded or not yet, runs on a tower
-// accelerator of the same name when one is registered (RegisterVisionAccelerator). It returns the accelerator, or an
-// error leaving the CPU path in place.
+// then use it. A bare selector also moves the vision and audio towers when compatible tower accelerators
+// are registered. An explicit device ID or alias leaves both towers on the CPU. An error leaves the encoder unchanged.
 func (e *Encoder) UseAccelerator(name string) (Accelerator, error) {
 	a, err := e.m.NewAccelerator(name)
 	if err != nil {
 		return nil, err
 	}
-	e.accel = a
-	e.bindVisionAccel() // towers already loaded move too
-	e.bindAudioAccel()
+	e.attachAccelerator(a, strings.Contains(name, ":"))
 	return a, nil
 }
+
+func (e *Encoder) attachAccelerator(a Accelerator, deviceSelected bool) {
+	e.accel, e.deviceSelected = a, deviceSelected
+	e.bindVisionAccel() // towers already loaded move too
+	e.bindAudioAccel()
+}
+
+const selectedDeviceTowerReason = "CPU (tower acceleration requires a bare selector)"
 
 // Accelerator is the accelerator the encoder runs on, or nil on the CPU path.
 func (e *Encoder) Accelerator() Accelerator { return e.accel }
