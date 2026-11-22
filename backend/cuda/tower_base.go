@@ -30,10 +30,11 @@ type towerOps struct {
 
 	zeroBias Buffer // zeros, as long as the widest bias-free projection: lets gemm run the register-blocked bias kernel at any M
 
-	scratch []Buffer         // per-call buffers, released by releaseScratch
-	err     error            // the first launch error of the current call
-	prof    *towerProf       // the per-class profile; nil in production (tower_prof.go)
-	ownAttn map[int]Pipeline // the tower's own fused attention by head dim (64, 72, 80); a head dim not in it takes aikit's kernel
+	scratch    []Buffer         // per-call buffers, released by releaseScratch
+	err        error            // the first launch error of the current call
+	shortTiled bool             // opt-in EmbeddingGemma 2 query experiment
+	prof       *towerProf       // the per-class profile; nil in production (tower_prof.go)
+	ownAttn    map[int]Pipeline // the tower's own fused attention by head dim (64, 72, 80); a head dim not in it takes aikit's kernel
 
 	reqCh chan func() error
 	ackCh chan error
@@ -168,6 +169,14 @@ var i64 = gpu.ArgValue[int64]
 func (t *towerOps) gemm(a, w, out Buffer, M, N, K int) {
 	t.cls(clsGEMM)
 	t.profGEMM(M, N, K)
+	// Exclude the large initial PLE projection and preserve the reference bias epilogue.
+	if t.shortTiled && M <= 36 && N <= 2048 && K%16 == 0 && N <= t.zeroBias.Len() {
+		t.launch(t.vit.GEMMF32Tiled, gpu.TileGrid(M, N), Arg(a), Arg(w), Arg(out),
+			i32(int32(M)), i32(int32(N)), i32(int32(K)))
+		t.launch(t.vit.AddBias, gpu.Grid1D(M*N, 256), Arg(out), Arg(t.zeroBias),
+			i32(int32(M)), i32(int32(N)))
+		return
+	}
 	if K%16 == 0 && N <= t.zeroBias.Len() {
 		p, cfg := t.vit.GEMMF32BiasPlan(M, N, K)
 		t.launch(p, cfg, Arg(a), Arg(w), Arg(t.zeroBias), Arg(out), i32(int32(M)), i32(int32(N)), i32(int32(K)))

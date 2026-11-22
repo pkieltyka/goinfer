@@ -1,0 +1,1 @@
+- **Opt-in EmbeddingGemma 2 CUDA kernels for indexing and short queries.** With the CUDA backend built under `cuda,eg2_combined`, the `cuda-eg2-combined` selector enables transposed-key attention and a tiled FP32 projection path for short inputs. It also supports the CUDA encoder's prepared-ID batch API.

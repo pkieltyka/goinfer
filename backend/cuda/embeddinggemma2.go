@@ -68,6 +68,7 @@ type eg2Accel struct {
 	layers                                  []eg2Layer
 	ropes                                   []eg2Rope
 	broken                                  error // set when a failed forward could not be drained; every later forward returns it
+	combinedTranspose, combinedAttention    Pipeline
 	defect                                  eg2Defect
 }
 
@@ -437,7 +438,15 @@ func (a *eg2Accel) forwardRows(x0 []float32, lens []int, keepLayers bool) ([]flo
 			}
 			o.ropeHalfTo(q, cs, sn, T, nH, hd)
 			o.ropeHalfTo(k, cs, sn, T, nKV, hd)
-			if e := a.pack(qkv, q, k, v, T, nH, hd, group); e != nil {
+			pitch := (T + 31) &^ 31
+			// Gate on the longest individual input. A pair of short inputs keeps the packed kernel.
+			transposed := a.combinedAttention != (Pipeline{}) && maxT >= 128 && hd <= 512 && kvd*pitch <= qkv.Len()
+			if transposed {
+				o.launch(a.combinedTranspose, LaunchConfig{
+					GridX: uint32((kvd + 31) / 32), GridY: uint32((T + 31) / 32), GridZ: 1,
+					BlockX: 32, BlockY: 8, BlockZ: 1,
+				}, Arg(k), Arg(qkv), i32(int32(T)), i32(int32(kvd)), i32(int32(pitch)))
+			} else if e := a.pack(qkv, q, k, v, T, nH, hd, group); e != nil {
 				return e
 			}
 			lo, hi, maxSeg := slLoB, slHiB, min(maxT, 2*W+1)
@@ -445,8 +454,14 @@ func (a *eg2Accel) forwardRows(x0 []float32, lens []int, keepLayers bool) ([]flo
 				lo, hi, maxSeg = fuLoB, fuHiB, maxT
 			}
 			o.cls(clsAttn)
-			o.launch(o.vit.AttentionSeg, gpu.SegAttentionGrid(T, nH, maxSeg), Arg(qkv), Arg(ctx), Arg(lo), Arg(hi),
-				i32(int32(T)), i32(int32(nH)), i32(int32(hd)), f32v(1))
+			grid := gpu.SegAttentionGrid(T, nH, maxSeg)
+			if transposed {
+				o.launch(a.combinedAttention, grid, Arg(q), Arg(qkv), Arg(v), Arg(ctx), Arg(lo), Arg(hi),
+					i32(int32(T)), i32(int32(nH)), i32(int32(nKV)), i32(int32(hd)), i32(int32(pitch)), f32v(1))
+			} else {
+				o.launch(o.vit.AttentionSeg, grid, Arg(qkv), Arg(ctx), Arg(lo), Arg(hi),
+					i32(int32(T)), i32(int32(nH)), i32(int32(hd)), f32v(1))
+			}
 			o.gemm(ctx, ly.o, ob, T, H, qd)
 			o.rms(ob, ly.postAttnNorm, ob, T, H, eps)
 			o.addVec(x, ob, T*H)
@@ -497,7 +512,7 @@ func (a *eg2Accel) forwardRows(x0 []float32, lens []int, keepLayers bool) ([]flo
 		return nil
 	})
 	if err != nil {
-		return nil, nil, fmt.Errorf("cuda: EmbeddingGemma 2 forward: %w", err)
+		return nil, nil, fmt.Errorf("cuda: EmbeddingGemma 2 forward: %w", errors.Join(err, a.broken))
 	}
 	return out, layers, nil
 }
