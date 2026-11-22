@@ -121,11 +121,11 @@ func (t *towerOps) close() {
 	t.reqCh = nil
 }
 
-// closeChecked retires every tracked buffer via ReleaseBufChecked /
-// ReleaseAllChecked before releasing modules, streams, the context, and the
-// executor. If any native buffer free fails, the executor and context stay
-// alive with the failed handles still owned in the ledger so a later Close can
-// retry without losing leases or handles.
+// closeChecked retires every tracked buffer once via ReleaseAllChecked before
+// releasing modules, streams, the context, and the executor. If any native
+// buffer free fails, the executor and context stay alive with the failed
+// handles still owned in the ledger so a later Close can retry without losing
+// leases or handles.
 func (t *towerOps) closeChecked() error {
 	if t.reqCh == nil {
 		return nil
@@ -134,13 +134,10 @@ func (t *towerOps) closeChecked() error {
 		if t.dev == nil {
 			return nil
 		}
-		err := t.releaseScratchChecked()
-		if allErr := t.dev.ReleaseAllChecked(); allErr != nil {
-			err = errors.Join(err, allErr)
-		}
-		if err != nil {
+		if err := t.dev.ReleaseAllChecked(); err != nil {
 			return err
 		}
+		t.scratch = nil
 		t.dev.ReleaseObjects()
 		return nil
 	}); err != nil {
