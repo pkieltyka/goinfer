@@ -189,6 +189,9 @@
       "decoder",
       "tokenizer"
     ],
+    "apps/examples/embeddinggemma2": [
+      "embeddinggemma2"
+    ],
     "apps/examples/invoice": [
       "chat",
       "constrain",
