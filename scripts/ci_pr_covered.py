@@ -1,11 +1,10 @@
 #!/usr/bin/env python3
 """ci_pr_covered.py: does a green pull-request ci run already cover this push to main, on the identical tree?
 
-On a push to main, ci.yml's `changes` job runs this and exports `pr_covered`. Lanes whose only main-run failures have been
-ones their PR run also saw skip when it is "true"; `changes`, `lint`, `root-windows`, `root-linux-arm64` and `gpu-darwin`
-always run, since each has gone red on main on a tree its PR run passed (the 2026-11-19 CI review, finding 1).
+On a push to main, ci.yml's `changes` job runs this and exports `pr_covered`. The Linux smoke tests and
+the CUDA and Vulkan checks can reuse a green PR result on the same tree. Lint still checks main independently.
 
-"true" needs every one of these, and anything else, including any error, prints "false" (fail open: the full matrix runs):
+"true" needs every one of these. Missing or uncertain evidence runs the ordinary push checks:
   1. the push is a two-parent merge commit on main (a squash, a rebase merge or a direct push is not covered);
   2. a merged pull request names this commit as its merge commit, and its head is the merge's second parent;
   3. the newest `pull_request` ci run on that head concluded "success";
@@ -67,7 +66,7 @@ def _evaluate(sha, ref, event, git, api, download):
         return False, f"PR #{pr['number']}: run {run['id']} has no {ARTIFACT} artifact"
     rec = dict(line.split("=", 1) for line in text.splitlines() if "=" in line)
     if rec.get("docs_only") != "false" or rec.get("backend_only", "false") != "false":
-        return False, (f"PR #{pr['number']}: run {run['id']} did not run the full matrix "
+        return False, (f"PR #{pr['number']}: run {run['id']} did not run all ordinary test jobs "
                        f"(docs_only={rec.get('docs_only')}, backend_only={rec.get('backend_only')})")
     if rec.get("tree") != head_tree:
         return False, f"PR #{pr['number']}: run {run['id']} tested tree {rec.get('tree')}, this push is tree {head_tree}"

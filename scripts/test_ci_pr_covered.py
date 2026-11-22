@@ -111,12 +111,12 @@ class Decision(unittest.TestCase):
     def test_docs_only_pr_run_skipped_the_matrix(self):
         w = World()
         w.artifacts[100] = f"tree={TREE}\ndocs_only=true\n"
-        self.assertCovered(w, False, "did not run the full matrix")
+        self.assertCovered(w, False, "did not run all ordinary test jobs")
 
     def test_backend_only_pr_run_skipped_lanes(self):
         w = World()
         w.artifacts[100] = f"tree={TREE}\ndocs_only=false\nbackend_only=true\n"
-        self.assertCovered(w, False, "did not run the full matrix")
+        self.assertCovered(w, False, "did not run all ordinary test jobs")
         w.artifacts[100] = f"tree={TREE}\ndocs_only=false\nbackend_only=false\n"
         self.assertCovered(w, True, "passed on tree")
 

@@ -17,14 +17,9 @@
 #                and apps/site content (anything under apps/site/ that is not Go, go.mod/go.sum, wrangler.jsonc or cmd/)
 #       version  a go.mod or go.sum (any module except apps/site) whose diff changes only lines for
 #                github.com/pkieltyka/goinfer or goinfer/backend/* module versions
-#     backend  (not quick: a narrower suite) every file is in a backend module (backend/webgpu, backend/cuda,
-#              backend/metal) or on the quick path, and at least one is in a backend module. The root module cannot
-#              import a backend module, so only root tests that READ backend files can change; those run in
-#              test-decoder-b (TestEnvVars_docAndCodeAgree walks the whole tree), test-decoder-tail and test-rest,
-#              which still run. ci.yml skips the root OS lanes, the forced fallbacks and decoder shards a, c and d.
-#              Rule 2 still applies to the quick-path files in the range.
-#     Everything else is the full suite: any Go, script, workflow or testdata file, README.md (readme-smoke reads it,
-#     and so do Go tests), any other dependency's version, a go.mod/go.sum line that is not a goinfer version.
+#     backend  every change is inside backend/webgpu, backend/cuda or backend/metal, or on the quick path,
+#              with at least one backend change. This is not quick and rule 2 still applies.
+#     Everything else takes the ordinary CI path: code, scripts, workflows, assets, README.md, and other dependencies.
 #  2. A docs file that Go code READS is not "docs-only", whatever its path. Measured 2026-09-22
 #     over the 30 most recent commits on main: 11 were docs-only by rule 1, and 4 of those touched
 #     a file a test reads -- env-vars.md (TestEnvVars_docAndCodeAgree), benchmarks.md

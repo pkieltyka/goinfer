@@ -43,6 +43,11 @@ Run the smallest check that can answer the question; the day loop is seconds, no
 - A new production environment variable is not the way to add a setting: `testdata/env_reads.txt` lists every `GOINFER_*`
   variable production code reads and a test fails on one not listed. A new setting is a `decoder.Options` field.
 
+Pushes and pull requests run Linux short tests, CUDA and Vulkan device-free checks, and lint. Docs-only changes
+with a green base can reuse that test result. The extended Linux race and census tests, macOS and Windows
+matrix, WebGPU, SDK integration and README install smoke run weekly. Run the **ci** workflow manually in
+GitHub Actions to check those lanes on a branch before merging a change that depends on one of them.
+
 **CI runs no CUDA or Metal device test.** A green CI run, or goldens run on another architecture, does not verify a change to a
 GPU backend. Say in the pull request which device tests ran, on what hardware, or say that none did.
 
