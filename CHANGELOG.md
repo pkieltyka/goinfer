@@ -17,6 +17,18 @@ any surface may still change.
 
 Each unreleased change is a file in [`changelog.d/`](changelog.d/), collected into the release's section when it is tagged (`scripts/changelog.py release`).
 
+## [v0.6.1] — 2026-11-22
+
+### Added
+
+- `embeddinggemma2.LoadGGUFEncoderReaderAt` loads EmbeddingGemma 2 text checkpoints directly from verified bytes. The encoder retains neither the reader nor its backing bytes.
+- `Encoder.Tokenizer` returns the tokenizer already parsed by the encoder, so clients can prepare input IDs with the same vocabulary.
+- An opt-in Radeon device test covers the pinned Q8_0 and UD-Q6_K_XL models, including batching and sliding-window boundary inputs.
+
+### Verification
+
+CI was green on the source commit. Both pinned GGUFs produced identical CPU results through the reader and path loaders after releasing the input bytes. The new Radeon boundary test awaits its device run. The [release record](https://github.com/pkieltyka/goinfer/blob/v0.6.1/docs/releases/v0.6.1-accepted.json) lists the qualification deferred for this release.
+
 ## [v0.6.0] — 2026-11-22
 
 ### Added
