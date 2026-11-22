@@ -69,7 +69,7 @@ func cudaDeviceInfo(adapter gpu.Adapter) embeddinggemma2.DeviceInfo {
 }
 
 type cudaMemoryContext interface {
-	MemInfo() (uint64, uint64, error)
+	cudaMemoryReader
 	Close() error
 }
 

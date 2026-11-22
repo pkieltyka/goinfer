@@ -121,9 +121,7 @@ func (a *eg2Accel) DeviceMemory() (reading embeddinggemma2.DeviceMemory, err err
 	return reading, err
 }
 
-func cudaMemory(dev interface {
-	MemInfo() (uint64, uint64, error)
-}) (embeddinggemma2.DeviceMemory, error) {
+func cudaMemory(dev cudaMemoryReader) (embeddinggemma2.DeviceMemory, error) {
 	free, total, err := cudaMemInfo(dev)
 	if err != nil {
 		return embeddinggemma2.DeviceMemory{}, err
