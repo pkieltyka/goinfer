@@ -13,49 +13,22 @@ on:
   push:
     branches: [main]
   pull_request:
+  schedule:
+    - cron: "0 9 * * 2" # Tuesday, after the Monday race and fuzz workflows
+  workflow_dispatch:
 
 permissions:
   contents: read
 
-# C2 (docs/completed/task-ci-speed-2026-09.md): a run superseded by a newer push on the SAME ref is
-# cancelled rather than left to finish on a runner nobody will read the result of — this repo has
-# real multi-commit-burst days (85 commits in two days, 2026-09-08-10). Safe to cancel mid-way
-# (unlike book-pages.yml's Pages deploy, which explicitly does not): a cancelled CI run has no
-# external side effect, it just stops checking a commit that is no longer the tip of the ref.
-# Pushes to main share one group and are never cancelled in progress: a run that has started always finishes, so a docs
-# push landing on a running code push does not cancel it (owner, 2026-10-18). Pushes that land while it runs collapse:
-# GitHub keeps only the newest pending run in a group and cancels the older pending ones, so a burst of merges costs two
-# runs (the one running, then one on the tip) instead of one per merge (owner, 2026-10-21; four back-to-back merges had
-# queued four full runs). Coverage holds: the tip's run covers every collapsed commit, and the docs-only gate below
-# skips the matrix only when the commit it builds on has a successful run of its own, which a cancelled pending run is
-# not. Branches and pull requests keep one group per ref and cancel the superseded run.
+# Keep main push runs serial and cancel superseded PR runs. Extended runs use a separate group.
 concurrency:
-  group: ci-${{ github.ref == 'refs/heads/main' && github.event_name == 'push' && 'main-push' || github.ref }}
-  cancel-in-progress: ${{ !(github.ref == 'refs/heads/main' && github.event_name == 'push') }}
+  group: ci-${{ (github.event_name == 'schedule' || github.event_name == 'workflow_dispatch') && format('extended-{0}', github.ref) || github.ref }}
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
 
 jobs:
-  # C3 (docs/completed/task-ci-speed-2026-09.md): change detection, at the JOB level. A push or pull request
-  # whose every changed file is on the quick path -- docs (docs/**, RELEASING.md, .claude/**, changelog.d/**, a top-level
-  # *.md other than README.md, apps/site content), records (docs/measurements/**), or a go.mod/go.sum change that only
-  # moves goinfer or goinfer/backend/* versions -- and none of them a file Go code or tests READ (scripts/ci_docs_only.sh
-  # decides, and prints the class; 477da08a is the precedent: a docs-only env-vars.md fix flipped
-  # TestEnvVars_docAndCodeAgree, so "docs-only" cannot mean "skip tests" without that read check)
-  # -- runs `lint` alone (gofmt, build, vets, staticcheck, citation lint, book link lint). Every other job `needs:` this
-  # one and skips when docs_only == 'true'. A skipped job reports success, so a required check never goes missing.
-  #
-  # It sits in front of everything, so it is the cheapest job in the file: one checkout (full
-  # history -- measured 6s median here, and the diff needs github.event.before to be present) and
-  # one script. FAIL-OPEN BY CONSTRUCTION, twice over: the script always exits 0 and prints
-  # "false" on any doubt (bad/zero SHAs, a diff that errors, an empty diff, a failed self-check),
-  # and the dependent jobs' `if:` uses !cancelled() so even a failed or missing gate runs the full
-  # matrix instead of skipping it -- a plain `needs:` would skip dependents when this job fails,
-  # the one outcome the gate must never produce.
-  #
-  # NOT a workflow-level paths-ignore: that would skip `lint` too, and the citation + book-link
-  # lints are ABOUT docs and must run on exactly these pushes. (It would also leave a required
-  # check Pending forever under branch protection; main has no protection and no rulesets today
-  # -- checked with `gh api` 2026-09-22 -- but the job-level shape holds either way.)
+  # Classify only push/PR events. Quick and same-tree skips require positive evidence.
   changes:
+    if: github.event_name == 'push' || github.event_name == 'pull_request'
     runs-on: ubuntu-24.04
     permissions:
       contents: read
@@ -63,8 +36,6 @@ jobs:
       pull-requests: read # to find the pull request a push to main merged (pr_covered)
     outputs:
       docs_only: ${{ steps.gate.outputs.docs_only }}
-      backend_only: ${{ steps.gate.outputs.backend_only }}
-      class: ${{ steps.gate.outputs.class }}
       pr_covered: ${{ steps.covered.outputs.pr_covered }}
     steps:
       - uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09 # v5.1.0
@@ -90,37 +61,27 @@ jobs:
           HEAD: ${{ github.sha }}
           GH_TOKEN: ${{ github.token }}
         run: |
-          # `backend` (every change inside backend/webgpu, backend/cuda or backend/metal, or on the quick path) skips only the
-          # root OS lanes, the forced fallbacks and decoder shards a, c and d, under the same base-run condition.
           class=$(scripts/ci_docs_only.sh --classify "$BASE" "$HEAD") || class=full
           v=false
           b=false
           case "$class" in
             docs|records|version|quick) v=true ;;
             backend) b=true ;;
-            *) class=full ;;
           esac
           base_run="(not checked)"
-          if [ "$v" = "true" ] || [ "$b" = "true" ]; then
+          if [ "$v" = "true" ]; then
             base_run=$(gh run list --workflow ci.yml --commit "$BASE" --json conclusion --jq '.[0].conclusion' 2>/dev/null || true)
             if [ "$base_run" != "success" ]; then
               v=false
-              b=false
-              class=full
             fi
           fi
-          echo "docs_only=$v" >> "$GITHUB_OUTPUT"
-          echo "backend_only=$b" >> "$GITHUB_OUTPUT"
-          echo "class=${class:-full}" >> "$GITHUB_OUTPUT"
+          {
+            echo "docs_only=$v"
+            echo "backend_only=$b"
+          } >> "$GITHUB_OUTPUT"
           echo "docs_only=$v backend_only=$b class=${class:-full}  (base=$BASE head=$HEAD; base's last ci run: '${base_run:-none}')"
 
-      # PR_COVERED. A pull-request run records the tree it tested (the merge ref's HEAD^{tree}) as the `ci-tree` artifact. On
-      # a push to main, scripts/ci_pr_covered.py sets pr_covered=true only when the merged PR's newest ci run concluded
-      # success, ran the full matrix, and recorded this push's tree; the lanes marked `pr_covered` then skip, since they
-      # would re-run the identical tree. Kept running on main whatever it says: changes, lint, root-windows,
-      # root-linux-arm64 and gpu-darwin, each of which has gone red on main on a tree its PR run passed (the script's
-      # docstring). Fail-open: any error, missing run or artifact, squash or direct push prints false, and the reason goes
-      # to the job summary.
+      # Reuse a successful PR run only when it tested exactly the merged tree.
       - name: record the tree this PR run tests
         if: github.event_name == 'pull_request'
         env:
@@ -197,6 +158,7 @@ jobs:
       # assets, but they must still type-check. Same lesson as the standalone-build gate in
       # RELEASING.md — a configuration nothing builds is a configuration that breaks silently.
       - name: vet (realckpt — the release sweep's build)
+        if: github.event_name == 'schedule' || github.event_name == 'workflow_dispatch'
         run: go vet -tags 'realckpt goinfer_testhooks' ./...
 
       # staticcheck (incl. the unused/U1000 check) — mirrors the go vet tag matrix
@@ -392,6 +354,20 @@ jobs:
           fi
           echo "clean: no webgpu/gocudrv/purego/aikit-gpu/submodules in the goinfer root (packages or module graph)"
 
+  linux:
+    needs: changes
+    if: ${{ !cancelled() && (github.event_name == 'push' || github.event_name == 'pull_request') && needs.changes.outputs.docs_only != 'true' && needs.changes.outputs.pr_covered != 'true' }}
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09 # v5.1.0
+      - uses: actions/setup-go@924ae3a1cded613372ab5595356fb5720e22ba16 # v6.5.0
+        with:
+          go-version-file: go.mod
+          cache-dependency-path: go.sum
+      # The extended jobs run the census, sampler throughput, and browser integration.
+      - name: Linux tests
+        run: go test -short -timeout 10m -tags goinfer_testhooks -skip '^(TestDecisionCensus($|_)|TestSamplingThroughputGate$|TestWebUI_appGateInBrowser$)' ./...
+
   # C1's other half: the -race suite + sampler gates, split out of `lint` so both start at t=0.
   # Shallow (default depth-1) checkout -- this job never touches git history, only source at HEAD.
   # A `go test` compile failure surfaces here too (it builds what it tests), so this job is not
@@ -430,8 +406,7 @@ jobs:
   # reason. If shard wall times drift far apart, re-derive from `ci_test_summary.py`'s
   # slowest-tests output and redo the LPT pack by hand; this is not automated.
   test-decoder-a:
-    needs: changes
-    if: ${{ !cancelled() && needs.changes.outputs.docs_only != 'true' && needs.changes.outputs.backend_only != 'true' && needs.changes.outputs.pr_covered != 'true' }} # C3, PR_COVERED, backend class
+    if: github.event_name == 'schedule' || github.event_name == 'workflow_dispatch'
     runs-on: ubuntu-24.04
     steps:
       - uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09 # v5.1.0
@@ -498,8 +473,7 @@ jobs:
           }
 
   test-decoder-b:
-    needs: changes
-    if: ${{ !cancelled() && needs.changes.outputs.docs_only != 'true' && needs.changes.outputs.pr_covered != 'true' }} # C3, PR_COVERED
+    if: github.event_name == 'schedule' || github.event_name == 'workflow_dispatch'
     runs-on: ubuntu-24.04
     steps:
       - uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09 # v5.1.0
@@ -562,8 +536,7 @@ jobs:
         run: go test -count=1 -run 'TestTopFilterLogits_MatchesReference|TestSampleFromTopK_matchesFullPath|TestSample_DrawIdentity|TestSamplingThroughputGate|TestSweepCoverage' ./internal/runtime/sampling/
 
   test-decoder-c:
-    needs: changes
-    if: ${{ !cancelled() && needs.changes.outputs.docs_only != 'true' && needs.changes.outputs.backend_only != 'true' && needs.changes.outputs.pr_covered != 'true' }} # C3, PR_COVERED, backend class
+    if: github.event_name == 'schedule' || github.event_name == 'workflow_dispatch'
     runs-on: ubuntu-24.04
     steps:
       - uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09 # v5.1.0
@@ -620,8 +593,7 @@ jobs:
           }
 
   test-decoder-d:
-    needs: changes
-    if: ${{ !cancelled() && needs.changes.outputs.docs_only != 'true' && needs.changes.outputs.backend_only != 'true' && needs.changes.outputs.pr_covered != 'true' }} # C3, PR_COVERED, backend class
+    if: github.event_name == 'schedule' || github.event_name == 'workflow_dispatch'
     runs-on: ubuntu-24.04
     steps:
       - uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09 # v5.1.0
@@ -689,8 +661,7 @@ jobs:
           }
 
   test-decoder-tail:
-    needs: changes
-    if: ${{ !cancelled() && needs.changes.outputs.docs_only != 'true' && needs.changes.outputs.pr_covered != 'true' }} # C3, PR_COVERED
+    if: github.event_name == 'schedule' || github.event_name == 'workflow_dispatch'
     runs-on: ubuntu-24.04
     steps:
       - uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09 # v5.1.0
@@ -725,8 +696,7 @@ jobs:
           }
 
   test-rest:
-    needs: changes
-    if: ${{ !cancelled() && needs.changes.outputs.docs_only != 'true' && needs.changes.outputs.pr_covered != 'true' }} # C3, PR_COVERED
+    if: github.event_name == 'schedule' || github.event_name == 'workflow_dispatch'
     runs-on: ubuntu-24.04
     steps:
       - uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09 # v5.1.0
@@ -774,8 +744,7 @@ jobs:
   # and these workspace steps become unnecessary.
   readme-smoke:
     name: readme-smoke (a stranger's install, from an empty dir)
-    needs: changes
-    if: ${{ !cancelled() && needs.changes.outputs.docs_only != 'true' && needs.changes.outputs.pr_covered != 'true' }} # C3, PR_COVERED (README.md is never on the quick path, so a README push still runs this)
+    if: github.event_name == 'schedule' || github.event_name == 'workflow_dispatch'
     runs-on: ubuntu-24.04
     steps:
       - uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09 # v5.1.0
@@ -791,7 +760,7 @@ jobs:
 
   vulkan:
     needs: changes
-    if: ${{ !cancelled() && needs.changes.outputs.docs_only != 'true' && needs.changes.outputs.pr_covered != 'true' }}
+    if: ${{ !cancelled() && (github.event_name == 'schedule' || github.event_name == 'workflow_dispatch' || (needs.changes.outputs.docs_only != 'true' && needs.changes.outputs.pr_covered != 'true')) }}
     runs-on: ubuntu-24.04
     env:
       CGO_ENABLED: '0'
@@ -810,8 +779,7 @@ jobs:
       - run: staticcheck ./backend/vulkan/...
 
   gpu:
-    needs: changes
-    if: ${{ !cancelled() && needs.changes.outputs.docs_only != 'true' && needs.changes.outputs.pr_covered != 'true' }} # C3, PR_COVERED
+    if: github.event_name == 'schedule' || github.event_name == 'workflow_dispatch'
     runs-on: ubuntu-24.04
     steps:
       - uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09 # v5.1.0
@@ -885,8 +853,7 @@ jobs:
   # skip run; tests that need real hardware skip here by name (newOrSkipHW). Each test step asserts its gate PASSed, since a lost
   # adapter would otherwise skip every test to a green job.
   gpu-vulkan:
-    needs: changes
-    if: ${{ !cancelled() && needs.changes.outputs.docs_only != 'true' && needs.changes.outputs.pr_covered != 'true' }} # C3, PR_COVERED
+    if: github.event_name == 'schedule' || github.event_name == 'workflow_dispatch'
     runs-on: ubuntu-24.04
     timeout-minutes: 40
     steps:
@@ -919,8 +886,7 @@ jobs:
   # sdktest: the official OpenAI and Anthropic Go SDKs against the server served in process (package server), on the
   # committed tiny model. A module of its own so the SDKs never enter the root go.mod; stitched like the others.
   sdktest:
-    needs: changes
-    if: ${{ !cancelled() && needs.changes.outputs.docs_only != 'true' && needs.changes.outputs.pr_covered != 'true' }} # C3, PR_COVERED
+    if: github.event_name == 'schedule' || github.event_name == 'workflow_dispatch'
     runs-on: ubuntu-24.04
     steps:
       - uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09 # v5.1.0
@@ -946,7 +912,7 @@ jobs:
   # unpublished goinfer root locally (submodule go.mods are replace-free since 2026-08-15).
   cuda:
     needs: changes
-    if: ${{ !cancelled() && needs.changes.outputs.docs_only != 'true' && needs.changes.outputs.pr_covered != 'true' }} # C3, PR_COVERED
+    if: ${{ !cancelled() && (github.event_name == 'schedule' || github.event_name == 'workflow_dispatch' || (needs.changes.outputs.docs_only != 'true' && needs.changes.outputs.pr_covered != 'true')) }}
     runs-on: ubuntu-24.04
     steps:
       - uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09 # v5.1.0
@@ -963,6 +929,7 @@ jobs:
 
       # The wired binaries must compile with the cuda backend registered (cuda/cmd/* since M-19).
       - name: build -tags cuda (wired serve + demo entrypoints)
+        if: github.event_name == 'schedule' || github.event_name == 'workflow_dispatch'
         run: CGO_ENABLED=0 go build -tags 'cuda goinfer_testhooks' ./backend/cuda/cmd/serve ./backend/cuda/cmd/chat
 
       - name: vet -tags cuda
@@ -971,6 +938,7 @@ jobs:
       # The module must also vet with no tag: gopls, go doc and an untagged `go vet ./...` read it that way, and a file
       # missing its //go:build cuda line breaks them while every tagged step above stays green.
       - name: vet, untagged
+        if: github.event_name == 'schedule' || github.event_name == 'workflow_dispatch'
         run: go vet ./backend/cuda/...
 
       # `gate gpu`'s kernel-level suite (check 2a) builds the cuda tests with -tags cuda and NOTHING else, to prove the kernel tests need no
@@ -978,6 +946,7 @@ jobs:
       # fails only there (cuda/kv2_optionoff_test.go did, 2026-10-16: the device gate's 2a was red on a build error CI never saw).
       # `go vet` compiles the tests; this step type-checks that exact tag set.
       - name: vet -tags cuda alone (the device gate's 2a build)
+        if: github.event_name == 'schedule' || github.event_name == 'workflow_dispatch'
         run: go vet -tags cuda ./backend/cuda/...
 
       # The pinned staticcheck build (Go 1.27.2): see .github/actions/staticcheck.
@@ -992,6 +961,7 @@ jobs:
 
       # The two cuda && realckpt test files (audio_encoder_real_test.go, lora_cost_measure_test.go) are built by no other step: vet compiles them.
       - name: vet -tags cuda realckpt
+        if: github.event_name == 'schedule' || github.event_name == 'workflow_dispatch'
         run: CGO_ENABLED=0 go vet -tags 'cuda goinfer_testhooks realckpt' ./backend/cuda/...
 
       # Compile + skip cleanly on the GPU-less runner (tests t.Skip without a device).
@@ -1004,6 +974,7 @@ jobs:
       # here, and until then `gate ptx` fails naming the version it lacks. Each pair is nvrtc + the runtime headers
       # (cuda_fp16.h) that nobara's `gate gpu` rebuilds with.
       - name: install the pinned NVRTCs (12.6.85, 12.9.86)
+        if: github.event_name == 'schedule' || github.event_name == 'workflow_dispatch'
         run: |
           dirs=""
           for pair in "12.6.85 12.6.77" "12.9.86 12.9.79"; do
@@ -1019,10 +990,11 @@ jobs:
       # all 42 match on nobara with these same two pip installs. Until the cause is known the step reports and uploads
       # the rebuilt file, and does not fail the job. Remove continue-on-error with the fix.
       - name: PTX rebuilds byte for byte from source
+        if: github.event_name == 'schedule' || github.event_name == 'workflow_dispatch'
         continue-on-error: true
         run: go run ./cmd/gate ptx -keep "$RUNNER_TEMP/ptx-differs"
       - name: keep any rebuilt PTX that differs
-        if: always()
+        if: always() && (github.event_name == 'schedule' || github.event_name == 'workflow_dispatch')
         uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
         with:
           name: ptx-differs
@@ -1036,8 +1008,7 @@ jobs:
   # job exists so that class of break fails CI instead of surfacing only in a
   # manual Apple-silicon sweep. macos-latest is Apple Silicon (arm64).
   root-darwin:
-    needs: changes
-    if: ${{ !cancelled() && needs.changes.outputs.docs_only != 'true' && needs.changes.outputs.backend_only != 'true' && needs.changes.outputs.pr_covered != 'true' }} # C3, PR_COVERED, backend class: no macOS runner starts for a docs-only push
+    if: github.event_name == 'schedule' || github.event_name == 'workflow_dispatch'
     runs-on: macos-latest
     steps:
       - uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09 # v5.1.0
@@ -1119,8 +1090,7 @@ jobs:
   # the CPU it landed on first: the census (docs/hardware-coverage.json) records where a path ran,
   # and the x86 jobs' logs never said, which is why no green ci-pool AVX-512 record exists.
   root-windows:
-    needs: changes
-    if: ${{ !cancelled() && needs.changes.outputs.docs_only != 'true' && needs.changes.outputs.backend_only != 'true' }} # C3, backend class
+    if: github.event_name == 'schedule' || github.event_name == 'workflow_dispatch'
     runs-on: windows-latest
     steps:
       - uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09 # v5.1.0
@@ -1181,8 +1151,7 @@ jobs:
   # for public repositories (Azure Cobalt 100, 4 CPUs, 16 GB). aikit cannot detect DotProd on a non-Linux, non-Darwin arm64 OS (dotprod_arm64_other.go assumes none), so this job runs the base SMULL/SADALP kernels
   # the way a Windows ARM user does. Same build and test as root-windows. The census records which CPU the run landed on.
   root-windows-arm64:
-    needs: changes
-    if: ${{ !cancelled() && needs.changes.outputs.docs_only != 'true' && needs.changes.outputs.backend_only != 'true' && needs.changes.outputs.pr_covered != 'true' }} # C3, PR_COVERED, backend class
+    if: github.event_name == 'schedule' || github.event_name == 'workflow_dispatch'
     runs-on: windows-11-arm
     steps:
       - uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09 # v5.1.0
@@ -1242,8 +1211,7 @@ jobs:
           key: go-test-${{ runner.os }}-${{ runner.arch }}-${{ hashFiles('go.sum') }}-${{ github.sha }}
 
   root-linux-arm64:
-    needs: changes
-    if: ${{ !cancelled() && needs.changes.outputs.docs_only != 'true' && needs.changes.outputs.backend_only != 'true' }} # C3, backend class
+    if: github.event_name == 'schedule' || github.event_name == 'workflow_dispatch'
     runs-on: ubuntu-24.04-arm
     steps:
       - uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09 # v5.1.0
@@ -1298,14 +1266,13 @@ jobs:
           if-no-files-found: ignore
 
   # H1.3 (docs/completed/task-hardware-coverage-2026-10.md): the narrower CPU kernels, forced on whatever CPU the runner has. aikit v1.54.0's aikit_noavx512 / aikit_noavx2 / aikit_nopopcnt tags make the
-  # dispatchers take the AVX2 kernels on an AVX-512 VNNI machine (the ubuntu pool mixes CPU models), or the pure-Go kernels, so the paths that no machine of ours executes run on every push.
+  # dispatchers take the AVX2 kernels on an AVX-512 VNNI machine (the ubuntu pool mixes CPU models), or the pure-Go kernels, so the extended suite exercises those fallback paths.
   # AIKIT_EXPECT_FORCED makes a tag that forced nothing FAIL (TestForcedFallbacks_expected) instead of passing silently. Under a tag, the three goldens that pin ONE path's numerics take a closeness
   # bound instead (decoder/forced_fallbacks_test.go has the measurements, and each is shown red by a mutation). What runs here is the forward and parity tests on the committed tiny fixtures: the
   # real-checkpoint goldens (TestLongPromptFast_forwardParity, TestDecodeParityInt4) skip without their assets on a runner, and a skip is not a pass, so their forced branches were run by hand
   # (docs/completed/task-hardware-coverage-2026-10.md). aikit's own CI forces the arm64 DotProd fallback, and goinfer's does in root-forced-fallbacks-arm64 below.
   root-forced-fallbacks:
-    needs: changes
-    if: ${{ !cancelled() && needs.changes.outputs.docs_only != 'true' && needs.changes.outputs.backend_only != 'true' && needs.changes.outputs.pr_covered != 'true' }} # C3, PR_COVERED, backend class
+    if: github.event_name == 'schedule' || github.event_name == 'workflow_dispatch'
     runs-on: ubuntu-latest
     name: forced fallbacks (amd64 noavx512, noavx2, nopopcnt)
     # One job, one step per tag: each leg runs whatever an earlier leg did (`!cancelled()`), and its step name says which
@@ -1345,8 +1312,7 @@ jobs:
   # no instruction OUTSIDE the dispatched kernels needs DotProd (an unguarded one raises SIGILL on a real A72). QEMU's -cpu cortex-a72 finds those; goinfer's own decoder suite is far too slow under it (10 minutes
   # passed 6 tests, 2026-10-04), so that was run by hand for aikit's linalg suite only.
   root-forced-fallbacks-arm64:
-    needs: changes
-    if: ${{ !cancelled() && needs.changes.outputs.docs_only != 'true' && needs.changes.outputs.backend_only != 'true' && needs.changes.outputs.pr_covered != 'true' }} # C3, PR_COVERED, backend class
+    if: github.event_name == 'schedule' || github.event_name == 'workflow_dispatch'
     runs-on: ubuntu-24.04-arm
     name: forced fallbacks (arm64 nodotprod)
     steps:
@@ -1374,8 +1340,7 @@ jobs:
   # Tests skip cleanly with no usable adapter; the build/vet alone compile-check
   # the cgo Metal path that the Linux jobs never touch.
   gpu-darwin:
-    needs: changes
-    if: ${{ !cancelled() && needs.changes.outputs.docs_only != 'true' }} # C3
+    if: github.event_name == 'schedule' || github.event_name == 'workflow_dispatch'
     runs-on: macos-latest
     steps:
       - uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09 # v5.1.0
