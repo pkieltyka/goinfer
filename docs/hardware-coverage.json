@@ -795,9 +795,18 @@
    "files": [
     "goinfer/backend/cuda/internal/gpudev/adapters_linux.go"
    ],
-   "our_machines": "RTX PRO 6000 Blackwell Max-Q available for dedicated-memory verification",
-   "last_executed": [],
-   "notes": "Fake tests exercise integrated, discrete and unknown responses. An integrated CUDA device has not been tested."
+   "our_machines": "RTX PRO 6000 Blackwell Max-Q",
+   "last_executed": [
+    {
+     "machine": "NVIDIA RTX PRO 6000 Blackwell Max-Q Workstation Edition (driver 595.112.07) with AMD Radeon RX 9060 XT (RADV, Mesa 26.3.1)",
+     "date": "2026-11-22",
+     "how": "native",
+     "goinfer": "347a5291409e5824f0a926d11a0439a11c8dfe94",
+     "aikit": "v1.79.0",
+     "gate": "TestMixedDeviceInventory (Linux amd64, CGO_ENABLED=0, tags cuda eg2_combined), goinfer PR #60"
+    }
+   ],
+   "notes": "The native inventory reported dedicated memory for the RTX. Integrated CUDA and unknown driver responses have fake coverage only."
   },
   {
    "id": "metal-eg2-inventory-memory-architecture",
