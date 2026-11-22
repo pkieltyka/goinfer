@@ -278,6 +278,8 @@ Concrete examples (with `REL_SHA="$(git rev-parse --verify HEAD^{commit})"`):
 - Root-only (`MODULES=none`, 1 tag): skip the Step 3 commit, create only `git tag "${TAG}" "${REL_SHA}"`, and run `git push --atomic origin "${REL_SHA}:refs/heads/main" "${TAG}"`.
 
 **Step 5 — verify same-commit tags, public Go proxy checksums, and consumer builds.**
+Wait until the tags are pushed before running `go get`, `go list -m`, or a `GOWORK=off` build
+that would query the candidate version through the public Go proxy.
 Run after pushing from a clean temporary `GOMODCACHE` with `GOWORK=off`, `GOPROXY=https://proxy.golang.org`
 (no `,direct` fallback), and `GOSUMDB=sum.golang.org`:
 ```sh
@@ -463,15 +465,12 @@ First concrete customer:
   window" for the full scope, trigger, and bound. **This line is the durable carrier** — read by
   whoever cuts the tag, dependent on no session or cron surviving.
 
-## The standalone-build gate (make B-01…B-04 catchable next time)
+## The standalone-build gate
 
-Add to CI, one job per submodule — **no workspace**, so `replace` and the borrowed root
-`go.sum` cannot mask a missing require/hash:
-```
-cd <mod> && GOWORK=off go build -tags <tag> ./... && GOWORK=off go vet -tags <tag> ./...
-```
-The standalone workflow checks CUDA and Vulkan on Linux and cross-builds Metal for Darwin.
-Use `scripts/make_work.sh` to set up local cross-module development.
+Each pushed `v*`, `backend/cuda/v*`, `backend/vulkan/v*`, or `backend/metal/v*` tag
+starts one run for the module it names, using the public Go proxy and checksum database
+with `GOWORK=off`. A manual run on a branch checks the root and the backends pinned to
+published root tags, reporting skipped backends by name.
 
 ## §C1 — parity re-validation (the ⛔ numeric gate)
 
