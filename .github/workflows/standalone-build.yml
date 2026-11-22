@@ -54,16 +54,36 @@ jobs:
       # NO `go work init`. That is the whole point: this must resolve the goinfer root from the
       # proxy, the way `go install github.com/pkieltyka/goinfer/<module>@<tag>` does for a
       # user. GOWORK=off also defends against a stray go.work in the runner image.
-      - name: standalone build (GOWORK=off)
-        if: matrix.module != 'backend/vulkan' || github.event_name == 'workflow_dispatch' || startsWith(github.ref, 'refs/tags/backend/vulkan/')
+      #
+      # Selection rule:
+      #   - workflow_dispatch: verify all three backend modules.
+      #   - refs/tags/<module>/v*: verify that submodule unconditionally.
+      #   - refs/tags/v*: verify each submodule whose go.mod pins this root tag (single-commit
+      #     release); report unpinned/omitted backends explicitly instead of failing on a stale
+      #     pin for a backend that was not part of this release.
+      - name: standalone build and vet (GOWORK=off)
+        if: >-
+          github.event_name == 'workflow_dispatch' ||
+          startsWith(github.ref, format('refs/tags/{0}/', matrix.module)) ||
+          (startsWith(github.ref, 'refs/tags/v') && !contains(github.ref_name, '/'))
         env:
           GOWORK: "off"
+          CGO_ENABLED: "0"
           GOOS: ${{ matrix.module == 'backend/metal' && 'darwin' || 'linux' }}
+          GOARCH: ${{ matrix.module == 'backend/metal' && 'arm64' || 'amd64' }}
         run: |
-          cd ${{ matrix.module }}
-          if [ "${{ matrix.module }}" = backend/vulkan ]; then export CGO_ENABLED=0; fi
+          set -euo pipefail
+          cd "${{ matrix.module }}"
+          if [ "${{ github.event_name }}" = "push" ] && [[ "${{ github.ref }}" == refs/tags/v* ]]; then
+            if ! grep -Eq "^[[:space:]]*github\.com/pkieltyka/goinfer[[:space:]]+${{ github.ref_name }}([[:space:]]|$)" go.mod; then
+              echo "Skipping ${{ matrix.module }}: go.mod does not pin github.com/pkieltyka/goinfer ${{ github.ref_name }} (backend omitted from this release)."
+              exit 0
+            fi
+          fi
           if [ -n "${{ matrix.tags }}" ]; then
+            go vet -tags '${{ matrix.tags }}' ./...
             go build -tags '${{ matrix.tags }}' ./...
           else
+            go vet ./...
             go build ./...
           fi
