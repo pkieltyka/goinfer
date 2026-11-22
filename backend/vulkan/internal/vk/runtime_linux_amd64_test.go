@@ -36,6 +36,9 @@ func TestNativeABI(t *testing.T) {
 		{"VkPhysicalDeviceLimits.maxComputeWorkGroupCount", unsafe.Offsetof(physicalLimits{}.MaxWorkGroupCount), 220},
 		{"VkQueueFamilyProperties", unsafe.Sizeof(queueFamily{}), 24},
 		{"VkPhysicalDeviceMemoryProperties", unsafe.Sizeof(memoryProperties{}), 520},
+		{"VkPhysicalDeviceMemoryProperties2", unsafe.Sizeof(memoryProperties2{}), 536},
+		{"VkPhysicalDeviceMemoryBudgetPropertiesEXT", unsafe.Sizeof(memoryBudget{}), 272},
+		{"VkExtensionProperties", unsafe.Sizeof(extensionProperties{}), 260},
 		{"VkBufferCreateInfo", unsafe.Sizeof(bufferInfo{}), 56},
 		{"VkMemoryRequirements", unsafe.Sizeof(memoryRequirements{}), 24},
 		{"VkMemoryAllocateInfo", unsafe.Sizeof(memoryInfo{}), 32},
@@ -126,8 +129,12 @@ func TestFailedBufferSetupIgnoresPoisonedOutputs(t *testing.T) {
 			d.api.destroyBuffer = func(_ handle, buf handle, _ unsafe.Pointer) { released = append(released, buf) }
 			d.api.freeMemory = func(_ handle, mem handle, _ unsafe.Pointer) { released = append(released, mem) }
 			d.api.unmapMemory = func(_, _ handle) { t.Error("unmapped a failed mapping") }
-			if b, err := d.NewBuffer(4, HostVisible); b != nil || err == nil {
+			b, err := d.NewBuffer(4, HostVisible)
+			if b != nil || err == nil {
 				t.Fatalf("invalid result from failed buffer setup: %v, %v", b, err)
+			}
+			if errors.Is(err, ErrOutOfMemory) != (tc.fail != "map") {
+				t.Fatalf("wrong allocation category: %v", err)
 			}
 			if !slices.Equal(released, tc.want) || len(d.buffers) != 0 {
 				t.Fatalf("released=%v, want %v; live buffers=%d", released, tc.want, len(d.buffers))
