@@ -277,10 +277,23 @@ func (a *eg2Accel) ForwardEmbeds(x0 []float32, T int, keepLayers bool) ([]float3
 	return a.forwardRows(x0, []int{T}, keepLayers)
 }
 
+// batchRowLimit bounds the row grid of the smallest GEMM tile and the signed
+// element indices used by the kernels. Leave room for a partial final block
+// and for rounding the transposed attention pitch up to 32 rows.
+func (a *eg2Accel) batchRowLimit() int {
+	const maxGridY = 65535
+	c := a.cfg
+	stride := max(1, c.Hidden, c.Intermediate, c.Layers*c.PLEDim, c.EmbeddingDim)
+	for _, layer := range a.layers {
+		stride = max(stride, 3*c.Heads*layer.w.HeadDim)
+	}
+	return min(maxGridY*gpu.GEMMTile, (math.MaxInt32-255)/stride-31)
+}
+
 // ForwardBatch runs the encoder over several inputs in one forward: their token rows laid end to end, each attending
 // only within itself at its own positions 0..T_b-1, every row-wise step over all of them at once. It returns each
-// input's projected last hidden state, [len(ids[b]), E] row-major, in input order, for the caller to pool. The inputs'
-// total length is held to the single-input cap. A batch of one runs exactly what Forward runs.
+// input's projected last hidden state, [len(ids[b]), E] row-major, in input order, for the caller to pool.
+// Each input has its own position cap. A batch of one runs exactly what Forward runs.
 func (a *eg2Accel) ForwardBatch(ids [][]int) ([][]float32, error) {
 	a.mu.Lock()
 	defer a.mu.Unlock()
@@ -296,7 +309,11 @@ func (a *eg2Accel) ForwardBatch(ids [][]int) ([][]float32, error) {
 		return nil, fmt.Errorf("cuda: an empty batch")
 	}
 	// Every check runs before the gather buffer is allocated, so a refused batch costs no more than its lengths.
-	lens, T := make([]int, len(ids)), 0
+	rowLimit, T := a.batchRowLimit(), 0
+	if len(ids) > rowLimit {
+		return nil, fmt.Errorf("cuda: batch exceeds the launch limit of %d total token rows", rowLimit)
+	}
+	lens := make([]int, len(ids))
 	for b, in := range ids {
 		if len(in) == 0 {
 			return nil, fmt.Errorf("cuda: batch input %d has no ids", b)
@@ -304,9 +321,10 @@ func (a *eg2Accel) ForwardBatch(ids [][]int) ([][]float32, error) {
 		if err := a.checkPositions(len(in)); err != nil {
 			return nil, fmt.Errorf("cuda: batch input %d: %w", b, err)
 		}
-		if lens[b], T = len(in), T+len(in); T > eg2MaxTokens {
-			return nil, fmt.Errorf("cuda: a batch of more than %d positions, over the accelerator's %d", eg2MaxTokens, eg2MaxTokens)
+		if len(in) > rowLimit-T {
+			return nil, fmt.Errorf("cuda: batch exceeds the launch limit of %d total token rows", rowLimit)
 		}
+		lens[b], T = len(in), T+len(in)
 	}
 	for b, in := range ids {
 		for _, id := range in {

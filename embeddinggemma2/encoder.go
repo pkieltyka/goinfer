@@ -161,7 +161,7 @@ type batchForwarder interface {
 //
 // The call is all or nothing: an empty batch, an empty input, or any error from the model or the accelerator returns
 // nil and that error, with no partial result. It does not split a batch: the caller groups inputs to fit the
-// accelerator (CUDA refuses a batch of more than MaxTokens ids in total). ids is not modified, and the returned
+// accelerator's launch and memory limits, with at most MaxTokens ids per input. ids is not modified, and the returned
 // vectors belong to the caller.
 func (e *Encoder) EmbedIDsBatch(ids [][]int) ([][]float32, error) {
 	if len(ids) == 0 {
