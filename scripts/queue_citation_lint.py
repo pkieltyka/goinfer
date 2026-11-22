@@ -444,8 +444,11 @@ def modcache_root():
     return _MODCACHE
 
 
-# `\tgithub.com/pkieltyka/aikit v1.2.3` inside a require block, or the single-line `require github.com/... v1.2.3` form.
-_REQUIRE_RE = re.compile(r"^\s*(?:require\s+)?(github\.com/pkieltyka/aikit(?:/gpu)?)\s+(v[0-9][^\s]*)\s*$", re.M)
+# aikit requirements in either a require block or the single-line form, before and after the fork.
+_REQUIRE_RE = re.compile(
+    r"^[ \t]*(?:require[ \t]+)?(github\.com/(?:pkieltyka|townsendmerino)/aikit(?:/gpu)?)"
+    r"[ \t]+(v[0-9][^\s]*)[ \t]*(?://[^\n]*)?$", re.M,
+)
 
 
 def required_modules():
@@ -920,18 +923,15 @@ def _git_show(commit: str, rel: str):
 
 
 def modules_at(commit: str):
-    """{module: version} the aikit modules goinfer required AT that commit — what the record's aikit paths were about."""
-    out = {}
-    for mod_file, want in (("go.mod", "github.com/pkieltyka/aikit"),
-                           ("cuda/go.mod", "github.com/pkieltyka/aikit/gpu"),
-                           ("backend/cuda/go.mod", "github.com/pkieltyka/aikit/gpu")):
-        t = _git_show(commit, mod_file)
-        if t is None:
-            continue
-        for m in _REQUIRE_RE.finditer(t):
-            if m.group(1) == want:
-                out[m.group(1)] = m.group(2)
-    return out
+    """Distinct (module, version) pins at the record's commit, in search order."""
+    files = (("go.mod", False), ("backend/cuda/go.mod", True), ("cuda/go.mod", True),
+             ("backend/metal/go.mod", True), ("metal/go.mod", True))
+    pins = []
+    for mod_file, gpu in files:
+        for mod, ver in _REQUIRE_RE.findall(_git_show(commit, mod_file) or ""):
+            if mod.endswith("/gpu") == gpu:
+                pins.append((mod, ver))
+    return tuple(dict.fromkeys(pins))
 
 
 _PSEUDO_VER_RE = re.compile(r"^v\d+\.\d+\.\d+-(?:0\.|\d+\.)?\d{14}-([0-9a-f]{12})(?:\+incompatible)?$")
@@ -960,6 +960,12 @@ def _aikit_git_file_at(mod: str, ver: str, rel: str):
     chk = subprocess.run(["git", "rev-parse", "--verify", "--quiet", f"{ref}^{{commit}}"],
                          capture_output=True, text=True, cwd=repo, env=_repo_env())
     if chk.returncode != 0:
+        return False, None
+    # A sibling fork can carry an identically named tag for a different module path.
+    mod_file = "gpu/go.mod" if mod.endswith("/gpu") else "go.mod"
+    manifest = subprocess.run(["git", "show", f"{ref}:{mod_file}"], capture_output=True, text=True, cwd=repo, env=_repo_env())
+    declared = re.search(r"^module[ \t]+(\S+)", manifest.stdout, re.M)
+    if manifest.returncode != 0 or not declared or declared.group(1) != mod:
         return False, None
     if mod.endswith("/gpu"):
         git_rel = f"gpu/{rel}"
@@ -993,8 +999,8 @@ def file_at(commit: str, rel: str):
     else:
         missing = []
         mods = modules_at(commit)
-        PINNED_MODULES_NEEDED.update(f"{mod}@{ver}" for mod, ver in mods.items())  # all of them, whatever is cached here
-        for mod, ver in mods.items():
+        PINNED_MODULES_NEEDED.update(f"{mod}@{ver}" for mod, ver in mods)  # all of them, whatever is cached here
+        for mod, ver in mods:
             d = modcache_dir(mod, ver)
             if d is not None:
                 if (d / rel).is_file():
