@@ -267,9 +267,10 @@ uses the installed Vulkan loader and driver from a `CGO_ENABLED=0` build. A Linu
 can also blank-import `github.com/pkieltyka/goinfer/backend/cuda` and build with `-tags cuda` to
 include NVIDIA support. Auto tries linked CUDA first, then Vulkan, then returns CPU. It selects
 the first backend able to attach the model. To prefer Radeon, call
-`encoder.UseAutoAccelerator("vulkan", "cuda")`. For strict device selection call
-`encoder.UseAccelerator("vulkan")` and handle its error. Close an attached accelerator when the
-application has finished using that encoder.
+`encoder.UseAutoAccelerator("vulkan", "cuda")`. To require Vulkan, call
+`encoder.UseAccelerator("vulkan")` and handle its error. Vulkan selects a unique discrete AMD
+adapter and returns an error if none or several are eligible. Close an attached accelerator
+when the application has finished using that encoder.
 
 ## Closing a model
 

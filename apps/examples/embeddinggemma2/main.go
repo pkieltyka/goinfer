@@ -10,7 +10,6 @@ import (
 	"slices"
 	"strings"
 
-	_ "github.com/pkieltyka/goinfer/backend/vulkan"
 	"github.com/pkieltyka/goinfer/embeddinggemma2"
 )
 
