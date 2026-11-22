@@ -54,38 +54,49 @@ func checkRows(t *testing.T, label string, got, want []float32, width int) {
 	if width <= 0 || len(want) == 0 || len(want)%width != 0 || len(got) != len(want) {
 		t.Fatalf("%s: incompatible row width %d and lengths %d/%d", label, width, len(got), len(want))
 	}
-	minCos, maxAbs, maxFraction, maxRowRelative := 1.0, 0.0, 0.0, 0.0
+	minCos, maxAbs, maxRowRelative := 1.0, 0.0, 0.0
+	worstRow, worstCol := 0, 0
 	for row := 0; row < len(want)/width; row++ {
 		var dot, aa, bb, rowMax, rowErr float64
+		worst := 0
 		for j := range width {
 			i := row*width + j
 			x, y := float64(got[i]), float64(want[i])
 			delta := math.Abs(x - y)
-			limit := 1e-4 * max(1, math.Abs(y))
-			if !(delta <= limit) {
-				t.Fatalf("%s row %d col %d: got %g want %g absolute error %g exceeds %g", label, row, j, x, y, delta, limit)
+			if math.IsNaN(delta) || math.IsInf(delta, 0) {
+				t.Errorf("%s row %d col %d: nonfinite got %g or reference %g", label, row, j, x, y)
+				return
 			}
-			maxFraction = max(maxFraction, delta/limit)
+			if delta > rowErr {
+				worst = j
+			}
 			rowMax = max(rowMax, math.Abs(y))
 			rowErr = max(rowErr, delta)
 			dot += x * y
 			aa += x * x
 			bb += y * y
 		}
-		if rowMax > 0 {
-			maxRowRelative = max(maxRowRelative, rowErr/rowMax)
+		if rowErr > 0 {
+			// A zero reference row must match exactly; otherwise relative
+			// error is infinite. Every coordinate uses its row's scale.
+			if relative := rowErr / rowMax; relative > maxRowRelative {
+				maxRowRelative, worstRow, worstCol = relative, row, worst
+			}
 		}
 		maxAbs = max(maxAbs, rowErr)
 		if aa == 0 && bb == 0 {
 			continue
 		}
 		cosine := dot / math.Sqrt(aa*bb)
-		if !(cosine >= 0.9999) {
-			t.Fatalf("%s row %d cosine %.12f", label, row, cosine)
+		if aa == 0 || bb == 0 {
+			cosine = 0
 		}
 		minCos = min(minCos, cosine)
 	}
-	t.Logf("%s min row cosine %.12f max abs %.7g max row-relative %.7g max fraction of limit %.7g", label, minCos, maxAbs, maxRowRelative, maxFraction)
+	t.Logf("%s min row cosine %.12f max abs %.7g max row-relative %.7g at row %d col %d (fraction of limit %.7g)", label, minCos, maxAbs, maxRowRelative, worstRow, worstCol, maxRowRelative/1e-4)
+	if !(minCos >= 0.9999 && maxRowRelative <= 1e-4) {
+		t.Errorf("%s row parity outside tolerance, min cosine %.12f, max row-relative %.7g at [%d,%d]", label, minCos, maxRowRelative, worstRow, worstCol)
+	}
 }
 func checkedActivity(t *testing.T, a *encoder, prev vk.Activity, rows int, keep bool) {
 	t.Helper()
