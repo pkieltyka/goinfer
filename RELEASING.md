@@ -35,7 +35,7 @@ survives to a tag unless caught here.
 - **`go.work` is gitignored, per-machine, and now MANDATORY for cross-module dev.** With the replaces
   gone, a submodule build outside a workspace resolves the root from the proxy; local cross-module
   work needs a `go.work` covering **all eight workspace modules** (`.`, `./backend/webgpu`, `./backend/cuda`, `./backend/metal`,
-  `./demo/agent`, `./apps/sdktest`, `./apps/site`). It stays dev-only — nothing in the shipped tag may depend on it, which the
+  `./backend/vulkan`, `./demo/agent`, `./apps/sdktest`, `./apps/site`). It stays dev-only — nothing in the shipped tag may depend on it, which the
   `standalone-build` workflow proves. That workflow runs on TAG pushes, not on every push, and
   the reason is structural rather than a preference: a submodule built with `GOWORK=off`
   resolves the goinfer root from the proxy at its LAST PUBLISHED TAG, so between releases it
@@ -161,7 +161,7 @@ git push origin main ${TAG}        # published BEFORE any submodule go-gets it
 
 > **Do not use `git commit -am` with unrelated work in the tree.** Both this step and Step 2 stage
 > every tracked modification. Stash anything not part of the release first (`git stash push -u --
-> <paths>`) — Step 2 in particular runs `-am` four times across four modules.
+> <paths>`) — Step 2 in particular stages each selected module’s release changes.
 
 **Optional Step 2 — point each selected submodule at the tagged root, prove the standalone build, tag.**
 Do the selected backend modules first, then `demo/agent/` LAST (it also requires `goinfer/backend/webgpu`, so
@@ -180,7 +180,7 @@ EXPECTED; the `go mod tidy` go.sum bump is the deliverable, and macOS/CI runs th
 For Vulkan, use `CGO_ENABLED=0 GOWORK=off go build ./...` inside `backend/vulkan`, then tag
 `backend/vulkan/${TAG}`. Its native device check runs separately on a discrete Radeon.
 
-Then commit the go.mod/go.sum bumps and tag the modules being published. The example below releases all four. **`git tag` takes ONE name per call** (unlike
+Then commit the go.mod/go.sum bumps and tag the modules being published. The example below covers CUDA, WebGPU, Metal and the demo. **`git tag` takes ONE name per call** (unlike
 `git push`, which takes many):
 ```
 git commit -am "release: backend/{webgpu,cuda,metal} require goinfer ${TAG}"

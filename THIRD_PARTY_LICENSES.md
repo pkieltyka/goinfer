@@ -571,6 +571,13 @@ backend.
 
 ---
 
+## Optional cgo-free Vulkan backend
+
+The Vulkan module links `github.com/ebitengine/purego` (Apache-2.0, full text under the CUDA
+backend above) and loads the installed Vulkan loader and driver at runtime.
+
+---
+
 ## Regenerating this file
 
 ```sh
@@ -579,6 +586,7 @@ go-licenses report ./...                     # core
 go-licenses report -tags gpu ./gpu/...       # + WebGPU backend
 go-licenses report -tags cuda ./cuda/...     # + cgo-free CUDA backend
 go-licenses report -tags metal ./metal/...   # + cgo-free Metal backend (darwin)
+go-licenses report ./backend/vulkan/...      # + cgo-free Vulkan backend (linux/amd64)
 # full texts above are the modules' own LICENSE files from $(go env GOMODCACHE).
 ```
 

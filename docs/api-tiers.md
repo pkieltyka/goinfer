@@ -168,12 +168,12 @@ patch. Pin a version if you depend on them. Each graduates when it settles.
 - **The server as a library.** The `server` package — `NewHandler` and `Transport` — serves `goinfer-serve`'s HTTP
   API from a handler in the caller's process. The HTTP API it carries is the Hard contract listed under `cmd/serve`;
   the two Go functions, and which flags `NewHandler` refuses, are what may move.
-- **The submodules themselves** — `backend/webgpu/`, `backend/cuda/`, `backend/metal/`, `demo/agent` — are Experimental as
+- **The submodules themselves** — `backend/webgpu/`, `backend/cuda/`, `backend/metal/`, `backend/vulkan/`, `demo/agent` — are Experimental as
   packages regardless of their tag numbers (see Open questions on posture).
 
 ## What this page does NOT decide
 
-1. **Submodule tag posture** — do `backend/webgpu/`, `backend/cuda/`, `backend/metal/`, `demo/agent` tag `v1.0.0` alongside
+1. **Submodule tag posture** — do `backend/webgpu/`, `backend/cuda/`, `backend/metal/`, `backend/vulkan/`, `demo/agent` tag `v1.0.0` alongside
    the core or stay on their own 0.x series? `release-1.0-gate.md` §3 carries it; aikit kept
    `gpu/` at 0.x. Either is fine, undecided is not — the tag-day script needs to know.
 2. **The `.giw` / `.giw-kv` format promise** — read-N−1, reserved-header forward-compat, or

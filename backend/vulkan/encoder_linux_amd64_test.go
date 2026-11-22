@@ -359,9 +359,7 @@ func TestVulkanEncoderRealPreparedIDs(t *testing.T) {
 	for i, state := range layers {
 		checkRows(t, fmt.Sprintf("real window edge layer %d", i), state, refLayers[i], m.Config().Hidden)
 	}
-	// The unpooled learned projection mixes all hidden coordinates. On the
-	// pinned 514-token case the peak row-relative error was 1.057311e-4,
-	// versus 3.452572e-5 before the final norm and projection.
+	// The final norm and learned projection can amplify residual rounding.
 	checkRowError(t, "real window edge projected", last, ref, m.Dim(), 2e-4)
 }
 func TestBufferLimits(t *testing.T) {
