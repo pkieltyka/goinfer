@@ -46,6 +46,45 @@ type Tensor struct {
 	record tensorRecord
 }
 
+// PackedRows owns the original bytes of a two-dimensional tensor.
+type PackedRows struct {
+	raw      []byte
+	typ      Type
+	rowBytes int
+}
+
+// ReadPackedRows copies a matrix's encoded bytes into independent storage.
+func (t Tensor) ReadPackedRows() (*PackedRows, error) {
+	block := t.record.typ.block()
+	if t.r == nil || t.record.rank != 2 || block.values == 0 || t.record.shape[0]%uint64(block.values) != 0 {
+		return nil, fmt.Errorf("gguf: tensor has no block-aligned matrix rows")
+	}
+	raw := make([]byte, int(t.record.size))
+	if err := t.readAt(raw, 0); err != nil {
+		return nil, err
+	}
+	rowBytes := int(t.record.shape[0]) / block.values * block.bytes
+	return &PackedRows{raw: raw, typ: t.record.typ, rowBytes: rowBytes}, nil
+}
+
+// DecodeRow decodes row i into dst. The caller supplies a valid row index
+// and a destination of exactly one row.
+func (p *PackedRows) DecodeRow(i int, dst []float32) {
+	decode(p.typ, dst, p.raw[i*p.rowBytes:(i+1)*p.rowBytes])
+}
+
+func (t Tensor) readAt(buf []byte, off uint64) error {
+	start := t.offset + int64(off)
+	n, err := t.r.ReadAt(buf, start)
+	if n == len(buf) && (err == nil || err == io.EOF) {
+		return nil
+	}
+	if err == nil || err == io.EOF {
+		err = io.ErrUnexpectedEOF
+	}
+	return fmt.Errorf("gguf: read tensor at byte %d: %w", start, err)
+}
+
 // ReadFloat32 decodes a tensor into new, caller-owned storage.
 func (t Tensor) ReadFloat32() ([]float32, error) {
 	if t.r == nil {
@@ -59,11 +98,8 @@ func (t Tensor) ReadFloat32() ([]float32, error) {
 	raw := make([]byte, min(uint64(chunk), t.record.size))
 	for off, start := uint64(0), 0; off < t.record.size; {
 		buf := raw[:min(uint64(len(raw)), t.record.size-off)]
-		if n, err := t.r.ReadAt(buf, t.offset+int64(off)); n != len(buf) || err != nil && err != io.EOF {
-			if err == nil || err == io.EOF {
-				err = io.ErrUnexpectedEOF
-			}
-			return nil, fmt.Errorf("gguf: read tensor at byte %d: %w", t.offset+int64(off), err)
+		if err := t.readAt(buf, off); err != nil {
+			return nil, err
 		}
 		values := len(buf) / b.bytes * b.values
 		decode(typ, out[start:start+values], buf)

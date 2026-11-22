@@ -6,6 +6,7 @@ import (
 	"errors"
 	"fmt"
 	"math"
+	"slices"
 	"sync"
 
 	gpu "github.com/pkieltyka/goinfer/backend/cuda/internal/gpudev"
@@ -62,7 +63,7 @@ type eg2Accel struct {
 	ops    *towerOps
 	closed bool
 	cfg    embeddinggemma2.Config
-	embed  []float32 // the host token table, aliasing the model's
+	model  *embeddinggemma2.Model
 
 	pleProj, pleNorm, finalNorm, proj, ones Buffer
 	layers                                  []eg2Layer
@@ -73,7 +74,7 @@ type eg2Accel struct {
 }
 
 func newEG2Accel(m *embeddinggemma2.Model, combined bool) (*eg2Accel, error) {
-	w := m.Weights()
+	w := m.TransformerWeights()
 	c := w.Config
 	maxN := max(c.Layers*c.PLEDim, c.Intermediate, c.Hidden, c.EmbeddingDim)
 	maxHD := 0
@@ -88,7 +89,7 @@ func newEG2Accel(m *embeddinggemma2.Model, combined bool) (*eg2Accel, error) {
 	if err != nil {
 		return nil, err
 	}
-	a := &eg2Accel{ops: ops, cfg: c, embed: w.Embed}
+	a := &eg2Accel{ops: ops, cfg: c, model: m}
 	if err := ops.do(func() error {
 		up := ops.up
 		a.pleProj, a.pleNorm, a.finalNorm, a.proj = up(w.PLEProj), up(w.PLENorm), up(w.FinalNorm), up(w.Projection)
@@ -152,7 +153,7 @@ func (a *eg2Accel) Close() error {
 		}
 	}
 	a.ops.close()
-	a.closed, a.layers, a.ropes = true, nil, nil
+	a.closed, a.layers, a.ropes, a.model = true, nil, nil, nil
 	return nil
 }
 
@@ -178,27 +179,24 @@ func (a *eg2Accel) checkPositions(n int) error {
 	return nil
 }
 
-// Forward gathers the scaled token rows on the host, then runs ForwardEmbeds (embeddinggemma2.Accelerator).
+// Forward gathers the scaled token rows on the host, then runs the encoder.
 func (a *eg2Accel) Forward(ids []int, keepLayers bool) ([]float32, [][]float32, error) {
-	c := a.cfg
-	H := c.Hidden
-	if len(ids) == 0 {
-		return nil, nil, fmt.Errorf("cuda: no input ids")
+	a.mu.Lock()
+	defer a.mu.Unlock()
+	if a.closed {
+		return nil, nil, errEG2Closed
+	}
+	if a.broken != nil {
+		return nil, nil, a.broken
 	}
 	if err := a.checkPositions(len(ids)); err != nil {
 		return nil, nil, err
 	}
-	x := make([]float32, len(ids)*H)
-	scale := float32(math.Sqrt(float64(H)))
-	for t, id := range ids {
-		if id < 0 || id >= c.VocabSize {
-			return nil, nil, fmt.Errorf("cuda: token id %d out of range [0, %d)", id, c.VocabSize)
-		}
-		for j, v := range a.embed[id*H : (id+1)*H] {
-			x[t*H+j] = v * scale
-		}
+	x, err := a.model.EmbedTokens(ids)
+	if err != nil {
+		return nil, nil, err
 	}
-	return a.ForwardEmbeds(x, len(ids), keepLayers)
+	return a.forwardRows(x, []int{len(ids)}, keepLayers)
 }
 
 // rope returns the tables for at least T rows at this head dim and theta, rebuilding them from the CPU's own values
@@ -304,7 +302,7 @@ func (a *eg2Accel) ForwardBatch(ids [][]int) ([][]float32, error) {
 		return nil, a.broken
 	}
 	c := a.cfg
-	H, E := c.Hidden, c.EmbeddingDim
+	E := c.EmbeddingDim
 	if len(ids) == 0 {
 		return nil, fmt.Errorf("cuda: an empty batch")
 	}
@@ -333,16 +331,9 @@ func (a *eg2Accel) ForwardBatch(ids [][]int) ([][]float32, error) {
 			}
 		}
 	}
-	x := make([]float32, T*H)
-	scale := float32(math.Sqrt(float64(H)))
-	t := 0
-	for _, in := range ids {
-		for _, id := range in {
-			for j, v := range a.embed[id*H : (id+1)*H] {
-				x[t*H+j] = v * scale
-			}
-			t++
-		}
+	x, err := a.model.EmbedTokens(slices.Concat(ids...))
+	if err != nil {
+		return nil, err
 	}
 	out, _, err := a.forwardRows(x, lens, false)
 	if err != nil {

@@ -55,19 +55,32 @@ func NewModel(cfg Config, tokens, layers []byte) (*Model, error) {
 	if err != nil {
 		return nil, err
 	}
-	workers := min(runtime.GOMAXPROCS(0), len(refs))
-	errs := make([]error, workers)
+	if err := loadWeights(len(refs), func(i int) error { return fillRef(st, refs[i]) }); err != nil {
+		return nil, err
+	}
+	m.setScalars(scalars)
+	return m, nil
+}
+
+// loadWeights loads independent tensor destinations. On error it stops
+// scheduling work and waits for in-flight reads before returning.
+func loadWeights(n int, load func(int) error) error {
+	workers := min(runtime.GOMAXPROCS(0), n)
+	errs := make([]error, n)
 	var next atomic.Int64
+	var failed atomic.Bool
 	var wg sync.WaitGroup
-	for w := range workers {
+	for range workers {
 		wg.Go(func() {
-			for {
+			for !failed.Load() {
 				i := int(next.Add(1)) - 1
-				if i >= len(refs) {
+				if i >= n {
 					return
 				}
-				if err := fillRef(st, refs[i]); err != nil && errs[w] == nil {
-					errs[w] = err
+				if err := load(i); err != nil {
+					errs[i] = err
+					failed.Store(true)
+					return
 				}
 			}
 		})
@@ -75,11 +88,10 @@ func NewModel(cfg Config, tokens, layers []byte) (*Model, error) {
 	wg.Wait()
 	for _, err := range errs {
 		if err != nil {
-			return nil, err
+			return err
 		}
 	}
-	m.setScalars(scalars)
-	return m, nil
+	return nil
 }
 
 // fillRef reads one weight as float32 into its place. A bfloat16 or float16 tensor is widened into a slice of its
@@ -118,17 +130,22 @@ func (m *Model) rawRow(id int, scale float32, dst []float32) {
 	}
 }
 
-// embedF32 is the token table as one float32 slice, [vocab, hidden]. A model from Load has it already; a model from
-// NewModel widens its stored table on the first call and keeps the result.
+// embedF32 is the token table as one float32 slice, [vocab, hidden]. A model from Load has it already; a model with
+// packed weights widens its stored table on the first call and keeps the result.
 func (m *Model) embedF32() []float32 {
-	if m.embedRaw == nil {
+	if m.embedRaw == nil && m.embedGGUF == nil {
 		return m.embed
 	}
 	m.embedOnce.Do(func() {
 		H := m.cfg.Hidden
 		e := make([]float32, m.cfg.VocabSize*H)
 		for id := range m.cfg.VocabSize {
-			m.rawRow(id, 1, e[id*H:(id+1)*H])
+			row := e[id*H : (id+1)*H]
+			if m.embedGGUF != nil {
+				m.embedGGUF.DecodeRow(id, row)
+			} else {
+				m.rawRow(id, 1, row)
+			}
 		}
 		m.embed = e
 	})

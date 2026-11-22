@@ -21,6 +21,7 @@ import (
 
 	"github.com/pkieltyka/aikit/embed"
 	"github.com/pkieltyka/aikit/linalg"
+	"github.com/pkieltyka/goinfer/internal/gguf"
 )
 
 // Config is the text half of an EmbeddingGemma 2 config.json (its text_config).
@@ -75,12 +76,13 @@ type layer struct {
 // Embed calls are safe.
 type Model struct {
 	cfg   Config
-	embed []float32 // [vocab, hidden]; nil on a model built by NewModel until an accelerator asks for it (Weights)
+	embed []float32 // [vocab, hidden]; nil for packed models until Weights is called
 	// embedRaw is the token table as the caller gave it to NewModel, [vocab, hidden] little-endian values of
 	// embedSize bytes each (2: bfloat16, 4: float32). One row is widened per token, so the table is never copied.
 	embedRaw   []byte
 	embedSize  int
-	embedOnce  sync.Once // widens embedRaw into embed, for Weights
+	embedGGUF  *gguf.PackedRows
+	embedOnce  sync.Once // widens the packed table for Weights
 	pleProj    []float32 // [layers*ple, hidden]
 	pleNorm    []float32 // [ple]
 	layers     []layer
@@ -313,6 +315,14 @@ func (m *Model) EmbedTokens(ids []int) ([]float32, error) {
 	for t, id := range ids {
 		if id < 0 || id >= c.VocabSize {
 			return nil, fmt.Errorf("embeddinggemma2: token id %d out of range [0, %d)", id, c.VocabSize)
+		}
+		if m.embedGGUF != nil {
+			row := x[t*H : (t+1)*H]
+			m.embedGGUF.DecodeRow(id, row)
+			for j := range row {
+				row[j] *= scale
+			}
+			continue
 		}
 		if m.embedRaw != nil {
 			m.rawRow(id, scale, x[t*H:(t+1)*H])

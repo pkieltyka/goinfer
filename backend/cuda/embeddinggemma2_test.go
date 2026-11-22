@@ -1062,7 +1062,7 @@ func TestEG2CUDA_aggregateIndexLimit(t *testing.T) {
 func TestEG2CUDA_refusesOversizedIDsBeforeGather(t *testing.T) {
 	const width = 512
 	cfg := embeddinggemma2.Config{Hidden: width, VocabSize: 1, MaxPositions: eg2MaxTokens + 10}
-	a := eg2Accel{cfg: cfg, embed: make([]float32, width)}
+	a := eg2Accel{cfg: cfg}
 	ids := make([]int, eg2MaxTokens+1)
 	var before, after runtime.MemStats
 	runtime.ReadMemStats(&before)
@@ -1074,6 +1074,13 @@ func TestEG2CUDA_refusesOversizedIDsBeforeGather(t *testing.T) {
 	gatherBytes := uint64(len(ids) * width * 4)
 	if allocated := after.TotalAlloc - before.TotalAlloc; allocated >= gatherBytes {
 		t.Fatalf("refused input allocated %d bytes, enough for the %d-byte gather", allocated, gatherBytes)
+	}
+}
+
+func TestEG2CUDA_closedRejectsIDsBeforeGather(t *testing.T) {
+	a := eg2Accel{closed: true}
+	if _, _, err := a.Forward([]int{0}, false); err != errEG2Closed {
+		t.Fatalf("closed accelerator returned %v, want %v", err, errEG2Closed)
 	}
 }
 
