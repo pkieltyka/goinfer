@@ -1,1 +1,0 @@
-Vulkan EmbeddingGemma 2 attention now scores keys within each sequence and splits native submissions by estimated GPU work. Reordering or splitting a batch preserves vector bytes on the same model, build, device and driver. A lost Vulkan device reports `embeddinggemma2.ErrDeviceLost` and prevents subsequent forwards on that accelerator.
