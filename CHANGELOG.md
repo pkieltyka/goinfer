@@ -17,6 +17,26 @@ any surface may still change.
 
 Each unreleased change is a file in [`changelog.d/`](changelog.d/), collected into the release's section when it is tagged (`scripts/changelog.py release`).
 
+## [v0.6.2] — 2026-11-22
+
+### Added
+
+- **Discover and select AMD Vulkan adapters.** Use `vulkan.Devices()` to list eligible discrete adapters before loading weights. Pass a returned UUID selector to `UseAccelerator` to attach to that adapter. Ordinal aliases follow the current inventory. `vulkan.Probe` can estimate device-local headroom, and an attached accelerator can refresh it through `embeddinggemma2.DeviceMemoryReporter`. Attach errors distinguish unavailable runtimes, missing or ambiguous devices, and native allocation failure. [#44](https://github.com/pkieltyka/goinfer/pull/44), [#52](https://github.com/pkieltyka/goinfer/pull/52)
+
+### Changed
+
+- **Larger CUDA embedding batches.** EmbeddingGemma 2 CUDA batches can exceed 8,192 prepared positions in aggregate. Each input still has an 8,192-position ceiling. The opt-in `cuda-eg2-combined` selector also improves long-input attention. [#45](https://github.com/pkieltyka/goinfer/pull/45), [#47](https://github.com/pkieltyka/goinfer/pull/47)
+- **Packed EmbeddingGemma 2 GGUF loading.** The loader keeps quantized token rows packed and decodes independent tensors in parallel, preserving the prepared vectors. [#50](https://github.com/pkieltyka/goinfer/pull/50)
+- **Coordinated Go module tags.** The root, CUDA, and Vulkan modules are published from the same release commit. The Metal submodule is omitted from v0.6.2 and retains its existing dependency pin. [#54](https://github.com/pkieltyka/goinfer/pull/54)
+
+### Fixed
+
+- **Bound Vulkan work for EmbeddingGemma 2 batches.** Attention stays within each input's sequence and sliding window. The encoder splits native submissions by estimated work and preserves singleton float32 bits across admitted batch layouts on the same model, build, selector, device, and driver. A lost Vulkan device reports `embeddinggemma2.ErrDeviceLost` and stops further forwards on that accelerator. [#55](https://github.com/pkieltyka/goinfer/pull/55)
+
+### Verification
+
+Targeted EmbeddingGemma 2 CUDA and Vulkan checks passed on the devices listed in the release record. The Linux `quick -full` run reported seven CUDA failures, with two passing targeted reruns after the missing checkpoint was restored. The [verification record](docs/releases/v0.6.2-verification.md) lists the unresolved results and [owner-approved deferrals](docs/releases/v0.6.2-accepted.json).
+
 ## [v0.6.1] — 2026-11-22
 
 ### Added

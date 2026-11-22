@@ -14,7 +14,8 @@ import (
 // requested by layer-difference tests. Only projected rows normally return to Go.
 type forward struct {
 	a                                                                                                          *encoder
-	rows, block                                                                                                int
+	rows, maxGroupX                                                                                            int
+	lengths                                                                                                    []int
 	buffers                                                                                                    []*vk.Buffer
 	err                                                                                                        error
 	input, x, normalized, branch, q, k, v, context, gate, up, pleGate, ple, scores, output, download, segments *vk.Buffer
@@ -56,11 +57,18 @@ func (f *forward) close() error {
 
 func (a *encoder) forwardRows(x []float32, lengths []int, keep bool) (out []float32, hidden [][]float32, err error) {
 	t := len(x) / a.cfg.Hidden
-	f := forward{a: a, rows: t, block: min(t, 128), tables: make(map[rotation][2]*vk.Buffer)}
+	f := forward{a: a, rows: t, maxGroupX: int(a.device.Info().MaxGroupCount[0]), lengths: lengths, tables: make(map[rotation][2]*vk.Buffer)}
 	defer func() {
 		if closeErr := f.close(); closeErr != nil {
 			out, hidden = nil, nil
 			err = errors.Join(err, closeErr)
+		}
+		if status := a.device.Status(); errors.Is(status, vk.ErrDeviceLost) && !errors.Is(err, vk.ErrDeviceLost) {
+			err = fmt.Errorf("%w (forward returned %v)", status, err)
+			out, hidden = nil, nil
+		}
+		if errors.Is(err, vk.ErrDeviceLost) {
+			err = classify(err)
 		}
 	}()
 	cfg := a.cfg
@@ -76,7 +84,8 @@ func (a *encoder) forwardRows(x []float32, lengths []int, keep bool) (out []floa
 	f.up = f.buffer(vk.DeviceLocal, t, cfg.Intermediate)
 	f.pleGate = f.buffer(vk.DeviceLocal, t, cfg.PLEDim)
 	f.ple = f.buffer(vk.DeviceLocal, t, cfg.Layers, cfg.PLEDim)
-	f.scores = f.buffer(vk.DeviceLocal, cfg.Heads, f.block, t)
+	longest := slices.Max(lengths)
+	f.scores = f.buffer(vk.DeviceLocal, cfg.Heads, min(longest, queryBlock), longest)
 	f.output = f.buffer(vk.DeviceLocal, t, cfg.EmbeddingDim)
 	f.download = f.buffer(vk.HostVisible, t, cfg.EmbeddingDim)
 	if keep {
@@ -98,7 +107,6 @@ func (a *encoder) forwardRows(x []float32, lengths []int, keep bool) (out []floa
 		start = end
 	}
 	f.segments = f.mapped(segments)
-	longest := slices.Max(lengths)
 	for _, l := range a.layers {
 		if _, ok := f.tables[l.rotation]; !ok {
 			cs, sn := embeddinggemma2.RopeTables(longest, l.dim, l.theta)
@@ -108,33 +116,20 @@ func (a *encoder) forwardRows(x []float32, lengths []int, keep bool) (out []floa
 	if f.err != nil {
 		return nil, nil, f.err
 	}
-	// At most 4096 descriptor sets per command buffer. Reserve room for the
-	// initial and final operations and bound long documents by the block count.
-	perLayer := 24 + 3*ceilDiv(t, f.block)
-	perRun := (a.dispatchBudget - 5) / perLayer
-	for first := 0; first < cfg.Layers; first += perRun {
-		end := min(first+perRun, cfg.Layers)
+	plan := f.plan(keep)
+	if plan.err != nil {
+		return nil, nil, plan.err
+	}
+	for i, group := range plan.groups {
 		if err := a.device.Run(func(c *vk.Commands) error {
-			r := recording{f: &f, c: c}
-			if first == 0 {
-				r.copy(f.input, f.x)
-				r.snapshot(0)
-				r.project(f.x, a.pleProj, f.ple, cfg.Hidden, cfg.Layers*cfg.PLEDim)
-				r.mix(f.ple, a.ones, t*cfg.Layers*cfg.PLEDim, scale, float32(1/math.Sqrt(float64(cfg.Hidden))), 0)
-				r.norm(f.ple, a.pleNorm, f.ple, t*cfg.Layers, cfg.PLEDim)
+			for _, command := range group.commands {
+				if err := command(c); err != nil {
+					return err
+				}
 			}
-			for i := first; i < end; i++ {
-				r.layer(i)
-				r.snapshot(i + 1)
-			}
-			if end == cfg.Layers {
-				r.norm(f.x, a.finalNorm, f.normalized, t, cfg.Hidden)
-				r.project(f.normalized, a.projection, f.output, cfg.Hidden, cfg.EmbeddingDim)
-				r.copy(f.output, f.download)
-			}
-			return r.err
+			return nil
 		}); err != nil {
-			return nil, nil, err
+			return nil, nil, fmt.Errorf("vulkan: submission %d/%d (%d estimated work units): %w", i+1, len(plan.groups), group.units, err)
 		}
 	}
 	out = make([]float32, t*cfg.EmbeddingDim)
@@ -151,44 +146,73 @@ func (a *encoder) forwardRows(x []float32, lengths []int, keep bool) (out []floa
 	return out, hidden, nil
 }
 
-// A failed operation invalidates the rest of this recording and the runtime
-// discards the unsubmitted command buffer.
-type recording struct {
-	f   *forward
-	c   *vk.Commands
-	err error
+func (f *forward) plan(keep bool) workPlan {
+	a, t, cfg := f.a, f.rows, f.a.cfg
+	r := recording{f: f, plan: workPlan{budget: a.dispatchBudget}}
+	stateBytes := product(t, cfg.Hidden, 4)
+	r.copy(f.input, f.x, stateBytes)
+	if keep {
+		r.copy(f.x, f.snapshots[0], stateBytes)
+	}
+	r.project(f.x, a.pleProj, f.ple, cfg.Hidden, cfg.Layers*cfg.PLEDim)
+	r.mix(f.ple, a.ones, t*cfg.Layers*cfg.PLEDim, scale, float32(1/math.Sqrt(float64(cfg.Hidden))), 0)
+	r.norm(f.ple, a.pleNorm, f.ple, t*cfg.Layers, cfg.PLEDim)
+	for i := range cfg.Layers {
+		r.layer(i)
+		if keep {
+			r.copy(f.x, f.snapshots[i+1], stateBytes)
+		}
+	}
+	r.norm(f.x, a.finalNorm, f.normalized, t, cfg.Hidden)
+	r.project(f.normalized, a.projection, f.output, cfg.Hidden, cfg.EmbeddingDim)
+	r.copy(f.output, f.download, product(t, cfg.EmbeddingDim, 4))
+	return r.plan
 }
 
-func (r *recording) copy(src, dst *vk.Buffer) {
-	if r.err == nil {
-		r.err = r.c.Copy(src, dst, 0, 0, src.Size())
-	}
+type recording struct {
+	f    *forward
+	plan workPlan
 }
-func (r *recording) snapshot(i int) {
-	if len(r.f.snapshots) > 0 {
-		r.copy(r.f.x, r.f.snapshots[i])
-	}
+
+func (r *recording) copy(src, dst *vk.Buffer, bytes uint64) {
+	r.plan.add("copy", bytes, false, func(c *vk.Commands) error {
+		return c.Copy(src, dst, 0, 0, bytes)
+	})
 }
 func ceilDiv(n, div int) int     { return 1 + (n-1)/div }
 func grid(x, y, z int) [3]uint32 { return [3]uint32{uint32(x), uint32(y), uint32(z)} }
 func (r *recording) linear(groups int) [3]uint32 {
-	x := min(groups, int(r.f.a.device.Info().MaxGroupCount[0]))
+	x := min(groups, r.f.maxGroupX)
 	return grid(x, ceilDiv(groups, x), 1)
 }
-func (r *recording) dispatch(name string, shape [3]uint32, push []uint32, buffers ...*vk.Buffer) {
-	if r.err == nil {
-		if err := r.c.Dispatch(r.f.a.pipes[name], buffers, push, shape); err != nil {
-			r.err = fmt.Errorf("vulkan: %s: %w", name, err)
+func (r *recording) dispatch(name string, units uint64, shape [3]uint32, push []uint32, buffers ...*vk.Buffer) {
+	r.plan.add(name, units, true, func(c *vk.Commands) error {
+		if err := c.Dispatch(r.f.a.pipes[name], buffers, push, shape); err != nil {
+			return fmt.Errorf("vulkan: %s: %w", name, err)
 		}
-	}
+		return nil
+	})
 }
 func (r *recording) project(src, w, dst *vk.Buffer, in, out int) {
-	t := r.f.rows
-	r.dispatch("project", grid(ceilDiv(out, 16), ceilDiv(t, 8), 1), []uint32{uint32(t), uint32(out), uint32(in)}, src, w, dst)
+	perGroup := product(8, tile(out, 16), tile(in, 16))
+	maxRows := 8 * int(submissionWork/perGroup)
+	if maxRows == 0 {
+		if r.plan.err == nil {
+			r.plan.err = fmt.Errorf("vulkan: one projection row exceeds the submission work limit")
+		}
+		return
+	}
+	for start := 0; start < r.f.rows; start += maxRows {
+		rows := min(maxRows, r.f.rows-start)
+		r.dispatch("project", product(tile(rows, 8), tile(out, 16), tile(in, 16)),
+			grid(ceilDiv(out, 16), ceilDiv(rows, 8), 1),
+			[]uint32{uint32(start), uint32(rows), uint32(out), uint32(in)}, src, w, dst)
+	}
 }
 func (r *recording) norm(src, w, dst *vk.Buffer, rows, width int) {
 	eps := math.Float32bits(float32(r.f.a.cfg.RMSNormEps))
-	r.dispatch("norm", r.linear(rows), []uint32{uint32(rows), uint32(width), eps}, src, w, dst)
+	g := r.linear(rows)
+	r.dispatch("norm", product(int(g[0]), int(g[1]), 4*tile(width, 64)+64), g, []uint32{uint32(rows), uint32(width), eps}, src, w, dst)
 }
 
 const (
@@ -200,12 +224,18 @@ const (
 
 func (r *recording) mix(dst, src *vk.Buffer, n, mode int, factor float32, layer int) {
 	cfg := r.f.a.cfg
-	r.dispatch("mix", r.linear(ceilDiv(n, 64)), []uint32{uint32(n), uint32(mode), math.Float32bits(factor), uint32(cfg.PLEDim), uint32(cfg.Layers), uint32(layer)}, dst, src)
+	g := r.linear(ceilDiv(n, 64))
+	perLane := 3
+	if mode == geluProduct || mode == pleProduct {
+		perLane = 12
+	}
+	r.dispatch("mix", product(int(g[0]), int(g[1]), 64, perLane), g, []uint32{uint32(n), uint32(mode), math.Float32bits(factor), uint32(cfg.PLEDim), uint32(cfg.Layers), uint32(layer)}, dst, src)
 }
 func (r *recording) rotate(x *vk.Buffer, l layer, heads int) {
 	table := r.f.tables[l.rotation]
 	pairs := r.f.rows * heads * (l.dim / 2)
-	r.dispatch("rope", r.linear(ceilDiv(pairs, 64)), []uint32{uint32(pairs), uint32(heads), uint32(l.dim)}, x, table[0], table[1], r.f.segments)
+	g := r.linear(ceilDiv(pairs, 64))
+	r.dispatch("rope", product(int(g[0]), int(g[1]), 64, 8), g, []uint32{uint32(pairs), uint32(heads), uint32(l.dim)}, x, table[0], table[1], r.f.segments)
 }
 func (r *recording) layer(i int) {
 	f := r.f
@@ -226,12 +256,15 @@ func (r *recording) layer(i int) {
 	if l.full {
 		radius = t
 	}
-	for start := 0; start < t; start += f.block {
-		b := min(f.block, t-start)
-		args := []uint32{uint32(t), uint32(start), uint32(b), uint32(cfg.Heads), uint32(l.kv), uint32(l.dim)}
-		r.dispatch("scores", grid(ceilDiv(t, 16), ceilDiv(b, 8), cfg.Heads), args, f.q, f.k, f.scores)
-		r.dispatch("softmax", grid(b, cfg.Heads, 1), append(args, uint32(radius)), f.scores, f.segments)
-		r.dispatch("values", grid(ceilDiv(l.dim, 16), ceilDiv(b, 8), cfg.Heads), args, f.scores, f.v, f.context)
+	err := attentionBlocks(f.lengths, cfg.Heads, l.dim, radius, func(b attentionBlock) {
+		args := []uint32{uint32(b.query), uint32(b.rows), uint32(cfg.Heads), uint32(l.kv), uint32(l.dim),
+			uint32(b.key), uint32(b.keys), uint32(b.sequence), uint32(radius)}
+		r.dispatch("scores", b.scores(cfg.Heads, l.dim), grid(ceilDiv(b.keys, 16), ceilDiv(b.rows, 8), cfg.Heads), args, f.q, f.k, f.scores)
+		r.dispatch("softmax", b.softmax(cfg.Heads), grid(b.rows, cfg.Heads, 1), args, f.scores)
+		r.dispatch("values", b.values(cfg.Heads, l.dim), grid(ceilDiv(l.dim, 16), ceilDiv(b.rows, 8), cfg.Heads), args, f.scores, f.v, f.context)
+	})
+	if err != nil && r.plan.err == nil {
+		r.plan.err = err
 	}
 	r.project(f.context, l.o, f.branch, qd, h)
 	r.norm(f.branch, l.postAttn, f.branch, t, h)

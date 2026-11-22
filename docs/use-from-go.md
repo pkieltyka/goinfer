@@ -312,6 +312,18 @@ startup), `ErrNoDevice` (no match), `ErrAmbiguousDevice` (multiple matches) and
 The first three also match `ErrDeviceUnavailable`, as does a malformed selector.
 An out-of-memory error has its own category. Forward retry safety is a separate contract.
 
+If a Vulkan forward returns `embeddinggemma2.ErrDeviceLost`, detectable with
+`errors.Is`, close the accelerator. Later forwards on it return the loss without
+submitting work. Use `errors.As` with `*embeddinggemma2.DeviceLostError` to
+inspect the original driver error. After a successful close, an application can
+attach a fresh accelerator to the same encoder before sharing it again.
+
+`EmbedIDsBatch` returns vectors in input order. With the same model pack,
+build, selector, physical device and driver, its float32 output for an input
+has the same bits as `EmbedIDs` on that input. This applies when splitting
+or reordering admitted batches. Vulkan keeps attention within each sequence
+and bounds the estimated GPU work per native submission.
+
 ### Download EmbeddingGemma 2
 
 Import `github.com/pkieltyka/goinfer/pull` and call

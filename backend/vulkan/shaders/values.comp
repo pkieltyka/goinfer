@@ -5,12 +5,15 @@ layout(std430, set = 0, binding = 0) readonly buffer Scores { float scores[]; };
 layout(std430, set = 0, binding = 1) readonly buffer Values { float values[]; };
 layout(std430, set = 0, binding = 2) writeonly buffer Context { float context[]; };
 layout(push_constant) uniform Shape {
-    uint tokens;
     uint queryStart;
     uint blockRows;
     uint heads;
     uint kvHeads;
     uint headDim;
+    uint keyStart;
+    uint keys;
+    uint sequenceStart;
+    uint radius;
 } p;
 
 shared float scoreTile[8][16];
@@ -25,13 +28,13 @@ void main() {
     uint kvHead = head / (p.heads / p.kvHeads);
 
     float sum = 0.0;
-    for (uint keyBase = 0u; keyBase < p.tokens; keyBase += 16u) {
-        scoreTile[y][x] = row < p.blockRows && keyBase + x < p.tokens
-            ? scores[(head * p.blockRows + row) * p.tokens + keyBase + x] : 0.0;
+    for (uint keyBase = 0u; keyBase < p.keys; keyBase += 16u) {
+        scoreTile[y][x] = row < p.blockRows && keyBase + x < p.keys
+            ? scores[(head * p.blockRows + row) * p.keys + keyBase + x] : 0.0;
         for (uint j = y; j < 16u; j += 8u) {
             uint k = keyBase + j;
-            valueTile[j][x] = k < p.tokens && d < p.headDim
-                ? values[(k * p.kvHeads + kvHead) * p.headDim + d] : 0.0;
+            valueTile[j][x] = k < p.keys && d < p.headDim
+                ? values[((p.keyStart + k) * p.kvHeads + kvHead) * p.headDim + d] : 0.0;
         }
         barrier();
         for (uint j = 0u; j < 16u; ++j) {

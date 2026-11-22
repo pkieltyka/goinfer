@@ -341,8 +341,10 @@ EOF
     {
       echo 'package main'
       echo 'import ('
-      echo '	_ "github.com/pkieltyka/goinfer/embeddinggemma2"'
-      [ -n "$backend_mod" ] && echo "	_ \"$backend_mod\""
+      printf '  _ "%s"\n' github.com/pkieltyka/goinfer/embeddinggemma2
+      if [ -n "$backend_mod" ]; then
+        printf '  _ "%s"\n' "$backend_mod"
+      fi
       echo ')'
       echo 'func main() {}'
     } >"$dir/main.go"

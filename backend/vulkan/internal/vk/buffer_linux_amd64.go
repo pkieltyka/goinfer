@@ -25,6 +25,7 @@ type Buffer struct {
 func (d *Device) NewBuffer(size uint64, memory Memory) (_ *Buffer, err error) {
 	d.mu.Lock()
 	defer d.mu.Unlock()
+	defer func() { d.poisonOnLoss(err) }()
 	if err = d.usable(); err != nil {
 		return nil, err
 	}
