@@ -248,6 +248,29 @@ prompt by `multimodal.SpliceImageBlock`. Needs the GLM-OCR checkpoint (`zai-org/
 on a CPU. Over HTTP the same request is an `image_url` part plus `response_format` (`docs/server.md`); in the terminal it is
 `goinfer-chat --model ~/models/glm-ocr --image invoice.png --schema invoice.schema.json`.
 
+## EmbeddingGemma 2 device selection
+
+The [EmbeddingGemma 2 example](../apps/examples/embeddinggemma2/main.go) ranks Markdown documents
+using a local Hugging Face checkpoint directory. The encoder starts on CPU. An application can
+call `UseAutoAccelerator` after loading it and before sharing it across goroutines:
+
+```go
+		choice := encoder.UseAutoAccelerator()
+		for _, decline := range choice.Declined {
+			fmt.Fprintf(os.Stderr, "%s: %v\n", decline.Selector, decline.Err)
+		}
+		fmt.Fprintln(os.Stderr, "embedding backend:", choice.Backend)
+```
+
+Blank-import `github.com/pkieltyka/goinfer/backend/vulkan` to add the Linux amd64 AMD option. It
+uses the installed Vulkan loader and driver from a `CGO_ENABLED=0` build. A Linux application
+can also blank-import `github.com/pkieltyka/goinfer/backend/cuda` and build with `-tags cuda` to
+include NVIDIA support. Auto tries linked CUDA first, then Vulkan, then returns CPU. It selects
+the first backend able to attach the model. To prefer Radeon, call
+`encoder.UseAutoAccelerator("vulkan", "cuda")`. For strict device selection call
+`encoder.UseAccelerator("vulkan")` and handle its error. Close an attached accelerator when the
+application has finished using that encoder.
+
 ## Closing a model
 
 `defer m.Close()` is the right way to finish, and it is safe while a generation is still running:

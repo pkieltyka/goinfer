@@ -4,11 +4,13 @@
 package main
 
 import (
+	"flag"
 	"fmt"
 	"os"
 	"slices"
 	"strings"
 
+	_ "github.com/pkieltyka/goinfer/backend/vulkan"
 	"github.com/pkieltyka/goinfer/embeddinggemma2"
 )
 
@@ -18,21 +20,41 @@ type match struct {
 }
 
 func main() {
-	if len(os.Args) < 4 {
-		fmt.Fprintln(os.Stderr, "usage: embeddinggemma2 <checkpoint-dir> <query> <doc.md> [doc.md ...]")
+	device := flag.String("accelerator", "cpu", "cpu, auto, or a registered accelerator name")
+	flag.Parse()
+	args := flag.Args()
+	if len(args) < 3 {
+		fmt.Fprintln(os.Stderr, "usage: embeddinggemma2 [-accelerator cpu|auto|vulkan] <checkpoint-dir> <query> <doc.md> [doc.md ...]")
 		os.Exit(2)
 	}
-	if err := rank(os.Args[1], os.Args[2], os.Args[3:]); err != nil {
+	if err := rank(args[0], args[1], args[2:], *device); err != nil {
 		fmt.Fprintln(os.Stderr, err)
 		os.Exit(1)
 	}
 }
 
-func rank(checkpoint, query string, documents []string) error {
+func rank(checkpoint, query string, documents []string, device string) error {
 	encoder, err := embeddinggemma2.LoadEncoder(checkpoint)
 	if err != nil {
 		return err
 	}
+	switch device {
+	case "cpu":
+	case "auto":
+		choice := encoder.UseAutoAccelerator()
+		for _, decline := range choice.Declined {
+			fmt.Fprintf(os.Stderr, "%s: %v\n", decline.Selector, decline.Err)
+		}
+		fmt.Fprintln(os.Stderr, "embedding backend:", choice.Backend)
+	default:
+		if _, err := encoder.UseAccelerator(device); err != nil {
+			return err
+		}
+	}
+	if accelerator := encoder.Accelerator(); accelerator != nil {
+		defer accelerator.Close()
+	}
+
 	queryVector, _, err := encoder.EmbedText(query, "query")
 	if err != nil {
 		return fmt.Errorf("query: %w", err)
