@@ -55,9 +55,8 @@ func (e *DeviceLostError) Unwrap() error        { return e.Cause }
 func (e *DeviceLostError) Is(target error) bool { return target == ErrDeviceLost }
 
 var (
-	accelMu        sync.Mutex
-	accels         = map[string]func(*Model) (Accelerator, error){}
-	selectedAccels = map[string]func(*Model, string) (Accelerator, error){}
+	accelMu sync.Mutex
+	accels  = map[string]func(*Model) (Accelerator, error){}
 )
 
 // RegisterAccelerator makes an accelerator available by name. A backend module registers itself from init (the root
@@ -71,9 +70,7 @@ func RegisterAccelerator(name string, factory func(*Model) (Accelerator, error))
 // RegisterSelectedAccelerator registers the factory used for a backend-qualified
 // device identifier passed to UseAccelerator or NewAccelerator.
 func RegisterSelectedAccelerator(name string, factory func(*Model, string) (Accelerator, error)) {
-	accelMu.Lock()
-	defer accelMu.Unlock()
-	selectedAccels[name] = factory
+	RegisterDeviceAccelerator(name, name, factory)
 }
 
 // Accelerators lists the registered accelerator names, sorted.
@@ -93,7 +90,7 @@ func (m *Model) NewAccelerator(name string) (Accelerator, error) {
 	accelMu.Lock()
 	f := accels[name]
 	backend, id, qualified := strings.Cut(name, ":")
-	selected := selectedAccels[backend]
+	selected := selectedAccels[backend].open
 	accelMu.Unlock()
 	if f == nil && qualified && selected != nil {
 		f = func(m *Model) (Accelerator, error) { return selected(m, id) }
@@ -105,6 +102,10 @@ func (m *Model) NewAccelerator(name string) (Accelerator, error) {
 		return nil, fmt.Errorf("%w: no %q accelerator in this binary (registered: %v)", ErrBackendUnavailable, name, Accelerators())
 	}
 	a, err := f(m)
+	return checkAccelerator(name, a, err)
+}
+
+func checkAccelerator(name string, a Accelerator, err error) (Accelerator, error) {
 	if err != nil {
 		return a, err
 	}
