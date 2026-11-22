@@ -2,7 +2,7 @@
 
 History, measurements and open work that used to sit in the comments of `embeddinggemma2`, moved here verbatim by the comment diet
 (`docs/completed/task-code-comments-2026-10.md`, CC1). The code comment above each declaration keeps what the code does, its contract and
-its guardrails, and points here by heading. This file is off the read path: open it when a pointer sends you. Text is unedited,
+its guardrails, and points here by heading. The sections marked as moved retain their original text,
 except that a `file.go:NNN` reference inside it names the declaration instead (the line numbers had already gone stale).
 
 ## TestTiny_parity
@@ -42,3 +42,28 @@ Moved from `embeddinggemma2/vision_real_test.go` (the comment above `TestReal_vi
 ```text
 The modes read: aikit's bilinear (V3/V4) and the reference's bicubic (R1/R2), both aikit's since 2026-10-06.
 ```
+
+## EmbeddingGemma 2 text GGUF
+
+Applications open an Unsloth Q8_0 or UD-Q6_K_XL text file with
+`embeddinggemma2.LoadGGUFEncoder`. The caller supplies the query and document prefixes
+and can require CUDA with `Encoder.UseAccelerator("cuda")`. The loader uses the
+embedded tokenizer. Packed CUDA batches use the existing `Encoder.EmbedIDsBatch`
+entry point. [Go usage guide](../use-from-go.md#embeddinggemma-2-text-gguf)
+
+The in-tree GGUF reader checks the directory, tensor bounds and supported encodings.
+The encoder then checks the architecture, quantization version, tensor shapes and
+the storage type for each weight role. Q8_0 also contains FP32 and BF16 tensors.
+UD-Q6_K_XL additionally uses Q8_0 for some projections. The loader expands
+every tensor once into owned FP32 weights and keeps the existing embedding graph.
+Generative GGUF loaders still expose aikit's GGUF type through the decoder API,
+and the embedding forward still uses aikit's math. [Reader](../../internal/gguf/README.md) ·
+[Unsloth artifact revision](https://huggingface.co/unsloth/embeddinggemma-2-GGUF/tree/031f0d4b35536f69ab3509d4893c923264fcf253)
+
+Keep the GGUF file digest and preprocessing configuration in the vector-cache
+identity. Changing either calls for recomputing document and query vectors.
+The current CUDA results verify correctness and retrieval for the two profiles.
+Keeping the token table compressed and adding packed projection kernels are
+separate opportunities to reduce runtime memory and test inference speed.
+[Qualification and benchmark findings](../measurements/embeddinggemma2-gguf-2026-11-22/README.md) ·
+[Reference GGML decoders](https://github.com/unslothai/llama.cpp/blob/8d60873dfb8619f2b5ed31adfbab07cccb40db5c/ggml/src/ggml-quants.c)
