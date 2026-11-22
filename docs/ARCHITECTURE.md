@@ -979,8 +979,8 @@ documents every variable, and its operator-facing rows are Hard-tier contract.
 
 goinfer is the LLM runtime. `aikit`, a separate repository, holds the rest: the tensor kernels, file
 parsers, memory mapping, embedding models and vision towers. Everything in the default build is pure
-Go with `CGO_ENABLED=0`. The root module's `go.mod` requires only `aikit` and `golang.org/x/text`,
-and, since the M-19 split, none of the backend modules.
+Go with `CGO_ENABLED=0`. The root module requires `aikit`, `golang.org/x/sys` and `golang.org/x/text`.
+The optional GPU backends have separate modules.
 
 ```mermaid
 flowchart TB
@@ -1044,23 +1044,24 @@ not a binding strategy.
 
 ### Modules
 
-Seven Go modules live in the workspace (an eighth `go.mod`, `.github/actions/staticcheck`, pins the CI linter build).
-Five are released together with tags, and two (`apps/sdktest` and `apps/site`) are never tagged. The backends are separate
+Eight Go modules live in the workspace (a ninth `go.mod`, `.github/actions/staticcheck`, pins the CI linter build).
+Six support release tags, and two (`apps/sdktest` and `apps/site`) are never tagged. The backends are separate
 modules so that their dependencies never enter a build that did not ask for them. `demo/agent` is separate so that the MCP SDK
 stays out of the root's `go.mod`.
 
 | Module | Contents | Requires beyond the root and `aikit` |
 |---|---|---|
-| `github.com/pkieltyka/goinfer` | everything in the Packages table below except the three backends | `golang.org/x/text` |
+| `github.com/pkieltyka/goinfer` | everything in the Packages table below except the four backends | `golang.org/x/text` |
 | `github.com/pkieltyka/goinfer/backend/webgpu` | the WebGPU backend (`-tags gpu`), `backend/webgpu/cmd/chat`, `backend/webgpu/cmd/serve` | `oliverbestmann/webgpu` (cgo) |
 | `github.com/pkieltyka/goinfer/backend/cuda` | the CUDA backend (`-tags cuda`), `backend/cuda/cmd/chat`, `backend/cuda/cmd/serve` | `eitamring/gocudrv`, `ebitengine/purego` |
 | `github.com/pkieltyka/goinfer/backend/metal` | the Metal backend (darwin), `backend/metal/cmd/chat`, `backend/metal/cmd/serve` | `ebitengine/purego`, `golang.org/x/sys` |
+| `github.com/pkieltyka/goinfer/backend/vulkan` | direct Vulkan EmbeddingGemma 2 text accelerator (Linux amd64) | `ebitengine/purego` |
 | `github.com/pkieltyka/goinfer/demo/agent` | a local RAG coding agent over MCP | the MCP Go SDK; `goinfer/backend/webgpu` for its WebGPU web build |
 | `github.com/pkieltyka/goinfer/sdktest` | (`apps/sdktest`, never tagged) official OpenAI and Anthropic SDK tests against the in-process server | the OpenAI and Anthropic Go SDKs |
 | `github.com/pkieltyka/goinfer/site` | (`apps/site`, never tagged) the website generator (`goinfer.dev`) | stdlib only |
 
-**The four modules for library users are the root and the three backends**; `demo/agent` is a demo.
-[api-tiers.md](api-tiers.md) lists all four tagged submodules as Experimental.
+**The library modules are the root and four GPU backends.** `demo/agent` is a demo.
+[api-tiers.md](api-tiers.md) describes the API stability tiers.
 
 **`go.work` is gitignored, but needed for any cross-module change.** Without it, a submodule resolves
 the root from the proxy at its last tag. CI builds throwaway workspaces, and `standalone-build.yml`
@@ -1163,6 +1164,7 @@ Every import from one goinfer package to another, by repository-relative directo
 | `backend/metal/cmd/chat` | `backend/metal`, `internal/app/chatapp` |  |
 | `backend/metal/cmd/serve` | `backend/metal`, `internal/app/serveapp` |  |
 | `backend/metal/kernels` | `internal/runtime/f16` | `backend/metal/internal/gpudev`, `internal/runtime/hybridattn`, `internal/runtime/mamba2`, `internal/runtime/sampling` |
+| `backend/vulkan` | `backend/vulkan/internal/vk`, `embeddinggemma2` |  |
 | `backend/webgpu` | `backend/webgpu/internal/kernels`, `backend/webgpu/internal/kvdecl`, `decoder`, `internal/cost`, `internal/runtime/logs`, `internal/runtime/mem`, `internal/runtime/program` | `chat`, `decoder/fit`, `internal/diag/sb2census`, `internal/diag/towerid`, `internal/fidelity`, `internal/guard/memgate`, `internal/runtime/giw`, `internal/runtime/mem/probe`, `internal/testgate`, `internal/vision`, `internal/wrappedupload`, `multimodal`, `tokenizer` |
 | `backend/webgpu/cmd/chat` | `backend/webgpu`, `internal/app/chatapp` |  |
 | `backend/webgpu/cmd/serve` | `backend/webgpu`, `internal/app/serveapp` |  |
@@ -1225,7 +1227,7 @@ No import, made or recorded, may break one; they are edited by hand in `imports.
 | gpudev-standalone | `backend/cuda/internal/gpudev`, `backend/metal/internal/gpudev`, tests included | any goinfer package | The device substrate (AX) sits under every backend package and imports none of them, nor anything else of goinfer's. |
 | kernels-free-of-decoder | `backend/cuda/kernels`, `backend/metal/kernels`, `backend/webgpu/internal/kernels`, tests included | `decoder` | Backend kernel tests left the packages that import decoder (SB1 step 1) so a decoder edit stops re-running them. |
 | probe-standalone | `internal/runtime/mem/probe`, tests included | any goinfer package | The one reader of the OS's memory account (MM0) imports no goinfer package; that it is the only reader is TestOnlyProbeReadsOSMemory. |
-| root-free-of-backends | `module:root`, tests included | `backend/cuda`; `backend/metal`; `backend/webgpu`; `github.com/pkieltyka/aikit/gpu`; `github.com/ebitengine/purego`; `github.com/eitamring/gocudrv`; (the root go.mod requires none of them) | The root module builds without a GPU toolchain or binding: the backends are their own modules, which import the root, never the reverse. |
+| root-free-of-backends | `module:root`, tests included | `backend/cuda`; `backend/metal`; `backend/vulkan`; `backend/webgpu`; `github.com/pkieltyka/aikit/gpu`; `github.com/ebitengine/purego`; `github.com/eitamring/gocudrv`; (the root go.mod requires none of them) | The root module builds without a GPU toolchain or binding: the backends are their own modules, which import the root, never the reverse. |
 | scheduler-standard-library | `internal/runtime/scheduler`, tests included | any goinfer package | The scheduling policy (SB6) is decisions over plain values: no goinfer package and nothing outside the standard library, so it can be tested on a virtual clock with nothing loaded. |
 | engine-below-the-shell | `engine`, `engine/enginetest`, tests included | `internal/app/serveapp`; `internal/app/chatapp`; `cmd` | The engine package (SB7) is what the serving shell asks of a model; the shell imports it and its fakes, never the reverse, so a fake engine needs no server. |
 | serveapp-fakes-test-only | `internal/app/serveapp` | `engine/enginetest` | The engine fakes are test code: the serving shell's production files do not link them. A test supplies its engine through loadedModel.fakeEngine. |

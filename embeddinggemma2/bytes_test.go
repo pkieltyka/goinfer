@@ -7,6 +7,7 @@ import (
 	"fmt"
 	"math"
 	"os"
+	"reflect"
 	"sort"
 	"strings"
 	"testing"
@@ -186,6 +187,27 @@ func TestNewModel_matchesLoad(t *testing.T) {
 		t.Fatal("config differs")
 	}
 	sameOutputs(t, "float32", got, want, g)
+}
+
+func TestTransformerWeights_keepsPackedTokens(t *testing.T) {
+	cfg, tensors := tinyParts(t)
+	tokens, layers, _ := splitText(t, tensors)
+	model, err := NewModel(cfg, tokens, layers)
+	if err != nil {
+		t.Fatal(err)
+	}
+	weights := model.TransformerWeights()
+	if weights.Embed != nil || model.embed != nil {
+		t.Fatal("TransformerWeights materialized the token table")
+	}
+	full := model.Weights()
+	if len(full.Embed) != cfg.VocabSize*cfg.Hidden {
+		t.Fatalf("Weights returned %d token values", len(full.Embed))
+	}
+	full.Embed = nil
+	if !reflect.DeepEqual(weights, full) {
+		t.Fatal("transformer weights differ from Weights")
+	}
 }
 
 // TestNewModel_bfloat16: the same numbers stored as bfloat16 (token table and layers) and as float32 give

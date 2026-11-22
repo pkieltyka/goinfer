@@ -2,6 +2,7 @@ package embeddinggemma2
 
 import (
 	"fmt"
+	"reflect"
 	"sort"
 	"sync"
 )
@@ -49,10 +50,24 @@ func (m *Model) NewAccelerator(name string) (Accelerator, error) {
 	accelMu.Lock()
 	f, ok := accels[name]
 	accelMu.Unlock()
-	if !ok {
+	if !ok || f == nil {
 		return nil, fmt.Errorf("embeddinggemma2: no %q accelerator in this binary (registered: %v)", name, Accelerators())
 	}
-	return f(m)
+	a, err := f(m)
+	if err != nil {
+		return a, err
+	}
+	value := reflect.ValueOf(a)
+	if !value.IsValid() {
+		return nil, fmt.Errorf("embeddinggemma2: %q returned no accelerator", name)
+	}
+	switch value.Kind() {
+	case reflect.Chan, reflect.Func, reflect.Map, reflect.Pointer, reflect.Slice:
+		if value.IsNil() {
+			return nil, fmt.Errorf("embeddinggemma2: %q returned a nil accelerator", name)
+		}
+	}
+	return a, nil
 }
 
 // ForwardCPU is the CPU forward an accelerator is compared with: the projected last hidden state and, with
@@ -94,7 +109,15 @@ type Weights struct {
 // Weights returns the model's weights for an accelerator. On a model built by NewModel the token table is widened to
 // float32 the first time this is called, which the CPU path never needs.
 func (m *Model) Weights() Weights {
-	w := Weights{Config: m.cfg, Embed: m.embedF32(), PLEProj: m.pleProj, PLENorm: m.pleNorm, FinalNorm: m.finalNorm,
+	w := m.TransformerWeights()
+	w.Embed = m.embedF32()
+	return w
+}
+
+// TransformerWeights returns the read-only encoder weights with Embed left nil.
+// Accelerators that obtain input rows through EmbedTokens can leave a packed token table packed.
+func (m *Model) TransformerWeights() Weights {
+	w := Weights{Config: m.cfg, PLEProj: m.pleProj, PLENorm: m.pleNorm, FinalNorm: m.finalNorm,
 		Projection: m.projection, Layers: make([]LayerWeights, len(m.layers))}
 	for i := range m.layers {
 		l := &m.layers[i]

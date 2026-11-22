@@ -101,7 +101,7 @@ exit 0
 	_, cgoOS := platformEnv(target{cgo: true}, runtime.GOOS, runtime.GOARCH)
 	want := map[string]outcome{
 		"staticcheck version": ok, "canary/linux": ok, "canary/" + cgoOS + "-cgo": ok,
-		"staticcheck/root": ok, "staticcheck/gpu": ok, "staticcheck/demo/agent": ok, "staticcheck/cuda": fail,
+		"staticcheck/root": ok, "staticcheck/vulkan": ok, "staticcheck/gpu": ok, "staticcheck/demo/agent": ok, "staticcheck/cuda": fail,
 	}
 	if !reflect.DeepEqual(got, want) {
 		t.Errorf("cells = %v, want %v", got, want)
@@ -110,8 +110,8 @@ exit 0
 		t.Errorf("run = %s exit %d, want FAIL exit 1", r.outcome, r.exit)
 	}
 	only := checks(repoRoot, bin, map[string]bool{"root": true})
-	if r := reconcile(only); r.outcome != ok || r.na != 3 {
-		t.Errorf("-only root: run = %s with %d n/a, want PASS with 3 n/a", r.outcome, r.na)
+	if r := reconcile(only); r.outcome != ok || r.na != len(targets)-1 {
+		t.Errorf("-only root: run = %s with %d n/a, want PASS with %d n/a", r.outcome, r.na, len(targets)-1)
 	}
 }
 

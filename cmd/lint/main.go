@@ -25,7 +25,7 @@ import (
 
 func main() {
 	bin := flag.String("staticcheck", "staticcheck", "staticcheck binary")
-	onlyFlag := flag.String("only", "", "comma-separated targets to run (root, gpu, demo/agent, cuda); empty runs all")
+	onlyFlag := flag.String("only", "", "comma-separated targets to run (root, vulkan, gpu, demo/agent, cuda); empty runs all")
 	underLock := flag.Bool("under-timing-lock", false, "internal: set by lint's own re-run under the shared timing lock")
 	flag.Parse()
 	out, err := exec.Command("git", "rev-parse", "--show-toplevel").Output()

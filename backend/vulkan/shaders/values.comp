@@ -1,0 +1,48 @@
+#version 450
+
+layout(local_size_x = 16, local_size_y = 8) in;
+layout(std430, set = 0, binding = 0) readonly buffer Scores { float scores[]; };
+layout(std430, set = 0, binding = 1) readonly buffer Values { float values[]; };
+layout(std430, set = 0, binding = 2) writeonly buffer Context { float context[]; };
+layout(push_constant) uniform Shape {
+    uint tokens;
+    uint queryStart;
+    uint blockRows;
+    uint heads;
+    uint kvHeads;
+    uint headDim;
+} p;
+
+shared float scoreTile[8][16];
+shared float valueTile[16][16];
+
+void main() {
+    uint x = gl_LocalInvocationID.x;
+    uint y = gl_LocalInvocationID.y;
+    uint row = gl_WorkGroupID.y * 8u + y;
+    uint d = gl_WorkGroupID.x * 16u + x;
+    uint head = gl_WorkGroupID.z;
+    uint kvHead = head / (p.heads / p.kvHeads);
+
+    float sum = 0.0;
+    for (uint keyBase = 0u; keyBase < p.tokens; keyBase += 16u) {
+        scoreTile[y][x] = row < p.blockRows && keyBase + x < p.tokens
+            ? scores[(head * p.blockRows + row) * p.tokens + keyBase + x] : 0.0;
+        for (uint j = y; j < 16u; j += 8u) {
+            uint k = keyBase + j;
+            valueTile[j][x] = k < p.tokens && d < p.headDim
+                ? values[(k * p.kvHeads + kvHead) * p.headDim + d] : 0.0;
+        }
+        barrier();
+        for (uint j = 0u; j < 16u; ++j) {
+            float score = scoreTile[y][j];
+            if (score != 0.0) {
+                sum = fma(score, valueTile[j][x], sum);
+            }
+        }
+        barrier();
+    }
+    if (row < p.blockRows && d < p.headDim) {
+        context[((p.queryStart + row) * p.heads + head) * p.headDim + d] = sum;
+    }
+}

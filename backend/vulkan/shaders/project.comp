@@ -1,0 +1,26 @@
+#version 450
+// A[rows,inner] * transpose(W[cols,inner]).
+layout(local_size_x=16, local_size_y=8) in;
+layout(std430,binding=0) readonly buffer A {float a[];};
+layout(std430,binding=1) readonly buffer W {float w[];};
+layout(std430,binding=2) writeonly buffer Out {float dst[];};
+layout(push_constant) uniform Shape {uint rows, cols, inner;} p;
+shared float inputs[8][16];
+shared float weights[16][16];
+void main() {
+    uint x=gl_LocalInvocationID.x, y=gl_LocalInvocationID.y;
+    uint row=gl_GlobalInvocationID.y, col=gl_GlobalInvocationID.x;
+    float sum=0.0;
+    for (uint base=0; base<p.inner; base+=16) {
+        uint k=base+x;
+        inputs[y][x]=row<p.rows && k<p.inner ? a[row*p.inner+k] : 0.0;
+        for (uint j=y; j<16; j+=8) {
+            uint n=gl_WorkGroupID.x*16+j;
+            weights[j][x]=n<p.cols && k<p.inner ? w[n*p.inner+k] : 0.0;
+        }
+        barrier();
+        for (uint j=0; j<16; ++j) sum=fma(inputs[y][j],weights[x][j],sum);
+        barrier();
+    }
+    if (row<p.rows && col<p.cols) dst[row*p.cols+col]=sum;
+}

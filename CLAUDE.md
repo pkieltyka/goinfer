@@ -7,7 +7,7 @@ procedures live in a gitignored `CLAUDE.local.md` that Claude Code loads beside 
 
 **Layout:** `docs/layout.md` maps every directory, module and `scripts/` prefix. `scripts/make_work.sh` creates `go.work` from `go.work.example`.
 
-**Seven Go modules**: the root, `backend/webgpu/`, `backend/cuda/`, `backend/metal/`, `demo/agent/`, `apps/sdktest/` (tests only, the official OpenAI and
+**Eight Go modules**: the root, `backend/webgpu/`, `backend/cuda/`, `backend/metal/`, `backend/vulkan/`, `demo/agent/`, `apps/sdktest/` (tests only, the official OpenAI and
 Anthropic SDKs against the in-process server; never tagged) and `apps/site/` (the website generator, built by `site.yml`).
 `go.work` is gitignored and **mandatory** for cross-module work. A `GOWORK=off` build of a submodule resolves the root from
 the proxy at its last published tag, so "method not found" on good code is expected between releases, not a bug.
@@ -204,5 +204,5 @@ The measurements are the product; each rule's evidence is in the timed-run skill
 
 ## Releases
 
-`RELEASING.md` is the authority: seven workspace modules (five tagged in a two-step release; `apps/sdktest` and `apps/site` are never tagged), and a GitHub Release on the root tag only as a non-optional
+`RELEASING.md` is the authority: eight workspace modules (six releasable; `apps/sdktest` and `apps/site` are never tagged), and a GitHub Release on the root tag only as a non-optional
 final step. Do not restate its version numbers; read them with the command it gives.

@@ -4,8 +4,8 @@ The fork publishes the root module, `github.com/pkieltyka/goinfer`, independentl
 The fork inherited upstream’s `v0.3.0` tag for `github.com/townsendmerino/goinfer`, so its next
 release skips to `v0.4.0` pending the fork owner’s approval. See the [fork tags](https://github.com/pkieltyka/goinfer/tags).
 
-The workspace also includes four separately versioned modules in `backend/webgpu/`,
-`backend/cuda/`, `backend/metal/` and `demo/agent/`. Use Step 2 only when publishing
+The workspace also includes five separately versioned modules in `backend/webgpu/`,
+`backend/cuda/`, `backend/metal/`, `backend/vulkan/` and `demo/agent/`. Use Step 2 only when publishing
 one of those modules. The other two workspace modules serve the SDK tests and website.
 A separate `go.mod` in `.github/actions/staticcheck/` pins the CI linter.
 
@@ -34,15 +34,15 @@ survives to a tag unless caught here.
   version = B-05 — both publish a broken dependency permanently). **Do NOT re-add the replace.**
 - **`go.work` is gitignored, per-machine, and now MANDATORY for cross-module dev.** With the replaces
   gone, a submodule build outside a workspace resolves the root from the proxy; local cross-module
-  work needs a `go.work` covering **all seven workspace modules** (`.`, `./backend/webgpu`, `./backend/cuda`, `./backend/metal`,
-  `./demo/agent`, `./apps/sdktest`, `./apps/site`). It stays dev-only — nothing in the shipped tag may depend on it, which the
+  work needs a `go.work` covering **all eight workspace modules** (`.`, `./backend/webgpu`, `./backend/cuda`, `./backend/metal`,
+  `./backend/vulkan`, `./demo/agent`, `./apps/sdktest`, `./apps/site`). It stays dev-only — nothing in the shipped tag may depend on it, which the
   `standalone-build` workflow proves. That workflow runs on TAG pushes, not on every push, and
   the reason is structural rather than a preference: a submodule built with `GOWORK=off`
   resolves the goinfer root from the proxy at its LAST PUBLISHED TAG, so between releases it
   legitimately fails on perfectly good code that uses a root symbol added since. At tag time the
   root tag is published, which is when the answer means anything. Until 2026-09-02 the sentence
   here claimed a CI step that did not exist, and Step 2 below was the only thing checking it.
-- **Version alignment (B-07):** the root and the four releasable submodules must agree on `aikit`. **Read the versions, do not read them
+- **Version alignment (B-07):** the root and the five releasable submodules must agree on `aikit`. **Read the versions, do not read them
   here.** No module requires `aikit/gpu`: the device package is goinfer's own since Track AX
   (`backend/cuda/internal/gpudev`, `backend/metal/internal/gpudev`), and `internal/guard/movedpaths` fails on a require of it.
   The `aikit` they agree on must be a **tag**: `main` may require an aikit pseudo-version between weekly aikit
@@ -50,7 +50,7 @@ survives to a tag unless caught here.
   and bump to the tag first.
 
   ```sh
-  for m in . backend/webgpu backend/cuda backend/metal demo/agent; do printf '%-16s ' "$m"; grep -h aikit $m/go.mod | tr '\n' ' '; echo; done
+  for m in . backend/webgpu backend/cuda backend/metal backend/vulkan demo/agent; do printf '%-16s ' "$m"; grep -h aikit $m/go.mod | tr '\n' ' '; echo; done
   ```
 
   This used to name the versions, and it has gone stale **twice** — first telling you to align on
@@ -161,10 +161,10 @@ git push origin main ${TAG}        # published BEFORE any submodule go-gets it
 
 > **Do not use `git commit -am` with unrelated work in the tree.** Both this step and Step 2 stage
 > every tracked modification. Stash anything not part of the release first (`git stash push -u --
-> <paths>`) — Step 2 in particular runs `-am` four times across four modules.
+> <paths>`) — Step 2 in particular stages each selected module’s release changes.
 
 **Optional Step 2 — point each selected submodule at the tagged root, prove the standalone build, tag.**
-Do `backend/webgpu/`, `backend/cuda/`, `backend/metal/` first, then `demo/agent/` LAST (it also requires `goinfer/backend/webgpu`, so
+Do the selected backend modules first, then `demo/agent/` LAST (it also requires `goinfer/backend/webgpu`, so
 `backend/webgpu/vX` must be tagged and pushed before demo/agent can `go get` it).
 ```
 cd <mod>
@@ -177,7 +177,11 @@ GOWORK=off go build -tags <cuda|gpu|metal> ./...                  # PROVE it bui
 ```
 `metal` on a Linux box prints `matched no packages` (its files are darwin-gated) — that is
 EXPECTED; the `go mod tidy` go.sum bump is the deliverable, and macOS/CI runs the real build gate.
-Then commit the go.mod/go.sum bumps and tag the modules being published. The example below releases all four. **`git tag` takes ONE name per call** (unlike
+For Vulkan, use `CGO_ENABLED=0 GOWORK=off go build ./...` inside `backend/vulkan`. Its native
+device check runs separately on a discrete Radeon. When publishing Vulkan, commit its dependency
+bumps and run `git tag backend/vulkan/${TAG}` followed by `git push origin main backend/vulkan/${TAG}`.
+
+Then commit the go.mod/go.sum bumps and tag the modules being published. The example below covers CUDA, WebGPU, Metal and the demo. **`git tag` takes ONE name per call** (unlike
 `git push`, which takes many):
 ```
 git commit -am "release: backend/{webgpu,cuda,metal} require goinfer ${TAG}"
