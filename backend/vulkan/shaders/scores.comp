@@ -1,0 +1,48 @@
+#version 450
+
+layout(local_size_x = 16, local_size_y = 8) in;
+layout(std430, set = 0, binding = 0) readonly buffer Queries { float queries[]; };
+layout(std430, set = 0, binding = 1) readonly buffer Keys { float keys[]; };
+layout(std430, set = 0, binding = 2) writeonly buffer Scores { float scores[]; };
+layout(push_constant) uniform Shape {
+    uint tokens;
+    uint queryStart;
+    uint blockRows;
+    uint heads;
+    uint kvHeads;
+    uint headDim;
+} p;
+
+shared float qTile[8][16];
+shared float kTile[16][16];
+
+void main() {
+    uint x = gl_LocalInvocationID.x;
+    uint y = gl_LocalInvocationID.y;
+    uint queryBase = gl_WorkGroupID.y * 8u;
+    uint keyBase = gl_WorkGroupID.x * 16u;
+    uint row = queryBase + y;
+    uint key = keyBase + x;
+    uint head = gl_WorkGroupID.z;
+    uint kvHead = head / (p.heads / p.kvHeads);
+
+    float sum = 0.0;
+    for (uint dBase = 0u; dBase < p.headDim; dBase += 16u) {
+        uint d = dBase + x;
+        qTile[y][x] = row < p.blockRows && d < p.headDim
+            ? queries[((p.queryStart + row) * p.heads + head) * p.headDim + d] : 0.0;
+        for (uint j = y; j < 16u; j += 8u) {
+            uint k = keyBase + j;
+            kTile[j][x] = k < p.tokens && d < p.headDim
+                ? keys[(k * p.kvHeads + kvHead) * p.headDim + d] : 0.0;
+        }
+        barrier();
+        for (uint j = 0u; j < 16u; ++j) {
+            sum = fma(qTile[y][j], kTile[x][j], sum);
+        }
+        barrier();
+    }
+    if (row < p.blockRows && key < p.tokens) {
+        scores[(head * p.blockRows + row) * p.tokens + key] = sum;
+    }
+}

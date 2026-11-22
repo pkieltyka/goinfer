@@ -1,0 +1,68 @@
+#version 450
+
+layout(local_size_x = 64) in;
+layout(std430, set = 0, binding = 0) buffer Scores { float scores[]; };
+layout(std430, set = 0, binding = 1) readonly buffer Segments { vec2 segments[]; };
+layout(push_constant) uniform Shape {
+    uint tokens;
+    uint queryStart;
+    uint blockRows;
+    uint heads;
+    uint kvHeads;
+    uint headDim;
+    uint radius;
+} p;
+
+shared float partial[64];
+
+void main() {
+    uint row = gl_WorkGroupID.x;
+    uint head = gl_WorkGroupID.y;
+    uint query = p.queryStart + row;
+    uint lane = gl_LocalInvocationID.x;
+    uint first = max(uint(segments[query].x), query - min(query, p.radius));
+    uint end = min(uint(segments[query].y), query + p.radius + 1u);
+    uint base = (head * p.blockRows + row) * p.tokens;
+
+    // Assign every key to the same lane for all storage accesses.
+    float peak = uintBitsToFloat(0xff7fffffu);
+    for (uint key = lane; key < p.tokens; key += 64u) {
+        if (key >= first && key < end) {
+            peak = max(peak, scores[base + key]);
+        }
+    }
+    partial[lane] = peak;
+    barrier();
+    for (uint stride = 32u; stride > 0u; stride /= 2u) {
+        if (lane < stride) {
+            partial[lane] = max(partial[lane], partial[lane + stride]);
+        }
+        barrier();
+    }
+    float rowMax = partial[0];
+    barrier();
+
+    float total = 0.0;
+    for (uint key = lane; key < p.tokens; key += 64u) {
+        float value = 0.0;
+        if (key >= first && key < end) {
+            value = exp(scores[base + key] - rowMax);
+        }
+        scores[base + key] = value;
+        total += value;
+    }
+    partial[lane] = total;
+    barrier();
+    for (uint stride = 32u; stride > 0u; stride /= 2u) {
+        if (lane < stride) {
+            partial[lane] += partial[lane + stride];
+        }
+        barrier();
+    }
+    float inverse = 1.0 / partial[0];
+    for (uint key = lane; key < p.tokens; key += 64u) {
+        if (key >= first && key < end) {
+            scores[base + key] *= inverse;
+        }
+    }
+}
