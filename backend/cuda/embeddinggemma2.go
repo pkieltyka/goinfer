@@ -25,6 +25,7 @@ func init() {
 		return newEG2Accel(m, false)
 	})
 	embeddinggemma2.RegisterSelectedAccelerator("cuda", selectedEG2Factory(false))
+	embeddinggemma2.RegisterDeviceProber("cuda", probeCUDADevices)
 }
 
 // eg2MaxTokens is the longest input the accelerator takes: a full layer's score row is T float32 in attention_seg's
@@ -60,11 +61,12 @@ type eg2Defect struct {
 
 // eg2Accel is the CUDA accelerator. One forward at a time (mu); towerOps runs every device call on its executor.
 type eg2Accel struct {
-	mu     sync.Mutex
-	ops    *towerOps
-	closed bool
-	cfg    embeddinggemma2.Config
-	model  *embeddinggemma2.Model
+	mu       sync.Mutex
+	ops      *towerOps
+	closed   bool
+	cfg      embeddinggemma2.Config
+	model    *embeddinggemma2.Model
+	identity embeddinggemma2.DeviceInfo
 
 	pleProj, pleNorm, finalNorm, proj, ones Buffer
 	layers                                  []eg2Layer
@@ -96,6 +98,7 @@ func newEG2AccelOn(m *embeddinggemma2.Model, combined bool, open func() (*Device
 		return nil, err
 	}
 	a := &eg2Accel{ops: ops, cfg: c, model: m}
+	a.identity = cudaDeviceInfo(ops.dev.Adapter())
 	if err := ops.do(func() error {
 		up := ops.up
 		a.pleProj, a.pleNorm, a.finalNorm, a.proj = up(w.PLEProj), up(w.PLENorm), up(w.FinalNorm), up(w.Projection)

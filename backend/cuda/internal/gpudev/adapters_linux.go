@@ -97,6 +97,17 @@ func describeAdapter(dev adapterHandle) (Adapter, error) {
 	return a, nil
 }
 
+// Adapter reports identity from the same handle that retained this context.
+// Unavailable details are left empty.
+func (d *Device) Adapter() Adapter {
+	dev := d.cx.Device()
+	name, _ := dev.Name()
+	uuid, _ := dev.UUID()
+	pci, _ := dev.PCIBusID()
+	total, _ := dev.TotalMemory()
+	return Adapter{Ordinal: dev.Ordinal(), UUID: uuid, Name: name, PCIBusID: pci, TotalBytes: total}
+}
+
 // CreateSelectedDevice retains the primary context only after checking the UUID
 // on the same handle. A change in ordinal mapping cannot redirect the attach.
 func CreateSelectedDevice(a Adapter) (*Device, error) {

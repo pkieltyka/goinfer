@@ -10,6 +10,24 @@ import "github.com/pkieltyka/goinfer/embeddinggemma2"
 func init() {
 	embeddinggemma2.RegisterAccelerator("vulkan", openAccelerator)
 	embeddinggemma2.RegisterSelectedAccelerator("vulkan", openSelectedAccelerator)
+	embeddinggemma2.RegisterDeviceProber("vulkan", probeInventory)
+}
+
+func probeInventory(opts embeddinggemma2.ProbeOptions) ([]embeddinggemma2.DeviceInfo, error) {
+	adapters, err := Probe(opts)
+	rows := make([]embeddinggemma2.DeviceInfo, 0, len(adapters))
+	for _, adapter := range adapters {
+		rows = append(rows, inventoryDevice(adapter))
+	}
+	return rows, err
+}
+
+func inventoryDevice(device DeviceInfo) embeddinggemma2.DeviceInfo {
+	return embeddinggemma2.DeviceInfo{
+		ID: device.ID, Alias: device.Alias, Backend: "vulkan", Name: device.Name,
+		VendorID: device.VendorID, ProductID: device.DeviceID, MemoryKind: embeddinggemma2.MemoryDedicated,
+		Memory: device.Memory, TextBatching: true,
+	}
 }
 
 // DeviceInfo describes a discrete AMD Vulkan device. ID is based on the Vulkan

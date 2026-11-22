@@ -24,6 +24,7 @@ func init() {
 	embeddinggemma2.RegisterAccelerator("metal", func(m *embeddinggemma2.Model) (embeddinggemma2.Accelerator, error) {
 		return newEG2Accel(m)
 	})
+	embeddinggemma2.RegisterDeviceProber("metal", probeMetalDevice)
 }
 
 const eg2TG = 128
@@ -135,6 +136,7 @@ type eg2Accel struct {
 	eg2Ops
 	cfg       embeddinggemma2.Config
 	model     *embeddinggemma2.Model
+	identity  embeddinggemma2.DeviceInfo
 	pleProj   Buffer // scaled by hidden^-0.5 at upload, as the CPU scales the product
 	pleNorm   Buffer
 	finalNorm Buffer
@@ -161,7 +163,7 @@ func newEG2Accel(m *embeddinggemma2.Model) (*eg2Accel, error) {
 		return nil, err
 	}
 	d := ops.d
-	a := &eg2Accel{eg2Ops: ops, ropes: map[eg2RopeKey][2]Buffer{}}
+	a := &eg2Accel{eg2Ops: ops, identity: describeMetalDevice(d.Name(), d.HasUnifiedMemory(), false), ropes: map[eg2RopeKey][2]Buffer{}}
 	w := m.TransformerWeights()
 	a.cfg, a.model = w.Config, m
 	a.eps = float32(a.cfg.RMSNormEps)
