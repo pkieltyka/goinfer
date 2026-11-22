@@ -20,9 +20,6 @@ on:
       - 'backend/cuda/v*'
       - 'backend/metal/v*'
       - 'backend/vulkan/v*'
-      - 'gpu/v*'
-      - 'cuda/v*'
-      - 'metal/v*'
   workflow_dispatch: {}
 
 permissions:
@@ -31,39 +28,87 @@ permissions:
 jobs:
   standalone:
     runs-on: ubuntu-24.04
-    strategy:
-      fail-fast: false
-      matrix:
-        include:
-          - module: backend/cuda
-            tags: cuda
-          - module: backend/metal
-            tags: metal
-          - module: backend/vulkan
-            tags: ""
+    env:
+      GOWORK: "off"
+      GOFLAGS: "-mod=readonly"
+      GOPROXY: "https://proxy.golang.org"
+      GOSUMDB: "sum.golang.org"
+      GONOPROXY: "none"
+      GONOSUMDB: "none"
     steps:
       - uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09 # v5.1.0
       - uses: actions/setup-go@924ae3a1cded613372ab5595356fb5720e22ba16 # v6.5.0
         with:
           go-version-file: go.mod
 
-      # metal/ is darwin-only and cuda/ is linux-only for its cgo-free dlopen path; both still
-      # COMPILE cross-target with GOOS set, which is what this gate needs — it is asking whether
-      # the module resolves without a workspace, not whether it runs here.
-
-      # NO `go work init`. That is the whole point: this must resolve the goinfer root from the
-      # proxy, the way `go install github.com/pkieltyka/goinfer/<module>@<tag>` does for a
-      # user. GOWORK=off also defends against a stray go.work in the runner image.
-      - name: standalone build (GOWORK=off)
-        if: matrix.module != 'backend/vulkan' || github.event_name == 'workflow_dispatch' || startsWith(github.ref, 'refs/tags/backend/vulkan/')
-        env:
-          GOWORK: "off"
-          GOOS: ${{ matrix.module == 'backend/metal' && 'darwin' || 'linux' }}
+      - name: standalone build of the module this ref names
         run: |
-          cd ${{ matrix.module }}
-          if [ "${{ matrix.module }}" = backend/vulkan ]; then export CGO_ENABLED=0; fi
-          if [ -n "${{ matrix.tags }}" ]; then
-            go build -tags '${{ matrix.tags }}' ./...
-          else
-            go build ./...
-          fi
+          set -euo pipefail
+          root_path=github.com/pkieltyka/goinfer
+          tagged=1
+          case "$GITHUB_REF" in
+            refs/tags/backend/cuda/v*)   modules=(backend/cuda) ;;
+            refs/tags/backend/vulkan/v*) modules=(backend/vulkan) ;;
+            refs/tags/backend/metal/v*)  modules=(backend/metal) ;;
+            refs/tags/v*)                modules=(root) ;;
+            refs/heads/*)                modules=(root backend/cuda backend/vulkan backend/metal); tagged=0 ;;
+            *)                           echo "No standalone module for $GITHUB_REF" >&2; exit 1 ;;
+          esac
+
+          # The mirror can cache a missing version. Check the root tag before
+          # sending the public proxy any request that could name it.
+          for module in "${modules[@]}"; do
+            dir="$module"
+            goos=linux
+            goarch=amd64
+            tags=()
+            case "$module" in
+              root) dir=. ;;
+              backend/cuda) tags=(-tags cuda) ;;
+              backend/metal) goos=darwin; goarch=arm64; tags=(-tags metal) ;;
+            esac
+            if [ "$module" != root ]; then
+              ver="$(awk -v p="$root_path" '$1==p{print $2; exit} $1=="require"&&$2==p{print $3; exit}' "$dir/go.mod")"
+              why=""
+              if [[ "$ver" =~ [.-][0-9]{14}-[0-9a-f]{12}(\+incompatible)?$ ]]; then
+                why="pins the root at pseudo-version $ver"
+              elif ! [[ "$ver" =~ ^v[0-9]+\.[0-9]+\.[0-9]+([-+][0-9A-Za-z.+-]+)?$ ]]; then
+                why="requires a root release version, got ${ver:-none}"
+              elif git ls-remote --exit-code --refs origin "refs/tags/$ver" >/dev/null; then
+                :
+              else
+                status=$?
+                if [ "$status" -ne 2 ]; then
+                  echo "$module: could not check the root tag $ver" >&2
+                  exit "$status"
+                fi
+                why="pins root $ver, which is not a pushed tag"
+              fi
+              if [ -n "$why" ]; then
+                if [ "$tagged" = 1 ]; then echo "$module $why" >&2; exit 1; fi
+                echo "::warning::$module $why; NOT CHECKED in this manual run"
+                continue
+              fi
+            fi
+
+            echo "== $module (GOOS=$goos GOARCH=$goarch)"
+            (
+              cd "$dir"
+              export GOOS="$goos" GOARCH="$goarch"
+              if [ "$module" = backend/cuda ] || [ "$module" = backend/vulkan ]; then export CGO_ENABLED=0; fi
+              missing='(^|[[:space:]])reading https://proxy\.golang\.org/[^[:space:]]+: (404 Not Found|410 Gone)[[:space:]]*$'
+              for attempt in 1 2 3 4 5; do
+                if out="$(go mod download 2>&1)"; then break; fi
+                printf '%s\n' "$out" >&2
+                grep -Eq "$missing" <<<"$out" || exit 1
+                # A separate module error in the same invocation remains fatal.
+                if grep -Ei '^go:|checksum mismatch|SECURITY ERROR' <<<"$out" | grep -Ev "$missing" >/dev/null; then
+                  exit 1
+                fi
+                [ "$attempt" -lt 5 ] || exit 1
+                sleep 30
+              done
+              go build "${tags[@]}" ./...
+              if [ "$module" != root ]; then go vet "${tags[@]}" ./...; fi
+            )
+          done

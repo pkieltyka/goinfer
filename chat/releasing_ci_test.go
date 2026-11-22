@@ -2,6 +2,7 @@ package chat
 
 import (
 	"os"
+	"regexp"
 	"strings"
 	"testing"
 )
@@ -15,16 +16,27 @@ func TestReleasing_standaloneBuildGateExists(t *testing.T) {
 	src := string(wf)
 	for _, want := range []string{
 		`GOWORK: "off"`, // the point of the gate
-		"tags:",         // triggered by tag pushes, not every push
+		`GOFLAGS: "-mod=readonly"`,
+		`GOPROXY: "https://proxy.golang.org"`,
+		`GOSUMDB: "sum.golang.org"`,
 	} {
 		if !strings.Contains(src, want) {
 			t.Errorf("standalone-build.yml lacks %q", want)
 		}
 	}
-	// Every shipped submodule must be covered, or the gate proves less than the doc claims.
-	for _, mod := range []string{"backend/cuda", "backend/metal", "backend/vulkan"} {
-		if !strings.Contains(src, "module: "+mod) {
-			t.Errorf("standalone-build.yml does not cover the %s module", mod)
+	for _, route := range []struct{ module, tag string }{
+		{"root", "v*"},
+		{"backend/cuda", "backend/cuda/v*"},
+		{"backend/metal", "backend/metal/v*"},
+		{"backend/vulkan", "backend/vulkan/v*"},
+	} {
+		if !strings.Contains(src, "- '"+route.tag+"'") {
+			t.Errorf("standalone-build.yml has no trigger for %s", route.tag)
+		}
+		arm := regexp.MustCompile(`(?m)^[ \t]*` + regexp.QuoteMeta("refs/tags/"+route.tag+")") +
+			`[ \t]+` + regexp.QuoteMeta("modules=("+route.module+")") + `[ \t]*;;[ \t]*$`)
+		if !arm.MatchString(src) {
+			t.Errorf("standalone-build.yml must route %s to %s only", route.tag, route.module)
 		}
 	}
 	// It must NOT create a workspace — that would silently defeat the whole check. Comment
