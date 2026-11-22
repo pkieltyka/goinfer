@@ -45,6 +45,23 @@ class TestReleasePrep(unittest.TestCase):
         bad_aikit = f"module {rp.ROOT_MODULE}/backend/vulkan\n\ngo 1.27.0\n\nrequire (\n\t{rp.AIKIT_MODULE} v1.78.0\n\t{rp.ROOT_MODULE} v0.6.2\n)\n"
         self.assertTrue(any("disagrees" in e for e in rp.check_gomod(bad_aikit, "vk", expected_mod=f"{rp.ROOT_MODULE}/backend/vulkan", root_ver="v0.6.2", expected_aikit="v1.79.0")))
 
+        # GitHub Actions skips tag push events when >3 tags are pushed together.
+        self.assertEqual(
+            rp.format_push_commands(["v0.6.2"]),
+            ["git push --atomic origin main v0.6.2"],
+        )
+        self.assertEqual(
+            rp.format_push_commands(["v0.6.2", "backend/cuda/v0.6.2", "backend/vulkan/v0.6.2"]),
+            ["git push --atomic origin main v0.6.2 backend/cuda/v0.6.2 backend/vulkan/v0.6.2"],
+        )
+        self.assertEqual(
+            rp.format_push_commands(["v0.6.2", "backend/cuda/v0.6.2", "backend/vulkan/v0.6.2", "backend/metal/v0.6.2"]),
+            [
+                "git push --atomic origin main v0.6.2 backend/cuda/v0.6.2 backend/vulkan/v0.6.2",
+                "git push --atomic origin backend/metal/v0.6.2",
+            ],
+        )
+
     def test_single_commit_prep_and_guards(self):
         tmp = Path(tempfile.mkdtemp(prefix="goinfer-rp-lean-"))
         try:
@@ -136,14 +153,17 @@ class TestReleasePrep(unittest.TestCase):
                     "--source-zip", str(src_zip), "--source-version", src_ver, "--source-mod", str(src_mod),
                 ]), 0)
 
-                # Negative control: root edit after base fails check; split tag fails --check-tags.
-                (repo / "embeddinggemma2" / "api.go").write_text(root_api + "// drifted\n", encoding="utf-8")
-                _git(repo, "add", "embeddinggemma2/api.go")
-                _git(repo, "commit", "-m", "root drift")
+                # Negative control: moving an unchanged root file into an existing backend module
+                # (R100 rename) removes it from the root zip and MUST be caught by root_module_diff + check.
+                _git(repo, "mv", "embeddinggemma2/api.go", "backend/cuda/moved_api.go")
+                _git(repo, "commit", "-m", "move root file into backend/cuda")
+                self.assertIn("embeddinggemma2/api.go", rp.root_module_diff(repo, base_sha, "HEAD"))
                 self.assertEqual(rp.main([
                     "check", "--repo", str(repo), "--version", "v0.6.3", "--base", base_sha,
                     "--modules", "backend/cuda,backend/vulkan,backend/metal",
                 ]), 1)
+
+                # Negative control: split two-commit tag rejected by --check-tags.
                 _git(repo, "tag", "-f", "backend/cuda/v0.6.3", "HEAD")
                 self.assertEqual(rp.main([
                     "check", "--repo", str(repo), "--version", "v0.6.3", "--base", base_sha,

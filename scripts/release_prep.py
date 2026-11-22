@@ -313,14 +313,29 @@ def stage_root_from_go(
     return proxy_dir, staged["Sum"], staged["GoModSum"]
 
 
+def _run_bytes(cmd: Sequence[str], *, cwd: Optional[Path] = None) -> bytes:
+    proc = subprocess.run(list(cmd), cwd=str(cwd) if cwd else None, capture_output=True)
+    if proc.returncode != 0:
+        err = proc.stderr.decode("utf-8", errors="replace")
+        raise PrepError(f"command failed (exit {proc.returncode}): {' '.join(cmd)}\n{err}".rstrip())
+    return proc.stdout
+
+
 def nested_module_dirs(repo: Path, rev: str) -> List[str]:
-    files = run(["git", "ls-tree", "-r", "--name-only", rev], cwd=repo).stdout.splitlines()
+    raw = _run_bytes(["git", "ls-tree", "-r", "--name-only", "-z", rev], cwd=repo)
+    files = [p.decode("utf-8", errors="surrogateescape") for p in raw.split(b"\0") if p]
     return [f[:-len("/go.mod")] for f in files if f.endswith("/go.mod")]
+
+
+def diff_paths_no_renames(repo: Path, base_sha: str, head_sha: str) -> List[str]:
+    """Return NUL-delimited changed paths between base_sha and head_sha without rename detection."""
+    raw = _run_bytes(["git", "diff", "--no-renames", "--name-only", "-z", base_sha, head_sha], cwd=repo)
+    return [p.decode("utf-8", errors="surrogateescape") for p in raw.split(b"\0") if p]
 
 
 def root_module_diff(repo: Path, base_sha: str, head_sha: str) -> List[str]:
     """Return any changed files between base_sha and head_sha that belong to the root module."""
-    changed = [p for p in run(["git", "diff", "--name-only", base_sha, head_sha], cwd=repo).stdout.splitlines() if p]
+    changed = diff_paths_no_renames(repo, base_sha, head_sha)
     if not changed:
         return []
     nested = set(nested_module_dirs(repo, base_sha)) & set(nested_module_dirs(repo, head_sha))
@@ -328,8 +343,36 @@ def root_module_diff(repo: Path, base_sha: str, head_sha: str) -> List[str]:
 
 
 def dirty_paths(repo: Path) -> List[str]:
-    out = run(["git", "status", "--porcelain"], cwd=repo).stdout.splitlines()
-    return [line[3:].split(" -> ")[-1] for line in out if len(line) > 3]
+    """Return all dirty/untracked paths (NUL-safe, including both sides of a rename)."""
+    raw = _run_bytes(["git", "status", "--porcelain", "-z"], cwd=repo)
+    tokens = raw.split(b"\0")
+    paths: List[str] = []
+    i = 0
+    while i < len(tokens):
+        tok = tokens[i]
+        i += 1
+        if not tok:
+            continue
+        status = tok[:2].decode("ascii", errors="replace")
+        path = tok[3:].decode("utf-8", errors="surrogateescape")
+        paths.append(path)
+        if status[0] in ("R", "C") and i < len(tokens):
+            orig = tokens[i].decode("utf-8", errors="surrogateescape")
+            i += 1
+            if orig:
+                paths.append(orig)
+    return paths
+
+
+def format_push_commands(tags: Sequence[str], *, remote: str = "origin", branch: str = "main", max_tags_per_push: int = 3) -> List[str]:
+    """Batch tag pushes to <=3 tags per push so GitHub Actions still creates tag push events."""
+    tag_list = list(tags)
+    if not tag_list:
+        return [f"git push --atomic {remote} {branch}"]
+    cmds = [f"git push --atomic {remote} {branch} {' '.join(tag_list[:max_tags_per_push])}"]
+    for i in range(max_tags_per_push, len(tag_list), max_tags_per_push):
+        cmds.append(f"git push --atomic {remote} {' '.join(tag_list[i:i + max_tags_per_push])}")
+    return cmds
 
 
 def cmd_prep(args: argparse.Namespace) -> int:
@@ -348,6 +391,9 @@ def cmd_prep(args: argparse.Namespace) -> int:
     if drift:
         raise PrepError(f"root-module files changed between --base ({base_sha[:12]}) and HEAD ({head_sha[:12]}): {', '.join(drift[:5])}")
     allowed = {f"{m}/{fn}" for m in selected for fn in ("go.mod", "go.sum")}
+    unexpected_committed = [p for p in diff_paths_no_renames(repo, base_sha, head_sha) if p not in allowed]
+    if unexpected_committed:
+        raise PrepError(f"files outside selected submodule go.mod/go.sum changed since --base ({base_sha[:12]}): {', '.join(unexpected_committed[:5])}")
     bad_dirty = [p for p in dirty_paths(repo) if p not in allowed]
     if bad_dirty:
         raise PrepError(f"uncommitted changes outside selected submodule go.mod/go.sum: {', '.join(bad_dirty[:5])}")
@@ -420,14 +466,16 @@ def cmd_prep(args: argparse.Namespace) -> int:
             raise PrepError("\n".join(errs))
 
         files = " ".join(f"{m}/go.mod {m}/go.sum" for m in selected)
-        tags = " ".join([args.version] + [f"{m}/{args.version}" for m in selected])
+        tag_list = [args.version] + [f"{m}/{args.version}" for m in selected]
+        mod_arg = ",".join(selected) or "none"
+        push_cmds = format_push_commands(tag_list)
         print(
             "\nNext (no commit or tags created):\n"
             + (f"  git add -- {files}\n  git commit -m \"release: {args.version} (<summary>)\"\n" if selected else "")
-            + f"  python3 scripts/release_prep.py check --version {args.version} --base {base_sha[:12]} --modules {','.join(selected) or 'none'}\n"
-            + "".join(f"  git tag {t}\n" for t in [args.version] + [f"{m}/{args.version}" for m in selected])
-            + f"  python3 scripts/release_prep.py check --version {args.version} --base {base_sha[:12]} --modules {','.join(selected) or 'none'} --check-tags\n"
-            + f"  git push origin main {tags}"
+            + f"  python3 scripts/release_prep.py check --version {args.version} --base {base_sha[:12]} --modules {mod_arg} --verify-sum\n"
+            + "".join(f"  git tag {t}\n" for t in tag_list)
+            + f"  python3 scripts/release_prep.py check --version {args.version} --base {base_sha[:12]} --modules {mod_arg} --check-tags\n"
+            + "".join(f"  {c}\n" for c in push_cmds).rstrip()
         )
         print("VERDICT: PASS")
         return 0
@@ -452,6 +500,10 @@ def cmd_check(args: argparse.Namespace) -> int:
     drift = root_module_diff(repo, base_sha, rev_sha)
     if drift:
         errs.append(f"root-module files changed between --base ({base_sha[:12]}) and {rev_sha[:12]}: {', '.join(drift[:5])}")
+    allowed = {f"{m}/{fn}" for m in selected for fn in ("go.mod", "go.sum")}
+    unexpected = [p for p in diff_paths_no_renames(repo, base_sha, rev_sha) if p not in allowed]
+    if unexpected:
+        errs.append(f"files outside selected submodule go.mod/go.sum changed between --base ({base_sha[:12]}) and {rev_sha[:12]}: {', '.join(unexpected[:5])}")
 
     root_gomod = run(["git", "show", f"{rev_sha}:go.mod"], cwd=repo).stdout
     _, root_reqs, _ = parse_gomod(root_gomod)

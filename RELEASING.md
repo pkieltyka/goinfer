@@ -192,12 +192,21 @@ selected `<mod>/go.mod` and `<mod>/go.sum` outside `go.work`, runs `go mod verif
 `go vet`/`go build`, confirms no `replace` directives and aligned tagged `aikit` pins, and lists
 any omitted backend.
 
-**Step 3 — commit only the selected submodule pins and verify zero root drift.**
+**Step 3 — commit only the selected submodule pins (skip for `MODULES=none`) and verify zero root drift.**
 ```sh
-# Stage ONLY the selected submodules' go.mod and go.sum (never git add -A):
-git add -- backend/cuda/go.mod backend/cuda/go.sum backend/vulkan/go.mod backend/vulkan/go.sum
-# Add backend/metal/go.mod backend/metal/go.sum as well if Metal is in MODULES.
-git commit -m "release: ${TAG} (<one-line summary>)"
+SELECTED=()
+if [ "${MODULES}" != "none" ]; then
+  IFS=, read -r -a SELECTED <<<"${MODULES}"
+fi
+
+if [ "${#SELECTED[@]}" -gt 0 ]; then
+  PIN_FILES=()
+  for mod in "${SELECTED[@]}"; do
+    PIN_FILES+=("${mod}/go.mod" "${mod}/go.sum")
+  done
+  git add -- "${PIN_FILES[@]}"
+  git commit -m "release: ${TAG} (<one-line summary>)"
+fi
 
 python3 scripts/release_prep.py check \
   --version "${TAG}" \
@@ -205,17 +214,23 @@ python3 scripts/release_prep.py check \
   --modules "${MODULES}" \
   --verify-sum
 ```
-`check --verify-sum` refuses any root-module file diff between `${BASE}` and `HEAD`, confirms
-`go.mod` invariants, and confirms committed `go.sum` hashes match Go's `go mod download -json`
-sums for `${TAG}`.
+`check --verify-sum` refuses any diff outside the selected submodules' `go.mod`/`go.sum` (using
+`--no-renames -z`, so moving a root file into a backend module is caught), confirms `go.mod`
+invariants, and confirms committed `go.sum` hashes match Go's `go mod download -json` sums for `${TAG}`.
 
-**Step 4 — tag the single commit, verify same-commit tags, and push together.**
+**Step 4 — tag the single commit, verify same-commit tags, and push in batches of at most three tags.**
+GitHub Actions does not create tag `push` workflow events if more than three tags are pushed in
+one `git push` (so a four-tag root + CUDA + Vulkan + Metal push would silently skip both
+`release-assets.yml` and `standalone-build.yml`). Keep all tags on the one release commit and push
+with `--atomic` in chunks of at most three tags per push:
 ```sh
-git tag "${TAG}"
-git tag "backend/cuda/${TAG}"
-git tag "backend/vulkan/${TAG}"
-# Only if backend/metal is included in MODULES:
-# git tag "backend/metal/${TAG}"
+TAGS=("${TAG}")
+for mod in "${SELECTED[@]}"; do
+  TAGS+=("${mod}/${TAG}")
+done
+for t in "${TAGS[@]}"; do
+  git tag "$t"
+done
 
 python3 scripts/release_prep.py check \
   --version "${TAG}" \
@@ -223,36 +238,50 @@ python3 scripts/release_prep.py check \
   --modules "${MODULES}" \
   --check-tags
 
-git push origin main "${TAG}" "backend/cuda/${TAG}" "backend/vulkan/${TAG}"
-# Add "backend/metal/${TAG}" if Metal is in MODULES.
+# Push main plus the first <=3 tags atomically, then any remaining tags in <=3-tag atomic pushes:
+git push --atomic origin main "${TAGS[@]:0:3}"
+if [ "${#TAGS[@]}" -gt 3 ]; then
+  git push --atomic origin "${TAGS[@]:3:3}"
+fi
 ```
+Concrete examples:
+- Root + CUDA + Vulkan (3 tags): one push — `git push --atomic origin main "${TAG}" "backend/cuda/${TAG}" "backend/vulkan/${TAG}"`.
+- Root + CUDA + Vulkan + Metal (4 tags): two atomic pushes — `git push --atomic origin main "${TAG}" "backend/cuda/${TAG}" "backend/vulkan/${TAG}"` followed by `git push --atomic origin "backend/metal/${TAG}"`.
+- Root-only (`MODULES=none`, 1 tag): skip the Step 3 commit, create only `git tag "${TAG}"`, and run `git push --atomic origin main "${TAG}"`.
 
 **Step 5 — verify same-commit tags, public Go proxy checksums, and consumer builds.**
 Run after pushing from a clean temporary `GOMODCACHE` with `GOWORK=off`, `GOPROXY=https://proxy.golang.org`
 (no `,direct` fallback), and `GOSUMDB=sum.golang.org`:
 ```sh
 # 1. Confirm all published tags on origin resolve to the exact same release commit:
-git ls-remote --tags origin "${TAG}" "backend/cuda/${TAG}" "backend/vulkan/${TAG}"
-# (Add "backend/metal/${TAG}" when Metal is part of the release.)
+git ls-remote --tags origin "${TAGS[@]}"
 
-# 2. Resolve and verify root + shipped backend modules strictly from the public Go proxy:
+# 2. Resolve and verify root + every selected backend strictly from the public Go proxy:
 TMP="$(mktemp -d)"
-GOMODCACHE="$TMP/modcache" GOWORK=off GOTOOLCHAIN=local \
-  GOPROXY=https://proxy.golang.org GOSUMDB=sum.golang.org bash -euo pipefail -c '
-  for mod in github.com/pkieltyka/goinfer \
-             github.com/pkieltyka/goinfer/backend/cuda \
-             github.com/pkieltyka/goinfer/backend/vulkan; do
-    go list -m "${mod}@'"${TAG}"'"
-    go mod download -json "${mod}@'"${TAG}"'"
-  done
-'
+MOD_PATHS=("github.com/pkieltyka/goinfer")
+for mod in "${SELECTED[@]}"; do
+  MOD_PATHS+=("github.com/pkieltyka/goinfer/${mod}")
+done
+for mod_path in "${MOD_PATHS[@]}"; do
+  GOMODCACHE="$TMP/modcache" GOWORK=off GOTOOLCHAIN=local \
+    GOPROXY=https://proxy.golang.org GOSUMDB=sum.golang.org \
+    go list -m "${mod_path}@${TAG}"
+  GOMODCACHE="$TMP/modcache" GOWORK=off GOTOOLCHAIN=local \
+    GOPROXY=https://proxy.golang.org GOSUMDB=sum.golang.org \
+    go mod download -json "${mod_path}@${TAG}"
+done
 
-# 3. Build and vet tiny out-of-tree consumers (root-only, CUDA, Vulkan; add Metal with
-#    "metal:darwin:arm64:metal:github.com/pkieltyka/goinfer/backend/metal" when included):
-for case in "root:linux:amd64::" \
-            "cuda:linux:amd64:cuda:github.com/pkieltyka/goinfer/backend/cuda" \
-            "vulkan:linux:amd64::github.com/pkieltyka/goinfer/backend/vulkan"; do
-  IFS=: read -r name goos goarch tags backend_mod <<<"$case"
+# 3. Build and vet tiny out-of-tree consumers for root-only plus each selected backend:
+CASES=("root:linux:amd64::")
+for mod in "${SELECTED[@]}"; do
+  case "$mod" in
+    backend/cuda)   CASES+=("cuda:linux:amd64:cuda:github.com/pkieltyka/goinfer/backend/cuda") ;;
+    backend/vulkan) CASES+=("vulkan:linux:amd64::github.com/pkieltyka/goinfer/backend/vulkan") ;;
+    backend/metal)  CASES+=("metal:darwin:arm64:metal:github.com/pkieltyka/goinfer/backend/metal") ;;
+  esac
+done
+for entry in "${CASES[@]}"; do
+  IFS=: read -r name goos goarch tags backend_mod <<<"$entry"
   dir="$TMP/consumer-$name"; mkdir -p "$dir"
   cat >"$dir/go.mod" <<EOF
 module example.com/check-$name
