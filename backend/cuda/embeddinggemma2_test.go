@@ -1726,7 +1726,102 @@ func TestEG2CUDA_RetryOOM_ClassificationContract(t *testing.T) {
 	}); !errors.Is(err, unrelated) || errors.Is(err, embeddinggemma2.ErrDeviceOutOfMemory) || errors.Is(err, embeddinggemma2.ErrBatchOutOfMemory) {
 		t.Fatalf("unrelated attach = %v", err)
 	}
+
+	// Serialized single-slot attach-cleanup gate (pure CPU): while a retained failed-attach
+	// cleanup keeps failing, concurrent attach attempts all fail closed with zero opener calls;
+	// once cleanup succeeds, the slot clears and the next attach invokes the opener.
+	t.Run("serialized-single-slot-cleanup-gate", func(t *testing.T) {
+		var failMu sync.Mutex
+		failClose := true
+		stuckErr := errors.New("cuda: synthetic stuck attach cleanup")
+		obj := &testCloser{fn: func() error {
+			failMu.Lock()
+			f := failClose
+			failMu.Unlock()
+			if f {
+				return stuckErr
+			}
+			return nil
+		}}
+		stuckDev := &Device{}
+		stuckDev.TrackObj(obj)
+		stuckOps := &towerOps{dev: stuckDev, reqCh: make(chan func() error), ackCh: make(chan error)}
+		go func() {
+			for j := range stuckOps.reqCh {
+				stuckOps.ackCh <- runJob(j)
+			}
+		}()
+		towerCleanup.mu.Lock()
+		prevPending := towerCleanup.pending
+		towerCleanup.pending = stuckOps
+		towerCleanup.mu.Unlock()
+		defer func() {
+			failMu.Lock()
+			failClose = false
+			failMu.Unlock()
+			_ = drainPendingTowerCleanups()
+			towerCleanup.mu.Lock()
+			towerCleanup.pending = prevPending
+			towerCleanup.mu.Unlock()
+		}()
+
+		var openMu sync.Mutex
+		openCalls := 0
+		var wg sync.WaitGroup
+		errs := make([]error, 6)
+		for i := range errs {
+			wg.Add(1)
+			go func(idx int) {
+				defer wg.Done()
+				acc, err := newEG2AccelOn(m, false, func() (*Device, error) {
+					openMu.Lock()
+					openCalls++
+					openMu.Unlock()
+					return nil, unrelated
+				})
+				if acc != nil {
+					t.Errorf("goroutine %d returned non-nil accel", idx)
+				}
+				errs[idx] = err
+			}(i)
+		}
+		wg.Wait()
+		for i, err := range errs {
+			if !errors.Is(err, stuckErr) || errors.Is(err, embeddinggemma2.ErrBatchOutOfMemory) {
+				t.Fatalf("concurrent blocked attach %d = %v, want %v without retry", i, err, stuckErr)
+			}
+		}
+		if openCalls != 0 {
+			t.Fatalf("blocked concurrent attaches invoked opener %d times, want 0", openCalls)
+		}
+		if n := pendingTowerCleanupsLen(); n != 1 {
+			t.Fatalf("pending cleanup count = %d, want 1", n)
+		}
+
+		failMu.Lock()
+		failClose = false
+		failMu.Unlock()
+		_, err := newEG2AccelOn(m, false, func() (*Device, error) {
+			openMu.Lock()
+			openCalls++
+			openMu.Unlock()
+			return nil, unrelated
+		})
+		if !errors.Is(err, unrelated) {
+			t.Fatalf("post-recovery attach = %v, want %v from opener", err, unrelated)
+		}
+		if openCalls != 1 {
+			t.Fatalf("post-recovery opener calls = %d, want 1", openCalls)
+		}
+		if n := pendingTowerCleanupsLen(); n != 0 {
+			t.Fatalf("pending cleanup count after recovery = %d, want 0", n)
+		}
+	})
 }
+
+type testCloser struct{ fn func() error }
+
+func (c *testCloser) Close() error { return c.fn() }
 
 func TestEG2CUDA_RetryOOM_DeviceAcceptance(t *testing.T) {
 	probe, err := CreateSystemDefaultDevice()
@@ -2244,8 +2339,9 @@ func TestEG2CUDA_RetryOOM_DeviceAcceptance(t *testing.T) {
 				}
 
 				// Partial attach OOM + failed rollback free -> returns nil with ErrDeviceOutOfMemory,
-				// gc.ErrOutOfMemory, and the cleanup cause (no ErrBatchOutOfMemory), retains unfinished
-				// cleanup ownership + ledger + lease across repeated failures, then drains cleanly on recovery.
+				// gc.ErrOutOfMemory, and the cleanup cause (no ErrBatchOutOfMemory), retains the single
+				// unfinished cleanup owner + ledger + lease, refuses subsequent attaches with zero new
+				// device opens while cleanup keeps failing, then drains cleanly and recovers attach.
 				recAttach := &eg2RecordingLeaser{}
 				origAttachLeaser := gpu.NewLeaser
 				gpu.NewLeaser = func() gpu.Leaser { return recAttach }
@@ -2296,7 +2392,31 @@ func TestEG2CUDA_RetryOOM_DeviceAcceptance(t *testing.T) {
 				if allocsLeft, objsLeft := stuckDev.LedgerLen(); allocsLeft == 0 || objsLeft == 0 || liveAfterFailAttach <= 0 {
 					t.Fatalf("failed attach rollback dropped ownership: ledger=(%d, %d) liveBytes=%d", allocsLeft, objsLeft, liveAfterFailAttach)
 				}
-				// Repeat drain while close failure is still active: must keep failing and preserve ownership.
+				// Attempt multiple attaches while cleanup keeps failing: every attempt must fail closed
+				// with attachFreeErr (no ErrBatchOutOfMemory), perform ZERO new device opens/retains,
+				// and keep pending count bounded at 1 with ledger and lease intact.
+				blockedOpens := 0
+				for attempt := range 3 {
+					closeAttempts = 0
+					accBlocked, errBlocked := newEG2AccelOn(m, combined, func() (*Device, error) {
+						blockedOpens++
+						return CreateSystemDefaultDevice()
+					})
+					if accBlocked != nil || !errors.Is(errBlocked, attachFreeErr) || errors.Is(errBlocked, embeddinggemma2.ErrBatchOutOfMemory) {
+						t.Fatalf("blocked attach attempt %d = (%v, %v), want %v without retry", attempt, accBlocked, errBlocked, attachFreeErr)
+					}
+					if blockedOpens != 0 {
+						t.Fatalf("blocked attach attempt %d opened %d new devices while cleanup failed", attempt, blockedOpens)
+					}
+					if nPending := pendingTowerCleanupsLen(); nPending != 1 {
+						t.Fatalf("blocked attach attempt %d pending count = %d, want 1", attempt, nPending)
+					}
+				}
+				// Explicit-selection token validation still rejects invalid selectors without mutating pending cleanup.
+				if badSel, errSel := selectedEG2Factory(combined)(m, "invalid-token!"); badSel != nil || !errors.Is(errSel, embeddinggemma2.ErrDeviceUnavailable) {
+					t.Fatalf("invalid explicit selector while cleanup pending = (%v, %v), want ErrDeviceUnavailable", badSel, errSel)
+				}
+				// Explicit drain while close failure is still active keeps failing and preserves ownership.
 				closeAttempts = 0
 				if err := drainPendingTowerCleanups(); !errors.Is(err, attachFreeErr) {
 					t.Fatalf("repeat failing attach cleanup drain = %v, want %v", err, attachFreeErr)
@@ -2304,16 +2424,26 @@ func TestEG2CUDA_RetryOOM_DeviceAcceptance(t *testing.T) {
 				recAttach.mu.Lock()
 				liveAfterRepeat := recAttach.devLive
 				recAttach.mu.Unlock()
-				if nPending := pendingTowerCleanupsLen(); nPending != 1 {
-					t.Fatalf("pending attach cleanups after repeat failure = %d, want 1", nPending)
-				}
 				if allocsLeft, objsLeft := stuckDev.LedgerLen(); allocsLeft == 0 || objsLeft == 0 || liveAfterRepeat <= 0 {
 					t.Fatalf("repeat failing attach cleanup lost ownership: ledger=(%d, %d) liveBytes=%d", allocsLeft, objsLeft, liveAfterRepeat)
 				}
-				// Clear close hook and recover via drain: remaining buffer, objects, context, and lease release to 0.
+				// Clear close hook: the next attach drains the retained cleanup to zero and succeeds cleanly.
 				stuckDev.SetCloseBufHookForTest(nil)
-				if err := drainPendingTowerCleanups(); err != nil {
-					t.Fatalf("attach cleanup drain recovery = %v", err)
+				recoveredOpens := 0
+				recovAcc, errRecov := newEG2AccelOn(m, combined, func() (*Device, error) {
+					recoveredOpens++
+					return CreateSystemDefaultDevice()
+				})
+				if errRecov != nil || recovAcc == nil {
+					t.Fatalf("recovered attach after cleanup cleared = (%v, %v)", recovAcc, errRecov)
+				}
+				defer func() {
+					if err := recovAcc.Close(); err != nil {
+						t.Errorf("recovAcc.Close: %v", err)
+					}
+				}()
+				if recoveredOpens != 1 {
+					t.Fatalf("recovered attach opens = %d, want 1", recoveredOpens)
 				}
 				recAttach.mu.Lock()
 				liveAfterDrain := recAttach.devLive
@@ -2323,6 +2453,9 @@ func TestEG2CUDA_RetryOOM_DeviceAcceptance(t *testing.T) {
 				}
 				if allocsLeft, objsLeft := stuckDev.LedgerLen(); allocsLeft != 0 || objsLeft != 0 || liveAfterDrain != 0 {
 					t.Fatalf("attach cleanup recovery left ledger=(%d, %d) liveBytes=%d", allocsLeft, objsLeft, liveAfterDrain)
+				}
+				if outRecov, _, err := recovAcc.Forward(orig[0], false); err != nil || len(outRecov) == 0 {
+					t.Fatalf("recovered accel Forward = (%d, %v)", len(outRecov), err)
 				}
 
 				// Unrelated attach allocation error (gc.ErrInvalidValue) -> neither OOM sentinel, 0 leaks.

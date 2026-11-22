@@ -272,8 +272,9 @@ func newEG2AccelOn(m *embeddinggemma2.Model, combined bool, open func() (*Device
 		maxN = max(maxN, c.Heads*ly.HeadDim)
 		maxHD = max(maxHD, ly.HeadDim)
 	}
-	_ = drainPendingTowerCleanups()
-	ops, err := newTowerOpsOn(open, maxN)
+	towerCleanup.mu.Lock()
+	defer towerCleanup.mu.Unlock()
+	ops, err := newTowerOpsOnLocked(open, maxN)
 	if err != nil {
 		return nil, err
 	}
@@ -301,14 +302,14 @@ func newEG2AccelOn(m *embeddinggemma2.Model, combined bool, open func() (*Device
 		a.residentWeightBytes = weightBytes
 		return ops.finish()
 	}); err != nil {
-		if cerr := retireTowerAttach(ops); cerr != nil {
+		if cerr := retireTowerAttachLocked(ops); cerr != nil {
 			return nil, fmt.Errorf("cuda: EmbeddingGemma 2 upload: %w", errors.Join(err, cerr))
 		}
 		return nil, fmt.Errorf("cuda: EmbeddingGemma 2 upload: %w", err)
 	}
 	if combined {
 		if err := a.enableCombined(); err != nil {
-			if cerr := retireTowerAttach(a.ops); cerr != nil {
+			if cerr := retireTowerAttachLocked(a.ops); cerr != nil {
 				return nil, errors.Join(err, cerr)
 			}
 			return nil, err

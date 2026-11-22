@@ -48,9 +48,21 @@ func newTowerOps(maxN int) (*towerOps, error) {
 }
 
 // newTowerOpsOn creates towerOps using an explicit non-nil device opener on the executor goroutine.
-func newTowerOpsOn(open func() (*Device, error), maxN int) (t *towerOps, err error) {
+func newTowerOpsOn(open func() (*Device, error), maxN int) (*towerOps, error) {
 	if open == nil {
 		return nil, errors.New("cuda tower: nil device opener")
+	}
+	towerCleanup.mu.Lock()
+	defer towerCleanup.mu.Unlock()
+	return newTowerOpsOnLocked(open, maxN)
+}
+
+func newTowerOpsOnLocked(open func() (*Device, error), maxN int) (t *towerOps, err error) {
+	if open == nil {
+		return nil, errors.New("cuda tower: nil device opener")
+	}
+	if cerr := drainPendingTowerCleanupLocked(); cerr != nil {
+		return nil, fmt.Errorf("cuda tower: previous failed attach cleanup still pending: %w", cerr)
 	}
 	t = &towerOps{reqCh: make(chan func() error), ackCh: make(chan error)}
 	go func() {
@@ -94,7 +106,7 @@ func newTowerOpsOn(open func() (*Device, error), maxN int) (t *towerOps, err err
 		return nil
 	})
 	if err != nil {
-		if cerr := retireTowerAttach(t); cerr != nil {
+		if cerr := retireTowerAttachLocked(t); cerr != nil {
 			return nil, errors.Join(err, cerr)
 		}
 		return nil, err
@@ -102,54 +114,52 @@ func newTowerOpsOn(open func() (*Device, error), maxN int) (t *towerOps, err err
 	return t, nil
 }
 
-// towerCleanup retains any *towerOps whose checked attach rollback failed so
-// the executor, device ledger, and memory leases stay owned rather than
-// orphaned when attach returns (nil, err).
+// towerCleanup serializes tower attach and failed-attach rollback so at most
+// one unfinished *towerOps can be retained at a time. While an earlier failed
+// attach cannot finish ReleaseObjectsChecked, subsequent attach attempts retry
+// that cleanup under the lock and fail closed before calling open().
 var towerCleanup struct {
 	mu      sync.Mutex
-	pending []*towerOps
+	pending *towerOps
 }
 
-func retireTowerAttach(ops *towerOps) error {
+func retireTowerAttachLocked(ops *towerOps) error {
 	if ops == nil {
 		return nil
 	}
 	err := ops.closeChecked()
 	if err != nil {
-		towerCleanup.mu.Lock()
-		towerCleanup.pending = append(towerCleanup.pending, ops)
-		towerCleanup.mu.Unlock()
+		towerCleanup.pending = ops
 	}
 	return err
 }
 
-// drainPendingTowerCleanups retries every *towerOps retained from a failed
-// attach rollback, dropping each entry only once closeChecked succeeds.
+func drainPendingTowerCleanupLocked() error {
+	if towerCleanup.pending == nil {
+		return nil
+	}
+	if err := towerCleanup.pending.closeChecked(); err != nil {
+		return err
+	}
+	towerCleanup.pending = nil
+	return nil
+}
+
+// drainPendingTowerCleanups explicitly retries any single retained failed-attach
+// rollback under the serialization lock, clearing it only once closeChecked succeeds.
 func drainPendingTowerCleanups() error {
 	towerCleanup.mu.Lock()
-	items := towerCleanup.pending
-	towerCleanup.pending = nil
-	towerCleanup.mu.Unlock()
-	var still []*towerOps
-	var err error
-	for _, ops := range items {
-		if cerr := ops.closeChecked(); cerr != nil {
-			still = append(still, ops)
-			err = errors.Join(err, cerr)
-		}
-	}
-	if len(still) > 0 {
-		towerCleanup.mu.Lock()
-		towerCleanup.pending = append(still, towerCleanup.pending...)
-		towerCleanup.mu.Unlock()
-	}
-	return err
+	defer towerCleanup.mu.Unlock()
+	return drainPendingTowerCleanupLocked()
 }
 
 func pendingTowerCleanupsLen() int {
 	towerCleanup.mu.Lock()
 	defer towerCleanup.mu.Unlock()
-	return len(towerCleanup.pending)
+	if towerCleanup.pending != nil {
+		return 1
+	}
+	return 0
 }
 
 // do runs j on the executor goroutine; a panic inside it (an allocation failure) comes back as an error.
