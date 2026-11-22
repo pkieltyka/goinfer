@@ -2,6 +2,7 @@ package embeddinggemma2
 
 import (
 	"fmt"
+	"io"
 	"math"
 	"os"
 	"strconv"
@@ -31,15 +32,18 @@ func LoadGGUFEncoder(path string, prompts map[string]string) (*Encoder, error) {
 	if !info.Mode().IsRegular() {
 		return nil, fmt.Errorf("embeddinggemma2: GGUF requires a regular file")
 	}
-	encoder, err := loadGGUFEncoder(file, info.Size(), prompts)
+	encoder, err := LoadGGUFEncoderReaderAt(file, info.Size(), prompts)
 	if err != nil {
 		return nil, fmt.Errorf("embeddinggemma2: GGUF %q: %w", path, err)
 	}
 	return encoder, nil
 }
 
-func loadGGUFEncoder(file *os.File, size int64, prompts map[string]string) (*Encoder, error) {
-	f, err := gguf.Open(file, size)
+// LoadGGUFEncoderReaderAt loads the same text checkpoint formats as LoadGGUFEncoder
+// from the size bytes in r. Keep those bytes unchanged until the call returns.
+// The encoder and its tokenizer retain neither r nor its backing data.
+func LoadGGUFEncoderReaderAt(r io.ReaderAt, size int64, prompts map[string]string) (*Encoder, error) {
+	f, err := gguf.Open(r, size)
 	if err != nil {
 		return nil, err
 	}
@@ -75,7 +79,7 @@ func loadGGUFEncoder(file *os.File, size int64, prompts map[string]string) (*Enc
 		}
 		tensors = append(tensors, t)
 	}
-	tok, err := tokenizer.LoadGGUFReaderAt(file, size)
+	tok, err := tokenizer.LoadGGUFReaderAt(r, size)
 	if err != nil {
 		return nil, err
 	}
