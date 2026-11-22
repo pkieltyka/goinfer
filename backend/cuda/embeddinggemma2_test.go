@@ -1888,3 +1888,368 @@ func TestEG2CUDA_RetryOOM_DeviceAcceptance(t *testing.T) {
 		})
 	}
 }
+
+// eg2RecordingLeaser tracks live and peak charged device allocations separately
+// from host allocations as an independent oracle for BatchMemory.
+type eg2RecordingLeaser struct {
+	mu           sync.Mutex
+	devLive      int64
+	devPeak      int64
+	hostLive     int64
+	devAllocs    int
+	hostAllocs   int
+	devReleases  int
+	hostReleases int
+}
+
+func (l *eg2RecordingLeaser) Lease(onDevice bool, _ string, _, charged int64) func() {
+	l.mu.Lock()
+	if onDevice {
+		l.devAllocs++
+		l.devLive += charged
+		if l.devLive > l.devPeak {
+			l.devPeak = l.devLive
+		}
+	} else {
+		l.hostAllocs++
+		l.hostLive += charged
+	}
+	l.mu.Unlock()
+	var once sync.Once
+	return func() {
+		once.Do(func() {
+			l.mu.Lock()
+			if onDevice {
+				l.devReleases++
+				l.devLive -= charged
+			} else {
+				l.hostReleases++
+				l.hostLive -= charged
+			}
+			l.mu.Unlock()
+		})
+	}
+}
+
+func (l *eg2RecordingLeaser) resetWindow() (baseLive int64, allocs int) {
+	l.mu.Lock()
+	defer l.mu.Unlock()
+	l.devPeak = l.devLive
+	return l.devLive, l.devAllocs
+}
+
+func (l *eg2RecordingLeaser) windowDelta(baseLive int64, baseAllocs int) (peakDelta, endDelta int64, allocs int) {
+	l.mu.Lock()
+	defer l.mu.Unlock()
+	return l.devPeak - baseLive, l.devLive - baseLive, l.devAllocs - baseAllocs
+}
+
+func syntheticEG2Accel() *eg2Accel {
+	cfg := embeddinggemma2.Config{
+		Hidden:       768,
+		Intermediate: 3072,
+		PLEDim:       256,
+		Layers:       24,
+		Heads:        8,
+		EmbeddingDim: 768,
+		MaxPositions: 2048,
+	}
+	layers := make([]eg2Layer, cfg.Layers)
+	for i := range layers {
+		if i%6 == 5 {
+			layers[i].w = embeddinggemma2.LayerWeights{Full: true, HeadDim: 256, KVHeads: 2, RopeTheta: 1_000_000}
+		} else {
+			layers[i].w = embeddinggemma2.LayerWeights{Full: false, HeadDim: 128, KVHeads: 2, RopeTheta: 10_000}
+		}
+	}
+	return &eg2Accel{
+		cfg:                 cfg,
+		layers:              layers,
+		residentWeightBytes: 123 << 20,
+	}
+}
+
+func TestEG2CUDA_BatchMemory_UnitContract(t *testing.T) {
+	a := syntheticEG2Accel()
+
+	// Invalid shapes return an ordinary error distinct from ErrUnsupportedBatchShape.
+	for _, tc := range []struct {
+		name string
+		lens []int
+	}{
+		{"nil", nil},
+		{"empty", []int{}},
+		{"zero", []int{0}},
+		{"negative", []int{16, -2}},
+		{"overflow", []int{math.MaxInt, 1}},
+	} {
+		_, err := a.BatchMemory(tc.lens)
+		if err == nil {
+			t.Errorf("%s: got nil error, want validation error", tc.name)
+		}
+		if errors.Is(err, embeddinggemma2.ErrUnsupportedBatchShape) {
+			t.Errorf("%s: invalid shape must not match ErrUnsupportedBatchShape: %v", tc.name, err)
+		}
+	}
+
+	// Per-sequence limit and geometry-derived batchRowLimit boundary -> ErrUnsupportedBatchShape.
+	if _, err := a.BatchMemory([]int{a.cfg.MaxPositions + 1}); !errors.Is(err, embeddinggemma2.ErrUnsupportedBatchShape) {
+		t.Fatalf("over MaxPositions: %v", err)
+	}
+	limit := a.batchRowLimit()
+	atLimit := make([]int, 0, limit/a.cfg.MaxPositions+1)
+	for rem := limit; rem > 0; {
+		n := min(rem, a.cfg.MaxPositions)
+		atLimit = append(atLimit, n)
+		rem -= n
+	}
+	estLimit, err := a.BatchMemory(atLimit)
+	if err != nil {
+		t.Fatalf("batch at exact batchRowLimit (%d): %v", limit, err)
+	}
+	if estLimit.Quality != embeddinggemma2.BatchMemoryUpperBound || estLimit.AdditionalPeakBytes <= 0 {
+		t.Fatalf("batchRowLimit estimate = %+v", estLimit)
+	}
+	overLimit := append(append([]int(nil), atLimit...), 1)
+	if _, err := a.BatchMemory(overLimit); !errors.Is(err, embeddinggemma2.ErrUnsupportedBatchShape) {
+		t.Fatalf("batch over batchRowLimit (%d+1): got %v, want ErrUnsupportedBatchShape", limit, err)
+	}
+	tooManyItems := make([]int, limit+1)
+	for i := range tooManyItems {
+		tooManyItems[i] = 1
+	}
+	if _, err := a.BatchMemory(tooManyItems); !errors.Is(err, embeddinggemma2.ErrUnsupportedBatchShape) {
+		t.Fatalf("len(lens) > batchRowLimit: got %v, want ErrUnsupportedBatchShape", err)
+	}
+	// ForwardBatch also rejects len(ids) > batchRowLimit in O(1) before allocating lens.
+	if _, err := a.ForwardBatch(make([][]int, limit+1)); !errors.Is(err, embeddinggemma2.ErrUnsupportedBatchShape) {
+		t.Fatalf("ForwardBatch len(ids) > batchRowLimit: got %v, want ErrUnsupportedBatchShape", err)
+	}
+
+	// Singleton BatchMemory prices EmbedIDs (Forward) and uses singleton
+	// checkPositions admission rather than ForwardBatch's aggregate batchRowLimit.
+	wide := &eg2Accel{
+		cfg: embeddinggemma2.Config{
+			Hidden:       768,
+			Intermediate: 262144, // maximal stride -> batchRowLimit = (MaxInt32-255)/262144 - 31 = 8160
+			PLEDim:       256,
+			Layers:       1,
+			Heads:        8,
+			EmbeddingDim: 768,
+			MaxPositions: 8192,
+		},
+		layers: []eg2Layer{{w: embeddinggemma2.LayerWeights{HeadDim: 128, KVHeads: 2, RopeTheta: 10_000}}},
+	}
+	if got := wide.batchRowLimit(); got != 8160 {
+		t.Fatalf("wide.batchRowLimit() = %d, want 8160", got)
+	}
+	estSingleWide, err := wide.BatchMemory([]int{8161})
+	if err != nil {
+		t.Fatalf("singleton length 8161 (<= MaxPositions=8192, > batchRowLimit=8160) rejected: %v", err)
+	}
+	if estSingleWide.Quality != embeddinggemma2.BatchMemoryUpperBound || estSingleWide.AdditionalPeakBytes <= 0 {
+		t.Fatalf("singleton wide estimate = %+v", estSingleWide)
+	}
+	if _, err := wide.BatchMemory([]int{8160, 1}); !errors.Is(err, embeddinggemma2.ErrUnsupportedBatchShape) {
+		t.Fatalf("multi-input [8160, 1] over batchRowLimit=8160: got %v, want ErrUnsupportedBatchShape", err)
+	}
+	if _, err := wide.BatchMemory([]int{8193}); !errors.Is(err, embeddinggemma2.ErrUnsupportedBatchShape) {
+		t.Fatalf("singleton 8193 over MaxPositions=8192: got %v, want ErrUnsupportedBatchShape", err)
+	}
+
+	// Same aggregate T=128 with different max member lengths: [64,64] vs [1,127].
+	cold64, err := a.BatchMemory([]int{64, 64})
+	if err != nil {
+		t.Fatal(err)
+	}
+	cold127, err := a.BatchMemory([]int{1, 127})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if cold127.AdditionalPeakBytes <= cold64.AdditionalPeakBytes {
+		t.Fatalf("cold [1,127] (%d) should exceed cold [64,64] (%d) due to maxT RoPE cache growth", cold127.AdditionalPeakBytes, cold64.AdditionalPeakBytes)
+	}
+	if cold64.ResidentWeightBytes != a.residentWeightBytes || cold127.ResidentWeightBytes != a.residentWeightBytes {
+		t.Fatalf("resident weight bytes mismatch: %+v / %+v", cold64, cold127)
+	}
+
+	// Warm cache at rows=128 covers both [64,64] and [1,127] identically (same aggregate T=128).
+	a.ropes = []eg2Rope{
+		{hd: 128, theta: 10_000, rows: 128},
+		{hd: 256, theta: 1_000_000, rows: 128},
+	}
+	warm64, err := a.BatchMemory([]int{64, 64})
+	if err != nil {
+		t.Fatal(err)
+	}
+	warm127, err := a.BatchMemory([]int{1, 127})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if warm64.AdditionalPeakBytes != warm127.AdditionalPeakBytes {
+		t.Fatalf("warm [64,64] (%d) != warm [1,127] (%d) with same aggregate T=128", warm64.AdditionalPeakBytes, warm127.AdditionalPeakBytes)
+	}
+	if warm64.AdditionalPeakBytes >= cold64.AdditionalPeakBytes {
+		t.Fatalf("warm [64,64] (%d) should be strictly less than cold [64,64] (%d)", warm64.AdditionalPeakBytes, cold64.AdditionalPeakBytes)
+	}
+
+	// Byte-product overflow guard before rounding or int conversion.
+	huge := &eg2Accel{
+		cfg: embeddinggemma2.Config{
+			Hidden:       math.MaxInt / 2,
+			Intermediate: 16,
+			PLEDim:       16,
+			Layers:       1,
+			Heads:        1,
+			EmbeddingDim: 16,
+			MaxPositions: 16,
+		},
+		layers: []eg2Layer{{w: embeddinggemma2.LayerWeights{HeadDim: 16, KVHeads: 1, RopeTheta: 10_000}}},
+	}
+	if _, err := huge.scratchPlan(4); err == nil || errors.Is(err, embeddinggemma2.ErrUnsupportedBatchShape) {
+		t.Fatalf("scratchPlan overflow: got %v, want ordinary validation error", err)
+	}
+
+	// Broken and closed accelerators preserve their original errors.
+	brokenErr := errors.New("cuda: synthetic broken queue")
+	a.broken = brokenErr
+	if _, err := a.BatchMemory([]int{16}); !errors.Is(err, brokenErr) {
+		t.Fatalf("broken accel: got %v, want %v", err, brokenErr)
+	}
+	a.broken = nil
+	a.closed = true
+	if _, err := a.BatchMemory([]int{16}); !errors.Is(err, errEG2Closed) {
+		t.Fatalf("closed accel: got %v, want %v", err, errEG2Closed)
+	}
+}
+
+func TestEG2CUDA_BatchMemory_InstrumentedOracle(t *testing.T) {
+	dev, err := CreateSystemDefaultDevice()
+	if err != nil {
+		t.Skipf("no CUDA device: %v", err)
+	}
+	dev.ReleaseObjects()
+
+	m := eg2TinyModel(t)
+	V := m.Config().VocabSize
+
+	for _, combined := range []bool{false, true} {
+		name := "packed"
+		if combined {
+			name = "combined"
+		}
+		t.Run(name, func(t *testing.T) {
+			rec := &eg2RecordingLeaser{}
+			origNewLeaser := gpu.NewLeaser
+			gpu.NewLeaser = func() gpu.Leaser { return rec }
+			a, err := newEG2Accel(m, combined)
+			gpu.NewLeaser = origNewLeaser
+			if err != nil {
+				t.Fatalf("newEG2Accel(combined=%v): %v", combined, err)
+			}
+			defer a.Close()
+
+			// Distinguish persistent weights from synthetic helpers (ones, zeroBias) and host allocations.
+			est0, err := a.BatchMemory([]int{16})
+			if err != nil {
+				t.Fatalf("BatchMemory: %v", err)
+			}
+			if est0.Quality != embeddinggemma2.BatchMemoryUpperBound {
+				t.Fatalf("Quality = %v, want upper_bound", est0.Quality)
+			}
+			maxHD := 0
+			c := m.Config()
+			maxN := max(c.Layers*c.PLEDim, c.Intermediate, c.Hidden, c.EmbeddingDim)
+			for _, ly := range a.layers {
+				maxHD = max(maxHD, ly.w.HeadDim)
+				maxN = max(maxN, c.Heads*ly.w.HeadDim)
+			}
+			helperBytes := gpu.ChargedBytes(int64(maxHD)*4) + gpu.ChargedBytes(int64(max(maxN, 1))*4)
+			rec.mu.Lock()
+			attachDevLive := rec.devLive
+			attachHostAllocs := rec.hostAllocs
+			rec.mu.Unlock()
+			if est0.ResidentWeightBytes != attachDevLive-helperBytes {
+				t.Fatalf("ResidentWeightBytes=%d, want attachDevLive(%d)-helpers(%d)=%d (hostAllocs=%d)",
+					est0.ResidentWeightBytes, attachDevLive, helperBytes, attachDevLive-helperBytes, attachHostAllocs)
+			}
+
+			// Verify BatchMemory performs zero allocations and zero kernel launches/waits.
+			baseLive, baseAllocs := rec.resetWindow()
+			l0, w0 := a.ops.dev.Activity()
+			if _, err := a.BatchMemory([]int{64, 64}); err != nil {
+				t.Fatal(err)
+			}
+			l1, w1 := a.ops.dev.Activity()
+			peakD, endD, newAllocs := rec.windowDelta(baseLive, baseAllocs)
+			if newAllocs != 0 || peakD != 0 || endD != 0 || l1 != l0 || w1 != w0 {
+				t.Fatalf("BatchMemory mutated device: allocs=%d peak=%d end=%d launches=%d waits=%d",
+					newAllocs, peakD, endD, l1-l0, w1-w0)
+			}
+
+			// Exercise cold, warm-reuse, and warm-to-long growth across singleton, [64,64], [1,127], and long batches.
+			cases := []struct {
+				label string
+				lens  []int
+			}{
+				{"singleton-cold-32", []int{32}},
+				{"singleton-warm-16", []int{16}},
+				{"batch-64-64-grow", []int{64, 64}},
+				{"batch-64-64-warm", []int{64, 64}},
+				{"batch-1-127-grow", []int{1, 127}},
+				{"batch-1-127-warm", []int{1, 127}},
+				{"batch-long-514-514-grow", []int{514, 514}},
+				{"batch-long-514-514-warm", []int{514, 514}},
+			}
+			for _, tc := range cases {
+				maxT := 0
+				for _, n := range tc.lens {
+					maxT = max(maxT, n)
+				}
+				var releasedOldRope int64
+				for _, k := range a.distinctRopeKeys() {
+					if oldRows := a.ropeCachedRows(k); oldRows > 0 && oldRows < maxT {
+						releasedOldRope += 2 * gpu.ChargedBytes(int64(oldRows*k.hd)*4)
+					}
+				}
+
+				est, err := a.BatchMemory(tc.lens)
+				if err != nil {
+					t.Fatalf("%s: BatchMemory: %v", tc.label, err)
+				}
+				baseLive, baseAllocs := rec.resetWindow()
+				var freeBefore, freeAfter uint64
+				_ = a.ops.do(func() error {
+					freeBefore, _, _ = a.ops.dev.Context().MemInfo()
+					return nil
+				})
+				if len(tc.lens) == 1 {
+					if _, _, err := a.Forward(eg2SeqIDs(tc.lens[0], 1, V), false); err != nil {
+						t.Fatalf("%s: Forward: %v", tc.label, err)
+					}
+				} else {
+					batch := make([][]int, len(tc.lens))
+					for i, n := range tc.lens {
+						batch[i] = eg2SeqIDs(n, i+1, V)
+					}
+					if _, err := a.ForwardBatch(batch); err != nil {
+						t.Fatalf("%s: ForwardBatch: %v", tc.label, err)
+					}
+				}
+				_ = a.ops.do(func() error {
+					freeAfter, _, _ = a.ops.dev.Context().MemInfo()
+					return nil
+				})
+				peakDelta, endDelta, _ := rec.windowDelta(baseLive, baseAllocs)
+				if peakDelta > est.AdditionalPeakBytes {
+					t.Errorf("%s: measured ledger peak delta %d > estimated AdditionalPeakBytes %d", tc.label, peakDelta, est.AdditionalPeakBytes)
+				}
+				if gotMargin := est.AdditionalPeakBytes - peakDelta; gotMargin != releasedOldRope {
+					t.Errorf("%s: margin (est %d - peak %d) = %d, want releasedOldRope %d", tc.label, est.AdditionalPeakBytes, peakDelta, gotMargin, releasedOldRope)
+				}
+				t.Logf("[%s/%s] est=%d ledger_peak=%d margin=%d end_delta=%d phys_free_delta=%d",
+					name, tc.label, est.AdditionalPeakBytes, peakDelta, est.AdditionalPeakBytes-peakDelta, endDelta, int64(freeBefore)-int64(freeAfter))
+			}
+		})
+	}
+}
