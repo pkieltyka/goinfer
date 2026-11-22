@@ -1727,9 +1727,11 @@ func TestEG2CUDA_RetryOOM_ClassificationContract(t *testing.T) {
 		t.Fatalf("unrelated attach = %v", err)
 	}
 
-	// Serialized single-slot attach-cleanup gate (pure CPU): while a retained failed-attach
-	// cleanup keeps failing, concurrent attach attempts all fail closed with zero opener calls;
-	// once cleanup succeeds, the slot clears and the next attach invokes the opener.
+	// Serialized single-slot EG2 attach-cleanup gate + literal-nil bare factory contract
+	// (pure CPU): while a retained failed-attach cleanup keeps failing, repeated and
+	// simultaneous attaches (including public Model.NewAccelerator for both bare selectors)
+	// return literal nil Accelerator with zero opener calls; once cleanup succeeds, the
+	// slot clears and the next attach invokes the requested opener.
 	t.Run("serialized-single-slot-cleanup-gate", func(t *testing.T) {
 		var failMu sync.Mutex
 		failClose := true
@@ -1751,19 +1753,37 @@ func TestEG2CUDA_RetryOOM_ClassificationContract(t *testing.T) {
 				stuckOps.ackCh <- runJob(j)
 			}
 		}()
-		towerCleanup.mu.Lock()
-		prevPending := towerCleanup.pending
-		towerCleanup.pending = stuckOps
-		towerCleanup.mu.Unlock()
+		eg2AttachCleanup.mu.Lock()
+		prevPending := eg2AttachCleanup.pending
+		eg2AttachCleanup.pending = stuckOps
+		eg2AttachCleanup.mu.Unlock()
 		defer func() {
 			failMu.Lock()
 			failClose = false
 			failMu.Unlock()
-			_ = drainPendingTowerCleanups()
-			towerCleanup.mu.Lock()
-			towerCleanup.pending = prevPending
-			towerCleanup.mu.Unlock()
+			_ = drainPendingEG2Cleanups()
+			eg2AttachCleanup.mu.Lock()
+			eg2AttachCleanup.pending = prevPending
+			eg2AttachCleanup.mu.Unlock()
 		}()
+
+		// Public bare factories ("cuda" and combined bareEG2Factory(true)) must return
+		// literal nil interface (not typed-nil *eg2Accel) through Model.NewAccelerator on error.
+		combName := fmt.Sprintf("cuda-eg2-combined-test-%d", time.Now().UnixNano())
+		embeddinggemma2.RegisterAccelerator(combName, bareEG2Factory(true))
+		bareNames := []string{"cuda", combName}
+		if slices.Contains(embeddinggemma2.Accelerators(), "cuda-eg2-combined") {
+			bareNames = append(bareNames, "cuda-eg2-combined")
+		}
+		for _, sel := range bareNames {
+			acc, err := m.NewAccelerator(sel)
+			if acc != nil {
+				t.Fatalf("Model.NewAccelerator(%q) returned non-nil interface (%T) on error %v", sel, acc, err)
+			}
+			if !errors.Is(err, stuckErr) || errors.Is(err, embeddinggemma2.ErrBatchOutOfMemory) {
+				t.Fatalf("Model.NewAccelerator(%q) err = %v, want %v without retry", sel, err, stuckErr)
+			}
+		}
 
 		var openMu sync.Mutex
 		openCalls := 0
@@ -1773,6 +1793,14 @@ func TestEG2CUDA_RetryOOM_ClassificationContract(t *testing.T) {
 			wg.Add(1)
 			go func(idx int) {
 				defer wg.Done()
+				if idx%2 == 0 {
+					acc, err := m.NewAccelerator("cuda")
+					if acc != nil {
+						t.Errorf("goroutine %d Model.NewAccelerator returned non-nil interface (%T)", idx, acc)
+					}
+					errs[idx] = err
+					return
+				}
 				acc, err := newEG2AccelOn(m, false, func() (*Device, error) {
 					openMu.Lock()
 					openCalls++
@@ -1794,7 +1822,7 @@ func TestEG2CUDA_RetryOOM_ClassificationContract(t *testing.T) {
 		if openCalls != 0 {
 			t.Fatalf("blocked concurrent attaches invoked opener %d times, want 0", openCalls)
 		}
-		if n := pendingTowerCleanupsLen(); n != 1 {
+		if n := pendingEG2CleanupsLen(); n != 1 {
 			t.Fatalf("pending cleanup count = %d, want 1", n)
 		}
 
@@ -1813,8 +1841,51 @@ func TestEG2CUDA_RetryOOM_ClassificationContract(t *testing.T) {
 		if openCalls != 1 {
 			t.Fatalf("post-recovery opener calls = %d, want 1", openCalls)
 		}
-		if n := pendingTowerCleanupsLen(); n != 0 {
+		if n := pendingEG2CleanupsLen(); n != 0 {
 			t.Fatalf("pending cleanup count after recovery = %d, want 0", n)
+		}
+	})
+
+	// Close teardown progress (pure CPU): once Close enters closeChecked and fails
+	// on a non-buffer object/context close, a later Close retry must not call
+	// drainQueue / q.Sync on an already-destroyed stream.
+	t.Run("close-teardown-progress-skips-drain-on-retry", func(t *testing.T) {
+		failObj := true
+		objErr := errors.New("cuda: synthetic post-stream module close failure")
+		dev := &Device{}
+		dev.TrackObj(&testCloser{fn: func() error {
+			if failObj {
+				return objErr
+			}
+			return nil
+		}})
+		ops := &towerOps{dev: dev, reqCh: make(chan func() error), ackCh: make(chan error)}
+		go func() {
+			for j := range ops.reqCh {
+				ops.ackCh <- runJob(j)
+			}
+		}()
+		a := &eg2Accel{ops: ops}
+		if err := a.Close(); !errors.Is(err, objErr) {
+			t.Fatalf("first Close = %v, want %v", err, objErr)
+		}
+		if a.closed || !a.teardownStarted || a.broken == nil {
+			t.Fatalf("after failed teardown: closed=%v teardownStarted=%v broken=%v", a.closed, a.teardownStarted, a.broken)
+		}
+		// Plant a failing drain: if retry wrongly calls drainQueue(), Close fails here.
+		a.defect.drainFails = 1
+		failObj = false
+		if err := a.Close(); err != nil {
+			t.Fatalf("retry Close after post-stream failure = %v, want nil", err)
+		}
+		if !a.closed {
+			t.Fatal("retry Close did not mark accelerator closed")
+		}
+		if a.defect.drainFails != 1 {
+			t.Fatalf("retry Close called drainQueue after teardown started (drainFails=%d)", a.defect.drainFails)
+		}
+		if allocs, objs := dev.LedgerLen(); allocs != 0 || objs != 0 {
+			t.Fatalf("retry Close left ledger (%d, %d)", allocs, objs)
 		}
 	})
 }
@@ -2280,6 +2351,42 @@ func TestEG2CUDA_RetryOOM_DeviceAcceptance(t *testing.T) {
 				if err := aFatal.Close(); err != nil {
 					t.Fatalf("aFatal.Close: %v", err)
 				}
+
+				// 3e: Real-device Close failure AFTER native stream destruction (module/object close
+				// fails in ReleaseObjectsChecked after real command stream q is closed): retry Close
+				// must skip q.Sync on the destroyed stream and finish tearing down cleanly.
+				eTear, aTear := attachFresh(t)
+				devTear := aTear.ops.dev
+				failTearObj := true
+				tearErr := errors.New("cuda: planted post-stream close failure")
+				devTear.TrackObj(&testCloser{fn: func() error {
+					if failTearObj {
+						return tearErr
+					}
+					return nil
+				}})
+				if err := aTear.Close(); !errors.Is(err, tearErr) {
+					t.Fatalf("first Close with post-stream failure = %v, want %v", err, tearErr)
+				}
+				if aTear.closed || !aTear.teardownStarted || aTear.broken == nil {
+					t.Fatalf("post-stream Close state: closed=%v teardownStarted=%v broken=%v", aTear.closed, aTear.teardownStarted, aTear.broken)
+				}
+				if allocsLeft, objsLeft := devTear.LedgerLen(); allocsLeft != 0 || objsLeft != 1 {
+					t.Fatalf("post-stream failed Close ledger = (%d, %d), want (0, 1)", allocsLeft, objsLeft)
+				}
+				if _, err := eTear.EmbedIDs(orig[0]); err == nil || !errors.Is(err, aTear.broken) || errors.Is(err, embeddinggemma2.ErrBatchOutOfMemory) {
+					t.Fatalf("forward after post-stream Close failure = %v, want aTear.broken without retry", err)
+				}
+				failTearObj = false
+				if err := aTear.Close(); err != nil {
+					t.Fatalf("retry Close after real stream already destroyed = %v, want nil", err)
+				}
+				if !aTear.closed {
+					t.Fatal("retry Close did not mark accelerator closed")
+				}
+				if allocsLeft, objsLeft := devTear.LedgerLen(); allocsLeft != 0 || objsLeft != 0 {
+					t.Fatalf("retry Close left ledger (%d, %d)", allocsLeft, objsLeft)
+				}
 			})
 
 			// (4) Singleton EmbedIDs OOM + attach partial-weight-upload OOM + unrelated attach error.
@@ -2348,7 +2455,9 @@ func TestEG2CUDA_RetryOOM_DeviceAcceptance(t *testing.T) {
 				var stuckDev *Device
 				attachFreeErr := errors.New("cuda: planted partial-attach rollback close failure")
 				attachAllocs = 0
+				var closeMu sync.Mutex
 				closeAttempts := 0
+				failRemaining := false
 				gotAcc, err = newEG2AccelOn(m, combined, func() (*Device, error) {
 					d, err := CreateSystemDefaultDevice()
 					if err != nil {
@@ -2363,8 +2472,11 @@ func TestEG2CUDA_RetryOOM_DeviceAcceptance(t *testing.T) {
 						return nil
 					})
 					d.SetCloseBufHookForTest(func(closeReal func() error) error {
+						closeMu.Lock()
 						closeAttempts++
-						if closeAttempts == 1 {
+						shouldFail := closeAttempts == 1 || failRemaining
+						closeMu.Unlock()
+						if shouldFail {
 							return attachFreeErr // leave real buffer open so cleanup retry frees it
 						}
 						return closeReal()
@@ -2376,30 +2488,36 @@ func TestEG2CUDA_RetryOOM_DeviceAcceptance(t *testing.T) {
 					if stuckDev != nil {
 						stuckDev.SetCloseBufHookForTest(nil)
 					}
-					_ = drainPendingTowerCleanups()
+					_ = drainPendingEG2Cleanups()
 				}()
 				if gotAcc != nil || !errors.Is(err, embeddinggemma2.ErrDeviceOutOfMemory) ||
 					!errors.Is(err, gc.ErrOutOfMemory) || !errors.Is(err, attachFreeErr) ||
 					errors.Is(err, embeddinggemma2.ErrBatchOutOfMemory) {
 					t.Fatalf("partial attach OOM + failed close = (%v, %v)", gotAcc, err)
 				}
+				closeMu.Lock()
+				failRemaining = true
+				closeMu.Unlock()
 				recAttach.mu.Lock()
 				liveAfterFailAttach := recAttach.devLive
 				recAttach.mu.Unlock()
-				if nPending := pendingTowerCleanupsLen(); nPending != 1 {
+				if nPending := pendingEG2CleanupsLen(); nPending != 1 {
 					t.Fatalf("pending attach cleanups = %d, want 1", nPending)
 				}
 				if allocsLeft, objsLeft := stuckDev.LedgerLen(); allocsLeft == 0 || objsLeft == 0 || liveAfterFailAttach <= 0 {
 					t.Fatalf("failed attach rollback dropped ownership: ledger=(%d, %d) liveBytes=%d", allocsLeft, objsLeft, liveAfterFailAttach)
 				}
-				// Attempt multiple attaches while cleanup keeps failing: every attempt must fail closed
-				// with attachFreeErr (no ErrBatchOutOfMemory), perform ZERO new device opens/retains,
+				// Attempt repeated and simultaneous attaches (including public Model.NewAccelerator)
+				// while cleanup keeps failing: every attempt must fail closed with attachFreeErr (no
+				// ErrBatchOutOfMemory), return literal nil interface, perform ZERO new device opens,
 				// and keep pending count bounded at 1 with ledger and lease intact.
+				var blockedMu sync.Mutex
 				blockedOpens := 0
-				for attempt := range 3 {
-					closeAttempts = 0
+				for attempt := range 2 {
 					accBlocked, errBlocked := newEG2AccelOn(m, combined, func() (*Device, error) {
+						blockedMu.Lock()
 						blockedOpens++
+						blockedMu.Unlock()
 						return CreateSystemDefaultDevice()
 					})
 					if accBlocked != nil || !errors.Is(errBlocked, attachFreeErr) || errors.Is(errBlocked, embeddinggemma2.ErrBatchOutOfMemory) {
@@ -2408,17 +2526,52 @@ func TestEG2CUDA_RetryOOM_DeviceAcceptance(t *testing.T) {
 					if blockedOpens != 0 {
 						t.Fatalf("blocked attach attempt %d opened %d new devices while cleanup failed", attempt, blockedOpens)
 					}
-					if nPending := pendingTowerCleanupsLen(); nPending != 1 {
+					if nPending := pendingEG2CleanupsLen(); nPending != 1 {
 						t.Fatalf("blocked attach attempt %d pending count = %d, want 1", attempt, nPending)
 					}
+				}
+				// Simultaneous public + internal attach attempts while cleanup keeps failing.
+				var simWG sync.WaitGroup
+				simErrs := make([]error, 4)
+				for i := range simErrs {
+					simWG.Add(1)
+					go func(idx int) {
+						defer simWG.Done()
+						if idx%2 == 0 {
+							accPub, errPub := m.NewAccelerator("cuda")
+							if accPub != nil {
+								t.Errorf("simultaneous Model.NewAccelerator(%d) returned non-nil interface (%T)", idx, accPub)
+							}
+							simErrs[idx] = errPub
+							return
+						}
+						accInt, errInt := newEG2AccelOn(m, combined, func() (*Device, error) {
+							blockedMu.Lock()
+							blockedOpens++
+							blockedMu.Unlock()
+							return CreateSystemDefaultDevice()
+						})
+						if accInt != nil {
+							t.Errorf("simultaneous newEG2AccelOn(%d) returned non-nil accel", idx)
+						}
+						simErrs[idx] = errInt
+					}(i)
+				}
+				simWG.Wait()
+				for i, errSim := range simErrs {
+					if !errors.Is(errSim, attachFreeErr) || errors.Is(errSim, embeddinggemma2.ErrBatchOutOfMemory) {
+						t.Fatalf("simultaneous blocked attach %d = %v, want %v without retry", i, errSim, attachFreeErr)
+					}
+				}
+				if blockedOpens != 0 {
+					t.Fatalf("simultaneous blocked attaches invoked opener %d times, want 0", blockedOpens)
 				}
 				// Explicit-selection token validation still rejects invalid selectors without mutating pending cleanup.
 				if badSel, errSel := selectedEG2Factory(combined)(m, "invalid-token!"); badSel != nil || !errors.Is(errSel, embeddinggemma2.ErrDeviceUnavailable) {
 					t.Fatalf("invalid explicit selector while cleanup pending = (%v, %v), want ErrDeviceUnavailable", badSel, errSel)
 				}
 				// Explicit drain while close failure is still active keeps failing and preserves ownership.
-				closeAttempts = 0
-				if err := drainPendingTowerCleanups(); !errors.Is(err, attachFreeErr) {
+				if err := drainPendingEG2Cleanups(); !errors.Is(err, attachFreeErr) {
 					t.Fatalf("repeat failing attach cleanup drain = %v, want %v", err, attachFreeErr)
 				}
 				recAttach.mu.Lock()
@@ -2448,7 +2601,7 @@ func TestEG2CUDA_RetryOOM_DeviceAcceptance(t *testing.T) {
 				recAttach.mu.Lock()
 				liveAfterDrain := recAttach.devLive
 				recAttach.mu.Unlock()
-				if nPending := pendingTowerCleanupsLen(); nPending != 0 {
+				if nPending := pendingEG2CleanupsLen(); nPending != 0 {
 					t.Fatalf("pending attach cleanups after recovery = %d, want 0", nPending)
 				}
 				if allocsLeft, objsLeft := stuckDev.LedgerLen(); allocsLeft != 0 || objsLeft != 0 || liveAfterDrain != 0 {

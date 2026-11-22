@@ -25,10 +25,18 @@ import (
 // query head taking its KV head's columns. Registered as the "cuda" accelerator; nothing selects it by default.
 
 func init() {
-	embeddinggemma2.RegisterAccelerator("cuda", func(m *embeddinggemma2.Model) (embeddinggemma2.Accelerator, error) {
-		return newEG2Accel(m, false)
-	})
+	embeddinggemma2.RegisterAccelerator("cuda", bareEG2Factory(false))
 	embeddinggemma2.RegisterSelectedAccelerator("cuda", selectedEG2Factory(false))
+}
+
+func bareEG2Factory(combined bool) func(*embeddinggemma2.Model) (embeddinggemma2.Accelerator, error) {
+	return func(m *embeddinggemma2.Model) (embeddinggemma2.Accelerator, error) {
+		acc, err := newEG2Accel(m, combined)
+		if err != nil {
+			return nil, err
+		}
+		return acc, nil
+	}
 }
 
 // eg2MaxTokens is the longest input the accelerator takes: a full layer's score row is T float32 in attention_seg's
@@ -75,7 +83,8 @@ type eg2Accel struct {
 	residentWeightBytes                     int64
 	layers                                  []eg2Layer
 	ropes                                   []eg2Rope
-	broken                                  error // set when a failed forward could not be drained; every later forward returns it
+	broken                                  error // set when a failed forward could not be drained or Close failed; every later forward returns it
+	teardownStarted                         bool  // set once Close has drained (if needed) and entered closeChecked; retries skip q.Sync on destroyed streams
 	combinedTranspose, combinedAttention    Pipeline
 	defect                                  eg2Defect
 }
@@ -252,10 +261,61 @@ func newEG2Accel(m *embeddinggemma2.Model, combined bool) (*eg2Accel, error) {
 	return newEG2AccelOn(m, combined, CreateSystemDefaultDevice)
 }
 
+// eg2AttachCleanup serializes EmbeddingGemma 2 CUDA attach admission and
+// failed-attach rollback so at most one unfinished *towerOps can exist at a
+// time. While an earlier failed attach cannot finish ReleaseObjectsChecked,
+// subsequent EG2 attach attempts retry that cleanup under the admission lock
+// and fail closed before calling open(). Healthy attached encoders remain
+// independent; standalone vision towers are unaffected.
+var eg2AttachCleanup struct {
+	mu      sync.Mutex
+	pending *towerOps
+}
+
+func retireEG2AttachLocked(ops *towerOps) error {
+	if ops == nil {
+		return nil
+	}
+	err := ops.closeChecked()
+	if err != nil {
+		eg2AttachCleanup.pending = ops
+	}
+	return err
+}
+
+func drainPendingEG2CleanupLocked() error {
+	if eg2AttachCleanup.pending == nil {
+		return nil
+	}
+	if err := eg2AttachCleanup.pending.closeChecked(); err != nil {
+		return err
+	}
+	eg2AttachCleanup.pending = nil
+	return nil
+}
+
+// drainPendingEG2Cleanups explicitly retries any single retained failed-attach
+// rollback under the EG2 admission lock, clearing it only once closeChecked succeeds.
+func drainPendingEG2Cleanups() error {
+	eg2AttachCleanup.mu.Lock()
+	defer eg2AttachCleanup.mu.Unlock()
+	return drainPendingEG2CleanupLocked()
+}
+
+func pendingEG2CleanupsLen() int {
+	eg2AttachCleanup.mu.Lock()
+	defer eg2AttachCleanup.mu.Unlock()
+	if eg2AttachCleanup.pending != nil {
+		return 1
+	}
+	return 0
+}
+
 // newEG2AccelOn is the single classified EmbeddingGemma 2 CUDA attach path
 // shared by legacy default attach, the combined attention selector, and
 // explicitly selected device openers: open acquires the device while this
-// constructor owns setup, partial-upload rollback, and OOM classification.
+// constructor owns admission serialization, setup, checked rollback, and OOM
+// classification.
 func newEG2AccelOn(m *embeddinggemma2.Model, combined bool, open func() (*Device, error)) (_ *eg2Accel, err error) {
 	defer func() { err = classifyCUDAAttach(err) }()
 	if open == nil {
@@ -272,10 +332,16 @@ func newEG2AccelOn(m *embeddinggemma2.Model, combined bool, open func() (*Device
 		maxN = max(maxN, c.Heads*ly.HeadDim)
 		maxHD = max(maxHD, ly.HeadDim)
 	}
-	towerCleanup.mu.Lock()
-	defer towerCleanup.mu.Unlock()
-	ops, err := newTowerOpsOnLocked(open, maxN)
+	eg2AttachCleanup.mu.Lock()
+	defer eg2AttachCleanup.mu.Unlock()
+	if cerr := drainPendingEG2CleanupLocked(); cerr != nil {
+		return nil, fmt.Errorf("cuda: EmbeddingGemma 2 previous failed attach cleanup still pending: %w", cerr)
+	}
+	ops, err := newTowerOpsOnUnclosed(open, maxN)
 	if err != nil {
+		if cerr := retireEG2AttachLocked(ops); cerr != nil {
+			return nil, errors.Join(err, cerr)
+		}
 		return nil, err
 	}
 	a := &eg2Accel{ops: ops, cfg: c, model: m}
@@ -302,14 +368,14 @@ func newEG2AccelOn(m *embeddinggemma2.Model, combined bool, open func() (*Device
 		a.residentWeightBytes = weightBytes
 		return ops.finish()
 	}); err != nil {
-		if cerr := retireTowerAttachLocked(ops); cerr != nil {
+		if cerr := retireEG2AttachLocked(ops); cerr != nil {
 			return nil, fmt.Errorf("cuda: EmbeddingGemma 2 upload: %w", errors.Join(err, cerr))
 		}
 		return nil, fmt.Errorf("cuda: EmbeddingGemma 2 upload: %w", err)
 	}
 	if combined {
 		if err := a.enableCombined(); err != nil {
-			if cerr := retireTowerAttachLocked(a.ops); cerr != nil {
+			if cerr := retireEG2AttachLocked(a.ops); cerr != nil {
 				return nil, errors.Join(err, cerr)
 			}
 			return nil, err
@@ -350,11 +416,12 @@ func (a *eg2Accel) Close() error {
 	if a.closed {
 		return nil
 	}
-	if a.broken != nil {
+	if a.broken != nil && !a.teardownStarted {
 		if err := a.ops.do(a.drainQueue); err != nil {
 			return fmt.Errorf("cuda: EmbeddingGemma 2 Close could not drain the queue, so nothing was freed: %w", err)
 		}
 	}
+	a.teardownStarted = true
 	if err := a.ops.closeChecked(); err != nil {
 		if a.broken == nil {
 			a.broken = fmt.Errorf("cuda: EmbeddingGemma 2 Close release failed: %w", err)

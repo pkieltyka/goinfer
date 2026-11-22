@@ -6,7 +6,6 @@ import (
 	"errors"
 	"fmt"
 	"runtime"
-	"sync"
 
 	gpu "github.com/pkieltyka/goinfer/backend/cuda/internal/gpudev"
 	"github.com/pkieltyka/goinfer/internal/runtime/mem"
@@ -48,21 +47,23 @@ func newTowerOps(maxN int) (*towerOps, error) {
 }
 
 // newTowerOpsOn creates towerOps using an explicit non-nil device opener on the executor goroutine.
-func newTowerOpsOn(open func() (*Device, error), maxN int) (*towerOps, error) {
-	if open == nil {
-		return nil, errors.New("cuda tower: nil device opener")
+func newTowerOpsOn(open func() (*Device, error), maxN int) (t *towerOps, err error) {
+	t, err = newTowerOpsOnUnclosed(open, maxN)
+	if err != nil {
+		if t != nil {
+			t.close()
+		}
+		return nil, err
 	}
-	towerCleanup.mu.Lock()
-	defer towerCleanup.mu.Unlock()
-	return newTowerOpsOnLocked(open, maxN)
+	return t, nil
 }
 
-func newTowerOpsOnLocked(open func() (*Device, error), maxN int) (t *towerOps, err error) {
+// newTowerOpsOnUnclosed builds towerOps without running unchecked t.close() on
+// failure, returning the partial *towerOps alongside the error so EG2's
+// serialized attach path owns checked rollback.
+func newTowerOpsOnUnclosed(open func() (*Device, error), maxN int) (t *towerOps, err error) {
 	if open == nil {
 		return nil, errors.New("cuda tower: nil device opener")
-	}
-	if cerr := drainPendingTowerCleanupLocked(); cerr != nil {
-		return nil, fmt.Errorf("cuda tower: previous failed attach cleanup still pending: %w", cerr)
 	}
 	t = &towerOps{reqCh: make(chan func() error), ackCh: make(chan error)}
 	go func() {
@@ -106,60 +107,9 @@ func newTowerOpsOnLocked(open func() (*Device, error), maxN int) (t *towerOps, e
 		return nil
 	})
 	if err != nil {
-		if cerr := retireTowerAttachLocked(t); cerr != nil {
-			return nil, errors.Join(err, cerr)
-		}
-		return nil, err
+		return t, err
 	}
 	return t, nil
-}
-
-// towerCleanup serializes tower attach and failed-attach rollback so at most
-// one unfinished *towerOps can be retained at a time. While an earlier failed
-// attach cannot finish ReleaseObjectsChecked, subsequent attach attempts retry
-// that cleanup under the lock and fail closed before calling open().
-var towerCleanup struct {
-	mu      sync.Mutex
-	pending *towerOps
-}
-
-func retireTowerAttachLocked(ops *towerOps) error {
-	if ops == nil {
-		return nil
-	}
-	err := ops.closeChecked()
-	if err != nil {
-		towerCleanup.pending = ops
-	}
-	return err
-}
-
-func drainPendingTowerCleanupLocked() error {
-	if towerCleanup.pending == nil {
-		return nil
-	}
-	if err := towerCleanup.pending.closeChecked(); err != nil {
-		return err
-	}
-	towerCleanup.pending = nil
-	return nil
-}
-
-// drainPendingTowerCleanups explicitly retries any single retained failed-attach
-// rollback under the serialization lock, clearing it only once closeChecked succeeds.
-func drainPendingTowerCleanups() error {
-	towerCleanup.mu.Lock()
-	defer towerCleanup.mu.Unlock()
-	return drainPendingTowerCleanupLocked()
-}
-
-func pendingTowerCleanupsLen() int {
-	towerCleanup.mu.Lock()
-	defer towerCleanup.mu.Unlock()
-	if towerCleanup.pending != nil {
-		return 1
-	}
-	return 0
 }
 
 // do runs j on the executor goroutine; a panic inside it (an allocation failure) comes back as an error.
