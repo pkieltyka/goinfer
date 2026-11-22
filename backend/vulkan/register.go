@@ -1,19 +1,28 @@
 // Package vulkan registers the direct Vulkan EmbeddingGemma 2 text accelerator.
 // Importing the package registers a factory. The system loader and AMD device are
-// opened only when the caller selects "vulkan".
+// opened when the caller inventories devices or attaches the accelerator.
 package vulkan
 
 import "github.com/pkieltyka/goinfer/embeddinggemma2"
 
 //go:generate sh shaders/generate.sh
 
-func init() { embeddinggemma2.RegisterAccelerator("vulkan", openAccelerator) }
+func init() {
+	embeddinggemma2.RegisterAccelerator("vulkan", openAccelerator)
+	embeddinggemma2.RegisterSelectedAccelerator("vulkan", openSelectedAccelerator)
+}
 
-// DeviceInfo describes the physical Vulkan device selected at attachment.
+// DeviceInfo describes a discrete AMD Vulkan device. ID is based on the Vulkan
+// device UUID and is independent of discovery order. The UUID identifies the device on
+// this host. Re-inventory after hardware or driver changes. Alias is an ordinal
+// in the current inventory and can move when the visible device set changes.
+// An empty ID means the driver does not report a UUID.
+// TotalLocalBytes is the sum of device-local heap sizes, rather than free memory.
 // APIVersion and DriverVersion contain Vulkan's original packed version words.
 // The driver version's encoding is vendor-specific.
 type DeviceInfo struct {
-	Name                                          string
+	ID, Alias, Name                               string
+	TotalLocalBytes                               uint64
 	VendorID, DeviceID, APIVersion, DriverVersion uint32
 	Type                                          string
 }

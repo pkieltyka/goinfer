@@ -6,21 +6,32 @@ import (
 	"errors"
 	"fmt"
 	"sync"
+	"unsafe"
 
 	"github.com/ebitengine/purego"
 )
 
 const (
+	apiVersion11    = 1<<22 | 1<<12
 	amdVendor       = 0x1002
+	heapDeviceLocal = 0x1
 	poolSets        = 4096
 	poolDescriptors = 32768
 )
 
-// Selector optionally pins the PCI device ID of a discrete AMD adapter.
-type Selector struct{ DeviceID uint32 }
+// ErrDeviceUnavailable identifies a failed device lookup.
+var ErrDeviceUnavailable = errors.New("vulkan: device unavailable")
+
+// Selector filters by PCI product ID, physical device UUID, or both.
+type Selector struct {
+	DeviceID uint32
+	UUID     [16]byte
+}
 
 type Info struct {
 	Name                      string
+	UUID                      [16]byte
+	TotalLocalBytes           uint64
 	VendorID, DeviceID        uint32
 	APIVersion, DriverVersion uint32
 	MaxStorageRange           uint64
@@ -33,6 +44,7 @@ type Activity struct{ Dispatches, Copies, Submissions, Waits uint64 }
 type Device struct {
 	mu                      sync.Mutex
 	api                     api
+	properties2             func(handle, *physicalProperties2)
 	lib                     uintptr
 	instance, device, queue handle
 	cmdPool, cmd, descPool  handle
@@ -48,13 +60,12 @@ type Device struct {
 	broken                  error
 }
 
-// Open loads Vulkan and selects the unique eligible discrete AMD adapter.
-func Open(selector Selector) (_ *Device, err error) {
+func openInstance() (_ *Device, err error) {
 	lib, err := purego.Dlopen("libvulkan.so.1", purego.RTLD_NOW|purego.RTLD_LOCAL)
 	if err != nil {
 		return nil, fmt.Errorf("vulkan: open libvulkan.so.1: %w", err)
 	}
-	d := &Device{lib: lib, buffers: make(map[*Buffer]struct{}), pipelines: make(map[*Pipeline]struct{})}
+	d := &Device{lib: lib}
 	defer func() {
 		if err != nil {
 			err = errors.Join(err, d.Close())
@@ -63,19 +74,58 @@ func Open(selector Selector) (_ *Device, err error) {
 	if err = d.api.load(lib); err != nil {
 		return nil, err
 	}
+	info := instanceInfo{header: st(stInstance)}
+	if addr, e := purego.Dlsym(lib, "vkEnumerateInstanceVersion"); e == nil {
+		var enumerateVersion func(*uint32) result
+		purego.RegisterFunc(&enumerateVersion, addr)
+		var version uint32
+		if enumerateVersion(&version) == success && version >= apiVersion11 {
+			info.App = &applicationInfo{APIVersion: apiVersion11}
+		}
+	}
 	var instance handle
-	if err = d.api.createInstance(&instanceInfo{header: st(stInstance)}, nil, &instance).check("create instance"); err != nil {
+	if err = d.api.createInstance(&info, nil, &instance).check("create instance"); err != nil {
 		return nil, err
 	}
 	d.instance = instance
-	physical, err := d.choosePhysical(selector)
+	if info.App != nil {
+		addr, e := purego.Dlsym(lib, "vkGetInstanceProcAddr")
+		if e != nil {
+			return nil, e
+		}
+		var getProc func(handle, string) uintptr
+		purego.RegisterFunc(&getProc, addr)
+		if addr := getProc(instance, "vkGetPhysicalDeviceProperties2"); addr != 0 {
+			purego.RegisterFunc(&d.properties2, addr)
+		}
+	}
+	return d, nil
+}
+
+// Open loads Vulkan and selects the unique eligible discrete AMD adapter.
+func Open(selector Selector) (_ *Device, err error) {
+	d, err := openInstance()
+	if err != nil {
+		return nil, errors.Join(ErrDeviceUnavailable, err)
+	}
+	defer func() {
+		if err != nil {
+			err = errors.Join(err, d.Close())
+		}
+	}()
+	candidates, err := d.adapters()
+	if err != nil {
+		return nil, errors.Join(ErrDeviceUnavailable, err)
+	}
+	selected, err := choosePhysical(candidates, selector)
 	if err != nil {
 		return nil, err
 	}
-	family, err := d.computeFamily(physical)
-	if err != nil {
-		return nil, err
-	}
+	physical, family := selected.handle, selected.family
+	d.info = selected.info
+	d.maxBindings, d.maxAllocations = selected.maxBindings, selected.maxAllocations
+	d.buffers = make(map[*Buffer]struct{})
+	d.pipelines = make(map[*Pipeline]struct{})
 	d.api.memoryProperties(physical, &d.properties)
 	if d.properties.Count == 0 || d.properties.Count > uint32(len(d.properties.Types)) {
 		return nil, fmt.Errorf("vulkan: invalid memory type count %d", d.properties.Count)
@@ -93,46 +143,99 @@ func Open(selector Selector) (_ *Device, err error) {
 	return d, nil
 }
 
-func (d *Device) choosePhysical(selector Selector) (handle, error) {
+type adapter struct {
+	handle                      handle
+	family                      uint32
+	info                        Info
+	maxBindings, maxAllocations uint32
+}
+
+// Devices inventories eligible adapters without creating a logical device.
+func Devices() (_ []Info, err error) {
+	d, err := openInstance()
+	if err != nil {
+		return nil, errors.Join(ErrDeviceUnavailable, err)
+	}
+	defer func() { err = errors.Join(err, d.Close()) }()
+	adapters, err := d.adapters()
+	if err != nil {
+		return nil, errors.Join(ErrDeviceUnavailable, err)
+	}
+	out := make([]Info, 0, len(adapters))
+	for _, adapter := range adapters {
+		out = append(out, adapter.info)
+	}
+	return out, nil
+}
+
+func (d *Device) adapters() ([]adapter, error) {
 	var count uint32
 	if err := d.api.enumeratePhysical(d.instance, &count, nil).check("count physical devices"); err != nil {
-		return 0, err
+		return nil, err
 	}
 	if count == 0 {
-		return 0, errors.New("vulkan: no physical devices")
+		return nil, nil
 	}
 	devices := make([]handle, count)
 	if err := d.api.enumeratePhysical(d.instance, &count, &devices[0]).check("enumerate physical devices"); err != nil {
-		return 0, err
+		return nil, err
 	}
-	var selected handle
+	var out []adapter
 	for _, physical := range devices[:count] {
 		var p physicalProperties
 		d.api.physicalProperties(physical, &p)
-		if p.Kind != deviceDiscrete || p.Vendor != amdVendor || selector.DeviceID != 0 && p.Device != selector.DeviceID {
+		if p.Kind != deviceDiscrete || p.Vendor != amdVendor {
 			continue
 		}
-		if selected != 0 {
-			if selector.DeviceID == 0 {
-				return 0, errors.New("vulkan: multiple discrete AMD adapters found")
+		family, err := d.computeFamily(physical)
+		if err != nil {
+			continue
+		}
+		var id physicalIDProperties
+		if d.properties2 != nil && p.API >= apiVersion11 {
+			id.header = st(stPhysicalIDProperties)
+			properties := physicalProperties2{header: st(stPhysicalProperties2)}
+			properties.Next = unsafe.Pointer(&id)
+			d.properties2(physical, &properties)
+		}
+		var memory memoryProperties
+		d.api.memoryProperties(physical, &memory)
+		var total uint64
+		for _, heap := range memory.Heaps[:min(memory.HeapCount, uint32(len(memory.Heaps)))] {
+			if heap.Flags&heapDeviceLocal != 0 {
+				total += heap.Size
 			}
-			return 0, fmt.Errorf("vulkan: multiple discrete AMD devices match PCI device ID %04x", selector.DeviceID)
 		}
-		selected = physical
 		name, _, _ := bytes.Cut(p.Name[:], []byte{0})
-		d.info = Info{
-			Name: string(name), VendorID: p.Vendor, DeviceID: p.Device,
-			APIVersion: p.API, DriverVersion: p.Driver, MaxStorageRange: uint64(p.Limits.MaxStorageBufferRange),
-			MaxGroupCount: p.Limits.MaxWorkGroupCount, MaxPushBytes: p.Limits.MaxPushConstantsSize,
-		}
-		d.maxBindings = min(p.Limits.MaxPerStageStorageBuffers, p.Limits.MaxDescriptorSetStorageBuffers)
-		d.maxAllocations = p.Limits.MaxMemoryAllocationCount
+		out = append(out, adapter{
+			handle: physical, family: family,
+			info: Info{
+				Name: string(name), UUID: id.DeviceUUID, VendorID: p.Vendor, DeviceID: p.Device,
+				TotalLocalBytes: total, APIVersion: p.API, DriverVersion: p.Driver,
+				MaxStorageRange: uint64(p.Limits.MaxStorageBufferRange),
+				MaxGroupCount:   p.Limits.MaxWorkGroupCount, MaxPushBytes: p.Limits.MaxPushConstantsSize,
+			},
+			maxBindings:    min(p.Limits.MaxPerStageStorageBuffers, p.Limits.MaxDescriptorSetStorageBuffers),
+			maxAllocations: p.Limits.MaxMemoryAllocationCount,
+		})
 	}
-	if selected == 0 {
-		if selector.DeviceID == 0 {
-			return 0, errors.New("vulkan: no discrete AMD adapter found")
+	return out, nil
+}
+
+func choosePhysical(candidates []adapter, selector Selector) (adapter, error) {
+	var selected adapter
+	for _, candidate := range candidates {
+		if selector.DeviceID != 0 && candidate.info.DeviceID != selector.DeviceID ||
+			selector.UUID != ([16]byte{}) && candidate.info.UUID != selector.UUID {
+			continue
 		}
-		return 0, fmt.Errorf("vulkan: no discrete AMD device matches PCI device ID %04x", selector.DeviceID)
+		if selected.handle != 0 {
+			return adapter{}, fmt.Errorf("%w: multiple discrete AMD adapters match the selection", ErrDeviceUnavailable)
+		}
+		selected = candidate
+	}
+	if selected.handle == 0 {
+		return adapter{}, fmt.Errorf("%w: no discrete AMD adapter matches the selection", ErrDeviceUnavailable)
 	}
 	return selected, nil
 }
