@@ -134,7 +134,7 @@ type eg2Accel struct {
 	mu sync.Mutex
 	eg2Ops
 	cfg       embeddinggemma2.Config
-	embed     []float32
+	model     *embeddinggemma2.Model
 	pleProj   Buffer // scaled by hidden^-0.5 at upload, as the CPU scales the product
 	pleNorm   Buffer
 	finalNorm Buffer
@@ -162,8 +162,8 @@ func newEG2Accel(m *embeddinggemma2.Model) (*eg2Accel, error) {
 	}
 	d := ops.d
 	a := &eg2Accel{eg2Ops: ops, ropes: map[eg2RopeKey][2]Buffer{}}
-	w := m.Weights()
-	a.cfg, a.embed = w.Config, w.Embed
+	w := m.TransformerWeights()
+	a.cfg, a.model = w.Config, m
 	a.eps = float32(a.cfg.RMSNormEps)
 	for _, ly := range w.Layers {
 		if ly.HeadDim > 512 {
@@ -199,6 +199,7 @@ func (a *eg2Accel) Close() error {
 	defer a.mu.Unlock()
 	a.closeDevice()
 	a.layers, a.ropes, a.cap, a.scr = nil, nil, 0, eg2Scratch{}
+	a.model = nil
 	return nil
 }
 
@@ -264,28 +265,26 @@ func (a *eg2Ops) rmsEps(e *Encoder, x, w, out Buffer, rows, dim int, eps float32
 // Forward runs the encoder over ids (see embeddinggemma2.Accelerator): the embedding gather on the host, then
 // ForwardEmbeds.
 func (a *eg2Accel) Forward(ids []int, keepLayers bool) ([]float32, [][]float32, error) {
-	c := a.cfg
-	H := c.Hidden
-	if len(ids) == 0 {
-		return nil, nil, fmt.Errorf("metal: no input ids")
+	a.mu.Lock()
+	defer a.mu.Unlock()
+	if err := a.open(); err != nil {
+		return nil, nil, err
 	}
-	x := make([]float32, len(ids)*H)
-	scale := float32(math.Sqrt(float64(H)))
-	for t, id := range ids {
-		if id < 0 || id >= c.VocabSize {
-			return nil, nil, fmt.Errorf("metal: token id %d out of range [0, %d)", id, c.VocabSize)
-		}
-		for j, v := range a.embed[id*H : (id+1)*H] {
-			x[t*H+j] = v * scale
-		}
+	x, err := a.model.EmbedTokens(ids)
+	if err != nil {
+		return nil, nil, err
 	}
-	return a.ForwardEmbeds(x, len(ids), keepLayers)
+	return a.forwardEmbeds(x, len(ids), keepLayers)
 }
 
 // ForwardEmbeds runs the encoder from T prepared input rows (see embeddinggemma2.Accelerator).
 func (a *eg2Accel) ForwardEmbeds(x0 []float32, T int, keepLayers bool) ([]float32, [][]float32, error) {
 	a.mu.Lock()
 	defer a.mu.Unlock()
+	return a.forwardEmbeds(x0, T, keepLayers)
+}
+
+func (a *eg2Accel) forwardEmbeds(x0 []float32, T int, keepLayers bool) ([]float32, [][]float32, error) {
 	c := a.cfg
 	H, I, P, L, E := c.Hidden, c.Intermediate, c.PLEDim, c.Layers, c.EmbeddingDim
 	if T == 0 || len(x0) != T*H {
