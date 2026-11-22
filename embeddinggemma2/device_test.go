@@ -29,9 +29,13 @@ func TestDeviceErrorCategories(t *testing.T) {
 type memoryTestAccelerator struct {
 	*fakeEmbedAccel
 	memory DeviceMemory
+	calls  int
 }
 
-func (a *memoryTestAccelerator) DeviceMemory() (DeviceMemory, error) { return a.memory, nil }
+func (a *memoryTestAccelerator) DeviceMemory() (DeviceMemory, error) {
+	a.calls++
+	return a.memory, nil
+}
 
 func TestOptionalDeviceMemoryReporter(t *testing.T) {
 	for i, want := range []string{"unknown", "live", "estimated"} {
@@ -55,11 +59,14 @@ func TestOptionalDeviceMemoryReporter(t *testing.T) {
 	if !ok {
 		t.Fatal("attached accelerator lost its optional reporter")
 	}
-	for _, available := range []int64{7, 4} {
+	for _, available := range []int64{7, 4, 0} {
 		b.memory.AvailableBytes = available
 		if got, err := reporter.DeviceMemory(); err != nil || got != b.memory {
 			t.Fatalf("attached memory = %+v, %v, want %+v", got, err, b.memory)
 		}
+	}
+	if a.calls != 0 || b.calls != 3 {
+		t.Fatalf("memory reads routed to wrong accelerator: first=%d attached=%d", a.calls, b.calls)
 	}
 
 	const plain = "test-no-memory"

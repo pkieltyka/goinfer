@@ -23,16 +23,18 @@ func (b MemoryBasis) String() string {
 	}
 }
 
-// DeviceMemory is an advisory snapshot that reserves no memory.
+// DeviceMemory is an advisory snapshot that reserves no memory. The reading can
+// change before the caller allocates.
 type DeviceMemory struct {
-	AvailableBytes int64 // meaningful only when Basis is not MemoryUnknown
+	AvailableBytes int64 // zero when the basis is unknown. With a known basis, zero is a reading.
 	TotalBytes     int64 // zero when capacity is unknown
 	Basis          MemoryBasis
 }
 
-// DeviceMemoryReporter is an optional accelerator interface for its attached
-// device. A reading may wait for a forward. An unsupported reading has
-// MemoryUnknown basis. Calling after Close returns an error.
+// DeviceMemoryReporter is an optional accelerator interface. It queries only
+// the attached device and opens no other device. A reading may wait for a
+// forward. An unsupported reading has MemoryUnknown basis. Calling after Close
+// returns an error.
 type DeviceMemoryReporter interface {
 	DeviceMemory() (DeviceMemory, error)
 }

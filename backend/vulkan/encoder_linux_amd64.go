@@ -47,7 +47,7 @@ func openAccelerator(m *embeddinggemma2.Model) (embeddinggemma2.Accelerator, err
 func attach(m *embeddinggemma2.Model, selector vk.Selector) (embeddinggemma2.Accelerator, error) {
 	a, err := newEncoder(m, selector)
 	if err != nil {
-		return nil, deviceError(err)
+		return nil, classify(err)
 	}
 	return a, nil
 }
@@ -166,6 +166,19 @@ func (a *encoder) attachedDevice() (DeviceInfo, bool) {
 		return DeviceInfo{}, false
 	}
 	return a.identity, true
+}
+
+func (a *encoder) DeviceMemory() (embeddinggemma2.DeviceMemory, error) {
+	a.mu.Lock()
+	defer a.mu.Unlock()
+	if a.device == nil {
+		return embeddinggemma2.DeviceMemory{}, errors.New("vulkan: encoder is closed")
+	}
+	total, available, known, err := a.device.Memory()
+	if err != nil {
+		return embeddinggemma2.DeviceMemory{}, classify(err)
+	}
+	return deviceMemory(total, available, known), nil
 }
 
 func (a *encoder) Close() error {

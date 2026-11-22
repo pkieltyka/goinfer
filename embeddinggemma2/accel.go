@@ -31,7 +31,8 @@ var (
 	ErrNoDevice = fmt.Errorf("%w: no eligible device", ErrDeviceUnavailable)
 	// ErrAmbiguousDevice means more than one eligible device matched.
 	ErrAmbiguousDevice = fmt.Errorf("%w: several eligible devices", ErrDeviceUnavailable)
-	// ErrDeviceOutOfMemory means a native memory allocation failed.
+	// ErrDeviceOutOfMemory means a native memory allocation failed. It is a
+	// separate category from ErrDeviceUnavailable and carries no retry guarantee.
 	ErrDeviceOutOfMemory = errors.New("embeddinggemma2: device out of memory")
 )
 

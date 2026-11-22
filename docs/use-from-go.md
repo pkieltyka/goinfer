@@ -267,6 +267,35 @@ before calling this API. To prefer Radeon, call
 adapter and returns an error if none or several are eligible. Close an attached accelerator
 when the application has finished using that encoder.
 
+Import the Vulkan package by name to list eligible adapters with `vulkan.Devices()` before
+loading a model. To include estimated available bytes, call
+`vulkan.Probe(embeddinggemma2.ProbeOptions{IncludeMemory: true})`. Both calls create a
+temporary Vulkan instance. They create no logical device. goinfer emits no diagnostics for
+these calls. The Vulkan loader and driver may write diagnostics to stderr.
+
+Pass a device's `ID` to `encoder.UseAccelerator` to select its exact Vulkan UUID.
+An ID can change when a card moves or the PCI bus is renumbered. On RADV it encodes
+the PCI slot and can contain mostly zeros. A 32-digit UUID is still an exact ID.
+An `Alias` is an ordinal in the current visible inventory and can change when that inventory changes.
+A device without a UUID has an empty ID and alias. It still occupies its ordinal
+position, and a bare `"vulkan"` selector can attach it when it is the only eligible device.
+
+For a fresh snapshot after attachment, type-assert `encoder.Accelerator()` to
+`embeddinggemma2.DeviceMemoryReporter` and call `DeviceMemory()`. Check `Basis` before using
+`AvailableBytes`. A known basis can report zero available bytes. `MemoryUnknown`
+has no usable available-byte figure. `MemoryLive` reports current free capacity, and
+`MemoryEstimated` is an advisory estimate.
+Vulkan uses `VK_EXT_memory_budget` and reports the sum of the device-local heap
+budgets minus their estimated usage, clamped per heap to capacity and zero. The
+estimate reserves no memory and can change before an allocation.
+[Vulkan memory budget specification](https://docs.vulkan.org/refpages/latest/refpages/source/VkPhysicalDeviceMemoryBudgetPropertiesEXT.html)
+
+Use `errors.Is` to distinguish `embeddinggemma2.ErrBackendUnavailable` (runtime or driver
+startup), `ErrNoDevice` (no match), `ErrAmbiguousDevice` (multiple matches) and
+`ErrDeviceOutOfMemory` (native allocation failure during discovery or attachment).
+The first three also match `ErrDeviceUnavailable`, as does a malformed selector.
+An out-of-memory error has its own category. Forward retry safety is a separate contract.
+
 ### Download EmbeddingGemma 2
 
 Import `github.com/pkieltyka/goinfer/pull` and call

@@ -78,6 +78,21 @@ type memoryProperties struct {
 	Heaps     [16]memoryHeap
 }
 
+type memoryProperties2 struct {
+	header
+	Properties memoryProperties
+}
+
+type memoryBudget struct {
+	header
+	Budget, Usage [16]uint64
+}
+
+type extensionProperties struct {
+	Name    [256]byte
+	Version uint32
+}
+
 type queueFamily struct {
 	Flags, Count, TimestampBits uint32
 	Granularity                 [3]uint32
@@ -261,6 +276,8 @@ const (
 const (
 	stPhysicalProperties2  = 1000059001
 	stPhysicalIDProperties = 1000071004
+	stMemoryProperties2    = 1000059006
+	stMemoryBudget         = 1000237000
 
 	deviceDiscrete    = 2
 	queueCompute      = 0x2
