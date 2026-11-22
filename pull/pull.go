@@ -744,6 +744,10 @@ func CacheDir(repo string) (string, error) {
 // Writes to a .part file and renames only after the digest matches, so an interrupted or corrupted
 // pull can never leave something at the final path that later looks loadable.
 func Download(ctx context.Context, repo string, f File, dir string, progress func(done, total int64)) (string, error) {
+	return downloadAtRevision(ctx, repo, "main", f, dir, progress)
+}
+
+func downloadAtRevision(ctx context.Context, repo, revision string, f File, dir string, progress func(done, total int64)) (string, error) {
 	if err := os.MkdirAll(dir, 0o755); err != nil {
 		return "", err
 	}
@@ -771,7 +775,7 @@ func Download(ctx context.Context, repo string, f File, dir string, progress fun
 		}
 	}
 
-	resp, err := getRange(ctx, hfCDN+"/"+repo+"/resolve/main/"+f.Path, resumeFrom)
+	resp, err := getRange(ctx, hfCDN+"/"+repo+"/resolve/"+revision+"/"+f.Path, resumeFrom)
 	if err != nil {
 		return "", fmt.Errorf("downloading %s: %w", f.Path, err)
 	}

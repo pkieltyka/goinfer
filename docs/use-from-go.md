@@ -267,6 +267,19 @@ before calling this API. To prefer Radeon, call
 adapter and returns an error if none or several are eligible. Close an attached accelerator
 when the application has finished using that encoder.
 
+### Download EmbeddingGemma 2
+
+Import `github.com/pkieltyka/goinfer/pull` and call
+`pull.DownloadEmbeddingGemma2(ctx, "google", nil)` to fetch the original checkpoint.
+Pass the returned directory to `embeddinggemma2.LoadEncoder`.
+
+For an Unsloth text GGUF, pass `"Q8_0"` or `"UD-Q6_K_XL"` and give the returned
+file path to `embeddinggemma2.LoadGGUFEncoder`. The downloader also offers
+`"BF16"`, `"F16"`, `"UD-Q5_K_XL"` and `"UD-Q4_K_XL"` for use with compatible
+loaders. The model revisions and file digests are pinned. A verified copy in the
+goinfer user model cache can be opened offline. The optional third argument
+receives downloaded and total byte counts.
+
 ### EmbeddingGemma 2 text GGUF
 
 Pass the text file to `embeddinggemma2.LoadGGUFEncoder(path, prompts)`. The loader supports
