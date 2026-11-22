@@ -237,7 +237,7 @@ func rowPending(e *relEnv) relRow {
 
 // ---- row 2: the releasable modules agree on a tagged aikit, and none requires aikit/gpu ----
 
-var relModules = []string{".", "backend/webgpu", "backend/cuda", "backend/metal", "backend/vulkan", "demo/agent"}
+var relModules = []string{".", "backend/cuda", "backend/metal", "backend/vulkan"}
 
 func (e *relEnv) releaseModules() []string {
 	if e.modules != nil {

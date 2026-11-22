@@ -16,7 +16,7 @@ M1 Pro 16 GB, macOS 26.6.2; goinfer `78503526` plus this record's test file and 
 run time; no production file differs). W4A8 decode path, `attention_fa` on (default, engages at ≥ 1536 keys for head
 dim 128). Models from `~/models`: qwen2.5-coder-1.5b and -0.5b q4_k_m (`.gguf`, via their sidecars), qwen2.5-7b
 q4_k_m from its `.int4.metal.giw` sidecar (aliased). Resident context pinned to 4096. 2026-09-25 16:43:47–16:48:25
-local; idle at start. Raw: [`metal-decode-decomp-2026-09-25/run.log`](metal-decode-decomp-2026-09-25/run.log).
+local; idle at start. Raw: [`metal-decode-decomp-2026-09-25/run.log`](https://github.com/townsendmerino/goinfer/blob/36dbfbaf149aabdff43dce5766b49a65183113a7/docs/measurements/metal-decode-decomp-2026-09-25/run.log).
 
 ## Method — no replica
 

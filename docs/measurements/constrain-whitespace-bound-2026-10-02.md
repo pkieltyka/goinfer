@@ -1,7 +1,7 @@
 # constrain: bound structural whitespace, tighter after a colon (2026-10-02)
 
 The defect: a **string-typed numeric column made the grammar loop on whitespace until `max_tokens`, silently**
-(found by the GLM-OCR O5 agent: [`glm-ocr-o5-2026-10/string_typed_quantity_whitespace_runaway.txt`](glm-ocr-o5-2026-10/string_typed_quantity_whitespace_runaway.txt)).
+(found by the GLM-OCR O5 agent: [`glm-ocr-o5-2026-10/string_typed_quantity_whitespace_runaway.txt`](https://github.com/townsendmerino/goinfer/blob/36dbfbaf149aabdff43dce5766b49a65183113a7/docs/measurements/glm-ocr-o5-2026-10/string_typed_quantity_whitespace_runaway.txt)).
 Whitespace was legal at every JSON structural boundary with no limit. After `"quantity":` a string schema requires `"`, the
 model wanted a bare number (illegal), and the only legal token it rated highest was whitespace, forever.
 

@@ -7,11 +7,11 @@ nothing here re-grades against them.
 
 ## The run
 
-Night queue on nobara-pc, 2026-09-28 20:20–20:55 PDT (`d6a-amended-cuda`, rc=0; [`results/night-job.log`](decisions-d6a-2026-09-28/results/night-job.log)).
+Night queue on nobara-pc, 2026-09-28 20:20–20:55 PDT (`d6a-amended-cuda`, rc=0; [`results/night-job.log`](https://github.com/townsendmerino/goinfer/blob/36dbfbaf149aabdff43dce5766b49a65183113a7/docs/measurements/decisions-d6a-2026-09-28/results/night-job.log)).
 Pinned binary `goinfer-chat-cuda-a4e16c43` (the batched DeltaNet prefill), CUDA, `--ctx 4096`, [`run-d6a.sh`](decisions-d6a-2026-09-28/run-d6a.sh)
 on the amended samples (600 calibration / 872 OOD eval rows, `select.py`). Validity: no arm's stderr shows a declined GPU path, and all
 872 rows per arm passed validation. Graded with [`analyze.py`](decisions-d6a-2026-09-28/analyze.py), unchanged
-([`results/analysis.txt`](decisions-d6a-2026-09-28/results/analysis.txt)).
+([`results/analysis.txt`](https://github.com/townsendmerino/goinfer/blob/36dbfbaf149aabdff43dce5766b49a65183113a7/docs/measurements/decisions-d6a-2026-09-28/results/analysis.txt)).
 
 | arm | model, template | raw top-1 | calibrated top-1 | calibrated ECE |
 |---|---|---|---|---|
@@ -35,13 +35,13 @@ The D0 fixture holds 150 items with transformers' own Route A B0 run on them, in
 JEV-9B's trained head on the same items (`jev9b_ref_f32.jsonl`, `jev9b_ref_bf16.jsonl`), all from `scripts/pin_decisions_d0.py`. They
 were untracked on nobara until this record; they are committed with it. goinfer was compared on identical items, 2026-09-30 on nobara-pc.
 
-**1. The inputs are identical.** [`b0cmp.go.txt`](decisions-d6a-2026-09-28/b0cmp.go.txt) renders every item's bare-v1 prompt through
+**1. The inputs are identical.** [`b0cmp.go.txt`](https://github.com/townsendmerino/goinfer/blob/36dbfbaf149aabdff43dce5766b49a65183113a7/docs/measurements/decisions-d6a-2026-09-28/b0cmp.go.txt) renders every item's bare-v1 prompt through
 goinfer's `decide.Render` and tokenizes it with the GGUF's tokenizer: prompt text identical **150/150**, token ids identical **150/150**,
 and the label token ids match the fixture's `verbalizer_ids` (noul and score by id; choice by its letters A, B, C…). So the template,
 the tokenization and the readout position are not the cause.
 
 **2. The distributions are not.** goinfer's `decide` (same binary, bare-v1, int4, CUDA) on the 150 items against transformers' f32
-([`b0dist.py`](decisions-d6a-2026-09-28/b0dist.py), [`results/b0cmp-goinfer-bare.jsonl`](decisions-d6a-2026-09-28/results/b0cmp-goinfer-bare.jsonl)):
+([`b0dist.py`](decisions-d6a-2026-09-28/b0dist.py), [`results/b0cmp-goinfer-bare.jsonl`](https://github.com/townsendmerino/goinfer/blob/36dbfbaf149aabdff43dce5766b49a65183113a7/docs/measurements/decisions-d6a-2026-09-28/results/b0cmp-goinfer-bare.jsonl)):
 
 | kind | n | argmax agreement with transformers | mean total-variation distance |
 |---|---|---|---|
@@ -75,7 +75,7 @@ lower on the same items, from quantization. That does not rescue Route A. A perf
 
 **The 14-point gap between the two samples (explained 2026-09-30).** On D6a's own OOD sample goinfer's bare-v1 read 0.338, where
 the 150 fixture items (100 from the calibration split, 50 from OOD) put it at 0.481. [`gap.py`](decisions-d6a-2026-09-28/gap.py)
-([`results/gap.txt`](decisions-d6a-2026-09-28/results/gap.txt)) reads only committed files and finds three things:
+([`results/gap.txt`](https://github.com/townsendmerino/goinfer/blob/36dbfbaf149aabdff43dce5766b49a65183113a7/docs/measurements/decisions-d6a-2026-09-28/results/gap.txt)) reads only committed files and finds three things:
 
 1. **All of it is noul.** noul falls from 0.529 to 0.340, while choice (0.340 → 0.335) and score (0.184 → 0.167) hold. noul carries
    75% of the OOD weight, so its 19 points are the whole 14.
@@ -117,7 +117,7 @@ split is made of. It is not a second defect. The size of that share is an **esti
 
 **The settling check, run 2026-09-30, graded 2026-10-01: the gap is goinfer's, not the sample's, and larger than
 estimated.** `d6a-b0-ood-noul` ran the transformers f32 reference (Route A, bare-v1) on the same 400 OOD noul rows, in
-73 minutes on nobara-pc ([`results/b0-ood-noul-f32.jsonl`](decisions-d6a-2026-09-28/results/b0-ood-noul-f32.jsonl)).
+73 minutes on nobara-pc ([`results/b0-ood-noul-f32.jsonl`](https://github.com/townsendmerino/goinfer/blob/36dbfbaf149aabdff43dce5766b49a65183113a7/docs/measurements/decisions-d6a-2026-09-28/results/b0-ood-noul-f32.jsonl)).
 Every prompt's token count matches goinfer's.
 
 | on the 400 OOD noul rows | top-1 against gold | answers "true" |
@@ -170,7 +170,7 @@ produced. The CUDA resident declines this combination ("per-32 activations: the 
 
 ## The owed q4k measurement: RESULT (run 2026-10-02 18:16–20:13 PDT on nobara-pc, 1 h 56 min; read 2026-10-03)
 
-Run exactly as registered above: the pinned `goinfer-chat-cuda-a4e16c43`, `decide --backend cpu --quant q4k --template bare-v1 --ctx 4096`, the 150 pinned items, Qwen3.5-9B Q4_K_M from `~/models`. 150 rows, 0 failed validation, in 1 h 56 min (the registered estimate was 2.25 h). Rows and stderr are [`results/b0cmp-goinfer-bare-q4k.jsonl`](decisions-d6a-2026-09-28/results/b0cmp-goinfer-bare-q4k.jsonl) and `.stderr.txt`; the comparison is [`q4k_compare.py`](decisions-d6a-2026-09-28/q4k_compare.py) with its output in [`results/q4k_compare.txt`](decisions-d6a-2026-09-28/results/q4k_compare.txt). The stderr records a swap-used baseline of 12.67 GB on the box at the start; this is not a timing measurement, so it does not touch the numbers read here.
+Run exactly as registered above: the pinned `goinfer-chat-cuda-a4e16c43`, `decide --backend cpu --quant q4k --template bare-v1 --ctx 4096`, the 150 pinned items, Qwen3.5-9B Q4_K_M from `~/models`. 150 rows, 0 failed validation, in 1 h 56 min (the registered estimate was 2.25 h). Rows and stderr are [`results/b0cmp-goinfer-bare-q4k.jsonl`](https://github.com/townsendmerino/goinfer/blob/36dbfbaf149aabdff43dce5766b49a65183113a7/docs/measurements/decisions-d6a-2026-09-28/results/b0cmp-goinfer-bare-q4k.jsonl) and `.stderr.txt`; the comparison is [`q4k_compare.py`](decisions-d6a-2026-09-28/q4k_compare.py) with its output in [`results/q4k_compare.txt`](https://github.com/townsendmerino/goinfer/blob/36dbfbaf149aabdff43dce5766b49a65183113a7/docs/measurements/decisions-d6a-2026-09-28/results/q4k_compare.txt). The stderr records a swap-used baseline of 12.67 GB on the box at the start; this is not a timing measurement, so it does not touch the numbers read here.
 
 **Primary (per-item argmax agreement with the transformers f32 reference, paired on the same 150 items):**
 

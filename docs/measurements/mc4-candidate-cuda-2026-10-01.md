@@ -68,7 +68,7 @@ All compare **candidate ÷ batch** on the 1.5B:
 ## Projections, written before the run (so the miss zone is named)
 
 - **Copy at 4 clients is expected to MISS gate 3.** The 2026-09-29 exploratory smoke (single run per arm, not paired,
-  [`spec-vs-batching-cuda-2026-09-29-inside-batch-smoke/smoke.log`](spec-vs-batching-cuda-2026-09-29-inside-batch-smoke/smoke.log))
+  [`spec-vs-batching-cuda-2026-09-29-inside-batch-smoke/smoke.log`](https://github.com/townsendmerino/goinfer/blob/36dbfbaf149aabdff43dce5766b49a65183113a7/docs/measurements/spec-vs-batching-cuda-2026-09-29-inside-batch-smoke/smoke.log))
   read the candidate at 206.0 tok/s on 4-client copy against batch's 263–265 from the premise run, roughly 0.78×. The
   mechanism the investigation gave is concurrent admission itself, which no per-round policy removes.
 - **Chat is the workload the candidate was built for.** The premise run's chat: spec-exclusive 0.790× under load, alone 1.253×.
@@ -216,7 +216,7 @@ graded run is repeated: **same gates, same decision rule, same 72 cells**, with 
 ## RERUN RESULT (graded 2026-10-02 afternoon; run 11:55-12:14 PDT, nobara-pc, job `mc4-candidate-cuda-rerun`, 19 min against 30 estimated)
 
 **Gate 1, identity: FAIL. By the registered rule that is a bug, not a result: the speed gates below are recorded and NOT read as a verdict.** Grader output verbatim:
-[`mc4-candidate-cuda-2026-10-01/raw-rerun/gates-output.txt`](mc4-candidate-cuda-2026-10-01/raw-rerun/gates-output.txt); raw cells beside it; the runner's log is `raw-rerun/night-runner.log`.
+[`mc4-candidate-cuda-2026-10-01/raw-rerun/gates-output.txt`](https://github.com/townsendmerino/goinfer/blob/36dbfbaf149aabdff43dce5766b49a65183113a7/docs/measurements/mc4-candidate-cuda-2026-10-01/raw-rerun/gates-output.txt); raw cells beside it; the runner's log is `raw-rerun/night-runner.log`.
 
 Provenance: `serve-cuda` at `2f685d7e` (the pinned binary, built once), RTX 2070 SUPER, driver 595.91.07, the 72 registered cells (a fresh server per cell, three rounds, arm order rotated), all from `~/models`.
 **The box was not quiet:** it ran by day (the queue was started at 11:54) and the CUDA idle gate (load1 <= 2.0, GPU baseline) waited 15 times and never gave up; load1 read 1.5 to 2.0 at the starts. No HTTP errors, no panics in the server logs.
@@ -369,7 +369,7 @@ workspace checkout (`a143d8d`, which adds a Metal-only bind-count check), not a 
 
 ## RERUN 2 RESULT (graded 2026-10-03; run 2026-10-02 17:55–18:16 PDT on nobara-pc, 21 min)
 
-Graded by the unchanged `gates.py` over `raw-rerun2/` (the grader's full output is [`grade-rerun2.txt`](mc4-candidate-cuda-2026-10-01/grade-rerun2.txt)). Binary `serve-cuda-644d8008` (sha256 `365425d9...`), run by `run-rerun2.sh` from the night queue as registered.
+Graded by the unchanged `gates.py` over `raw-rerun2/` (the grader's full output is [`grade-rerun2.txt`](https://github.com/townsendmerino/goinfer/blob/36dbfbaf149aabdff43dce5766b49a65183113a7/docs/measurements/mc4-candidate-cuda-2026-10-01/grade-rerun2.txt)). Binary `serve-cuda-644d8008` (sha256 `365425d9...`), run by `run-rerun2.sh` from the night queue as registered.
 
 **Gate 1, identity: PASS, 0 differing replies in every cell.** Candidate 0, spec-exclusive 0, batch-against-batch 0 in all seven cells (copy 1.5B at 1 and 4 clients, chat 1.5B at 1 and 4, staggered copy, copy 7B at 1 and 4): 720 replies compared, 0 HTTP errors. The registered prediction held, including its two stated bases: the batch-against-batch variation at 4 clients on copy that failed the first rerun is gone, and the chat cells (a continuation reuse of 64 or more tokens, unchanged by the fix) did not differ. The short-lead reuse decline (`644d8008`) fixed the identity miss; the root cause and the fix are in the sections above and are not re-argued here.
 

@@ -456,22 +456,6 @@
         },
         {
           "vars": [
-            "GOINFER_WEBGPU_GEMM"
-          ],
-          "cells": [
-            "WebGPU **prefill** W8A8 GEMM kernel selector. Default (unset): the R10 register-blocked 64×64 kernel (`backend/webgpu/gemm_rb.go`, each thread a 4×4 block of outputs). `tiled16` restores the pre-R10 16×16 kernel — bit-identical output either way (exact i32 K-sum, same dequant expression; `TestTiledRB64_bitIdentical`), so this is a speed A/B knob, not a fidelity one. Band, profile and A/B: `docs/measurements/webgpu-prefill-profile-2026-09-22.md`."
-          ]
-        },
-        {
-          "vars": [
-            "GOINFER_ATTN_KEYS"
-          ],
-          "cells": [
-            "WebGPU **decode** key-split attention kernel kill switch — set to `0` to force the old dim-split kernel instead (A/B in the same binary). Not a prefill knob and not a key count (V-23, docs/completed/review-2026-09-04.md)."
-          ]
-        },
-        {
-          "vars": [
             "GOINFER_W4A8_SPLITHALF"
           ],
           "cells": [
@@ -613,14 +597,6 @@
           "label": "`GOINFER_G4_CAPTURE` / `GOINFER_MOE_PROF_SPLIT`",
           "cells": [
             "Gemma-4 / MoE internal capture + profiling splits."
-          ]
-        },
-        {
-          "vars": [
-            "GOINFER_GPU_CAPTURE"
-          ],
-          "cells": [
-            "Per-layer WebGPU resident-decode capture (attention context, post-attention and post-MLP residuals) into `DecodeRunner.ReadCapture` — the WebGPU twin of `decoder.Model.ForwardSubCapture`, for localising a resident-vs-CPU divergence to one sublayer instead of arguing from final logits (`docs/completed/task-webgpu-nogqa-decode-bug.md`). Nothing allocated or dispatched when unset."
           ]
         },
         {

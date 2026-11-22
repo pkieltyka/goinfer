@@ -737,11 +737,6 @@ jobs:
             exit 1
           }
 
-  # GPU submodule: the opt-in WebGPU backend, built under -tags gpu (cgo).
-  # It imports the as-yet-unpublished goinfer root, so we stitch an ephemeral
-  # workspace (the committed repo has none — go.work is gitignored). Once
-  # goinfer is tagged, bump gpu/go.mod's goinfer require to the real version
-  # and these workspace steps become unnecessary.
   readme-smoke:
     name: readme-smoke (a stranger's install, from an empty dir)
     if: github.event_name == 'schedule' || github.event_name == 'workflow_dispatch'
@@ -778,138 +773,6 @@ jobs:
           version: "2026.2.1"
       - run: staticcheck ./backend/vulkan/...
 
-  gpu:
-    if: github.event_name == 'schedule' || github.event_name == 'workflow_dispatch'
-    runs-on: ubuntu-24.04
-    steps:
-      - uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09 # v5.1.0
-      - uses: actions/setup-go@924ae3a1cded613372ab5595356fb5720e22ba16 # v6.5.0
-        with:
-          go-version-file: go.mod
-          cache-dependency-path: backend/webgpu/go.sum
-
-      # No X11/GL packages: cogentcore/webgpu needed them; oliverbestmann/webgpu (a16a537d) links only
-      # its bundled wgpu_native plus -lm -ldl, and nothing here imports its wgpuglfw. Removed 2026-09-25.
-
-      # Stitch root + gpu into an ephemeral workspace so `./gpu/...` resolves
-      # the unpublished goinfer root from this checkout. The workspace's `use .`
-      # provides that local resolution — the submodule go.mods are replace-free
-      # (2026-08-15; a committed replace broke `go install …@vX`), so `go work init`
-      # is what resolves the root, not a replace.
-      - name: workspace (resolve unpublished goinfer locally)
-        run: go work init . ./backend/webgpu ./demo/agent
-
-      - name: build -tags gpu
-        run: go build -tags 'gpu goinfer_testhooks' ./backend/webgpu/...
-
-      # demo/agent is the fifth module and had ZERO CI coverage — the MCP-SDK demo compiled for
-      # the first time at tag time, by a human running RELEASING.md Step 2 by hand (M-34). It
-      # builds inside the workspace here, which catches ordinary breakage; the standalone
-      # (GOWORK=off) build that the release actually depends on is in standalone-build.yml,
-      # which runs at tag time because it CANNOT pass between releases — a module built outside
-      # a workspace resolves the root from the proxy at its last published tag.
-      - name: build demo/agent (workspace)
-        run: go build ./demo/agent/...
-
-      # N-61 (docs/audit-2026-09-10.md): the build step above never ran the module's own tests —
-      # `go test ./...` at root cannot reach a module with its own go.mod, so n26_test.go's
-      # security-hardening assertions (N-26: cross-origin, unbounded body, special-token
-      # forgery) had zero CI coverage. Fast (<1s) and asset-free — no reason not to run it here.
-      - name: test demo/agent (workspace)
-        run: go test ./demo/agent/...
-
-      # Compile the WIRED serve + demo entrypoints (gpu/cmd/serve, gpu/cmd/chat): the
-      # RegisterBackend blank-imports live in the submodule cmd/ mains since audit M-19, so a
-      # backend signature drift must fail CI here (it once broke the shipped -tags gpu binary
-      # while CI stayed green — audit M-18). Covered by ./gpu/... above, but kept explicit.
-      - name: build -tags gpu (wired serve + demo entrypoints)
-        run: go build -tags 'gpu goinfer_testhooks' ./backend/webgpu/cmd/serve ./backend/webgpu/cmd/chat
-
-      - name: vet -tags gpu
-        run: go vet -tags 'gpu goinfer_testhooks' ./backend/webgpu/...
-
-      # `gate gpu` builds ./gpu/ and ./gpu/internal/kernels/ under -tags gpu alone: its WebGPU adapter probe and the webgpu-suite
-      # cell. A gpu-only test file that needs a testhooks seam breaks that build, and the gate then reads the probe's failure as
-      # "no adapter" and skips its WebGPU group (V-21), so it is vetted here under that tag too.
-      - name: vet -tags gpu alone (gate gpu's adapter probe and webgpu-suite build)
-        run: go vet -tags gpu ./backend/webgpu/...
-
-      # The pinned staticcheck build (Go 1.27.2): see .github/actions/staticcheck.
-      - uses: ./.github/actions/staticcheck
-        with:
-          version: "2026.2.1" # v0.8.1, built against golang.org/x/tools v0.51.0 (Go 1.27.2: see the action)
-      - name: staticcheck -tags gpu
-        run: staticcheck -tags 'gpu goinfer_testhooks' ./backend/webgpu/...
-      - name: staticcheck demo/agent
-        run: staticcheck ./demo/agent/...
-
-      # GPU tests skip cleanly with no adapter (headless runner); this confirms
-      # they compile and the resident-matmul path is exercised where possible.
-      - name: test -tags gpu
-        run: go test -short -tags 'gpu goinfer_testhooks' ./backend/webgpu/...
-
-  # gpu-vulkan: the WebGPU tests that need a device, on Mesa's software Vulkan adapter (llvmpipe), so a known-gap entry that stops
-  # firing or a lease past its plan goes red on the PR (queue B45). The gpu job above installs no adapter and stays a compile and
-  # skip run; tests that need real hardware skip here by name (newOrSkipHW). Each test step asserts its gate PASSed, since a lost
-  # adapter would otherwise skip every test to a green job.
-  gpu-vulkan:
-    if: github.event_name == 'schedule' || github.event_name == 'workflow_dispatch'
-    runs-on: ubuntu-24.04
-    timeout-minutes: 40
-    steps:
-      - uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09 # v5.1.0
-      - uses: actions/setup-go@924ae3a1cded613372ab5595356fb5720e22ba16 # v6.5.0
-        with:
-          go-version-file: go.mod
-          cache-dependency-path: backend/webgpu/go.sum
-      # The packages oliverbestmann/webgpu's README names for a headless Vulkan adapter.
-      - name: software Vulkan adapter (Mesa)
-        run: sudo apt-get update -q && sudo apt-get install -y -q libegl1-mesa-dev mesa-vulkan-drivers
-      - name: workspace (resolve unpublished goinfer locally)
-        run: go work init . ./backend/webgpu
-      - name: build tests -tags gpu
-        run: go test -count=1 -run '^$' -tags 'gpu goinfer_testhooks' ./backend/webgpu/ ./backend/webgpu/internal/kernels/
-      - name: memory gate and slot census (software adapter)
-        run: |
-          go test -count=1 -v -timeout 25m -tags 'gpu goinfer_testhooks' ./backend/webgpu/ \
-            -run '^(TestMemGate_webgpu|TestMemGate_webgpuPlantsThroughTheTable|TestBackendSlotCensus_webgpu)$' 2>&1 | tee memgate.log
-          for t in TestMemGate_webgpu TestMemGate_webgpuPlantsThroughTheTable TestBackendSlotCensus_webgpu; do
-            grep -q -- "--- PASS: $t " memgate.log || { echo "::error::$t did not PASS (a skip is not a pass: was the adapter lost?)"; exit 1; }
-          done
-      - name: kernels package (software adapter)
-        run: |
-          go test -count=1 -v -timeout 25m -tags 'gpu goinfer_testhooks' ./backend/webgpu/internal/kernels/ 2>&1 | tee kernels.log
-          pass=$(grep -c -- '^--- PASS' kernels.log || true); skip=$(grep -c -- '^--- SKIP' kernels.log || true)
-          echo "kernels: $pass top-level tests passed, $skip skipped"
-          [ "$pass" -gt 0 ] || { echo "::error::no kernels test PASSed: was the adapter lost?"; exit 1; }
-
-  # sdktest: the official OpenAI and Anthropic Go SDKs against the server served in process (package server), on the
-  # committed tiny model. A module of its own so the SDKs never enter the root go.mod; stitched like the others.
-  sdktest:
-    if: github.event_name == 'schedule' || github.event_name == 'workflow_dispatch'
-    runs-on: ubuntu-24.04
-    steps:
-      - uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09 # v5.1.0
-      - uses: actions/setup-go@924ae3a1cded613372ab5595356fb5720e22ba16 # v6.5.0
-        with:
-          go-version-file: go.mod
-          cache-dependency-path: apps/sdktest/go.sum
-
-      - name: workspace (resolve unpublished goinfer locally)
-        run: go work init . ./apps/sdktest
-
-      - name: vet
-        run: go vet ./apps/sdktest/...
-
-      - name: test
-        run: go test -v ./apps/sdktest/...
-
-  # CUDA submodule: the opt-in cgo-free NVIDIA backend, built under -tags cuda
-  # (CGO_ENABLED=0, dlopen libcuda, driver-JIT of embedded PTX). No CUDA toolkit
-  # or GPU needed to BUILD — only to run; the equivalence gate (TestBackendResident-
-  # Wired / TestRealForwardParity) runs on the box, and skips cleanly on the
-  # GPU-less CI runner. Mirrors the gpu job: ephemeral `go work init` stitches the
-  # unpublished goinfer root locally (submodule go.mods are replace-free since 2026-08-15).
   cuda:
     needs: changes
     if: ${{ !cancelled() && (github.event_name == 'schedule' || github.event_name == 'workflow_dispatch' || (needs.changes.outputs.docs_only != 'true' && needs.changes.outputs.pr_covered != 'true')) }}
@@ -1334,12 +1197,7 @@ jobs:
         run: |
           grep -q -- '--- PASS: TestForcedFallbacks_expected' forced.log
 
-  # GPU submodule on darwin/arm64 — the resident Metal decode path. Same
-  # ephemeral-workspace stitch as the Linux gpu job, but no apt deps: Metal is a
-  # system framework on macOS (linked via Xcode CLT, present on the runner).
-  # Tests skip cleanly with no usable adapter; the build/vet alone compile-check
-  # the cgo Metal path that the Linux jobs never touch.
-  gpu-darwin:
+  metal-darwin:
     if: github.event_name == 'schedule' || github.event_name == 'workflow_dispatch'
     runs-on: macos-latest
     steps:
@@ -1347,47 +1205,9 @@ jobs:
       - uses: actions/setup-go@924ae3a1cded613372ab5595356fb5720e22ba16 # v6.5.0
         with:
           go-version-file: go.mod
-          cache-dependency-path: |
-            backend/webgpu/go.sum
-            backend/metal/go.sum
-
-      - name: workspace (resolve unpublished goinfer locally)
-        run: go work init . ./backend/webgpu
-
-      - name: build -tags gpu
-        run: go build -tags 'gpu goinfer_testhooks' ./backend/webgpu/...
-
-      # Wired serve + demo compile-check on darwin too (audit M-18) — see the linux gpu job.
-      - name: build -tags gpu (wired serve + demo entrypoints)
-        run: go build -tags 'gpu goinfer_testhooks' ./backend/webgpu/cmd/serve ./backend/webgpu/cmd/chat
-
-      - name: vet -tags gpu
-        run: go vet -tags 'gpu goinfer_testhooks' ./backend/webgpu/...
-
-      - name: test -tags gpu
-        # -timeout 20m, not the 10m default: this runner takes 330 to 530 s for ./backend/webgpu beside ./backend/webgpu/internal/kernels
-        # (4x the same suite on a Mesa adapter), so contention alone crossed 600 s. A hang still fails, at 20 minutes.
-        run: go test -timeout 20m -short -tags 'gpu goinfer_testhooks' ./backend/webgpu/...
-      # THE METAL PART, in this job so a run takes two macOS runners, not three. Each step runs under !cancelled(), so a red
-      # webgpu step above does not hide it, and every step name says "metal".
-      # cgo-free Metal module (metal/) on darwin/arm64 — the purego-objc resident decode + f16-MMA
-      # prefill kernels. It is its OWN module (metal/go.mod, `replace ../`), so NEITHER the root nor
-      # the webgpu steps compile it: without these steps the entire Metal backend had ZERO CI coverage. That
-      # is precisely why a shipped-path prefill NaN and three stale kernel bindings (rope's rhalf,
-      # swiglu's act, attention's window — all buffer-index drift after a kernel gained a param) were
-      # invisible until a hand-run. build + vet are the point: they compile-check every dispatch
-      # against the current kernel signatures, the exact class that was silent. The device parity
-      # gates need a real adapter and skip without one (real-checkpoint gates also need models); the
-      # device-INDEPENDENT falsifiability test (TestParity_NaNCosineFailsTheGate) runs here. The full
-      # correctness gate remains `go run ./cmd/gate gpu`, hand-run on a Metal box.
-      # metal/go.mod `require`s the unpublished root (N-54, docs/audit-2026-09-10.md: this used to
-      # say the reverse) but has no `replace` for it, so a standalone build resolves the root from
-      # the module proxy at whatever version is required — not this checkout's own tree. The
-      # workspace supplies the LOCAL root module instead — same ephemeral stitch as the
-      # webgpu part above (go.work is gitignored).
-      - name: workspace (add the metal module; the Metal part of this job)
-        if: ${{ !cancelled() }}
-        run: go work use ./backend/metal
+          cache-dependency-path: backend/metal/go.sum
+      - name: workspace
+        run: go work init . ./backend/metal
 
       - name: build (metal module)
         if: ${{ !cancelled() }}

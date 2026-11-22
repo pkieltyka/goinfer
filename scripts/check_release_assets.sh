@@ -31,7 +31,11 @@ if ! gh release view "$tag" --repo "$repo" >/dev/null 2>&1; then
   exit 0
 fi
 
-count() { gh release view "$1" --repo "$repo" --json assets --jq '.assets | length'; }
+# Compare assets that the fork still publishes. Older releases can carry WebGPU extras.
+count() {
+  gh release view "$1" --repo "$repo" --json assets \
+    --jq '[.assets[].name | select((startswith("goinfer-serve-webgpu-") or . == "checksums-webgpu.txt") | not)] | length'
+}
 have=$(count "$tag")
 
 # Earlier releases in version order (not publish order: a patch on an older line can publish later).

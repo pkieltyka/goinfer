@@ -18,16 +18,15 @@ import (
 // listed in testdata/env_reads.txt. The list only shrinks: a new setting is a decoder.Options
 // field or a load-time knob (docs/env-vars.md, "Policy — where a new setting goes"), and a new diagnostic a test hook.
 var pkgInitEnvReadsKnown = map[string]bool{
-	"backend/webgpu/internal/kernels/attention.go:AttnKeysDisabled": true,
-	"decoder/cpu_gateup_fused.go:cpuFusedGateUp":                    true,
-	"decoder/deltanet.go:deltaNetTiming":                            true,
-	"decoder/fakequant.go:fakeQuantExpertsOnly":                     true,
-	"decoder/fakequant.go:fakeQuantF32Act":                          true,
-	"decoder/fakequant.go:fakeQuantScheme":                          true,
-	"decoder/model.go:decodeTiming":                                 true,
-	"decoder/weightmat.go:w4a8BatchEnabled":                         true,
-	"decoder/weightmat.go:w4a8SplitHalfRepackEnabled":               true,
-	"internal/app/serveapp/tools.go:toolUnionEnabled":               true,
+	"decoder/cpu_gateup_fused.go:cpuFusedGateUp":      true,
+	"decoder/deltanet.go:deltaNetTiming":              true,
+	"decoder/fakequant.go:fakeQuantExpertsOnly":       true,
+	"decoder/fakequant.go:fakeQuantF32Act":            true,
+	"decoder/fakequant.go:fakeQuantScheme":            true,
+	"decoder/model.go:decodeTiming":                   true,
+	"decoder/weightmat.go:w4a8BatchEnabled":           true,
+	"decoder/weightmat.go:w4a8SplitHalfRepackEnabled": true,
+	"internal/app/serveapp/tools.go:toolUnionEnabled": true,
 }
 
 // readsEnvAtInit reports whether e, a package-level initialiser, reads the environment when the package initialises: a

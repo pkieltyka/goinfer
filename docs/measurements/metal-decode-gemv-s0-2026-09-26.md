@@ -35,7 +35,7 @@ plus one f16 per 32), and N·K + 4N for the int8 head.
 
 M1 Pro 16 GB, macOS 26.6.2, goinfer `17efc946` + this test file, 2026-09-26 ~08:10 local. load1 was 2.33 at the
 start, just above the 2.0 gate; the in-sequence cross-check below agrees regardless. Raw:
-[`run1.log`](metal-decode-gemv-s0-2026-09-26/run1.log).
+[`run1.log`](https://github.com/townsendmerino/goinfer/blob/36dbfbaf149aabdff43dce5766b49a65183113a7/docs/measurements/metal-decode-gemv-s0-2026-09-26/run1.log).
 
 ## Result
 

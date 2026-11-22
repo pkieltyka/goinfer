@@ -45,7 +45,7 @@ func testAikitRootPinsAgree(t *testing.T) {
 	t.Logf("root pins aikit %s", root)
 
 	checked := 0
-	for _, mod := range []string{"backend/cuda", "backend/webgpu", "backend/metal", "demo/agent"} {
+	for _, mod := range []string{"backend/cuda", "backend/metal", "backend/vulkan"} {
 		got := read(mod)
 		if got == "" {
 			continue

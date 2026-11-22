@@ -39,7 +39,7 @@ before the build.
 | gate (registered before the build) | result |
 |---|---|
 | 1. each conversation's response served concurrently is byte-identical to it served alone | **pass.** `TestConcurrentSessions_matchAlone` (decoder: 4 conversations × 3 turns on one `Model`, llama-tiny and qwen2.5-coder-0.5b int4). `TestServe_maxConcurrentMatchesAlone` (the real `tryEnter` → `drive` → `exit` path, 4 conversations × 3 turns × 24 tokens on the 0.5B at `-max-concurrent 4`: identical text every turn, reuse on every turn). |
-| 2. `-race` clean | **pass**: both tests above, `TestAdmission_*`, `TestSessionLRU_checkout` and the adapter tests under `-race` ([`serve-race.log`](concurrency-mc3c-2026-09-26/serve-race.log)) |
+| 2. `-race` clean | **pass**: both tests above, `TestAdmission_*`, `TestSessionLRU_checkout` and the adapter tests under `-race` ([`serve-race.log`](https://github.com/townsendmerino/goinfer/blob/36dbfbaf149aabdff43dce5766b49a65183113a7/docs/measurements/concurrency-mc3c-2026-09-26/serve-race.log)) |
 | 3. reuse unchanged: every turn's prompt − reused equals the 1-client run's | **pass**: 26, 27, 24, 20, 27 on every client, in every cell |
 | 4. W7 4-client aggregate ≥ 1.2× the serialized build's (N = 4) | **pass: 1.97×, repeats 1.86× and 1.91×** |
 | 5. p99 per-turn latency at 4 clients no worse than serialized at 4 clients | **pass: 6.5–7.0 s against 12.8–13.4 s** |

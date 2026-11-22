@@ -23,7 +23,7 @@ The regression is there with the int4 LM head off on both sides, so the 2026-09-
 
 `git bisect run` over `411e7fc4..754f12d3` (328 commits) with [`bisect-step.sh`](topp-regression-2026-09-30/bisect-step.sh): build the CUDA
 server at the commit (its own pinned aikit), time one 0.5B top-p cell, good above 290 tok/s, bad below 260, skip between. Eight steps,
-every reading unambiguous (good 317.7–330.8, bad 229.2–239.1; [`bisect-steps.log`](topp-regression-2026-09-30/bisect-steps.log)). First bad
+every reading unambiguous (good 317.7–330.8, bad 229.2–239.1; [`bisect-steps.log`](https://github.com/townsendmerino/goinfer/blob/36dbfbaf149aabdff43dce5766b49a65183113a7/docs/measurements/topp-regression-2026-09-30/bisect-steps.log)). First bad
 commit: **`7a44a58e` "MC3 on CUDA: batched multi-request decode — the resident implements ResidentBatchStepper"** (2026-09-27).
 
 ## Cause

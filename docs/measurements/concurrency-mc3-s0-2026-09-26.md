@@ -36,7 +36,7 @@ All are gated on `GOINFER_METAL_MC3=1`. Logs: [`concurrency-mc3-s0-2026-09-26/`]
 `gemm_w4f16_store`, fast prefill's f16 MMA GEMM, runs every one of its 64-token tile's MMAs regardless of M. Its time
 is flat across M = 1–64 at **12–14× one decode GEMV**. It overtakes M sequential GEMVs only at M ≈ 13–16.
 Example, 1.5B gate/up: 1.29–1.34 ms at every M, against a 0.108 ms GEMV. It is also f16-activation numerics. It is not
-a starting point ([`mc3-s0-mma.log`](concurrency-mc3-s0-2026-09-26/mc3-s0-mma.log)).
+a starting point ([`mc3-s0-mma.log`](https://github.com/townsendmerino/goinfer/blob/36dbfbaf149aabdff43dce5766b49a65183113a7/docs/measurements/concurrency-mc3-s0-2026-09-26/mc3-s0-mma.log)).
 
 ## 2. An 8-row kernel, operands built in registers
 
@@ -50,7 +50,7 @@ a starting point ([`mc3-s0-mma.log`](concurrency-mc3-s0-2026-09-26/mc3-s0-mma.lo
 
 The first cut sums groups in plain order, so it matches production to f32 summation-order rounding (relative error
 ≤ 5e-7, 20–40% of outputs bit-equal). It measures what the route costs
-([`mc3-mma8-explore1.log`](concurrency-mc3-s0-2026-09-26/mc3-mma8-explore1.log)):
+([`mc3-mma8-explore1.log`](https://github.com/townsendmerino/goinfer/blob/36dbfbaf149aabdff43dce5766b49a65183113a7/docs/measurements/concurrency-mc3-s0-2026-09-26/mc3-mma8-explore1.log)):
 
 | shape (N × K) | production GEMV | best 8-row variant | 8-row ÷ GEMV | **vs 8 GEMVs** |
 |---|---:|---:|---:|---:|
@@ -73,7 +73,7 @@ kernels reproduce that exactly:
 - **`mc3_mma_bt`** does the reduction as `simd_sum`'s own addition tree:
   - `TestMC3SimdSumTree` measured that tree **on this GPU** as exactly the xor butterfly 1, 2, 4, 8, 16. Over 65,536
     random 32-lane vectors spanning 24 binades, it differed on 0. The 16, 8, 4, 2, 1 butterfly differed on 62% and a
-    sequential sum on 73% ([`simdsum-tree.log`](concurrency-mc3-s0-2026-09-26/simdsum-tree.log)).
+    sequential sum on 73% ([`simdsum-tree.log`](https://github.com/townsendmerino/goinfer/blob/36dbfbaf149aabdff43dce5766b49a65183113a7/docs/measurements/concurrency-mc3-s0-2026-09-26/simdsum-tree.log)).
   - Residues map r = 8·simdgroup + slot. Levels ^1/^2/^4 pair slots in registers, and ^8/^16 pair simdgroups through a
     256-byte exchange (`#pragma clang fp reassociate(off)` on both).
   - Adjacent slots are adjacent groups, so a lane's weight loads walk a row contiguously.
@@ -85,9 +85,9 @@ kernels reproduce that exactly:
   in both operands, so each lane's weights are 8 contiguous bytes.
 
 Every variant below reported **0 differing outputs** out of 8 × N on every shape
-([`explore3`](concurrency-mc3-s0-2026-09-26/mc3-mma8-explore3.log),
-[`down`](concurrency-mc3-s0-2026-09-26/mc3-mma8-down-explore1.log),
-[`lmhead`](concurrency-mc3-s0-2026-09-26/mc3-mma8-lmhead-explore1.log)):
+([`explore3`](https://github.com/townsendmerino/goinfer/blob/36dbfbaf149aabdff43dce5766b49a65183113a7/docs/measurements/concurrency-mc3-s0-2026-09-26/mc3-mma8-explore3.log),
+[`down`](https://github.com/townsendmerino/goinfer/blob/36dbfbaf149aabdff43dce5766b49a65183113a7/docs/measurements/concurrency-mc3-s0-2026-09-26/mc3-mma8-down-explore1.log),
+[`lmhead`](https://github.com/townsendmerino/goinfer/blob/36dbfbaf149aabdff43dce5766b49a65183113a7/docs/measurements/concurrency-mc3-s0-2026-09-26/mc3-mma8-lmhead-explore1.log)):
 
 | shape | production GEMV | bit-identical 8-row (best) | 8-row ÷ GEMV | **vs 8 GEMVs** | `mc3_mma_bi` (robust) |
 |---|---:|---:|---:|---:|---:|

@@ -23,8 +23,8 @@ Every reply equals plain decode's, on both models and both workloads.
 consecutive positions on one KV slot, against production decoding the same tokens one after another on a twin slot.
 - **0 logits and 0 K/V elements differ** in all 7 cases, on the 1.5B and the 7B: M = 2, 4 and 8 at depths 128 and
   2048, and a run of 8 straddling `attnFADepthFloor`, where one step mixes per-head and `attention_fa` rows.
-- Logs: [`gates-1.5b.log`](metal-spec-step-verify-2026-09-27/gates-1.5b.log),
-  [`gates-7b.log`](metal-spec-step-verify-2026-09-27/gates-7b.log).
+- Logs: [`gates-1.5b.log`](https://github.com/townsendmerino/goinfer/blob/36dbfbaf149aabdff43dce5766b49a65183113a7/docs/measurements/metal-spec-step-verify-2026-09-27/gates-1.5b.log),
+  [`gates-7b.log`](https://github.com/townsendmerino/goinfer/blob/36dbfbaf149aabdff43dce5766b49a65183113a7/docs/measurements/metal-spec-step-verify-2026-09-27/gates-7b.log).
 
 **Gate 2: cost.** `TestMC3Verify_rowCost` times the step against a production token, as (step ÷ token − 1) ÷ (M − 1)
 per extra row. The bar was ≤ 0.30 at M = 8 up to depth 2048.
@@ -36,7 +36,7 @@ per extra row. The bar was ≤ 0.30 at M = 8 up to depth 2048.
 
 - The curve has a fixed overhead of ~0.2–0.3 of a token even at one row, then a nearly flat slope.
 - So one draft token rarely pays, and eight nearly always do.
-- Logs: [`cost-1.5b.log`](metal-spec-step-verify-2026-09-27/cost-1.5b.log), [`cost-7b.log`](metal-spec-step-verify-2026-09-27/cost-7b.log).
+- Logs: [`cost-1.5b.log`](https://github.com/townsendmerino/goinfer/blob/36dbfbaf149aabdff43dce5766b49a65183113a7/docs/measurements/metal-spec-step-verify-2026-09-27/cost-1.5b.log), [`cost-7b.log`](https://github.com/townsendmerino/goinfer/blob/36dbfbaf149aabdff43dce5766b49a65183113a7/docs/measurements/metal-spec-step-verify-2026-09-27/cost-7b.log).
 
 ## 2. The build (`1e153876`)
 
@@ -61,9 +61,9 @@ per extra row. The bar was ≤ 0.30 at M = 8 up to depth 2048.
   on the 7B.
 - Both hold on the 1.5B and the 7B. The tagged Metal suite ran 183 pass, 0 fail; the decoder suite ok; the parity
   manifest is fresh.
-- Logs: [`identity-build-1.5b.log`](metal-spec-step-verify-2026-09-27/identity-build-1.5b.log),
-  [`identity-build-7b.log`](metal-spec-step-verify-2026-09-27/identity-build-7b.log),
-  [`metal-suite-verify.log`](metal-spec-step-verify-2026-09-27/metal-suite-verify.log).
+- Logs: [`identity-build-1.5b.log`](https://github.com/townsendmerino/goinfer/blob/36dbfbaf149aabdff43dce5766b49a65183113a7/docs/measurements/metal-spec-step-verify-2026-09-27/identity-build-1.5b.log),
+  [`identity-build-7b.log`](https://github.com/townsendmerino/goinfer/blob/36dbfbaf149aabdff43dce5766b49a65183113a7/docs/measurements/metal-spec-step-verify-2026-09-27/identity-build-7b.log),
+  [`metal-suite-verify.log`](https://github.com/townsendmerino/goinfer/blob/36dbfbaf149aabdff43dce5766b49a65183113a7/docs/measurements/metal-spec-step-verify-2026-09-27/metal-suite-verify.log).
 
 ## 3. The served grading
 
@@ -81,9 +81,9 @@ As registered (`8bb80b1f`):
 
 Raw: [`copy-15b.json`](metal-spec-step-verify-2026-09-27/copy-15b.json), [`chat-15b.json`](metal-spec-step-verify-2026-09-27/chat-15b.json),
 [`copy-7b.json`](metal-spec-step-verify-2026-09-27/copy-7b.json), [`chat-7b.json`](metal-spec-step-verify-2026-09-27/chat-7b.json),
-[`run-served.log`](metal-spec-step-verify-2026-09-27/run-served.log), [`servers.log`](metal-spec-step-verify-2026-09-27/servers.log),
+[`run-served.log`](https://github.com/townsendmerino/goinfer/blob/36dbfbaf149aabdff43dce5766b49a65183113a7/docs/measurements/metal-spec-step-verify-2026-09-27/run-served.log), [`servers.log`](https://github.com/townsendmerino/goinfer/blob/36dbfbaf149aabdff43dce5766b49a65183113a7/docs/measurements/metal-spec-step-verify-2026-09-27/servers.log),
 [`run-served.sh`](metal-spec-step-verify-2026-09-27/run-served.sh). Gates by [`gates-served.py`](metal-spec-step-verify-2026-09-27/gates-served.py),
-output in [`gates-served-output.txt`](metal-spec-step-verify-2026-09-27/gates-served-output.txt).
+output in [`gates-served-output.txt`](https://github.com/townsendmerino/goinfer/blob/36dbfbaf149aabdff43dce5766b49a65183113a7/docs/measurements/metal-spec-step-verify-2026-09-27/gates-served-output.txt).
 
 | gate (pre-registered) | result |
 |---|---|

@@ -26,7 +26,13 @@ case "${GOWORK:-}" in
 esac
 
 if [ -e go.work ]; then
-	echo "go.work exists; left alone" >&2
+	# Remove retired relative paths from workspaces created by the former template.
+	for module in backend/webgpu demo/agent apps/sdktest apps/site; do
+		if [ ! -f "$module/go.mod" ]; then
+			go work edit -dropuse="./$module" go.work
+		fi
+	done
+	echo "go.work checked; local module overrides preserved" >&2
 else
 	cp go.work.example go.work
 	echo "wrote go.work from go.work.example" >&2

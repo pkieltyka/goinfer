@@ -49,7 +49,7 @@ interleaved, 9a48035e, adds a CUDA test and docs, so the Metal binary's sources 
 
 The Mac night queue ran `run-mc3-prefill-attr.sh` unattended. It was idle-gated, on AC power, and every cell was on
 the Metal resident (`decode path: metal-resident (int4)` in each server log). Raw data:
-[`results.json`](mc3-prefill-attr-2026-09-28/results.json), [`run.log`](mc3-prefill-attr-2026-09-28/run.log) and the
+[`results.json`](mc3-prefill-attr-2026-09-28/results.json), [`run.log`](https://github.com/townsendmerino/goinfer/blob/36dbfbaf149aabdff43dce5766b49a65183113a7/docs/measurements/mc3-prefill-attr-2026-09-28/run.log) and the
 six `server-*.log`.
 
 | model | rep | cell wall (s) | prefill (s) / passes | decode runs (s) | bookkeeping / idle (s) | **prefill share** | aggregate tok/s |

@@ -56,7 +56,7 @@ from a worktree at `754f12d3`, `goinfer_tree_dirty: False` in every results file
 and was the GPU's (`cuda-resident (int4)`, Phi-3 `cuda-resident (q4k)`), so the decode-path gate voided nothing. Graded with
 [`grade.py`](peer-sweep-2026-09-29/grade.py): the 09-25 grader with only the two changes this page registers (the proportional token
 gate; the decode-path gate). Raw: [`nobara/`](peer-sweep-2026-09-29/nobara/), graded rows in
-[`nobara/grade.jsonl`](peer-sweep-2026-09-29/nobara/grade.jsonl), per-cell serve logs in `nobara/serve-logs/`.
+[`nobara/grade.jsonl`](https://github.com/townsendmerino/goinfer/blob/36dbfbaf149aabdff43dce5766b49a65183113a7/docs/measurements/peer-sweep-2026-09-29/nobara/grade.jsonl), per-cell serve logs in `nobara/serve-logs/`.
 
 **Against Ollama** (r = goinfer ÷ Ollama for decode, Ollama ÷ goinfer for TTFT; 3 pairs per decode cell, 6 per TTFT cell; the median
 r is shown, the outcome is decided by every pair):

@@ -563,7 +563,7 @@ used, and the next 9B job's start check read 8.13 GB against an 8.7 GB need unti
     `MAP_PRIVATE` elsewhere), and the host weights alias it: int8 and int4 codes and their scales are views into the mapping, not copies.
     The first load reads every page for the CRC pass unless `decoder/giwverify.go:giwVerified` finds the file's marker.
   - **CUDA and WebGPU copy the weights to the device** (`backend/cuda/pack_stream.go:cudaResident.streamW`, in row blocks through a staging
-    buffer; `backend/webgpu/residency.go:webgpuBackend.BuildResident`), and keep the host weights afterwards: `decoder/model.go:Model.tryClaimResident`
+    buffer; [`webgpuBackend.BuildResident`](https://github.com/townsendmerino/goinfer/blob/36dbfbaf149aabdff43dce5766b49a65183113a7/backend/webgpu/residency.go)), and keep the host weights afterwards: `decoder/model.go:Model.tryClaimResident`
     falls back to the CPU path when the resident is busy, and CUDA gathers token embeddings on the host. Nothing drops or advises the pages
     after the upload.
   - **Metal aliases most of a `.giw` model:** `backend/metal/alias.go:weightAlias.windowOn` builds no-copy buffers over `Model.MmapAliasWindow`
@@ -2311,7 +2311,7 @@ Open rows moved from `docs/completed/task-code-comments-2026-10.md` §10 and `do
 
 - **Comment diet: CC6 diff mode, warning or refusal.** Owner decision, open since CC4 finished. The pre-push census
   (`scripts/comment_census.py diff`) is a warning today. Owner (Francis) to choose.
-- **Comment diet: open work with no owning doc.** Each item is still unowned: `backend/webgpu/kv_slots.go:slotsBeforeContext` (a discrete
+- **Comment diet: open work with no owning doc.** Each item is still unowned: [`slotsBeforeContext`](https://github.com/townsendmerino/goinfer/blob/36dbfbaf149aabdff43dce5766b49a65183113a7/backend/webgpu/kv_slots.go) (a discrete
   Vulkan measurement); `backend/webgpu/attention.go` (Metal's `float(pos)*invf[dd]` pattern at long context, unmeasured);
   `backend/metal/batch.go:promptStepAboveFloor` and `backend/metal/paged_fence.go:pagedFenceOn` (off, no queue entry);
   `backend/cuda/vision_encoder.go:addInPlaceHost` (tower residual add round-trips through the host); `cmd/gate/grade_parity.go:whyNoResult`

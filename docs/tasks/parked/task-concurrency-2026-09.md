@@ -1129,8 +1129,8 @@ lever to test," with a quantified ceiling: batching the head should move M=4 fro
     `PrefillLast`) are explicitly excluded from batching: batching there would compute M−1 rows nobody reads, the
     regression this scoping exists to avoid.
 - **Correctness (nobara-pc, RTX 2070 SUPER, driver 595.91.07, idle):**
-  [`batchedhead-correctness-2026-09-28.log`](../../measurements/concurrency-mc3-cuda-s0-2026-09-27/batchedhead-correctness-2026-09-28.log),
-  [`batchedhead-7b-2026-09-28.log`](../../measurements/concurrency-mc3-cuda-s0-2026-09-27/batchedhead-7b-2026-09-28.log).
+  [`batchedhead-correctness-2026-09-28.log`](https://github.com/townsendmerino/goinfer/blob/36dbfbaf149aabdff43dce5766b49a65183113a7/docs/measurements/concurrency-mc3-cuda-s0-2026-09-27/batchedhead-correctness-2026-09-28.log),
+  [`batchedhead-7b-2026-09-28.log`](https://github.com/townsendmerino/goinfer/blob/36dbfbaf149aabdff43dce5766b49a65183113a7/docs/measurements/concurrency-mc3-cuda-s0-2026-09-27/batchedhead-7b-2026-09-28.log).
   - `TestCUDAStepBatch_matchesForward`, `TestCUDAStepBatch_concurrentMatchesAlone`: pass, unchanged — MC3's own
     step-identity and concurrent-matches-alone gates.
   - `TestMC3CUDAS0_batchedRowsVsDecode` (the S0's own bit-identity check, re-run against the new code): **0

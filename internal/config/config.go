@@ -169,7 +169,6 @@ var Settings = []Setting{
 	{Name: "ids-key-file", Flag: "ids-key-file", Apps: Serve, Doc: "docs/flags.md"},
 
 	{Name: "GOINFER_ATTNFA_DEBUG", Env: "GOINFER_ATTNFA_DEBUG", EnvRole: EnvDiagnostic, Class: Diagnostic, Doc: "docs/env-vars.md"},
-	{Name: "GOINFER_ATTN_KEYS", Env: "GOINFER_ATTN_KEYS", EnvRole: EnvDiagnostic, Class: Diagnostic, Doc: "docs/env-vars.md"},
 	{Name: "GOINFER_CPU_FUSED_GATEUP", Env: "GOINFER_CPU_FUSED_GATEUP", EnvRole: EnvDiagnostic, Class: Diagnostic, Doc: "docs/env-vars.md"},
 	{Name: "GOINFER_CUDA_GRAPHS", Env: "GOINFER_CUDA_GRAPHS", EnvRole: EnvDiagnostic, Class: Diagnostic, Doc: "docs/cuda-graphs-investigation.md"},
 	{Name: "GOINFER_CUDA_GRAPHS_ONLY", Env: "GOINFER_CUDA_GRAPHS_ONLY", EnvRole: EnvDiagnostic, Class: Diagnostic, Doc: "docs/cuda-graphs-investigation.md"},
@@ -186,9 +185,7 @@ var Settings = []Setting{
 	{Name: "GOINFER_GATE_HEARTBEAT", Env: "GOINFER_GATE_HEARTBEAT", EnvRole: EnvStartup, Class: Operator, Doc: "docs/env-vars.md"},
 	{Name: "GOINFER_GATE_MODELS", Env: "GOINFER_GATE_MODELS", EnvRole: EnvStartup, Class: Operator, Doc: "docs/env-vars.md"},
 	{Name: "GOINFER_GATE_SKIP_HEAVY", Env: "GOINFER_GATE_SKIP_HEAVY", EnvRole: EnvStartup, Class: Operator, Doc: "docs/env-vars.md"},
-	{Name: "GOINFER_GATE_SKIP_WEBGPU", Env: "GOINFER_GATE_SKIP_WEBGPU", EnvRole: EnvStartup, Class: Operator, Doc: "docs/env-vars.md"},
 	{Name: "GOINFER_GIW_VERIFY", Env: "GOINFER_GIW_VERIFY", EnvRole: EnvStartup, Class: Operator, Doc: "docs/env-vars.md"},
-	{Name: "GOINFER_GPU_CAPTURE", Env: "GOINFER_GPU_CAPTURE", EnvRole: EnvDiagnostic, Class: Diagnostic, Doc: "docs/env-vars.md"},
 	{Name: "GOINFER_HEAVY_PKGS", Env: "GOINFER_HEAVY_PKGS", EnvRole: EnvStartup, Class: Operator, Doc: "docs/env-vars.md"},
 	{Name: "GOINFER_HEAVY_RUN", Env: "GOINFER_HEAVY_RUN", EnvRole: EnvStartup, Class: Operator, Doc: "docs/env-vars.md"},
 	{Name: "GOINFER_HEAVY_TIMEOUT", Env: "GOINFER_HEAVY_TIMEOUT", EnvRole: EnvStartup, Class: Operator, Doc: "docs/env-vars.md"},
@@ -204,7 +201,6 @@ var Settings = []Setting{
 	{Name: "GOINFER_TOOL_UNION", Env: "GOINFER_TOOL_UNION", EnvRole: EnvStartup, Class: Operator, Doc: "docs/env-vars.md"},
 	{Name: "GOINFER_W4A8_BATCH", Env: "GOINFER_W4A8_BATCH", EnvRole: EnvDiagnostic, Class: Diagnostic, Doc: "docs/env-vars.md"},
 	{Name: "GOINFER_W4A8_SPLITHALF", Env: "GOINFER_W4A8_SPLITHALF", EnvRole: EnvDiagnostic, Class: Diagnostic, Doc: "docs/env-vars.md"},
-	{Name: "GOINFER_WEBGPU_GEMM", Env: "GOINFER_WEBGPU_GEMM", EnvRole: EnvDiagnostic, Class: Diagnostic, Doc: "docs/env-vars.md"},
 
 	{Name: "GOINFER_ATTN_GROUPED", Env: "GOINFER_ATTN_GROUPED", EnvRole: EnvKnob, Class: Operator, Doc: "docs/env-vars.md"},
 	{Name: "GOINFER_ATTN_ROW_TILE", Env: "GOINFER_ATTN_ROW_TILE", EnvRole: EnvKnob, Class: Operator, Doc: "docs/env-vars.md"},

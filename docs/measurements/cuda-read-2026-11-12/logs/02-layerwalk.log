@@ -1,4 +1,0 @@
-=== RUN   TestCheckCUDALayerWalk_TopologiesAndRejections
---- PASS: TestCheckCUDALayerWalk_TopologiesAndRejections (0.00s)
-PASS
-ledger: 0 device(s) released in this run

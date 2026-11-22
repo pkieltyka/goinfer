@@ -58,7 +58,7 @@ Predictions that follow, registered:
 
 The tests assert predictions 1–7, so a class map that is wrong fails the run and is not recorded as a surprise.
 
-**WebGPU class map (read from `backend/webgpu/residency.go:residentDecoder.prefillBlocks` and `backend/webgpu/prefillrunner.go`).** The batched pass
+**WebGPU class map (read from [`residentDecoder.prefillBlocks`](https://github.com/townsendmerino/goinfer/blob/36dbfbaf149aabdff43dce5766b49a65183113a7/backend/webgpu/residency.go) and `backend/webgpu/prefillrunner.go`).** The batched pass
 is built from per-row kernels (`attnBatchedShaderWGSL` takes each row's own causal limit; `ropeBatchedShaderWGSL` recovers
 row r's position as start + r) and is documented bit-equivalent to M sequential decode calls. Nothing reads the prompt's
 length. The one selector that reads the row count is `w4MultiFor` (the row-shaped int4 kernel up to `w4MultiMaxRows`, the

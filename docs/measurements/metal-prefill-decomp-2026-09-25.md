@@ -31,7 +31,7 @@ running the widest-N and longest-K shapes at roughly half the rate of the others
   v14 `.metal.giw` sidecar. H=1536, I=8960, 28 layers, 12 heads, V=151936. Fused attention on (the default).
 - **Run:** 2026-09-25, 13:18:52–13:24:20 local (20:18:52–20:24:20 UTC), 5 reps per measurement after one warm-up.
   `GOINFER_METAL_DECOMP=1 go test -tags goinfer_testhooks -run '^TestMetalPrefillDecomp$' -v -count=1 ./metal/`.
-  Raw log: [`metal-prefill-decomp-2026-09-25/run.log`](metal-prefill-decomp-2026-09-25/run.log).
+  Raw log: [`metal-prefill-decomp-2026-09-25/run.log`](https://github.com/townsendmerino/goinfer/blob/36dbfbaf149aabdff43dce5766b49a65183113a7/docs/measurements/metal-prefill-decomp-2026-09-25/run.log).
 
 ## Method
 
@@ -114,7 +114,7 @@ The TTFT target is Ollama's: r = 0.377 at K=512, 0.239 at K=3900 (TTFT ≈ `Pref
 ## Addendum: isolated time is not in-sequence cost (2026-09-25, runs 2 and 3)
 
 **Run 2** (K=3900 only, every rep printed, page-in / swap-in deltas and `pmset -g therm` around each command
-buffer; 13:29–13:34 local; raw: [`run2-k3900-perrep.log`](metal-prefill-decomp-2026-09-25/run2-k3900-perrep.log)).
+buffer; 13:29–13:34 local; raw: [`run2-k3900-perrep.log`](https://github.com/townsendmerino/goinfer/blob/36dbfbaf149aabdff43dce5766b49a65183113a7/docs/measurements/metal-prefill-decomp-2026-09-25/run2-k3900-perrep.log)).
 Every category was stable (spreads ≤ 1.2%), but the isolated MLP GEMMs ran **~2× faster than in run 1**: gate/up
 4151 ms (run 1 median 8109), down 2131 (4397); attention 4169 (4419). The categories then summed to only **64.6%** of
 the full replay, which held at 17.5 s, like `PrefillLast`. So each isolated GEMM runs in one of two modes about 2×
@@ -122,7 +122,7 @@ apart, and run 1's 52–55% spreads were a mix of both. **Neither hypothesis for
 page-ins small and steady (~850 per 4 s system-wide, i.e. not the GPU re-reading evicted weights), no thermal warning
 recorded, 80–82% memory free.
 
-**Run 3** (both K, leave-one-out; 13:39–13:52 local; raw: [`run3-leave-one-out.log`](metal-prefill-decomp-2026-09-25/run3-leave-one-out.log)).
+**Run 3** (both K, leave-one-out; 13:39–13:52 local; raw: [`run3-leave-one-out.log`](https://github.com/townsendmerino/goinfer/blob/36dbfbaf149aabdff43dce5766b49a65183113a7/docs/measurements/metal-prefill-decomp-2026-09-25/run3-leave-one-out.log)).
 A category's in-sequence cost = the full replay minus the same replay with that category removed, 5 paired reps.
 Kernel timing does not depend on the values read, so removing a category changes only the cache and memory state the
 rest see. The in-sequence costs are additive — **92.4% (K=512) and 100.2% (K=3900) of the full replay** — where the
@@ -157,7 +157,7 @@ K=512, two processes (`GOINFER_METAL_ALIAS` unset, then `=0`; separate processes
 model at `decoder.Load`), each with leave-one-out and a **prior-state** phase: GEMM gate/up timed alone, interleaved
 per rep, after four different things. 13:58:54–14:02:14 local; the remaining two rounds waited on a busy box
 (load1 2.3–3.4 from UI processes, not the benchmark) and were stopped by owner decision at 14:10. Raw:
-[`run4-alias-ab-prior-state-partial.log`](metal-prefill-decomp-2026-09-25/run4-alias-ab-prior-state-partial.log).
+[`run4-alias-ab-prior-state-partial.log`](https://github.com/townsendmerino/goinfer/blob/36dbfbaf149aabdff43dce5766b49a65183113a7/docs/measurements/metal-prefill-decomp-2026-09-25/run4-alias-ab-prior-state-partial.log).
 
 | what ran just before gate/up | default arm (ms, median of 5) | `ALIAS=0` arm | spreads |
 |---|---:|---:|---|

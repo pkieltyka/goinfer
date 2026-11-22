@@ -1,1 +1,0 @@
-1780, /usr/bin/kwin_wayland, 18 MiB

@@ -65,7 +65,7 @@ func TestQualityScan_readsEveryModule(t *testing.T) {
 			tests++
 		}
 	}
-	for _, m := range []string{"decoder", "internal", "backend/webgpu", "backend/cuda", "backend/metal", "demo", "apps"} {
+	for _, m := range []string{"decoder", "internal", "backend/cuda", "backend/metal", "demo", "apps"} {
 		if seen[m] == 0 {
 			t.Errorf("read no Go file under %s/", m)
 		}

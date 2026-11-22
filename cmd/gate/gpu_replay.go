@@ -85,7 +85,7 @@ func replayGPU(w io.Writer, path string) int {
 		return 2
 	}
 	in := rec.GPU
-	g := &gpuGate{w: w, backend: in.Backend, emitted: map[string]bool{}, runIn: *in, expect: gpuExpect(in.Backend)}
+	g := &gpuGate{w: w, backend: in.Backend, emitted: map[string]bool{}, runIn: *in, expect: gpuExpect(in.Backend, in.WebGPU != nil)}
 	src := &recordedInputs{g: g, path: path, cells: cells, texts: texts}
 	// A record that holds every runner-side input regrades the groups around the backend's (cleangpu, seam, repo). It gives
 	// the verdict only when every declared group regrades: a CUDA record also needs the ptx and heavy inputs, or the verdict

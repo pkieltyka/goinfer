@@ -85,6 +85,24 @@ func TestGPURecord_coversLaterCommitsOnlyIfTheCodeIsUnchanged(t *testing.T) {
 	}
 }
 
+func TestGPURecord_coversDocsAfterWebGPURetirement(t *testing.T) {
+	dir, commit := gpuTestRepo(t)
+	original := gitIn(t, dir, "rev-parse", "HEAD")
+	gitIn(t, dir, "rm", "-r", "--", retiredWebGPUTree)
+	gitIn(t, dir, "commit", "-qm", "retire WebGPU")
+	ran := gitIn(t, dir, "rev-parse", "HEAD")
+	head := commit("docs/f.txt", "doc edit")
+	treeOf := treeOfIn(t, dir)
+	old := rec("cuda", original, "2026-10-11T10:00:00Z", "PASS")
+	if got, why := gpuCoverage([]gpuRecord{old}, "cuda", head, treeOf); got != nil || !strings.Contains(why, retiredWebGPUTree+"/ changed since") {
+		t.Fatalf("coverage across the removal = %v, %q", got, why)
+	}
+	current := rec("cuda", ran, "2026-10-12T10:00:00Z", "PASS")
+	if got, why := gpuCoverage([]gpuRecord{current}, "cuda", head, treeOf); got == nil {
+		t.Fatalf("docs edit after the removal voided the record: %s", why)
+	}
+}
+
 // Only a PASS on a clean tree with the heavy tier run counts; a run that is none of those at the same code is named, not skipped.
 func TestGPURecord_onlyACompletePassCounts(t *testing.T) {
 	dir, _ := gpuTestRepo(t)
@@ -180,8 +198,10 @@ func TestGPURecord_theVerdictWritesTheRecord(t *testing.T) {
 			if r.Verdict != tc.want || r.Dirty != tc.dirty || r.HeavySkipped != tc.heavy || r.Groups.Pass != 3 || r.Backend != "cuda" || len(r.Commit) != 40 {
 				t.Errorf("record = %+v, want verdict %s dirty %v heavy %v", r, tc.want, tc.dirty, tc.heavy)
 			}
-			if len(r.Trees) != len(gpuQualifyingTrees) {
-				t.Errorf("trees = %v, want an id for each of %v", r.Trees, gpuQualifyingTrees)
+			for _, d := range []string{"backend/metal", "backend/cuda", "decoder"} {
+				if r.Trees[d] == "" {
+					t.Errorf("record has no tree ID for %s: %v", d, r.Trees)
+				}
 			}
 		})
 	}

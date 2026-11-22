@@ -24,7 +24,7 @@ func TestBackendTagGuardFailsBuild(t *testing.T) {
 		wantCmd string // the exact replacement command that must appear in stderr
 	}{
 		{"cuda", "go build -tags cuda github.com/pkieltyka/goinfer/backend/cuda/cmd/serve"},
-		{"gpu", "go build -tags gpu github.com/pkieltyka/goinfer/backend/webgpu/cmd/serve"},
+		{"gpu", "this fork no longer ships WebGPU"},
 		{"metal", "go build github.com/pkieltyka/goinfer/backend/metal/cmd/serve"},
 	}
 	for _, c := range cases {

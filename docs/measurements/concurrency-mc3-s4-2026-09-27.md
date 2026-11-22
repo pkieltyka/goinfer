@@ -20,7 +20,7 @@ saving the diagnosis allows, and parks encode-ahead on its measured headroom.
     ([`concurrency-mc3-s0-2026-09-26.md`](concurrency-mc3-s0-2026-09-26.md)'s table).
   - Those four shapes are ~56 ms of the 64 ms one-sequence step.
 - **No bit-identical kernel family does better at B ≥ 3.**
-  - `TestMC3SmallMProbe`, re-run on this build ([`smallm-probe.log`](mc3-7b-lever-2026-09-27/smallm-probe.log)):
+  - `TestMC3SmallMProbe`, re-run on this build ([`smallm-probe.log`](https://github.com/townsendmerino/goinfer/blob/36dbfbaf149aabdff43dce5766b49a65183113a7/docs/measurements/mc3-7b-lever-2026-09-27/smallm-probe.log)):
     S0's M-row GEMV costs more than M sequential GEMVs on the 7B. For gate/up at M = 2 it is 1.02–1.17 ms against
     2 × 0.433. At M = 4 it is 2.99 ms.
   - At B = 4 the fragment's half-empty columns cannot be refilled, because its columns are token vectors.
@@ -40,8 +40,8 @@ saving the diagnosis allows, and parks encode-ahead on its measured headroom.
   makeup, because the batcher regroups sequences between steps. That is at or under the park line.
 - What the served gap mostly is, estimated from W7's own numbers and not measured: newcomer suffix prefills, which run
   in exclusive sections and take about a third of a 4-client 1.5B cell. That is the per-pass prefill cost lead.
-- Logs: [`wall-vs-gpu-1.5b.log`](mc3-7b-lever-2026-09-27/wall-vs-gpu-1.5b.log),
-  [`wall-vs-gpu-7b.log`](mc3-7b-lever-2026-09-27/wall-vs-gpu-7b.log).
+- Logs: [`wall-vs-gpu-1.5b.log`](https://github.com/townsendmerino/goinfer/blob/36dbfbaf149aabdff43dce5766b49a65183113a7/docs/measurements/mc3-7b-lever-2026-09-27/wall-vs-gpu-1.5b.log),
+  [`wall-vs-gpu-7b.log`](https://github.com/townsendmerino/goinfer/blob/36dbfbaf149aabdff43dce5766b49a65183113a7/docs/measurements/mc3-7b-lever-2026-09-27/wall-vs-gpu-7b.log).
 
 ## 3. The build (`7fa344b2`)
 
@@ -64,9 +64,9 @@ saving the diagnosis allows, and parks encode-ahead on its measured headroom.
 - In the calibrated configuration, `TestMC3Step_bitIdentical`, `TestMC3Step_drawsMatchForwardSample` and both
   concurrent-vs-alone tests pass on both models.
 - The tagged Metal suite: 183 pass, 0 fail.
-- Logs: [`s4-identity-1.5b.log`](mc3-7b-lever-2026-09-27/s4-identity-1.5b.log),
-  [`s4-identity-7b.log`](mc3-7b-lever-2026-09-27/s4-identity-7b.log),
-  [`metal-suite-tagged-s4.log`](mc3-7b-lever-2026-09-27/metal-suite-tagged-s4.log).
+- Logs: [`s4-identity-1.5b.log`](https://github.com/townsendmerino/goinfer/blob/36dbfbaf149aabdff43dce5766b49a65183113a7/docs/measurements/mc3-7b-lever-2026-09-27/s4-identity-1.5b.log),
+  [`s4-identity-7b.log`](https://github.com/townsendmerino/goinfer/blob/36dbfbaf149aabdff43dce5766b49a65183113a7/docs/measurements/mc3-7b-lever-2026-09-27/s4-identity-7b.log),
+  [`metal-suite-tagged-s4.log`](https://github.com/townsendmerino/goinfer/blob/36dbfbaf149aabdff43dce5766b49a65183113a7/docs/measurements/mc3-7b-lever-2026-09-27/metal-suite-tagged-s4.log).
 
 ## 5. In sequence (reported)
 
@@ -80,8 +80,8 @@ saving the diagnosis allows, and parks encode-ahead on its measured headroom.
 | 1.5B, depth 128 | 17.20 → 16.87 ms | | |
 
 Projected before the build: −8.8 ms on the 7B's B = 2 step. Measured: −6.5 ms.
-Logs: [`s4-throughput-7b.log`](mc3-7b-lever-2026-09-27/s4-throughput-7b.log),
-[`s4-throughput-1.5b.log`](mc3-7b-lever-2026-09-27/s4-throughput-1.5b.log).
+Logs: [`s4-throughput-7b.log`](https://github.com/townsendmerino/goinfer/blob/36dbfbaf149aabdff43dce5766b49a65183113a7/docs/measurements/mc3-7b-lever-2026-09-27/s4-throughput-7b.log),
+[`s4-throughput-1.5b.log`](https://github.com/townsendmerino/goinfer/blob/36dbfbaf149aabdff43dce5766b49a65183113a7/docs/measurements/mc3-7b-lever-2026-09-27/s4-throughput-1.5b.log).
 
 ## 6. The W7 grading
 
@@ -95,9 +95,9 @@ As registered (`915bf6fc`, committed before the build):
 - Swap stood at 1.87 GB throughout, left over from the morning, and no server's swap guard tripped.
 
 Raw: [`w7-s4-7b.json`](mc3-7b-lever-2026-09-27/w7-s4-7b.json), [`w7-s4-15b.json`](mc3-7b-lever-2026-09-27/w7-s4-15b.json),
-[`w7-s4-run.log`](mc3-7b-lever-2026-09-27/w7-s4-run.log), [`w7-s4-servers.log`](mc3-7b-lever-2026-09-27/w7-s4-servers.log),
+[`w7-s4-run.log`](https://github.com/townsendmerino/goinfer/blob/36dbfbaf149aabdff43dce5766b49a65183113a7/docs/measurements/mc3-7b-lever-2026-09-27/w7-s4-run.log), [`w7-s4-servers.log`](https://github.com/townsendmerino/goinfer/blob/36dbfbaf149aabdff43dce5766b49a65183113a7/docs/measurements/mc3-7b-lever-2026-09-27/w7-s4-servers.log),
 [`run-w7-s4.sh`](mc3-7b-lever-2026-09-27/run-w7-s4.sh). Gates by [`gates-s4.py`](mc3-7b-lever-2026-09-27/gates-s4.py), output in
-[`gates-s4-output.txt`](mc3-7b-lever-2026-09-27/gates-s4-output.txt).
+[`gates-s4-output.txt`](https://github.com/townsendmerino/goinfer/blob/36dbfbaf149aabdff43dce5766b49a65183113a7/docs/measurements/mc3-7b-lever-2026-09-27/gates-s4-output.txt).
 
 | gate (pre-registered) | result |
 |---|---|

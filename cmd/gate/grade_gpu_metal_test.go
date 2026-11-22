@@ -503,15 +503,14 @@ func fullMetalRun(t *testing.T, steps map[string]ciStepResult) (string, int, str
 	dir := t.TempDir()
 	var live bytes.Buffer
 	model := filepath.Join(dir, "qwen.gguf")
-	probe := adapter
-	g := &gpuGate{w: &live, logDir: dir, backend: "metal", emitted: map[string]bool{}, expect: gpuExpect("metal"),
+	g := &gpuGate{w: &live, logDir: dir, backend: "metal", emitted: map[string]bool{}, expect: gpuExpect("metal", false),
 		commit: "0123456789abcdef", notes: []string{"a note the runner made"},
-		runIn: gpuRunInputs{MetalModel: model, MetalModelPresent: true, WebGPU: &probe}}
+		runIn: gpuRunInputs{MetalModel: model, MetalModelPresent: true}}
 	g.runIn.RunnerNotes = slices.Clone(g.notes)
 	src := fakeLiveInputs{t: t, g: g, evs: metalRunEvents(nil), cgo: cgoClean, clean: cleanGPUInput{Backend: "metal"},
 		repoI: repoGreen, steps: steps, asked: map[string]bool{}}
 	src.evs["seam"] = metalCellEvents([]string{"TestSeam_a"}, "pass", false)
-	for _, step := range []func(gpuInputs) error{g.cleanGPUGroup, g.seamGroup, g.metalGroups, g.webgpuGroup, g.repoGroup} {
+	for _, step := range []func(gpuInputs) error{g.cleanGPUGroup, g.seamGroup, g.metalGroups, g.repoGroup} {
 		if err := step(src); err != nil {
 			t.Fatal(err)
 		}

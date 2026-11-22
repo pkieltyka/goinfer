@@ -39,10 +39,10 @@ As registered (`b11bcfc3`, committed and pushed before any timing):
     with only those reported cells left.
 
 Raw: [`copy-15b.json`](spec-vs-batching-metal-2026-09-27/copy-15b.json), [`chat-15b.json`](spec-vs-batching-metal-2026-09-27/chat-15b.json),
-[`copy-7b.json`](spec-vs-batching-metal-2026-09-27/copy-7b.json), [`run.log`](spec-vs-batching-metal-2026-09-27/run.log),
-[`servers.log`](spec-vs-batching-metal-2026-09-27/servers.log), [`run.sh`](spec-vs-batching-metal-2026-09-27/run.sh).
+[`copy-7b.json`](spec-vs-batching-metal-2026-09-27/copy-7b.json), [`run.log`](https://github.com/townsendmerino/goinfer/blob/36dbfbaf149aabdff43dce5766b49a65183113a7/docs/measurements/spec-vs-batching-metal-2026-09-27/run.log),
+[`servers.log`](https://github.com/townsendmerino/goinfer/blob/36dbfbaf149aabdff43dce5766b49a65183113a7/docs/measurements/spec-vs-batching-metal-2026-09-27/servers.log), [`run.sh`](spec-vs-batching-metal-2026-09-27/run.sh).
 Metrics by [`gates.py`](spec-vs-batching-metal-2026-09-27/gates.py), output in
-[`gates-output.txt`](spec-vs-batching-metal-2026-09-27/gates-output.txt).
+[`gates-output.txt`](https://github.com/townsendmerino/goinfer/blob/36dbfbaf149aabdff43dce5766b49a65183113a7/docs/measurements/spec-vs-batching-metal-2026-09-27/gates-output.txt).
 
 ## 2. Results (1.5B, the graded cells)
 
@@ -126,8 +126,8 @@ The spec cells never did.
   - A lone resident request with half its need is still refused.
 
 **The end-to-end check was attempted and does not answer.** The 7B's 4-client copy cell was run on both builds, 10:36–10:43
-([`fix413-check-run.log`](spec-vs-batching-metal-2026-09-27/fix413-check-run.log),
-[`fix413-check-servers.log`](spec-vs-batching-metal-2026-09-27/fix413-check-servers.log),
+([`fix413-check-run.log`](https://github.com/townsendmerino/goinfer/blob/36dbfbaf149aabdff43dce5766b49a65183113a7/docs/measurements/spec-vs-batching-metal-2026-09-27/fix413-check-run.log),
+[`fix413-check-servers.log`](https://github.com/townsendmerino/goinfer/blob/36dbfbaf149aabdff43dce5766b49a65183113a7/docs/measurements/spec-vs-batching-metal-2026-09-27/fix413-check-servers.log),
 [`fix413-check.json`](spec-vs-batching-metal-2026-09-27/fix413-check.json)).
 - The Mac was already short of memory: 34–37% free, and 617 MB of swap in use before the first server. The morning's
   cells had had more room.
@@ -168,7 +168,7 @@ forward a one-row round would make.
   reply: 6 / 6 at 1 client, 24 / 24 at 4 clients, reuse identical (157, 311, 466 …). The rate is unchanged: 69.3 and
   72.4 tok/s, against 67.6–71.3 and 69.8–72.8 before.
 - Raw: [`specfix-check-chat.json`](spec-vs-batching-metal-2026-09-27/specfix-check-chat.json),
-  [`specfix-check-servers.log`](spec-vs-batching-metal-2026-09-27/specfix-check-servers.log).
+  [`specfix-check-servers.log`](https://github.com/townsendmerino/goinfer/blob/36dbfbaf149aabdff43dce5766b49a65183113a7/docs/measurements/spec-vs-batching-metal-2026-09-27/specfix-check-servers.log).
 
 **§3's decision stands.** The fix restores identity and costs one forward per generation, which plain decode pays too.
 Spec still gains a lone Metal request nothing, and still forfeits batching under load.
@@ -202,9 +202,9 @@ at its exit, and each finding below is tested.
     trailing-token forward.
 - **The CUDA check, RUN 2026-09-28** (`docs/prompts/nobara-cuda-spec-trailing-token-2026-09.md`; nobara-pc, RTX
   2070 SUPER 8 GB, driver 595.91.07, idle before starting — load 0.18/0.37/0.55, no other GPU process). Logs:
-  [`cuda-step1-existing-gates-2026-09-28.log`](spec-vs-batching-metal-2026-09-27/cuda-step1-existing-gates-2026-09-28.log),
-  [`cuda-step2-twoturn-withfix-2026-09-28.log`](spec-vs-batching-metal-2026-09-27/cuda-step2-twoturn-withfix-2026-09-28.log),
-  [`cuda-step2-twoturn-reverted-2026-09-28.log`](spec-vs-batching-metal-2026-09-27/cuda-step2-twoturn-reverted-2026-09-28.log).
+  [`cuda-step1-existing-gates-2026-09-28.log`](https://github.com/townsendmerino/goinfer/blob/36dbfbaf149aabdff43dce5766b49a65183113a7/docs/measurements/spec-vs-batching-metal-2026-09-27/cuda-step1-existing-gates-2026-09-28.log),
+  [`cuda-step2-twoturn-withfix-2026-09-28.log`](https://github.com/townsendmerino/goinfer/blob/36dbfbaf149aabdff43dce5766b49a65183113a7/docs/measurements/spec-vs-batching-metal-2026-09-27/cuda-step2-twoturn-withfix-2026-09-28.log),
+  [`cuda-step2-twoturn-reverted-2026-09-28.log`](https://github.com/townsendmerino/goinfer/blob/36dbfbaf149aabdff43dce5766b49a65183113a7/docs/measurements/spec-vs-batching-metal-2026-09-27/cuda-step2-twoturn-reverted-2026-09-28.log).
   - **1. The existing CUDA gates, with the fix in:** `TestGenerateBlockSpec_production`, `TestBlockSpecStream`,
     `TestFlashDecodeBlockSpecLane`, `TestFlashDecodeSpeculativeScope`, `TestFlashDecodeTwoModelSpecLane` — **5/5
     pass**. No regression in the trailing forward (`PrefillLastNArgmax` at M=1, the one-row capture fuse).

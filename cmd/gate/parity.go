@@ -606,9 +606,7 @@ func realckptTests(root string, want func(string) bool) []string {
 }
 
 // buildTaggedTests scans dirs for *_test.go files whose //go:build line matches tagWord, and returns the
-// sorted set of top-level test function names satisfying want. realckptTests, metalGateTests and
-// webgpuGateTests share it, so the scans cannot drift in HOW they read a build line, only in which tag
-// they look for.
+// sorted set of top-level test function names satisfying want.
 func buildTaggedTests(root string, dirs []string, tagWord *regexp.Regexp, want func(string) bool) []string {
 	seen := map[string]bool{}
 	for _, d := range dirs {
@@ -660,31 +658,6 @@ const metalParityRun = "ResidentParity|residentParity|_bitExact|matchesNonPaged|
 // reason it is deliberately excluded. Like realckptNotRequired, an empty reason is an error. Empty: every
 // gate-shaped test is covered by metalParityRun; add here, with a reason, if one deliberately is not.
 var metalNotRequired = map[string]string{}
-
-// webgpuDirs, webgpuGateTests, webgpuParityRun and webgpuNotRequired are the WebGPU twin of the Metal scan
-// above: webgpu-parity must select every gate-shaped goinfer_testhooks-tagged gpu/ test, or that test
-// runs in no gate cell and no CI runner.
-var webgpuDirs = []string{"backend/webgpu", "backend/webgpu/internal/kernels"}
-
-// webgpuGateShaped widens gateShaped (capital "Parity", _gate, _oracle) with the forms WebGPU's
-// CPU-reference gates use: a lowercase _parity suffix, matchesCPU and matchesSequential.
-func webgpuGateShaped(name string) bool {
-	return gateShaped(name) || strings.HasSuffix(name, "_parity") || strings.Contains(name, "matchesCPU") ||
-		strings.Contains(name, "matchesSequential")
-}
-
-// webgpuGateTests scans gpu/'s and gpu/internal/kernels/' goinfer_testhooks-tagged test files for gate-shaped top-level tests.
-func webgpuGateTests(root string) []string {
-	return buildTaggedTests(root, webgpuDirs, metalTesthooksWordRe, webgpuGateShaped)
-}
-
-// webgpuParityRun is webgpu-parity's -run pattern (cmd/gate/gpu.go), shared with
-// TestWebGPUGateIsListedOrExplicitlyNotRequired so the cell and its check read the same string.
-const webgpuParityRun = "Parity|_parity|matchesCPU|matchesSequential"
-
-// webgpuNotRequired names a gate-shaped WebGPU test deliberately left out of webgpuParityRun,
-// with the reason. An empty reason is an error, as for metalNotRequired.
-var webgpuNotRequired = map[string]string{}
 
 // realckptRun derives the realckpt cell's -run from the tree, and returns a note saying how. Deriving it
 // makes "a gate exists" and "the sweep can reach it" the same fact: a hand-widened pattern still left

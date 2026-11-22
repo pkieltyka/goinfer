@@ -212,19 +212,18 @@ func TestResidentSubsystems_NoScatteredMicroAssertions(t *testing.T) {
 // contracts cannot say that: ResidentPrefillSubsystem always has the method, and answering it through the contract
 // needs a built resident (cudaResident.HybridMRoPEPrefill reads mropePrefillReady), which a table test has not got.
 var backendTypeAssertAllowed = map[string]string{
-	"backend/cuda/support_table_test.go:ResidentHybridMRoPEPrefill":   "type-level support-table check on (*cudaResident)(nil)",
-	"backend/metal/support_table_test.go:ResidentHybridMRoPEPrefill":  "type-level support-table check on (*metalResident)(nil)",
-	"backend/webgpu/support_table_test.go:ResidentHybridMRoPEPrefill": "type-level support-table check on (*residentDecoder)(nil)",
+	"backend/cuda/support_table_test.go:ResidentHybridMRoPEPrefill":  "type-level support-table check on (*cudaResident)(nil)",
+	"backend/metal/support_table_test.go:ResidentHybridMRoPEPrefill": "type-level support-table check on (*metalResident)(nil)",
 }
 
 // TestResidentSubsystems_NoScatteredMicroAssertionsInBackends extends the boundary to the backend modules: no file under
-// backend/cuda, backend/metal or backend/webgpu, production or test, may type-assert a legacy micro-interface as
+// backend/cuda, backend/metal or backend/vulkan, production or test, may type-assert a legacy micro-interface as
 // .(decoder.X). The scan is syntactic, so build tags do not hide a file from it, and it reads the modules from the
 // workspace on disk, which the backend modules' own go.mod files need not be able to build.
 func TestResidentSubsystems_NoScatteredMicroAssertionsInBackends(t *testing.T) {
 	fset := token.NewFileSet()
 	used := map[string]bool{}
-	for _, mod := range []string{"cuda", "metal", "webgpu"} {
+	for _, mod := range []string{"cuda", "metal", "vulkan"} {
 		root := filepath.Join("..", "backend", mod)
 		err := filepath.WalkDir(root, func(path string, d os.DirEntry, err error) error {
 			if err != nil {

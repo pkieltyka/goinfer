@@ -14,23 +14,19 @@ A map of the tree. Paths are relative to the repository root; every row was chec
 
 ## Modules and the workspace
 
-Eight modules are developed together; a ninth `go.mod`, `.github/actions/staticcheck/`, only pins the CI linter build
+Four modules are developed together; a separate `go.mod`, `.github/actions/staticcheck/`, only pins the CI linter build
 (`go run ./cmd/lint` uses it) and is not part of the workspace.
 
 | Path | Module path | Published |
 |---|---|---|
 | `.` | `github.com/pkieltyka/goinfer` | tagged `vX.Y.Z` |
-| `backend/webgpu/` | `.../goinfer/backend/webgpu` | tagged `backend/webgpu/vX.Y.Z` (formerly `gpu/vX.Y.Z`) |
 | `backend/cuda/` | `.../goinfer/backend/cuda` | tagged `backend/cuda/vX.Y.Z` (formerly `cuda/vX.Y.Z`) |
 | `backend/metal/` | `.../goinfer/backend/metal` | tagged `backend/metal/vX.Y.Z` (formerly `metal/vX.Y.Z`) |
 | `backend/vulkan/` | `.../goinfer/backend/vulkan` | tagged `backend/vulkan/vX.Y.Z` |
-| `demo/agent/` | `.../goinfer/demo/agent` | tagged `demo/agent/vX.Y.Z` |
-| `apps/sdktest/` | `.../goinfer/sdktest` | never tagged; tests only |
-| `apps/site/` | `.../goinfer/site` | never tagged; the website generator |
 
 **`go.work` is gitignored and required for cross-module work.** The submodule `go.mod` files carry no `replace`, so a
 submodule built without a workspace resolves the root from the proxy at its last published tag (`RELEASING.md`). Create it
-with `scripts/make_work.sh` (copies `go.work.example`, which lists all eight modules, to `go.work` when absent) and it builds
+with `scripts/make_work.sh` (copies `go.work.example`, which lists all four modules, to `go.work` when absent) and it builds
 from a clean clone. Without a `go.work` in the repo, Go walks up and uses one in a parent directory, and a `GOWORK` environment variable overrides both; `make_work.sh` warns about the second and fixes the first. A local aikit checkout is an optional extra `use` line, commented in the example.
 
 Untagged, `backend/cuda/` does not build on its own (`backend/cuda/internal/gpudev` needs the `cuda` build tag); see CLAUDE.md for the tags.
@@ -106,7 +102,6 @@ In the other direction 13 non-test `decoder` files call it (`model.go`, `prefill
 
 | Path | What it is |
 |---|---|
-| `backend/webgpu/` | the WebGPU backend (opt-in cgo build, tag `gpu`), plus `backend/webgpu/cmd/{chat,serve}` |
 | `backend/cuda/` | the CUDA backend (cgo-free, tag `cuda`), `.cu` kernels and `backend/cuda/cmd/{chat,serve}` |
 | `backend/metal/` | the Metal backend (tag `metal`), `backend/metal/cmd/{chat,serve}` |
 | `backend/vulkan/` | the optional cgo-free Vulkan accelerator for EmbeddingGemma 2 text on Linux amd64 |
@@ -121,36 +116,22 @@ In the other direction 13 non-test `decoder` files call it (`model.go`, `prefill
 | `cmd/hostmem/`, `cmd/prequant/` | prints the memory figure the fit guard uses; builds a `.giw` bundle from a GGUF | root |
 | `cmd/claude-guard/` | the Claude Code PreToolUse hook that refuses commands the repo rules forbid | root |
 | `demo/chat/` | `goinfer-chat`, the single-shot chat binary (`build-embed.sh` bakes a model in) | root |
-| `backend/{webgpu,cuda,metal}/cmd/{chat,serve}/` | the same two programs built with a backend | the backend module |
-| `demo/agent/cmd/` | `agent-web`, `stdlib-agent`, `ken-stub` | `demo/agent` |
-| `apps/site/cmd/build/` | the website generator (`site.yml` builds and deploys it) | `site` |
+| `backend/{cuda,metal}/cmd/{chat,serve}/` | the same two programs built with a backend | the backend module |
 | `apps/examples/{confidence,embed,invoice,structured}/` | runnable library examples, each a `main` package with a test | root |
 
 **Where each binary lives, and why** (decided in PR 3 of the Tier 2 layout move; a move would change the build and install
 paths it names):
 
-- The backend `cmd/` directories (`backend/{webgpu,cuda,metal}/cmd/{chat,serve}`) stay inside their backend module. They
-  import the backend's packages, and the root cannot require its own submodules without a cycle, so they cannot move to the
-  root `cmd/`. The root `cmd/serve` and `demo/chat` are the no-backend builds.
-- `demo/agent/cmd/` stays inside `demo/agent`. That module is published (tags `demo/agent/vX.Y.Z`) and keeps its MCP SDK
-  out of the root `go.mod`; moving its binaries to the root would pull that dependency in.
-- `apps/site/cmd/build/` stays inside `apps/site`. The site is never tagged, and its generator imports its own packages.
+- CUDA and Metal each have backend-specific `cmd/` entrypoints. Root commands use the CPU.
 - `demo/chat/` stays. It is a root-module `main` package, and `go install github.com/pkieltyka/goinfer/demo/chat@latest`
   is a documented install path (README, the release template, and the readme-smoke check). Moving it changes that path for
   every installer; if it moves later, the install line changes with it.
 - `apps/examples/*` stays. Each example is linked from the docs and tested in place.
 
-## Satellites
+## Upstream components
 
-Not part of the library; nothing in the root imports them. `sdktest/`, `site/` and `examples/` live under `apps/`. `demo/` stays at the root on purpose: `demo/agent` is published (tags `demo/agent/vX.Y.Z`), and a subdirectory module's tag prefix must equal its directory, so moving it would break its tags; `demo/chat` stays beside it.
-
-| Path | What it is | Module |
-|---|---|---|
-| `demo/agent/` | MCP-SDK agent demo (kept separate so the SDK stays out of the root `go.mod`) | `demo/agent` |
-| `demo/demo.tape`, `demo/mellum2-gpu.tape` | VHS recordings for the README demo | none |
-| `apps/sdktest/` | the official OpenAI and Anthropic SDKs against the in-process server | `sdktest` |
-| `apps/site/` | goinfer.dev source and generator | `site` |
-| `apps/examples/{confidence,embed,invoice,structured}/` | runnable library examples, each with a test | root |
+The website, agent demo, SDK harness and WebGPU backend live in the [upstream archive](upstream-archive.md).
+The fork still builds the chat CLI, server, web UI and library examples.
 
 ## Test assets
 
@@ -191,6 +172,6 @@ About 316 files, referenced by path from CI, skills, the night runner and docs: 
 |---|---|
 | `RELEASING.md` | the release procedure and the module-tag rules |
 | `CHANGELOG.md`, `changelog.d/` | the changelog and its pending fragments |
-| `.github/workflows/` | CI (`ci.yml`), site, coverage, vulnerability, release-asset and weekly workflows |
+| `.github/workflows/` | CI (`ci.yml`), coverage, vulnerability, release-asset and weekly workflows |
 | `.ken-go.json` | the build configurations (GOOS, GOARCH, tags) that ken's Go tools ask gopls under, and the timing-lock wrapper each run goes through; three configurations compile 98.9% of the Go files, the host default 64% |
 | `LICENSE`, `NOTICE`, `THIRD_PARTY_LICENSES.md` | licensing |

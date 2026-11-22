@@ -93,8 +93,7 @@
       "name": "kernels-free-of-decoder",
       "from": [
         "backend/cuda/kernels",
-        "backend/metal/kernels",
-        "backend/webgpu/internal/kernels"
+        "backend/metal/kernels"
       ],
       "tests": true,
       "forbid_goinfer": [
@@ -122,8 +121,7 @@
       "forbid_goinfer": [
         "backend/cuda",
         "backend/metal",
-        "backend/vulkan",
-        "backend/webgpu"
+        "backend/vulkan"
       ],
       "forbid_external": [
         "github.com/pkieltyka/aikit/gpu",
@@ -134,7 +132,6 @@
         "github.com/pkieltyka/goinfer/backend/cuda",
         "github.com/pkieltyka/goinfer/backend/metal",
         "github.com/pkieltyka/goinfer/backend/vulkan",
-        "github.com/pkieltyka/goinfer/backend/webgpu",
         "github.com/pkieltyka/aikit/gpu",
         "github.com/ebitengine/purego",
         "github.com/eitamring/gocudrv"
@@ -207,9 +204,6 @@
       "decoder",
       "tokenizer"
     ],
-    "apps/site/cmd/build": [
-      "site/internal/site"
-    ],
     "backend/cuda": [
       "backend/cuda/internal/fitdecide",
       "backend/cuda/internal/gpudev",
@@ -268,33 +262,6 @@
       "backend/vulkan/internal/vk",
       "embeddinggemma2"
     ],
-    "backend/webgpu": [
-      "backend/webgpu/internal/kernels",
-      "backend/webgpu/internal/kvdecl",
-      "decoder",
-      "internal/cost",
-      "internal/runtime/logs",
-      "internal/runtime/mem",
-      "internal/runtime/program"
-    ],
-    "backend/webgpu/cmd/chat": [
-      "backend/webgpu",
-      "internal/app/chatapp"
-    ],
-    "backend/webgpu/cmd/serve": [
-      "backend/webgpu",
-      "internal/app/serveapp"
-    ],
-    "backend/webgpu/internal/kernels": [
-      "internal/cost",
-      "internal/runtime/adapter",
-      "internal/runtime/mem",
-      "internal/vision",
-      "multimodal"
-    ],
-    "backend/webgpu/internal/kvdecl": [
-      "internal/runtime/program"
-    ],
     "chat": [
       "constrain",
       "tokenizer"
@@ -345,22 +312,6 @@
     "decoder/resident": [
       "internal/cost",
       "internal/runtime/adapter"
-    ],
-    "demo/agent/agent": [
-      "chat",
-      "constrain",
-      "decoder",
-      "multimodal",
-      "tokenizer"
-    ],
-    "demo/agent/cmd/agent-web": [
-      "backend/webgpu",
-      "demo/agent/agent",
-      "demo/agent/internal/embedmodel"
-    ],
-    "demo/agent/cmd/stdlib-agent": [
-      "demo/agent/agent",
-      "demo/agent/internal/embedmodel"
     ],
     "demo/chat": [
       "internal/app/chatapp"
@@ -550,9 +501,6 @@
       "constrain",
       "multimodal"
     ],
-    "apps/sdktest": [
-      "server"
-    ],
     "backend/cuda": [
       "backend/cuda/internal/gpudev",
       "backend/cuda/internal/launchgeom",
@@ -632,38 +580,6 @@
       "backend/vulkan/internal/vk",
       "embeddinggemma2"
     ],
-    "backend/webgpu": [
-      "backend/webgpu/internal/kernels",
-      "chat",
-      "decoder",
-      "decoder/fit",
-      "internal/cost",
-      "internal/diag/sb2census",
-      "internal/diag/towerid",
-      "internal/fidelity",
-      "internal/guard/memgate",
-      "internal/runtime/giw",
-      "internal/runtime/logs",
-      "internal/runtime/mem",
-      "internal/runtime/mem/probe",
-      "internal/runtime/program",
-      "internal/testgate",
-      "internal/vision",
-      "internal/wrappedupload",
-      "multimodal",
-      "tokenizer"
-    ],
-    "backend/webgpu/internal/kernels": [
-      "internal/runtime/hybridattn",
-      "internal/runtime/mem",
-      "internal/runtime/sampling",
-      "internal/testgate",
-      "internal/vision",
-      "multimodal"
-    ],
-    "backend/webgpu/internal/kvdecl": [
-      "internal/runtime/program"
-    ],
     "chat": [
       "internal/codec",
       "multimodal",
@@ -700,13 +616,6 @@
       "internal/runtime/sampling",
       "internal/testgate",
       "internal/vision",
-      "multimodal",
-      "tokenizer"
-    ],
-    "demo/agent/agent": [
-      "chat",
-      "constrain",
-      "decoder",
       "multimodal",
       "tokenizer"
     ],

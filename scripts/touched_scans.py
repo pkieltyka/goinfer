@@ -66,7 +66,7 @@ SCANS = [
     Scan("decoder", "TestDispatchCensus", NT("decoder")),
     Scan("decoder", "TestResidentSubsystems_NoScatteredMicroAssertions", NT("decoder")),
     # reads every .go file under each backend module, subdirectories included (fnmatch's * crosses /)
-    Scan("decoder", "TestResidentSubsystems_NoScatteredMicroAssertionsInBackends", F("backend/cuda/*.go", "backend/metal/*.go", "backend/webgpu/*.go")),
+    Scan("decoder", "TestResidentSubsystems_NoScatteredMicroAssertionsInBackends", F("backend/cuda/*.go", "backend/metal/*.go", "backend/vulkan/*.go")),
     # MM1's decision census pins every fit decision: a change to the fit code, the machine zoo or a fixture it reads runs it. Every
     # censusFixtures entry has "tiny" in its name (TestCensusFixtures_areTheCommittedOnes).
     Scan("decoder", "TestStepShapes_assertedOnlyInStep", NT("decoder")),
@@ -140,8 +140,7 @@ SCANS = [
     Scan("decoder", "TestSerializeCensus_everyFixtureIsListedOrExcluded", F("testdata/*/config.json")),
     Scan("decoder", "TestSeams_subCaptureRefusedWhereGateSCannotRun", F("testdata/*/config.json")),
     Scan("decoder", "TestParityEmit_methodVocabulary", TREE_T),
-    Scan("decoder", "TestResidentMoECap_pinsKernelConstant", F("backend/webgpu/moe.go", "backend/cuda/moe.cu")),
-    Scan("decoder", "TestResidentMoECap_runtimeDeclineReadsTheDeclaration", F("backend/webgpu/residency.go")),
+    Scan("decoder", "TestResidentMoECap_pinsKernelConstant", F("backend/cuda/moe.cu")),
     # internal/app/serveapp
     Scan("internal/app/serveapp", "TestBanner_contextIsTheEnforcedWindow", F("internal/app/serveapp/banner.go", "internal/app/serveapp/main.go")),
     Scan("internal/app/serveapp", "TestServeVisionChat_appliesExtractionRuleBeforeThePromptIsBuilt", F("internal/app/serveapp/vision_serve.go")),
@@ -213,8 +212,7 @@ SCANS = [
     Scan("decoder", "TestPolicyStreams_census", F("testdata/sb5/policy_streams.json")),
     Scan("cmd/gate", "TestHeavyPartition_cudaTreeFitsTheTable", T("backend/cuda")),
     Scan("cmd/gate", "TestGPU_isolatedGroupIsDerivedFromTheMarker", T("backend/cuda")),
-    Scan("cmd/gate", "TestQuick_slowPatternsNameRealTests", T("backend/webgpu", "backend/cuda", "backend/metal")),
-    Scan("cmd/gate", "TestWebGPUGateIsListedOrExplicitlyNotRequired", T("backend/webgpu")),
+    Scan("cmd/gate", "TestQuick_slowPatternsNameRealTests", T("backend/cuda", "backend/metal")),
     Scan("cmd/gate", "TestRealckptGateIsListedOrExplicitlyNotRequired", T("decoder")),
     Scan("cmd/gate", "TestRealckptRunReachesEveryScannedAndRequiredGate", T("decoder")),
     Scan("cmd/gate", "TestRealckptCellCanReachEveryGate", T("decoder")),
@@ -224,22 +222,9 @@ SCANS = [
     Scan("cmd/gate", "TestGraderGoldens", F("testdata/gate/goldens/*", "docs/measurements/giw-v16-transcode-2026-10/*")),
     Scan("cmd/gate", "TestRealckptRunIsAdditiveOverTheLegacyPattern", T("decoder")),
     Scan("cmd/gate", "TestMetalGateIsListedOrExplicitlyNotRequired", T("backend/metal")),
-    # demo/agent module
-    Scan("demo/agent/agent", "TestAgentWeb_hardening", F("demo/agent/cmd/agent-web/main.go")),
-    Scan("demo/agent/agent", "TestAgentSession_encodesSegmentsNotRenderedText", F("demo/agent/agent/agent.go")),
-    Scan("demo/agent/agent", "TestTurnImage_wiresSpliceImageBlockBeforeEncoding", F("demo/agent/agent/agent.go")),
     # site module
-    Scan("apps/site/internal/site", "TestHome_heroCodeIsFromTheExample", F("apps/examples/structured/main.go")),
     # gpu module
     # MM5b's G-MS4w: WebGPU's decode scratch pricing names no family or mixer.
-    Scan("backend/webgpu", "TestMM5b_webgpuDecodeScratchNamesNoFamily", F("backend/webgpu/sb2_census_test.go")),
-    Scan("backend/webgpu", "TestNemotronBlockKind_hasADefault", F("backend/webgpu/residency.go", "backend/webgpu/residency_layer.go")),
-    Scan("backend/webgpu/internal/kernels", "TestKernels_noDroppedTryError", NT("backend/webgpu/internal/kernels")),
-    Scan("backend/webgpu/internal/kernels", "TestLedger_everyBufferIsLeased", NT("backend/webgpu", "backend/webgpu/internal/kernels")),
-    Scan("backend/webgpu/internal/kernels", "TestRopeKernels_noBuiltinSinCos", NT("backend/webgpu/internal/kernels")),
-    Scan("backend/webgpu", "TestEnsureAttnWide_guardsOnTheLastPipeline", F("backend/webgpu/attention.go")),
-    Scan("backend/webgpu", "TestGPU_deviceBoundaryErrorsAreNotDropped", F("backend/webgpu/decoderunner.go", "backend/webgpu/residency.go")),
-    Scan("backend/webgpu", "TestResidency_kvPrecisionDeclineCoversTheNonGenericBranches", F("backend/webgpu/residency.go", "backend/webgpu/residency_build.go")),
     # metal module
     Scan("backend/metal", "TestGptOssBiasDispatches_alwaysIndexedByRealExpert", F("backend/metal/moe.go")),
     Scan("backend/metal", "TestLedger_everyMetalAllocationNamesALine", NT("backend/metal", "backend/metal/internal/gpudev")),
@@ -278,16 +263,14 @@ SCANS = [
     Scan("cmd/lint", "TestTargets_matchCI", F(".github/workflows/ci.yml")),
     Scan("cmd/lint", "TestPinnedVersion", F(".github/actions/staticcheck/go.mod")),
     Scan("cmd/lint", "TestFindingIsFail", F(".github/actions/staticcheck/go.mod", "go.mod")),
-    Scan("cmd/lint", "TestCanaryPerPlatform", F(".github/actions/staticcheck/go.mod", "go.mod")),
     Scan("cmd/lint", "TestWorkspaceEnv", F("go.mod")),
     Scan("cmd/lint", "TestWorkspaceEnv_relativeRoot", F("go.mod")),
-    Scan("cmd/lint", "TestCgoTargets_noPlatformFiles", F("backend/webgpu/*.go")),
     # SB8's codec census renders through tokenizer and multimodal and reads the tracked templates and tokenizers.
     Scan("chat", "TestCodecCensus", NT("tokenizer", "multimodal") +
          F("testdata/chat_goldens/*.json", "testdata/chat_think_goldens/*.json", "tokenizer/testdata/*.gguf")),
     Scan("chat", "TestCodecCensus_throughCodec", NT("internal/codec", "tokenizer", "multimodal") +
          F("testdata/chat_goldens/*.json", "testdata/chat_think_goldens/*.json", "tokenizer/testdata/*.gguf")),
-    Scan("chat", "TestReleasing_standaloneBuildGateExists", F(".github/workflows/ci.yml", ".github/workflows/standalone-build.yml")),
+    Scan("chat", "TestReleasing_standaloneBuildGateExists", F(".github/workflows/standalone-build.yml")),
     # K3 checks that no production file names an entry point its exclusions call uncalled, against the census's predicates.
     Scan("internal/diag/kernelprint", "TestCompute_reachesCensus", TREE_NT + F("docs/hardware-coverage.json")),
     Scan("internal/diag/kernelprint", "TestCompute_table", F("testdata/kernel_fingerprints.json", "go.mod", "go.sum")),

@@ -1,5 +1,7 @@
 # HTTP server — OpenAI, Anthropic, and the rest of the surface
 
+The fork ships CPU, CUDA and Metal generation. WebGPU references below describe historical upstream runs. [Upstream archive](upstream-archive.md)
+
 Everything `goinfer serve` exposes: the OpenAI-compatible surface, Anthropic Messages,
 multi-model serving, the Responses API, vision, embeddings, prompt-prefix KV caching, and the
 admin endpoints. Moved out of the README so the front page stays short.

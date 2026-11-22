@@ -62,7 +62,7 @@ new head, and for the moved cells to be re-measured once it is on main.
 - Every goinfer fit check and every goinfer serve log reports `head table: int8`. Every GPU cell is `cuda-resident (int4)`.
 - No cell voided: no swap void, no token-gate void, no refused start. The page cache was evicted and the load settled
   before every step.
-- Graded with `../grade.py`: [`results/grade.jsonl`](results/grade.jsonl). Raw results, step logs and provenance are
+- Graded with `../grade.py`: [`results/grade.jsonl`](https://github.com/townsendmerino/goinfer/blob/36dbfbaf149aabdff43dce5766b49a65183113a7/docs/measurements/peer-reanchor-2026-11-19/int8head-2026-11-20/results/grade.jsonl). Raw results, step logs and provenance are
   in `results/`.
 
 **Against Ollama** (median r; the int4-head reading from 2026-11-19/20 in brackets; the outcome is decided by every pair):

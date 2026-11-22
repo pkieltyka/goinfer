@@ -14,7 +14,7 @@ per-step uniform agree) swept S; the partial buffer was re-allocated for S ≤ 6
 **How.** `TestMetalDecodeDecomp` with `GOINFER_METAL_DDECOMP_SPLITS=0,20,28,32,48,64` (0 = production's rule):
 per split count, the production decode token with and without the attention pipelines no-op'd, arms interleaved rep
 by rep, 5 reps × 20 tokens. M1 Pro, 1.5B q4_k_m, goinfer `143314c1` + the uncommitted override and sweep;
-16:59:15–17:00:43 local, idle at start (load1 1.98). Raw: [`step0-split-sweep.log`](metal-decode-attn-r17-2026-09-25/step0-split-sweep.log).
+16:59:15–17:00:43 local, idle at start (load1 1.98). Raw: [`step0-split-sweep.log`](https://github.com/townsendmerino/goinfer/blob/36dbfbaf149aabdff43dce5766b49a65183113a7/docs/measurements/metal-decode-attn-r17-2026-09-25/step0-split-sweep.log).
 
 | S | attention @ 2048 keys | @ 3900 keys | vs S=14 @ 3900 | full token @ 3900 |
 |---:|---:|---:|---:|---:|
@@ -65,8 +65,8 @@ It is not bit-identical: block-wise softmax reassociates, as `attention_fa` alre
 split count S / all no-op), arms interleaved rep by rep, 5 reps × 20 tokens, in-sequence attention = full − no-op.
 M1 Pro, idle-gated at load1 < 2.0 (1.50–1.77 at start), models from `~/models` (the 7B from its
 `.int4.metal.giw` sidecar, aliased), resident context 4096, goinfer `3391eade` + the uncommitted test file.
-Run 17:18:50–17:25:54 local. Raw: [`step2-explore2.log`](metal-decode-attn-r17-2026-09-25/step2-explore2.log) (the
-first, S ∈ {0, 32} run, 17:16:46: [`step2-explore1.log`](metal-decode-attn-r17-2026-09-25/step2-explore1.log)).
+Run 17:18:50–17:25:54 local. Raw: [`step2-explore2.log`](https://github.com/townsendmerino/goinfer/blob/36dbfbaf149aabdff43dce5766b49a65183113a7/docs/measurements/metal-decode-attn-r17-2026-09-25/step2-explore2.log) (the
+first, S ∈ {0, 32} run, 17:16:46: [`step2-explore1.log`](https://github.com/townsendmerino/goinfer/blob/36dbfbaf149aabdff43dce5766b49a65183113a7/docs/measurements/metal-decode-attn-r17-2026-09-25/step2-explore1.log)).
 
 | arm | 1.5B @2048: attention (speedup) | 1.5B @3900 | 7B @2048 | 7B @3900 |
 |---|---:|---:|---:|---:|
@@ -91,7 +91,7 @@ several ms. The full token is readable. After idle, the prototype's full token i
 
 ### Fidelity
 
-**Single-step logits probe (not a verdict).** [`step2-fidelity-probe2.log`](metal-decode-attn-r17-2026-09-25/step2-fidelity-probe2.log)
+**Single-step logits probe (not a verdict).** [`step2-fidelity-probe2.log`](https://github.com/townsendmerino/goinfer/blob/36dbfbaf149aabdff43dce5766b49a65183113a7/docs/measurements/metal-decode-attn-r17-2026-09-25/step2-fidelity-probe2.log)
 compares each arm's logits on the synthetic decode step against the exact kernel and against `attention_fa`. The
 differences are bimodal:
 
@@ -106,7 +106,7 @@ prototype defect.
 **The teacher-forced gate (precondition 1).** `TestR17_decodeFidelityGate` is R2's construction with the prototype as
 the candidate. It is refactored to share `runDecodeFidelityGate` with `TestR2_decodeFidelityGate`, and the refactor is
 inert: the first R2 re-run reproduced the 2026-09-21 record on every prompt. The first R17 run PASSED
-([`step2-fidelity-gate.log`](metal-decode-attn-r17-2026-09-25/step2-fidelity-gate.log)). But its **shipped arm
+([`step2-fidelity-gate.log`](https://github.com/townsendmerino/goinfer/blob/36dbfbaf149aabdff43dce5766b49a65183113a7/docs/measurements/metal-decode-attn-r17-2026-09-25/step2-fidelity-gate.log)). But its **shipped arm
 differed from R2's shipped arm** on prompts 3, 4, 5, 7, 8 and 10 (for example, prompt 3: 82.8% vs 79.7% agreement).
 The shipped arm runs the exact kernel with `attention_fa` off, so it should be identical in both runs.
 
@@ -114,7 +114,7 @@ The shipped arm runs the exact kernel with `attention_fa` off, so it should be i
 (`backend/metal/model.go`) pre-encodes token t+1's command buffer right after committing t, reading the resident's state at
 that moment: `decodeAttnFA`, the `pAttnFA` pipeline, `canUseAttnFA` at `curNKeys`, and the split grid. It keeps that
 buffer for the next job. `PrefillLast` does not go through the executor. So the first `Forward` after an arm switch runs
-a command buffer encoded under the previous arm. Localised by [`step2-state-leak3.log`](metal-decode-attn-r17-2026-09-25/step2-state-leak3.log),
+a command buffer encoded under the previous arm. Localised by [`step2-state-leak3.log`](https://github.com/townsendmerino/goinfer/blob/36dbfbaf149aabdff43dce5766b49a65183113a7/docs/measurements/metal-decode-attn-r17-2026-09-25/step2-state-leak3.log),
 using exact → X → exact on one input, compared bit for bit:
 
 - X = exact: 0 of 16 rows differ.
@@ -122,18 +122,18 @@ using exact → X → exact on one input, compared bit for bit:
 - A second exact run matches the first exact run.
 
 Restoring the KV cache, or `r.ctx` plus the partial buffer, does not remove it
-([`step2-state-leak-bisect.log`](metal-decode-attn-r17-2026-09-25/step2-state-leak-bisect.log)). Nor does restoring
+([`step2-state-leak-bisect.log`](https://github.com/townsendmerino/goinfer/blob/36dbfbaf149aabdff43dce5766b49a65183113a7/docs/measurements/metal-decode-attn-r17-2026-09-25/step2-state-leak-bisect.log)). Nor does restoring
 **all 64 changed buffers**, out of 614 reachable from the resident
-([`step2-state-leak-allbufs.log`](metal-decode-attn-r17-2026-09-25/step2-state-leak-allbufs.log)). `stopExec()` after
+([`step2-state-leak-allbufs.log`](https://github.com/townsendmerino/goinfer/blob/36dbfbaf149aabdff43dce5766b49a65183113a7/docs/measurements/metal-decode-attn-r17-2026-09-25/step2-state-leak-allbufs.log)). `stopExec()` after
 each toggle, which drops the pre-encoded buffer, does remove it: 0 rows in every case
-([`step2-state-leak-flush.log`](metal-decode-attn-r17-2026-09-25/step2-state-leak-flush.log)). `runR2GateCell` and the
+([`step2-state-leak-flush.log`](https://github.com/townsendmerino/goinfer/blob/36dbfbaf149aabdff43dce5766b49a65183113a7/docs/measurements/metal-decode-attn-r17-2026-09-25/step2-state-leak-flush.log)). `runR2GateCell` and the
 timing harness's arm switch now flush.
 
 (The timing and probe numbers above are not affected in substance. Every arm's value is a median over 20 tokens at
 one fixed position, or the last of three warm tokens at that position, and only the first token after a switch was
 contaminated. The after-idle token is preceded by a warm token of the same arm.)
 
-**Clean gates, same session** ([`step2-fidelity-gate-flushed.log`](metal-decode-attn-r17-2026-09-25/step2-fidelity-gate-flushed.log),
+**Clean gates, same session** ([`step2-fidelity-gate-flushed.log`](https://github.com/townsendmerino/goinfer/blob/36dbfbaf149aabdff43dce5766b49a65183113a7/docs/measurements/metal-decode-attn-r17-2026-09-25/step2-fidelity-gate-flushed.log),
 18:03:10 and 18:06:59 local, idle at 1.75 and 1.92). The shipped arm is now identical in both runs:
 
 | S, set "a", K=3900, 10 prompts × 64 | hard flips | agreement | pooled mean KL | lower KL on | verdict |
@@ -205,15 +205,15 @@ Models are loaded from the `.int4.metal.giw` sidecars in `~/models` (the same in
 Why the exact kernel is the least accurate: it sums all 3901 keys **serially in f32**, per output element. The split
 kernels sum shorter chains and merge the partials.
 
-Raw: [`step2-kernel-accuracy-1.5b.log`](metal-decode-attn-r17-2026-09-25/step2-kernel-accuracy-1.5b.log),
-[`-perlayer`](metal-decode-attn-r17-2026-09-25/step2-kernel-accuracy-1.5b-perlayer.log),
-[`-precise`](metal-decode-attn-r17-2026-09-25/step2-kernel-accuracy-1.5b-precise.log); the 7B is the last section of
-[`step2-nudge-gates.log`](metal-decode-attn-r17-2026-09-25/step2-nudge-gates.log).
+Raw: [`step2-kernel-accuracy-1.5b.log`](https://github.com/townsendmerino/goinfer/blob/36dbfbaf149aabdff43dce5766b49a65183113a7/docs/measurements/metal-decode-attn-r17-2026-09-25/step2-kernel-accuracy-1.5b.log),
+[`-perlayer`](https://github.com/townsendmerino/goinfer/blob/36dbfbaf149aabdff43dce5766b49a65183113a7/docs/measurements/metal-decode-attn-r17-2026-09-25/step2-kernel-accuracy-1.5b-perlayer.log),
+[`-precise`](https://github.com/townsendmerino/goinfer/blob/36dbfbaf149aabdff43dce5766b49a65183113a7/docs/measurements/metal-decode-attn-r17-2026-09-25/step2-kernel-accuracy-1.5b-precise.log); the 7B is the last section of
+[`step2-nudge-gates.log`](https://github.com/townsendmerino/goinfer/blob/36dbfbaf149aabdff43dce5766b49a65183113a7/docs/measurements/metal-decode-attn-r17-2026-09-25/step2-nudge-gates.log).
 
 **Does the gate's CPU reference share the exact kernel's error?** The S-K3900 reference computes attention as
 `decoder/attention.go` `attendQuery` does: scores and softmax in f64, then a serial f32 V accumulation in the same
 key order as the exact kernel. Emulating it on the same captured inputs (fused and unfused) gives the following
-([`-sharedbias`](metal-decode-attn-r17-2026-09-25/step2-kernel-accuracy-1.5b-sharedbias.log)):
+([`-sharedbias`](https://github.com/townsendmerino/goinfer/blob/36dbfbaf149aabdff43dce5766b49a65183113a7/docs/measurements/metal-decode-attn-r17-2026-09-25/step2-kernel-accuracy-1.5b-sharedbias.log)):
 
 - The exact kernel's error vector leans slightly toward the emulation's error: median cosine +0.065, positive on 58%
   of heads.
@@ -223,7 +223,7 @@ key order as the exact kernel. Emulating it on the same captured inputs (fused a
 
 So there is a weak shared direction, but it is too small to make the exact kernel the nearer one to the reference.
 
-**How far each arm moves the output from the exact kernel** ([`-magnitude`](metal-decode-attn-r17-2026-09-25/step2-kernel-accuracy-1.5b-magnitude.log);
+**How far each arm moves the output from the exact kernel** ([`-magnitude`](https://github.com/townsendmerino/goinfer/blob/36dbfbaf149aabdff43dce5766b49a65183113a7/docs/measurements/metal-decode-attn-r17-2026-09-25/step2-kernel-accuracy-1.5b-magnitude.log);
 median relative L2 of out − out_exact):
 
 | arm | moved from exact by | its own error vs f64 (median) |
@@ -280,10 +280,10 @@ identical at printed precision in all runs. Candidates:
 - The split family: `attention_fa` at S = 8/14/20/28/32 and the prototype at S = 8/14/16/32.
 
 Table: [`null_table.py`](metal-decode-attn-r17-2026-09-25/null_table.py). Raw:
-[`step2-null-gates.log`](metal-decode-attn-r17-2026-09-25/step2-null-gates.log),
-[`step2-nudge-gates.log`](metal-decode-attn-r17-2026-09-25/step2-nudge-gates.log),
-[`step2-nudge-matched-gates.log`](metal-decode-attn-r17-2026-09-25/step2-nudge-matched-gates.log),
-[`step2-vsum-gates.log`](metal-decode-attn-r17-2026-09-25/step2-vsum-gates.log). All runs were on set A (calibration,
+[`step2-null-gates.log`](https://github.com/townsendmerino/goinfer/blob/36dbfbaf149aabdff43dce5766b49a65183113a7/docs/measurements/metal-decode-attn-r17-2026-09-25/step2-null-gates.log),
+[`step2-nudge-gates.log`](https://github.com/townsendmerino/goinfer/blob/36dbfbaf149aabdff43dce5766b49a65183113a7/docs/measurements/metal-decode-attn-r17-2026-09-25/step2-nudge-gates.log),
+[`step2-nudge-matched-gates.log`](https://github.com/townsendmerino/goinfer/blob/36dbfbaf149aabdff43dce5766b49a65183113a7/docs/measurements/metal-decode-attn-r17-2026-09-25/step2-nudge-matched-gates.log),
+[`step2-vsum-gates.log`](https://github.com/townsendmerino/goinfer/blob/36dbfbaf149aabdff43dce5766b49a65183113a7/docs/measurements/metal-decode-attn-r17-2026-09-25/step2-vsum-gates.log). All runs were on set A (calibration,
 not a decision) between 18:36 and 20:20.
 
 Ratio = candidate mean KL / exact-arm mean KL over the prompts used. "Strict critC fails" counts runs failing
@@ -372,16 +372,16 @@ prefilled requests of 101 and 1001 keys.
 
 Pipelined decode is **12.83 ms/token with the fix against 12.86 without** (medians of 3). The fix is equal or faster
 in every pair, by 0.01–0.03 ms, which is noise. Encode-ahead parity is 10/10 in all six runs. Raw:
-[`exec-fix-ab.log`](metal-decode-attn-r17-2026-09-25/exec-fix-ab.log). The Metal suite is green both ways:
-- untagged: [`exec-fix-suite-untagged.log`](metal-decode-attn-r17-2026-09-25/exec-fix-suite-untagged.log);
+[`exec-fix-ab.log`](https://github.com/townsendmerino/goinfer/blob/36dbfbaf149aabdff43dce5766b49a65183113a7/docs/measurements/metal-decode-attn-r17-2026-09-25/exec-fix-ab.log). The Metal suite is green both ways:
+- untagged: [`exec-fix-suite-untagged.log`](https://github.com/townsendmerino/goinfer/blob/36dbfbaf149aabdff43dce5766b49a65183113a7/docs/measurements/metal-decode-attn-r17-2026-09-25/exec-fix-suite-untagged.log);
 - `goinfer_testhooks`: 316 passes, 79 skips, 0 failures,
-  [`exec-fix-suite-tagged.log`](metal-decode-attn-r17-2026-09-25/exec-fix-suite-tagged.log).
+  [`exec-fix-suite-tagged.log`](https://github.com/townsendmerino/goinfer/blob/36dbfbaf149aabdff43dce5766b49a65183113a7/docs/measurements/metal-decode-attn-r17-2026-09-25/exec-fix-suite-tagged.log).
 
 ## Decision run on set B: both candidates PASS (2026-09-25, 22:11–22:33)
 
 The run follows [`metal-decode-attn-fidelity-setb-PREREGISTERED.md`](metal-decode-attn-fidelity-setb-PREREGISTERED.md),
 built from its commit `39545bd6` with a clean tree. Raw log:
-[`setb-decision.log`](metal-decode-attn-r17-2026-09-25/setb-decision.log). Script:
+[`setb-decision.log`](https://github.com/townsendmerino/goinfer/blob/36dbfbaf149aabdff43dce5766b49a65183113a7/docs/measurements/metal-decode-attn-r17-2026-09-25/setb-decision.log). Script:
 [`run-setb-decision.sh`](metal-decode-attn-r17-2026-09-25/run-setb-decision.sh). Every measurement is deterministic
 and was run once. Load was recorded, not gated (1.7–2.8).
 
@@ -428,7 +428,7 @@ This is precondition 4, with the parameters fixed in the registration. Setup:
 - 7 paired reps × 20 tokens, arms interleaved and the executor flushed at each switch;
 - its own process, idle-gated (it started at 22:36:14, load1 1.81), commit `39545bd6`.
 
-Raw: [`r17-confirmation.log`](metal-decode-attn-r17-2026-09-25/r17-confirmation.log).
+Raw: [`r17-confirmation.log`](https://github.com/townsendmerino/goinfer/blob/36dbfbaf149aabdff43dce5766b49a65183113a7/docs/measurements/metal-decode-attn-r17-2026-09-25/r17-confirmation.log).
 
 | | in-sequence attention | full token | after 2 s idle: full token |
 |---|---:|---:|---:|
@@ -481,12 +481,12 @@ engages (≥ `attnFADepthFloor` = 1536 keys), so the path at 128 keys is unchang
 - The R17 harnesses now name the kernel they mean: `attention_fa` arms use the legacy kernel explicitly
   (`r17Legacy`), and "production" arms use whatever `r.pAttnFA` is.
 
-**Verification** ([`wiring-verify.log`](metal-decode-attn-r17-2026-09-25/wiring-verify.log), 22:59–23:07):
+**Verification** ([`wiring-verify.log`](https://github.com/townsendmerino/goinfer/blob/36dbfbaf149aabdff43dce5766b49a65183113a7/docs/measurements/metal-decode-attn-r17-2026-09-25/wiring-verify.log), 22:59–23:07):
 - The selection test passes on the fixture and on both checkpoints.
 - **R2's own gate through the production path on set B reproduces the pre-registered prototype run per prompt,
   in both arms** (KL ratio 0.9674, PASSES).
 - The Metal suite is green untagged and with `goinfer_testhooks`
-  ([`wiring-suite-tagged.log`](metal-decode-attn-r17-2026-09-25/wiring-suite-tagged.log)). Against the previous run's
+  ([`wiring-suite-tagged.log`](https://github.com/townsendmerino/goinfer/blob/36dbfbaf149aabdff43dce5766b49a65183113a7/docs/measurements/metal-decode-attn-r17-2026-09-25/wiring-suite-tagged.log)). Against the previous run's
   pass list, only the four new tests were added, and nothing was lost.
 - `TestMetalSnapshotGolden` is unchanged, because its attention_fa fixture has G=2.
 
@@ -510,7 +510,7 @@ that sweep's bands. It is a same-session, interleaved, three-engine A/B.
 - Swap in use afterwards: 0.95 GB.
 
 Raw: [`e2e/r17-e2e-metal-decode.json`](metal-decode-attn-r17-2026-09-25/e2e/r17-e2e-metal-decode.json),
-[`e2e/run.log`](metal-decode-attn-r17-2026-09-25/e2e/run.log). Every cell passed the token gate (1536/1536).
+[`e2e/run.log`](https://github.com/townsendmerino/goinfer/blob/36dbfbaf149aabdff43dce5766b49a65183113a7/docs/measurements/metal-decode-attn-r17-2026-09-25/e2e/run.log). Every cell passed the token gate (1536/1536).
 
 | model @ depth | goinfer new tok/s | old | Ollama | new ÷ old | new ÷ Ollama | old ÷ Ollama | cell g this morning (goinfer ÷ Ollama) |
 |---|---|---|---|---:|---:|---:|---:|

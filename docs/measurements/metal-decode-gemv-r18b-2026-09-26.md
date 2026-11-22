@@ -53,8 +53,8 @@ Logs: [`explore-*.log`](metal-decode-gemv-r18b-2026-09-26/) (first cut) and
 - 7 paired reps and 20 step pairs per category;
 - M1 Pro, 2026-09-26 18:12–18:29 PDT, idle-gated (load1 1.70 at start).
 
-Logs: [`confirm-1.5b.log`](metal-decode-gemv-r18b-2026-09-26/confirm-1.5b.log),
-[`confirm-7b.log`](metal-decode-gemv-r18b-2026-09-26/confirm-7b.log).
+Logs: [`confirm-1.5b.log`](https://github.com/townsendmerino/goinfer/blob/36dbfbaf149aabdff43dce5766b49a65183113a7/docs/measurements/metal-decode-gemv-r18b-2026-09-26/confirm-1.5b.log),
+[`confirm-7b.log`](https://github.com/townsendmerino/goinfer/blob/36dbfbaf149aabdff43dce5766b49a65183113a7/docs/measurements/metal-decode-gemv-r18b-2026-09-26/confirm-7b.log).
 
 | model | depth | production work | `h4244` work | **production ÷ h4244** (7 reps) | gate/up | full token vs production |
 |---|---:|---:|---:|---:|---:|---:|
@@ -83,9 +83,9 @@ Gates, all on the wired tree:
 
 | gate | result |
 |---|---|
-| bit-identity against the pre-R18 shipped kernels through the executor (`TestR18InSequence`, 16 teacher-forced positions) | **0 differ** at 128 / 2048 / 3900 on both models ([`wired-1.5b.log`](metal-decode-gemv-r18b-2026-09-26/wired-1.5b.log), [`wired-7b.log`](metal-decode-gemv-r18b-2026-09-26/wired-7b.log)) |
+| bit-identity against the pre-R18 shipped kernels through the executor (`TestR18InSequence`, 16 teacher-forced positions) | **0 differ** at 128 / 2048 / 3900 on both models ([`wired-1.5b.log`](https://github.com/townsendmerino/goinfer/blob/36dbfbaf149aabdff43dce5766b49a65183113a7/docs/measurements/metal-decode-gemv-r18b-2026-09-26/wired-1.5b.log), [`wired-7b.log`](https://github.com/townsendmerino/goinfer/blob/36dbfbaf149aabdff43dce5766b49a65183113a7/docs/measurements/metal-decode-gemv-r18b-2026-09-26/wired-7b.log)) |
 | `TestMetalSnapshotGolden` | 10/10 byte-identical |
-| tagged Metal suite | 180 pass, 0 fail ([`metal-suite-tagged.log`](metal-decode-gemv-r18b-2026-09-26/metal-suite-tagged.log)); untagged `ok` |
+| tagged Metal suite | 180 pass, 0 fail ([`metal-suite-tagged.log`](https://github.com/townsendmerino/goinfer/blob/36dbfbaf149aabdff43dce5766b49a65183113a7/docs/measurements/metal-decode-gemv-r18b-2026-09-26/metal-suite-tagged.log)); untagged `ok` |
 | wired production vs pre-R18 shipped, GEMV work (5 reps) | 1.5B **1.380× / 1.365× / 1.365×**; 7B **1.460× / 1.486× / 1.491×** at 128 / 2048 / 3900 |
 | full token (GPU ms) | 1.5B 12.93 → **10.46** at 128, 13.89 → 11.30, 14.89 → 12.27; 7B 45.78 → **33.12**, 49.67 → 36.82, 52.33 → 39.42 |
 

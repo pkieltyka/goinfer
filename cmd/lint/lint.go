@@ -21,10 +21,6 @@ const (
 
 // target is one staticcheck run CI makes. workspace lists the modules (beyond the root) CI's job stitches with
 // `go work init`; nil means the job runs with no workspace. TestTargets_matchCI holds this list to ci.yml's.
-//
-// cgo marks a target whose dependencies only type-check with cgo (gpu/: the WebGPU binding). cgo cannot cross-compile
-// from the Mac, so off Linux that target runs for the host's platform instead, and its cell says so;
-// TestCgoTargets_noPlatformFiles keeps that equivalent by holding those modules free of OS- and arch-specific files.
 type target struct {
 	name      string
 	args      []string
@@ -35,8 +31,7 @@ type target struct {
 var targets = []target{
 	{name: "root", args: []string{"./..."}},
 	{name: "vulkan", args: []string{"./backend/vulkan/..."}, workspace: []string{"backend/vulkan"}},
-	{name: "gpu", args: []string{"-tags", "gpu goinfer_testhooks", "./backend/webgpu/..."}, workspace: []string{"backend/webgpu", "demo/agent"}, cgo: true},
-	{name: "demo/agent", args: []string{"./demo/agent/..."}, workspace: []string{"backend/webgpu", "demo/agent"}},
+
 	{name: "cuda", args: []string{"-tags", "cuda goinfer_testhooks", "./backend/cuda/..."}, workspace: []string{"backend/cuda"}},
 }
 

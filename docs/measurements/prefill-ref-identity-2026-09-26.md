@@ -29,9 +29,9 @@ exact arm's pooled KL of 0.485 on set A turned out to be four mismatched prompts
 - `nobara`'s files were audited on the Mac from copies of each file's header and prompt-final logits (the first
   8 + 4·vocab bytes, which is all the check reads), through `GOINFER_REF_IDENTITY_DIR`.
 
-Logs: [`ref-identity.log`](metal-decode-attn-r17-2026-09-25/ref-identity.log) (Mac, sets A and B),
-[`ref-identity-nobara-setA.log`](metal-decode-attn-r17-2026-09-25/ref-identity-nobara-setA.log),
-[`ref-identity-nobara-setB.log`](metal-decode-attn-r17-2026-09-25/ref-identity-nobara-setB.log).
+Logs: [`ref-identity.log`](https://github.com/townsendmerino/goinfer/blob/36dbfbaf149aabdff43dce5766b49a65183113a7/docs/measurements/metal-decode-attn-r17-2026-09-25/ref-identity.log) (Mac, sets A and B),
+[`ref-identity-nobara-setA.log`](https://github.com/townsendmerino/goinfer/blob/36dbfbaf149aabdff43dce5766b49a65183113a7/docs/measurements/metal-decode-attn-r17-2026-09-25/ref-identity-nobara-setA.log),
+[`ref-identity-nobara-setB.log`](https://github.com/townsendmerino/goinfer/blob/36dbfbaf149aabdff43dce5766b49a65183113a7/docs/measurements/metal-decode-attn-r17-2026-09-25/ref-identity-nobara-setB.log).
 
 ## Results — prompts whose reference does not match (KL > 1.0)
 
@@ -87,7 +87,7 @@ The check is KL(reference prompt-final logits ‖ exact arm's) > 1.0.
 S-K512 / 1024 / 3900 were regenerated on `nobara` from the snapshot at `ebe0593c`: `TestPrefillGateReference/S`, set
 A, `GOINFER_CPU_REF_KS=512,1024,3900`, 17:54–18:21 PDT. The 2026-09-05 files were moved aside, not deleted, to
 `~/goinfer-logs/prefill-ref-stale-2026-09-05/` on both machines. The new files were copied to the Mac and audited:
-**0 (cell, prompt) pairs above KL 1.0** ([`ref-identity-setA-S-regen-2026-09-26.log`](metal-decode-attn-r17-2026-09-25/ref-identity-setA-S-regen-2026-09-26.log)).
+**0 (cell, prompt) pairs above KL 1.0** ([`ref-identity-setA-S-regen-2026-09-26.log`](https://github.com/townsendmerino/goinfer/blob/36dbfbaf149aabdff43dce5766b49a65183113a7/docs/measurements/metal-decode-attn-r17-2026-09-25/ref-identity-setA-S-regen-2026-09-26.log)).
 
 The previously mismatched prompts now read at the W4A8-vs-CPU level:
 
@@ -106,7 +106,7 @@ The stale files are set aside.
 D7-K512 / 1024 were regenerated on `nobara` at `35feb843` (`origin/main`): `TestPrefillGateReference/D7`, set A,
 `GOINFER_CPU_REF_KS=512,1024`, 03:36–06:24 PDT (10,079 s; the K=1024 half alone took about two hours). They were
 copied to the Mac and set A was audited whole: **0 (cell, prompt) pairs above KL 1.0**
-([`ref-identity-setA-D7-regen-2026-09-27.log`](metal-decode-attn-r17-2026-09-25/ref-identity-setA-D7-regen-2026-09-27.log)).
+([`ref-identity-setA-D7-regen-2026-09-27.log`](https://github.com/townsendmerino/goinfer/blob/36dbfbaf149aabdff43dce5766b49a65183113a7/docs/measurements/metal-decode-attn-r17-2026-09-25/ref-identity-setA-D7-regen-2026-09-27.log)).
 
 | cell | prompt | before | after |
 |---|---:|---:|---:|

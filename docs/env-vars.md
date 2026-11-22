@@ -141,8 +141,6 @@ after upgrading needs one place to look.
 | `GOINFER_CUDA_FAST_PREFILL_FLOOR` | Move the CUDA fast-prefill prompt-length floor (default **512**). `0` disables the floor entirely, which is how the §3 gate measures cells the floor excludes. **Lowering it is not free**: 512 is the shallowest depth with a PASSING fidelity cell, and the gate FAILS at 256 — moving it down needs a passing cell at the new depth, not a smooth-looking curve. |
 | `GOINFER_MODELS` / `GOINFER_MODEL_TMP` | Model asset root / temp dir for downloads. |
 | `GOINFER_PREFILL_ATTN_WORKERS` / `GOINFER_ATTN_ROW_TILE` | Prefill attention fan-out, row tile. |
-| `GOINFER_WEBGPU_GEMM` | WebGPU **prefill** W8A8 GEMM kernel selector. Default (unset): the R10 register-blocked 64×64 kernel (`backend/webgpu/gemm_rb.go`, each thread a 4×4 block of outputs). `tiled16` restores the pre-R10 16×16 kernel — bit-identical output either way (exact i32 K-sum, same dequant expression; `TestTiledRB64_bitIdentical`), so this is a speed A/B knob, not a fidelity one. Band, profile and A/B: `docs/measurements/webgpu-prefill-profile-2026-09-22.md`. |
-| `GOINFER_ATTN_KEYS` | WebGPU **decode** key-split attention kernel kill switch — set to `0` to force the old dim-split kernel instead (A/B in the same binary). Not a prefill knob and not a key count (V-23, docs/completed/review-2026-09-04.md). |
 | `GOINFER_W4A8_SPLITHALF` | Select the split-half W4A8 kernel. |
 | `GOINFER_MOE_RESIDENCY` / `GOINFER_MOE_RESIDENCY_SCOPE` | Metal MoE residency mode and scope. |
 | `GOINFER_PRECISE_MATH` | Metal: precise (non-fast) math in generated shaders. |
@@ -209,7 +207,7 @@ its hexadecimal PCI device ID. `GOINFER_EG2_DIR` supplies the local Hugging Face
 the real EmbeddingGemma 2 tests.
 
 Gate/CI knobs read by `cmd/gate` and the harnesses: `GOINFER_GATE_BACKEND`,
-`GOINFER_GATE_HEARTBEAT`, `GOINFER_GATE_SKIP_HEAVY`, `GOINFER_GATE_SKIP_WEBGPU`,
+`GOINFER_GATE_HEARTBEAT`, `GOINFER_GATE_SKIP_HEAVY`,
 `GOINFER_REQUIRE_FIXTURES`, `GOINFER_TEST_NOTHINK`, `GOINFER_SPEC_PROBE_GIW`, and the
 heavy-cell knobs `cmd/gate` reads through its `env()` helper: `GOINFER_GATE_MODELS` (the models
 root), `GOINFER_HEAVY_RUN` (a -run filter), `GOINFER_HEAVY_TIMEOUT`, `GOINFER_HEAVY_PKGS`. `GOINFER_RELEASE_TAG` names the version being
@@ -240,7 +238,6 @@ or under `decoder.SetLogger` to that logger at Info, which a logger at its defau
 | `GOINFER_MEM_PROBE` | RSS/heap attribution probe around the test suite. |
 | `GOINFER_FAKEQUANT` (`_ACT` / `_EXPERTS` / `_PERROW`) | Parity-debugging: simulate a quantization on the f32 path to isolate a numeric gap. |
 | `GOINFER_G4_CAPTURE` / `GOINFER_MOE_PROF_SPLIT` | Gemma-4 / MoE internal capture + profiling splits. |
-| `GOINFER_GPU_CAPTURE` | Per-layer WebGPU resident-decode capture (attention context, post-attention and post-MLP residuals) into `DecodeRunner.ReadCapture` — the WebGPU twin of `decoder.Model.ForwardSubCapture`, for localising a resident-vs-CPU divergence to one sublayer instead of arguing from final logits (`docs/completed/task-webgpu-nogqa-decode-bug.md`). Nothing allocated or dispatched when unset. |
 | `GOINFER_NORM_ULP_NOISE=<seed>` | Nudges every f32 norm vector a loaded model carries by an independent ±1/0 ULP per element (`decoder/normnoise.go`) — noise of exactly f32-rounding size, the same magnitude two correct implementations that reduce in a different order differ by. Measures a checkpoint's OWN sensitivity to that noise, the floor below which a resident-vs-CPU cosine on a quantized (W4A8/W8A8) forward carries no information about the kernels (`docs/completed/task-webgpu-nogqa-decode-bug.md`). |
 | `GOINFER_ATTNFA_DEBUG=1` | R2 (`docs/completed/red-october.md`) — prints each `attention_fa` dispatch's parameters (layer, depth, split count, group size, hd) to stderr from `canUseAttnFA`'s call site in `backend/metal/model.go`, kept from the 2026-09-19/20 investigation (see `GOINFER_METAL_ATTN_FA` above) so dispatch parameters can be re-verified without rebuilding the print. No effect if `GOINFER_METAL_ATTN_FA=0` — since the kernel is default-on, this now has effect by default too. |
 <!-- /generated -->
@@ -277,7 +274,7 @@ Setting any of them now does nothing.
 ## Test-model overrides (a large class — point tests at your local checkpoints)
 
 Generic: `GOINFER_TEST_MODEL`, `GOINFER_PREQUANT_GGUF`, `GOINFER_MODELS_DIR`, `GOINFER_CUDA_MODEL`,
-`GOINFER_METAL_MODEL`, `GOINFER_E2E_MODEL`, `GOINFER_EMBED_MODEL`. Per-family: one `GOINFER_<FAMILY>_GGUF`
+`GOINFER_METAL_MODEL`, `GOINFER_EMBED_MODEL`. Per-family: one `GOINFER_<FAMILY>_GGUF`
 (and occasional `_DIR`/`_INT4`/`_LABEL`) for deepseek, glm, granite, gptoss, llama3/4, nemotron, phi3,
 gemma3/4, cohere/aya, mellum, mla, moe*, eagle/spec, giw, chatml, matrix, cpuint4, … — each skips its
 test when unset.

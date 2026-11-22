@@ -26,16 +26,14 @@ const (
 var decoderRatchet = map[string]struct{ Direct, Reach int }{
 	"cuda":  {Direct: 241, Reach: 305},
 	"metal": {Direct: 241, Reach: 327},
-	"gpu":   {Direct: 85, Reach: 95},
 }
 
 // decoderRatchetExempt names the test files decoderRatchet does not count: the backend layers of SB2's admission census.
 // A census of the decoder's admission has to reach decoder, since it
 // loads models through it. The exemption is by exact path, so no other test can shelter under it.
 var decoderRatchetExempt = map[string]bool{
-	"backend/cuda/sb2_census_test.go":   true,
-	"backend/webgpu/sb2_census_test.go": true,
-	"backend/metal/sb2_census_test.go":  true,
+	"backend/cuda/sb2_census_test.go":  true,
+	"backend/metal/sb2_census_test.go": true,
 }
 
 // goFile is one parsed Go file: its directory relative to the repository root, whether it is a test file, and the
@@ -179,9 +177,6 @@ func census(files []goFile) (map[string]backendCount, map[string]int) {
 		if mod == "backend" {
 			if parts := strings.SplitN(f.dir, "/", 3); len(parts) >= 2 {
 				mod = parts[1]
-				if mod == "webgpu" {
-					mod = "gpu"
-				}
 			}
 		}
 		if _, ok := decoderRatchet[mod]; !ok {
@@ -263,8 +258,8 @@ func TestCensus_countsAPlantedChain(t *testing.T) {
 	}
 	counts, _ := census(files)
 	want := map[string]backendCount{
-		"cuda":  {tests: 3, direct: 1, reach: 2},
-		"gpu":   {tests: 1, direct: 0, reach: 1},
+		"cuda": {tests: 3, direct: 1, reach: 2},
+
 		"metal": {tests: 1, direct: 0, reach: 0},
 	}
 	for m, w := range want {

@@ -305,7 +305,7 @@ func TestRelModules_areTheTaggedModulesOfTheTree(t *testing.T) {
 		t.Skipf("git ls-files: %v", err)
 	}
 	// Modules that are never tagged: the SDK tests, the site generator and CI's pinned staticcheck.
-	untagged := map[string]bool{"apps/sdktest": true, "apps/site": true, ".github/actions/staticcheck": true}
+	untagged := map[string]bool{".github/actions/staticcheck": true}
 	var inTree []string
 	for _, f := range strings.Fields(string(out)) {
 		dir := strings.TrimSuffix(strings.TrimSuffix(f, "go.mod"), "/")

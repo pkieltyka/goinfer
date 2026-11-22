@@ -218,6 +218,14 @@ func (r gpuRecord) changedSince(head string, treeOf func(rev, dir string) (strin
 	for _, d := range gpuQualifyingTrees {
 		then, err1 := treeOf(r.Commit, d)
 		now, err2 := treeOf(head, d)
+		if d == retiredWebGPUTree {
+			if absentFromRev(err1) {
+				then, err1 = "", nil
+			}
+			if absentFromRev(err2) {
+				now, err2 = "", nil
+			}
+		}
 		if err1 != nil || err2 != nil {
 			return "", fmt.Errorf("could not compare %s/ (%v %v)", d, err1, err2)
 		}
@@ -272,10 +280,13 @@ func (r parityRecord) changedSince(head string, paths []string, objOf func(rev, 
 
 // gpuQualifyingTrees are the directories whose content a GPU-gate run vouches for. A change in any of them since the run
 // voids the run for a later commit; a change anywhere else (docs, the site, cmd) does not.
-var gpuQualifyingTrees = []string{"backend/metal", "backend/cuda", "backend/webgpu", "decoder"}
+const retiredWebGPUTree = "backend/webgpu"
+
+var gpuQualifyingTrees = []string{"backend/metal", "backend/cuda", retiredWebGPUTree, "decoder"}
 
 // parityQualifyingTrees are the directories whose every file a sweep vouches for, hashed by the manifest or not.
-var parityQualifyingTrees = []string{"decoder", "backend/cuda", "backend/metal", "backend/webgpu"}
+// Keep the retired WebGPU path so a recorded tree that still contains it differs from a current tree.
+var parityQualifyingTrees = []string{"decoder", "backend/cuda", "backend/metal", retiredWebGPUTree}
 
 // backendMoveMap is the layout Tier 2, PR 1 move: each GPU backend directory's path after the move (key) and before it
 // (value). A commit from before the move names the old path, so git reports the new one as absent there; treeAt and
