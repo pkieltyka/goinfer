@@ -42,8 +42,8 @@ func (d *Device) NewPipeline(spirv []byte, bindings int, pushBytes uint32) (_ *P
 	}
 
 	a := &d.api
-	var shader handle
-	if err = a.createShader(d.device, &shaderInfo{header: st(stShader), CodeSize: uintptr(len(spirv)), Code: &code[0]}, nil, &shader).check("create shader"); err != nil {
+	shader, err := createHandle(d.device, &shaderInfo{header: st(stShader), CodeSize: uintptr(len(spirv)), Code: &code[0]}, "create shader", a.createShader)
+	if err != nil {
 		return nil, err
 	}
 	defer a.destroyShader(d.device, shader, nil)
@@ -59,7 +59,7 @@ func (d *Device) NewPipeline(spirv []byte, bindings int, pushBytes uint32) (_ *P
 		slots[i] = binding{Number: uint32(i), Kind: descriptorStorage, Count: 1, Stages: shaderCompute}
 	}
 	set := setLayoutInfo{header: st(stSetLayout), Count: uint32(bindings), Bindings: &slots[0]}
-	if err = a.createSetLayout(d.device, &set, nil, &p.set).check("create descriptor set layout"); err != nil {
+	if p.set, err = createHandle(d.device, &set, "create descriptor set layout", a.createSetLayout); err != nil {
 		return nil, err
 	}
 	layout := layoutInfo{header: st(stPipelineLayout), Count: 1, Sets: &p.set}
@@ -67,12 +67,13 @@ func (d *Device) NewPipeline(spirv []byte, bindings int, pushBytes uint32) (_ *P
 		layout.RangeCount = 1
 		layout.Ranges = &pushRange{Stages: shaderCompute, Size: pushBytes}
 	}
-	if err = a.createLayout(d.device, &layout, nil, &p.layout).check("create pipeline layout"); err != nil {
+	if p.layout, err = createHandle(d.device, &layout, "create pipeline layout", a.createLayout); err != nil {
 		return nil, err
 	}
 	entry := [5]byte{'m', 'a', 'i', 'n'}
 	stage := stageInfo{header: st(stPipelineStage), Stage: shaderCompute, Module: shader, Name: &entry[0]}
 	info := pipelineInfo{header: st(stPipeline), Stage: stage, Layout: p.layout, BaseIndex: -1}
+	// Pipeline creation guarantees that any returned nonzero handle needs destruction.
 	if err = a.createPipelines(d.device, 0, 1, &info, nil, &p.pipeline).check("create compute pipeline"); err != nil {
 		return nil, err
 	}

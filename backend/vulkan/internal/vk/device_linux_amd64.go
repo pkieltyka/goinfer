@@ -63,9 +63,11 @@ func Open(selector Selector) (_ *Device, err error) {
 	if err = d.api.load(lib); err != nil {
 		return nil, err
 	}
-	if err = d.api.createInstance(&instanceInfo{header: st(stInstance)}, nil, &d.instance).check("create instance"); err != nil {
+	var instance handle
+	if err = d.api.createInstance(&instanceInfo{header: st(stInstance)}, nil, &instance).check("create instance"); err != nil {
 		return nil, err
 	}
+	d.instance = instance
 	physical, err := d.choosePhysical(selector)
 	if err != nil {
 		return nil, err
@@ -80,7 +82,8 @@ func Open(selector Selector) (_ *Device, err error) {
 	}
 	priority := float32(1)
 	queues := queueInfo{header: st(stDeviceQueue), Family: family, Count: 1, Priorities: &priority}
-	if err = d.api.createDevice(physical, &deviceInfo{header: st(stDevice), Count: 1, Queues: &queues}, nil, &d.device).check("create device"); err != nil {
+	info := deviceInfo{header: st(stDevice), Count: 1, Queues: &queues}
+	if d.device, err = createHandle(physical, &info, "create device", d.api.createDevice); err != nil {
 		return nil, err
 	}
 	d.api.getQueue(d.device, family, 0, &d.queue)
@@ -110,6 +113,9 @@ func (d *Device) choosePhysical(selector Selector) (handle, error) {
 			continue
 		}
 		if selected != 0 {
+			if selector.DeviceID == 0 {
+				return 0, errors.New("vulkan: multiple discrete AMD adapters found")
+			}
 			return 0, fmt.Errorf("vulkan: multiple discrete AMD devices match PCI device ID %04x", selector.DeviceID)
 		}
 		selected = physical
@@ -123,6 +129,9 @@ func (d *Device) choosePhysical(selector Selector) (handle, error) {
 		d.maxAllocations = p.Limits.MaxMemoryAllocationCount
 	}
 	if selected == 0 {
+		if selector.DeviceID == 0 {
+			return 0, errors.New("vulkan: no discrete AMD adapter found")
+		}
 		return 0, fmt.Errorf("vulkan: no discrete AMD device matches PCI device ID %04x", selector.DeviceID)
 	}
 	return selected, nil
@@ -143,20 +152,24 @@ func (d *Device) computeFamily(physical handle) (uint32, error) {
 	return 0, errors.New("vulkan: selected device has no compute queue")
 }
 
-func (d *Device) createRunObjects(family uint32) error {
+func (d *Device) createRunObjects(family uint32) (err error) {
 	a := &d.api
-	if err := a.createCmdPool(d.device, &cmdPoolInfo{header: st(stCommandPool), Family: family}, nil, &d.cmdPool).check("create command pool"); err != nil {
+	cmdPool := cmdPoolInfo{header: st(stCommandPool), Family: family}
+	if d.cmdPool, err = createHandle(d.device, &cmdPool, "create command pool", a.createCmdPool); err != nil {
 		return err
 	}
-	if err := a.allocateCmds(d.device, &cmdAlloc{header: st(stCommandAlloc), Pool: d.cmdPool, Count: 1}, &d.cmd).check("allocate command buffer"); err != nil {
+	var cmd handle
+	if err := a.allocateCmds(d.device, &cmdAlloc{header: st(stCommandAlloc), Pool: d.cmdPool, Count: 1}, &cmd).check("allocate command buffer"); err != nil {
 		return err
 	}
+	d.cmd = cmd
 	size := poolSize{Kind: descriptorStorage, Count: poolDescriptors}
 	pool := descPoolInfo{header: st(stDescriptorPool), MaxSets: poolSets, SizeCount: 1, Sizes: &size}
-	if err := a.createDescPool(d.device, &pool, nil, &d.descPool).check("create descriptor pool"); err != nil {
+	if d.descPool, err = createHandle(d.device, &pool, "create descriptor pool", a.createDescPool); err != nil {
 		return err
 	}
-	return a.createFence(d.device, &fenceInfo{header: st(stFence)}, nil, &d.fence).check("create fence")
+	d.fence, err = createHandle(d.device, &fenceInfo{header: st(stFence)}, "create fence", a.createFence)
+	return err
 }
 
 func (d *Device) Info() Info { return d.info }

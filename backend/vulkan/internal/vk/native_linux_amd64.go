@@ -21,6 +21,15 @@ func (r result) check(op string) error {
 	return fmt.Errorf("vulkan: %s: VkResult %d", op, r)
 }
 
+// Object creation can leave the output undefined on failure.
+func createHandle[T any](owner handle, info *T, op string, create func(handle, *T, unsafe.Pointer, *handle) result) (handle, error) {
+	var h handle
+	if err := create(owner, info, nil, &h).check(op); err != nil {
+		return 0, err
+	}
+	return h, nil
+}
+
 type api struct {
 	createInstance     func(*instanceInfo, unsafe.Pointer, *handle) result
 	destroyInstance    func(handle, unsafe.Pointer)

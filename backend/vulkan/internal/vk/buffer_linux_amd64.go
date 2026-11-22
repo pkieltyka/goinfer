@@ -46,7 +46,7 @@ func (d *Device) NewBuffer(size uint64, memory Memory) (_ *Buffer, err error) {
 	}()
 	a := &d.api
 	info := bufferInfo{header: st(stBuffer), Size: size, Usage: usageStorage | usageTransferSrc | usageTransferDst}
-	if err = a.createBuffer(d.device, &info, nil, &b.buffer).check("create buffer"); err != nil {
+	if b.buffer, err = createHandle(d.device, &info, "create buffer", a.createBuffer); err != nil {
 		return nil, err
 	}
 	var requirements memoryRequirements
@@ -56,16 +56,18 @@ func (d *Device) NewBuffer(size uint64, memory Memory) (_ *Buffer, err error) {
 		return nil, err
 	}
 	alloc := memoryInfo{header: st(stMemoryAllocate), Size: requirements.Size, Index: index}
-	if err = a.allocateMemory(d.device, &alloc, nil, &b.memory).check("allocate buffer memory"); err != nil {
+	if b.memory, err = createHandle(d.device, &alloc, "allocate buffer memory", a.allocateMemory); err != nil {
 		return nil, err
 	}
 	if err = a.bindMemory(d.device, b.buffer, b.memory, 0).check("bind buffer memory"); err != nil {
 		return nil, err
 	}
 	if memory == HostVisible {
-		if err = a.mapMemory(d.device, b.memory, 0, size, 0, &b.mapped).check("map buffer memory"); err != nil {
+		var mapped unsafe.Pointer
+		if err = a.mapMemory(d.device, b.memory, 0, size, 0, &mapped).check("map buffer memory"); err != nil {
 			return nil, err
 		}
+		b.mapped = mapped
 	}
 	d.buffers[b] = struct{}{}
 	return b, nil

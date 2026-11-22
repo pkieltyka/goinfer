@@ -83,6 +83,90 @@ func TestSPIRVAndRanges(t *testing.T) {
 	}
 }
 
+func TestFailedBufferSetupIgnoresPoisonedOutputs(t *testing.T) {
+	const nativeError result = -2
+	const poison handle = 99
+	for _, tc := range []struct {
+		fail string
+		want []handle
+	}{
+		{"create", nil},
+		{"allocate", []handle{2}},
+		{"map", []handle{2, 3}},
+	} {
+		t.Run(tc.fail, func(t *testing.T) {
+			d := &Device{device: 1, maxAllocations: 1, buffers: make(map[*Buffer]struct{})}
+			d.properties.Count = 1
+			d.properties.Types[0].Flags = memoryHostVisible | memoryCoherent
+			d.api.createBuffer = func(_ handle, _ *bufferInfo, _ unsafe.Pointer, out *handle) result {
+				if tc.fail == "create" {
+					*out = poison
+					return nativeError
+				}
+				*out = 2
+				return success
+			}
+			d.api.bufferRequirements = func(_, _ handle, req *memoryRequirements) {
+				*req = memoryRequirements{Size: 4, Bits: 1}
+			}
+			d.api.allocateMemory = func(_ handle, _ *memoryInfo, _ unsafe.Pointer, out *handle) result {
+				if tc.fail == "allocate" {
+					*out = poison
+					return nativeError
+				}
+				*out = 3
+				return success
+			}
+			d.api.bindMemory = func(_, _, _ handle, _ uint64) result { return success }
+			d.api.mapMemory = func(_ handle, _ handle, _, _ uint64, _ uint32, out *unsafe.Pointer) result {
+				*out = unsafe.Pointer(new(float32))
+				return -5 // VK_ERROR_MEMORY_MAP_FAILED
+			}
+			var released []handle
+			d.api.destroyBuffer = func(_ handle, buf handle, _ unsafe.Pointer) { released = append(released, buf) }
+			d.api.freeMemory = func(_ handle, mem handle, _ unsafe.Pointer) { released = append(released, mem) }
+			d.api.unmapMemory = func(_, _ handle) { t.Error("unmapped a failed mapping") }
+			if b, err := d.NewBuffer(4, HostVisible); b != nil || err == nil {
+				t.Fatalf("invalid result from failed buffer setup: %v, %v", b, err)
+			}
+			if !slices.Equal(released, tc.want) || len(d.buffers) != 0 {
+				t.Fatalf("released=%v, want %v; live buffers=%d", released, tc.want, len(d.buffers))
+			}
+		})
+	}
+}
+
+func TestFailedFenceCreationDiscardsPoisonedHandle(t *testing.T) {
+	d := &Device{device: 1}
+	d.api.createCmdPool = func(_ handle, _ *cmdPoolInfo, _ unsafe.Pointer, out *handle) result {
+		*out = 2
+		return success
+	}
+	d.api.allocateCmds = func(_ handle, _ *cmdAlloc, out *handle) result {
+		*out = 3
+		return success
+	}
+	d.api.createDescPool = func(_ handle, _ *descPoolInfo, _ unsafe.Pointer, out *handle) result {
+		*out = 4
+		return success
+	}
+	d.api.createFence = func(_ handle, _ *fenceInfo, _ unsafe.Pointer, out *handle) result {
+		*out = 99
+		return -2
+	}
+	var released []handle
+	destroy := func(_ handle, h handle, _ unsafe.Pointer) { released = append(released, h) }
+	d.api.destroyCmdPool, d.api.destroyDescPool, d.api.destroyFence = destroy, destroy, destroy
+	d.api.destroyDevice = func(h handle, _ unsafe.Pointer) { released = append(released, h) }
+	if err := d.createRunObjects(0); err == nil {
+		t.Fatal("accepted a failed fence creation")
+	}
+	must(t, d.Close())
+	if want := []handle{2, 4, 1}; !slices.Equal(released, want) {
+		t.Fatalf("released %v, want %v", released, want)
+	}
+}
+
 func TestFenceWaitFailurePreservesInFlightObjects(t *testing.T) {
 	const unresolved result = -2
 	for _, drainResult := range []result{success, deviceLost, unresolved} {
