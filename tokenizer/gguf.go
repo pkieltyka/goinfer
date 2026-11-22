@@ -92,6 +92,9 @@ func LoadGGUFReaderAt(r io.ReaderAt, size int64) (*Tokenizer, error) {
 }
 
 func loadGGUFReaderAt(r io.ReaderAt, size int64) (*Tokenizer, error) {
+	if r == nil {
+		return nil, fmt.Errorf("missing GGUF reader")
+	}
 	if size < 0 {
 		return nil, fmt.Errorf("invalid GGUF size %d", size)
 	}

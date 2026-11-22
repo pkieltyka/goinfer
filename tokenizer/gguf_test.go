@@ -205,3 +205,10 @@ func loadGoldenAt(t *testing.T, path string) tokGolden {
 	}
 	return g
 }
+
+func TestLoadGGUFReaderAtRejectsNil(t *testing.T) {
+	tok, err := LoadGGUFReaderAt(nil, 24)
+	if tok != nil || err == nil {
+		t.Fatalf("got tokenizer %v and error %v, want a missing-reader error", tok, err)
+	}
+}
