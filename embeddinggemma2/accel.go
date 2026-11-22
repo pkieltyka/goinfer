@@ -49,10 +49,14 @@ func (m *Model) NewAccelerator(name string) (Accelerator, error) {
 	accelMu.Lock()
 	f, ok := accels[name]
 	accelMu.Unlock()
-	if !ok {
+	if !ok || f == nil {
 		return nil, fmt.Errorf("embeddinggemma2: no %q accelerator in this binary (registered: %v)", name, Accelerators())
 	}
-	return f(m)
+	a, err := f(m)
+	if err == nil && a == nil {
+		return nil, fmt.Errorf("embeddinggemma2: %q returned no accelerator", name)
+	}
+	return a, err
 }
 
 // ForwardCPU is the CPU forward an accelerator is compared with: the projected last hidden state and, with
