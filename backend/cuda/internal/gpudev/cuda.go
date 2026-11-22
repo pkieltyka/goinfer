@@ -189,11 +189,11 @@ func createDevice(ordinal int, expectedUUID string) (*Device, error) {
 	}
 	dev, err := gc.GetDevice(ordinal)
 	if err != nil {
-		return nil, fmt.Errorf("cuda: GetDevice(%d): %w", ordinal, err)
+		return nil, fmt.Errorf("cuda: GetDevice(%d): %w", ordinal, adapterAccessError(err))
 	}
 	cx, err := retainPrimary(dev, expectedUUID)
 	if err != nil {
-		return nil, fmt.Errorf("cuda: retain primary context: %w", err)
+		return nil, err
 	}
 	d := &Device{cx: cx, dev: dev}
 	if NewLeaser != nil {
@@ -687,7 +687,7 @@ func NewBufferOfOn[T Scalar](d *Device, line string, data []T) Buffer {
 	var z T
 	b := d.MustBufOn(line, len(data)*int(unsafe.Sizeof(z)), len(data), "typed")
 	if err := b.upload(asBytes(data)); err != nil {
-		panic(fmt.Sprintf("cuda: NewBufferOf upload: %v", err))
+		panic(fmt.Errorf("cuda: NewBufferOf upload: %w", err))
 	}
 	runtime.KeepAlive(data)
 	return b

@@ -18,6 +18,7 @@ func (a selectTestAudio) Close() error                           { *a.closed++; 
 func TestNamedDeviceLeavesTowersOnCPU(t *testing.T) {
 	const backend = "fake-selected-towers"
 	registerTempAccelerator(t, backend, fakeText{backend})
+	registerTempAccelerator(t, backend+":registered", fakeText{backend})
 	RegisterSelectedAccelerator(backend, func(_ *Model, token string) (Accelerator, error) {
 		if token != "1" {
 			return nil, fmt.Errorf("unexpected device %q", token)
@@ -66,5 +67,11 @@ func TestNamedDeviceLeavesTowersOnCPU(t *testing.T) {
 	if visionCloses != 1 || audioCloses != 1 || e.VisionAccelerator() != nil || e.AudioAccelerator() != nil ||
 		e.VisionDevice() != selectedDeviceTowerReason || e.AudioDevice() != selectedDeviceTowerReason {
 		t.Fatalf("explicit selector: vision %q, audio %q; close calls %d, %d", e.VisionDevice(), e.AudioDevice(), visionCloses, audioCloses)
+	}
+	if _, err := e.UseAccelerator(backend + ":registered"); err != nil {
+		t.Fatal(err)
+	}
+	if e.VisionDevice() != backend || e.AudioDevice() != backend || visionOpens != 2 || audioOpens != 2 {
+		t.Fatalf("exact registry name: vision %q, audio %q; factory calls %d, %d", e.VisionDevice(), e.AudioDevice(), visionOpens, audioOpens)
 	}
 }
