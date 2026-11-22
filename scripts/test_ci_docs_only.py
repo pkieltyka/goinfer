@@ -93,14 +93,12 @@ class FullPathReads(unittest.TestCase):
         self.assertEqual(self.cls({"changelog.d/zz-ci-test.md": "x\n"}), "docs")
         self.assertEqual(self.cls({"THIRD_PARTY_LICENSES.md": "\n"}), "docs")
 
-    def test_site_content_is_quick_and_site_code_is_not(self):
-        self.assertEqual(self.cls({"apps/site/different/zz-ci-test.md": "x\n"}), "docs")
-        self.assertEqual(self.cls({"apps/site/internal/site/templates/models.html": "\n"}), "docs")
-        self.assertEqual(self.cls({"apps/site/internal/site/render.go": "//x\n"}), "full")
-        self.assertEqual(self.cls({"apps/site/go.mod": "\n"}), "full")
+    def test_retired_satellite_paths_are_full(self):
+        for path in ("apps/site/data/claims.json", "backend/webgpu/zz-ci-test.go"):
+            self.assertEqual(self.cls({path: "x\n"}), "full", path)
 
     def test_a_file_a_test_reads_is_full_whatever_its_class(self):
-        for path in ("README.md", "CHANGELOG.md", "CLAUDE.md", "apps/site/data/claims.json", "docs/env-vars.md"):
+        for path in ("README.md", "CHANGELOG.md", "CLAUDE.md", "docs/capability-matrix.json", "docs/env-vars.md"):
             self.assertEqual(self.cls({path: "\n"}), "full", path)
 
     def test_code_scripts_and_workflows_are_full(self):
@@ -144,9 +142,9 @@ class FullPathReads(unittest.TestCase):
         other = "example.com/other v0.99.0 h1:AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA=\n"
         self.assertEqual(self.cls({"go.sum": other}), "full")
 
-    # -- the backend class: a range inside the backend modules (plus quick-path files) skips the root OS lanes.
+    # -- the backend class: backend modules plus quick-path files.
     def test_backend_module_code_is_backend(self):
-        for path in ("backend/cuda/doc.go", "backend/metal/zz_ci_test.go", "backend/webgpu/testdata/zz-ci-test.txt"):
+        for path in ("backend/cuda/doc.go", "backend/metal/zz_ci_test.go", "backend/vulkan/zz-ci-test.go"):
             self.assertEqual(self.cls({path: "//x\n"}), "backend", path)
 
     def test_backend_with_quick_path_files_is_backend(self):
@@ -168,7 +166,7 @@ class FullPathReads(unittest.TestCase):
         self.assertEqual(self.cls({"backend/cuda/doc.go": "//x\n", "docs/env-vars.md": "\n"}), "full")
 
     def test_a_file_under_backend_but_outside_its_modules_is_full(self):
-        """backend/ itself is the root module's directory: only backend/{webgpu,cuda,metal}/ are other modules."""
+        """backend/ itself is the root module's directory: the supported backend directories are separate modules."""
         self.assertEqual(self.cls({"backend/zz-ci-test.md": "x\n"}), "full")
         self.assertEqual(self.cls({"backend/cudax/zz.go": "//x\n"}), "full")
 
