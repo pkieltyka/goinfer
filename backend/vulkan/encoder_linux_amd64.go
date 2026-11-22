@@ -161,6 +161,11 @@ func (a *encoder) upload(group []weight) (err error) {
 
 func (*encoder) Name() string { return "vulkan" }
 
+// AttachedDevice returns the adapter identity captured at attachment.
+func (a *encoder) AttachedDevice() embeddinggemma2.DeviceInfo { return inventoryDevice(a.identity) }
+
+var _ embeddinggemma2.AttachedDeviceReporter = (*encoder)(nil)
+
 func (a *encoder) attachedDevice() (DeviceInfo, bool) {
 	if a == nil {
 		return DeviceInfo{}, false

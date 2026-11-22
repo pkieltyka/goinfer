@@ -49,8 +49,10 @@ func cudaHardwareInfo() []string {
 	return out
 }
 
-func cudaMemInfo(ctx interface {
+type cudaMemoryReader interface {
 	MemInfo() (uint64, uint64, error)
-}) (free, total uint64, err error) {
+}
+
+func cudaMemInfo(ctx cudaMemoryReader) (free, total uint64, err error) {
 	return ctx.MemInfo()
 }

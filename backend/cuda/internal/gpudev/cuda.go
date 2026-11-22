@@ -69,8 +69,9 @@ var bg = context.Background()
 // itself), so tracking allocations centrally is what makes "release a resident
 // model" a single call. Modules and streams are tracked alongside as objs.
 type Device struct {
-	cx  *gc.Context
-	dev *gc.Device
+	cx           *gc.Context
+	dev          *gc.Device
+	verifiedUUID string
 
 	mu     sync.Mutex
 	allocs []devAlloc // every device allocation handed out, for ReleaseAll
@@ -195,7 +196,7 @@ func createDevice(ordinal int, expectedUUID string) (*Device, error) {
 	if err != nil {
 		return nil, err
 	}
-	d := &Device{cx: cx, dev: dev}
+	d := &Device{cx: cx, dev: dev, verifiedUUID: expectedUUID}
 	if NewLeaser != nil {
 		d.leaser = NewLeaser()
 	}

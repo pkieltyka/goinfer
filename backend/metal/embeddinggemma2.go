@@ -24,6 +24,7 @@ func init() {
 	embeddinggemma2.RegisterAccelerator("metal", func(m *embeddinggemma2.Model) (embeddinggemma2.Accelerator, error) {
 		return newEG2Accel(m)
 	})
+	embeddinggemma2.RegisterDeviceProber("metal", probeMetalDevice)
 }
 
 const eg2TG = 128
@@ -65,9 +66,13 @@ type eg2AttnBufs struct{ q, k, v, qh, kh, vh, sc, vt, ob, ctx Buffer }
 // newEG2Ops opens the device and compiles this file's kernels with extra (more kernels in the same precise library),
 // whose pipelines it builds into more, by kernel name.
 func newEG2Ops(extra string, more map[string]*Pipeline) (eg2Ops, error) {
-	d, err := CreateSystemDefaultDevice()
+	return newEG2OpsOn(CreateSystemDefaultDevice, extra, more)
+}
+
+func newEG2OpsOn(open func() (*Device, error), extra string, more map[string]*Pipeline) (eg2Ops, error) {
+	d, err := acquireMetalDevice(open)
 	if err != nil {
-		return eg2Ops{}, fmt.Errorf("metal: %w", err)
+		return eg2Ops{}, err
 	}
 	vit, err := d.NewViT()
 	if err != nil {
@@ -135,6 +140,7 @@ type eg2Accel struct {
 	eg2Ops
 	cfg       embeddinggemma2.Config
 	model     *embeddinggemma2.Model
+	identity  embeddinggemma2.DeviceInfo
 	pleProj   Buffer // scaled by hidden^-0.5 at upload, as the CPU scales the product
 	pleNorm   Buffer
 	finalNorm Buffer
@@ -161,7 +167,7 @@ func newEG2Accel(m *embeddinggemma2.Model) (*eg2Accel, error) {
 		return nil, err
 	}
 	d := ops.d
-	a := &eg2Accel{eg2Ops: ops, ropes: map[eg2RopeKey][2]Buffer{}}
+	a := &eg2Accel{eg2Ops: ops, identity: describeMetalDevice(d.Name(), d.HasUnifiedMemory(), false), ropes: map[eg2RopeKey][2]Buffer{}}
 	w := m.TransformerWeights()
 	a.cfg, a.model = w.Config, m
 	a.eps = float32(a.cfg.RMSNormEps)

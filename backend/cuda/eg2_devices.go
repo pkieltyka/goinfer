@@ -101,6 +101,10 @@ func resolveCUDADevice(token string, adapters []gpu.Adapter) (gpu.Adapter, error
 }
 
 var _ embeddinggemma2.DeviceMemoryReporter = (*eg2Accel)(nil)
+var _ embeddinggemma2.AttachedDeviceReporter = (*eg2Accel)(nil)
+
+// AttachedDevice returns the identity captured from the opened CUDA handle.
+func (a *eg2Accel) AttachedDevice() embeddinggemma2.DeviceInfo { return a.identity }
 
 // DeviceMemory returns the driver-reported headroom of the attached card.
 func (a *eg2Accel) DeviceMemory() (reading embeddinggemma2.DeviceMemory, err error) {
@@ -111,14 +115,14 @@ func (a *eg2Accel) DeviceMemory() (reading embeddinggemma2.DeviceMemory, err err
 	}
 	err = a.ops.do(func() error {
 		var readErr error
-		reading, readErr = cudaMemory(a.ops.dev)
+		reading, readErr = cudaMemory(a.ops.dev.Context())
 		return readErr
 	})
 	return reading, err
 }
 
-func cudaMemory(dev *Device) (embeddinggemma2.DeviceMemory, error) {
-	free, total, err := cudaMemInfo(dev.Context())
+func cudaMemory(dev cudaMemoryReader) (embeddinggemma2.DeviceMemory, error) {
+	free, total, err := cudaMemInfo(dev)
 	if err != nil {
 		return embeddinggemma2.DeviceMemory{}, err
 	}
