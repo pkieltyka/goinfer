@@ -4,6 +4,7 @@
 package main
 
 import (
+	"errors"
 	"flag"
 	"fmt"
 	"os"
@@ -32,7 +33,7 @@ func main() {
 	}
 }
 
-func rank(checkpoint, query string, documents []string, device string) error {
+func rank(checkpoint, query string, documents []string, device string) (err error) {
 	encoder, err := embeddinggemma2.LoadEncoder(checkpoint)
 	if err != nil {
 		return err
@@ -51,7 +52,7 @@ func rank(checkpoint, query string, documents []string, device string) error {
 		}
 	}
 	if accelerator := encoder.Accelerator(); accelerator != nil {
-		defer accelerator.Close()
+		defer func() { err = errors.Join(err, accelerator.Close()) }()
 	}
 
 	queryVector, _, err := encoder.EmbedText(query, "query")
