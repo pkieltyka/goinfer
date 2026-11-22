@@ -33,6 +33,10 @@ Each unreleased change is a file in [`changelog.d/`](changelog.d/), collected in
 
 - **Bound Vulkan work for EmbeddingGemma 2 batches.** Attention stays within each input's sequence and sliding window. The encoder splits native submissions by estimated work and preserves singleton float32 bits across admitted batch layouts on the same model, build, selector, device, and driver. A lost Vulkan device reports `embeddinggemma2.ErrDeviceLost` and stops further forwards on that accelerator. [#55](https://github.com/pkieltyka/goinfer/pull/55)
 
+### Verification
+
+Targeted EmbeddingGemma 2 CUDA and Vulkan checks passed on the devices listed in the release record. The Linux `quick -full` run reported seven CUDA failures, with two passing targeted reruns after the missing checkpoint was restored. The [verification record](docs/releases/v0.6.2-verification.md) lists the unresolved results and [owner-approved deferrals](docs/releases/v0.6.2-accepted.json).
+
 ## [v0.6.1] — 2026-11-22
 
 ### Added

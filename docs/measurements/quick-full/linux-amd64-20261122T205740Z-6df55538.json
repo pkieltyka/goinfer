@@ -1,0 +1,21 @@
+{
+ "schema": 1,
+ "os": "linux",
+ "arch": "amd64",
+ "commit": "6df55538ef6e4bb78f675fad32e96edfac8212d7",
+ "date": "2026-11-22T20:57:40Z",
+ "verdict": "FAIL",
+ "dirty": false,
+ "full": true,
+ "pass": 3568,
+ "skip": 734,
+ "fail": 7,
+ "cells": 84,
+ "ran": 81,
+ "cached": 0,
+ "not_run": [
+  "backend/metal",
+  "backend/metal/internal/gpudev",
+  "backend/metal/kernels"
+ ]
+}

@@ -1,0 +1,55 @@
+{
+  "schema": 1,
+  "release": "v0.6.2",
+  "decision": "On 2026-11-22, Peter approved proceeding with the v0.6.2 root, CUDA, and Vulkan release with the specific deferrals below. The frozen evidence retains the original failed and outstanding gate results.",
+  "accepted": [],
+  "availability_deferrals": [
+    {
+      "historical_record": "metal-20261104T224100Z-ccdfb3ad.json",
+      "candidate_record": null,
+      "item": "Current Metal device gate on Apple hardware remains OWED",
+      "class": "environment",
+      "evidence": "No current candidate record exists because an Apple Silicon test host was unavailable. The sole available baseline is the historical Metal PASS at ccdfb3ad. It is stale for the candidate. See docs/releases/v0.6.2-verification.md.",
+      "accepted_by": "Peter",
+      "accepted_on": "2026-11-22"
+    },
+    {
+      "historical_record": "darwin-arm64-20261104T232151Z-ccdfb3ad.json",
+      "candidate_record": null,
+      "item": "Current Darwin quick -full qualification on Apple hardware remains OWED",
+      "class": "environment",
+      "evidence": "No current candidate record exists because an Apple Silicon test host was unavailable. The sole available baseline is the historical Darwin FAIL at ccdfb3ad, with three failures. See docs/releases/v0.6.2-verification.md.",
+      "accepted_by": "Peter",
+      "accepted_on": "2026-11-22"
+    }
+  ],
+  "owner_decisions": [
+    {
+      "gate": "Full-model CUDA GPU and parity qualification",
+      "candidate_record": null,
+      "item": "Cells that require an unavailable full-model checkpoint",
+      "class": "fixture",
+      "evidence": "One registered Qwen2.5-Coder checkpoint was restored. The current preflight reported 58 of 59 unresolved assets. This decision is limited to unavailable full-model checkpoints. Final GPU and parity records were pending at the metadata freeze. See docs/releases/v0.6.2-verification.md.",
+      "accepted_by": "Peter",
+      "accepted_on": "2026-11-22"
+    },
+    {
+      "gate": "Previous-tag cold-user report",
+      "candidate_record": null,
+      "item": "Completion of the interrupted v0.6.1 cold-user run",
+      "class": "environment",
+      "evidence": "The supervisor stopped the isolated test on the first host swap-out increase. No complete report was produced, and the inherited row remains OWED. See docs/releases/v0.6.2-verification.md.",
+      "accepted_by": "Peter",
+      "accepted_on": "2026-11-22"
+    },
+    {
+      "gate": "CUDA PTX reproduction",
+      "candidate_record": null,
+      "item": "Byte-identical reproduction of the unchanged tower_base.ptx vision artifact",
+      "class": "toolchain-artifact",
+      "evidence": "At the recorded NVRTC 12.9.86 version, 70 of 71 files rebuilt byte-identically on the first run. The unchanged tower_base artifact matched in 14 of 25 direct trials and varied across repeated invocations. The original gate remains RED. See docs/releases/v0.6.2-verification.md.",
+      "accepted_by": "Peter",
+      "accepted_on": "2026-11-22"
+    }
+  ]
+}
