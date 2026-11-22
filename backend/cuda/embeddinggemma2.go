@@ -66,6 +66,7 @@ type eg2Accel struct {
 	model  *embeddinggemma2.Model
 
 	pleProj, pleNorm, finalNorm, proj, ones Buffer
+	residentWeightBytes                     int64
 	layers                                  []eg2Layer
 	ropes                                   []eg2Rope
 	broken                                  error // set when a failed forward could not be drained; every later forward returns it
@@ -91,19 +92,26 @@ func newEG2Accel(m *embeddinggemma2.Model, combined bool) (*eg2Accel, error) {
 	}
 	a := &eg2Accel{ops: ops, cfg: c, model: m}
 	if err := ops.do(func() error {
-		up := ops.up
-		a.pleProj, a.pleNorm, a.finalNorm, a.proj = up(w.PLEProj), up(w.PLENorm), up(w.FinalNorm), up(w.Projection)
+		var weightBytes int64
+		upWeight := func(v []float32) Buffer {
+			if len(v) > 0 {
+				weightBytes += gpu.ChargedBytes(int64(len(v)) * 4)
+			}
+			return ops.up(v)
+		}
+		a.pleProj, a.pleNorm, a.finalNorm, a.proj = upWeight(w.PLEProj), upWeight(w.PLENorm), upWeight(w.FinalNorm), upWeight(w.Projection)
 		ones := make([]float32, maxHD)
 		for i := range ones {
 			ones[i] = 1
 		}
-		a.ones = up(ones)
+		a.ones = ops.up(ones) // synthetic helper, excluded from residentWeightBytes
 		for _, ly := range w.Layers {
-			a.layers = append(a.layers, eg2Layer{w: ly, inNorm: up(ly.InNorm), q: up(ly.Q), k: up(ly.K), v: up(ly.V), o: up(ly.O),
-				qNorm: up(ly.QNorm), kNorm: up(ly.KNorm), postAttnNorm: up(ly.PostAttnNorm), preFFNorm: up(ly.PreFFNorm),
-				gate: up(ly.Gate), up: up(ly.Up), down: up(ly.Down), postFFNorm: up(ly.PostFFNorm), pleGate: up(ly.PLEGate),
-				pleProj: up(ly.PLEProj), plePostNorm: up(ly.PLEPostNorm)})
+			a.layers = append(a.layers, eg2Layer{w: ly, inNorm: upWeight(ly.InNorm), q: upWeight(ly.Q), k: upWeight(ly.K), v: upWeight(ly.V), o: upWeight(ly.O),
+				qNorm: upWeight(ly.QNorm), kNorm: upWeight(ly.KNorm), postAttnNorm: upWeight(ly.PostAttnNorm), preFFNorm: upWeight(ly.PreFFNorm),
+				gate: upWeight(ly.Gate), up: upWeight(ly.Up), down: upWeight(ly.Down), postFFNorm: upWeight(ly.PostFFNorm), pleGate: upWeight(ly.PLEGate),
+				pleProj: upWeight(ly.PLEProj), plePostNorm: upWeight(ly.PLEPostNorm)})
 		}
+		a.residentWeightBytes = weightBytes
 		return ops.finish()
 	}); err != nil {
 		ops.close()
@@ -171,12 +179,240 @@ var errEG2Closed = errors.New("cuda: the EmbeddingGemma 2 accelerator is closed"
 // checkPositions applies both position limits to one independent sequence.
 func (a *eg2Accel) checkPositions(n int) error {
 	if n > eg2MaxTokens {
-		return fmt.Errorf("cuda: %d positions, over the accelerator's %d", n, eg2MaxTokens)
+		return fmt.Errorf("cuda: %w: %d positions, over the accelerator's %d", embeddinggemma2.ErrUnsupportedBatchShape, n, eg2MaxTokens)
 	}
 	if limit := a.cfg.MaxPositions; limit > 0 && n > limit {
-		return fmt.Errorf("cuda: %d positions, over max_position_embeddings %d", n, limit)
+		return fmt.Errorf("cuda: %w: %d positions, over max_position_embeddings %d", embeddinggemma2.ErrUnsupportedBatchShape, n, limit)
 	}
 	return nil
+}
+
+// validateSingleLength checks a single prepared sequence length for Forward
+// and singleton BatchMemory without imposing ForwardBatch's aggregate row limit.
+func (a *eg2Accel) validateSingleLength(n int) error {
+	if n <= 0 {
+		return fmt.Errorf("cuda: input has invalid length %d", n)
+	}
+	return a.checkPositions(n)
+}
+
+// validateBatchLengths checks prepared sequence lengths for ForwardBatch and
+// multi-input BatchMemory before any allocation or arithmetic overflow.
+func (a *eg2Accel) validateBatchLengths(lens []int) (total, maxT int, err error) {
+	if len(lens) == 0 {
+		return 0, 0, errors.New("cuda: an empty batch")
+	}
+	for b, n := range lens {
+		if n <= 0 {
+			return 0, 0, fmt.Errorf("cuda: batch input %d has invalid length %d", b, n)
+		}
+		if n > math.MaxInt-total {
+			return 0, 0, errors.New("cuda: batch token sum overflows int")
+		}
+		total += n
+		if n > maxT {
+			maxT = n
+		}
+	}
+	rowLimit := a.batchRowLimit()
+	if len(lens) > rowLimit || total > rowLimit {
+		return 0, 0, fmt.Errorf("cuda: %w: batch exceeds the launch limit of %d total token rows", embeddinggemma2.ErrUnsupportedBatchShape, rowLimit)
+	}
+	for b, n := range lens {
+		if err := a.checkPositions(n); err != nil {
+			return 0, 0, fmt.Errorf("cuda: batch input %d: %w", b, err)
+		}
+	}
+	return total, maxT, nil
+}
+
+func checkedBufCharged(rows, cols, elemBytes int) (elems int, charged int64, err error) {
+	if rows <= 0 || cols < 0 || elemBytes <= 0 {
+		return 0, 0, fmt.Errorf("cuda: invalid buffer dimensions (%d, %d)", rows, cols)
+	}
+	r64, c64 := int64(rows), int64(cols)
+	if c64 > 0 && r64 > math.MaxInt/c64 {
+		return 0, 0, errors.New("cuda: buffer element count overflows int")
+	}
+	n64 := max(r64*c64, int64(1))
+	maxRaw := int64(math.MaxInt64 - gpu.AllocQuantumBytes)
+	if n64 > maxRaw/int64(elemBytes) {
+		return 0, 0, errors.New("cuda: buffer byte size overflows int64")
+	}
+	return int(r64 * c64), gpu.ChargedBytes(n64 * int64(elemBytes)), nil
+}
+
+func addCharged(sum, delta int64) (int64, error) {
+	if delta < 0 || delta > math.MaxInt64-sum {
+		return 0, errors.New("cuda: workspace byte total overflows int64")
+	}
+	return sum + delta, nil
+}
+
+type eg2ScratchPlan struct {
+	x, xn, q, k, v, qkv, ctx, ob, g, u, f, ple, pleL, gg, pr, res, bounds int
+	chargedBytes                                                          int64
+}
+
+// scratchPlan computes the element counts and total charged device bytes for
+// the 20 base per-forward scratch buffers (16 float32 and 4 int32 bounds).
+// Shared by forwardRows and BatchMemory so buffer dimensions stay aligned.
+func (a *eg2Accel) scratchPlan(T int) (eg2ScratchPlan, error) {
+	c := a.cfg
+	maxQD, maxKVD := 0, 0
+	for _, ly := range a.layers {
+		maxQD = max(maxQD, c.Heads*ly.w.HeadDim)
+		maxKVD = max(maxKVD, ly.w.KVHeads*ly.w.HeadDim)
+	}
+	if c.Layers < 0 || c.PLEDim < 0 || (c.PLEDim > 0 && c.Layers > math.MaxInt/c.PLEDim) {
+		return eg2ScratchPlan{}, errors.New("cuda: PLE geometry overflows int")
+	}
+	if maxQD > math.MaxInt/3 {
+		return eg2ScratchPlan{}, errors.New("cuda: QKV geometry overflows int")
+	}
+	var p eg2ScratchPlan
+	add := func(dst *int, cols, count, elemBytes int) error {
+		elems, charged, err := checkedBufCharged(T, cols, elemBytes)
+		if err != nil {
+			return err
+		}
+		*dst = elems
+		for range count {
+			p.chargedBytes, err = addCharged(p.chargedBytes, charged)
+			if err != nil {
+				return err
+			}
+		}
+		return nil
+	}
+	for _, spec := range []struct {
+		dst   *int
+		cols  int
+		count int
+		bytes int
+	}{
+		{&p.x, c.Hidden, 1, 4},
+		{&p.xn, c.Hidden, 1, 4},
+		{&p.q, maxQD, 1, 4},
+		{&p.k, maxKVD, 1, 4},
+		{&p.v, maxKVD, 1, 4},
+		{&p.qkv, 3 * maxQD, 1, 4},
+		{&p.ctx, maxQD, 1, 4},
+		{&p.ob, c.Hidden, 1, 4},
+		{&p.g, c.Intermediate, 1, 4},
+		{&p.u, c.Intermediate, 1, 4},
+		{&p.f, c.Hidden, 1, 4},
+		{&p.ple, c.Layers * c.PLEDim, 1, 4},
+		{&p.pleL, c.PLEDim, 1, 4},
+		{&p.gg, c.PLEDim, 1, 4},
+		{&p.pr, c.Hidden, 1, 4},
+		{&p.res, c.EmbeddingDim, 1, 4},
+		{&p.bounds, 1, 4, 4}, // slLoB, slHiB, fuLoB, fuHiB
+	} {
+		if err := add(spec.dst, spec.cols, spec.count, spec.bytes); err != nil {
+			return eg2ScratchPlan{}, err
+		}
+	}
+	return p, nil
+}
+
+func (a *eg2Accel) distinctRopeKeys() []eg2RopeKey {
+	seen := make(map[eg2RopeKey]struct{}, len(a.layers))
+	var keys []eg2RopeKey
+	for _, ly := range a.layers {
+		k := eg2RopeKey{ly.w.HeadDim, ly.w.RopeTheta}
+		if _, ok := seen[k]; ok {
+			continue
+		}
+		seen[k] = struct{}{}
+		keys = append(keys, k)
+	}
+	return keys
+}
+
+func (a *eg2Accel) ropeCachedRows(k eg2RopeKey) int {
+	for i := range a.ropes {
+		r := &a.ropes[i]
+		if r.hd == k.hd && r.theta == k.theta {
+			return r.rows
+		}
+	}
+	return 0
+}
+
+// BatchMemory estimates the device working memory for the next forward of
+// preparedLengths (EmbedIDs for one length, EmbedIDsBatch for multiple,
+// keepLayers=false) without running a forward or allocating device memory.
+//
+// Quality is BatchMemoryUpperBound over explicitly tracked gpudev buffer
+// allocations priced with gpudev.ChargedBytes. It does not bound physical
+// cuMemGetInfo deltas, which also reflect driver page packing, context, and
+// external process memory. When a cached RoPE table grows to
+// max(preparedLengths), the full new pair is counted conservatively even though
+// the older pair is released first. Both combinedAttention selectors reuse qkv
+// and zeroBias without extra buffers.
+func (a *eg2Accel) BatchMemory(preparedLengths []int) (embeddinggemma2.BatchMemoryEstimate, error) {
+	a.mu.Lock()
+	defer a.mu.Unlock()
+	if a.closed {
+		return embeddinggemma2.BatchMemoryEstimate{}, errEG2Closed
+	}
+	if a.broken != nil {
+		return embeddinggemma2.BatchMemoryEstimate{}, a.broken
+	}
+	var total, maxT int
+	if len(preparedLengths) == 0 {
+		return embeddinggemma2.BatchMemoryEstimate{}, errors.New("cuda: an empty batch")
+	}
+	if len(preparedLengths) == 1 {
+		if err := a.validateSingleLength(preparedLengths[0]); err != nil {
+			return embeddinggemma2.BatchMemoryEstimate{}, err
+		}
+		total, maxT = preparedLengths[0], preparedLengths[0]
+	} else {
+		var err error
+		total, maxT, err = a.validateBatchLengths(preparedLengths)
+		if err != nil {
+			return embeddinggemma2.BatchMemoryEstimate{}, err
+		}
+	}
+	plan, err := a.scratchPlan(total)
+	if err != nil {
+		return embeddinggemma2.BatchMemoryEstimate{}, err
+	}
+	peak := plan.chargedBytes
+	multi := len(preparedLengths) > 1
+	for _, k := range a.distinctRopeKeys() {
+		if a.ropeCachedRows(k) < maxT {
+			_, ropeBuf, err := checkedBufCharged(maxT, k.hd, 4)
+			if err != nil {
+				return embeddinggemma2.BatchMemoryEstimate{}, err
+			}
+			for range 2 {
+				peak, err = addCharged(peak, ropeBuf)
+				if err != nil {
+					return embeddinggemma2.BatchMemoryEstimate{}, err
+				}
+			}
+		}
+		if multi {
+			_, batchBuf, err := checkedBufCharged(total, k.hd, 4)
+			if err != nil {
+				return embeddinggemma2.BatchMemoryEstimate{}, err
+			}
+			for range 2 {
+				peak, err = addCharged(peak, batchBuf)
+				if err != nil {
+					return embeddinggemma2.BatchMemoryEstimate{}, err
+				}
+			}
+		}
+	}
+	return embeddinggemma2.BatchMemoryEstimate{
+		AdditionalPeakBytes: peak,
+		ResidentWeightBytes: a.residentWeightBytes,
+		Quality:             embeddinggemma2.BatchMemoryUpperBound,
+	}, nil
 }
 
 // Forward gathers the scaled token rows on the host, then runs the encoder.
@@ -189,7 +425,7 @@ func (a *eg2Accel) Forward(ids []int, keepLayers bool) ([]float32, [][]float32, 
 	if a.broken != nil {
 		return nil, nil, a.broken
 	}
-	if err := a.checkPositions(len(ids)); err != nil {
+	if err := a.validateSingleLength(len(ids)); err != nil {
 		return nil, nil, err
 	}
 	x, err := a.model.EmbedTokens(ids)
@@ -306,23 +542,17 @@ func (a *eg2Accel) ForwardBatch(ids [][]int) ([][]float32, error) {
 	if len(ids) == 0 {
 		return nil, fmt.Errorf("cuda: an empty batch")
 	}
-	// Every check runs before the gather buffer is allocated, so a refused batch costs no more than its lengths.
-	rowLimit, T := a.batchRowLimit(), 0
-	if len(ids) > rowLimit {
-		return nil, fmt.Errorf("cuda: batch exceeds the launch limit of %d total token rows", rowLimit)
+	// Reject impossible batch counts in O(1) before allocating the lengths slice.
+	if rowLimit := a.batchRowLimit(); len(ids) > rowLimit {
+		return nil, fmt.Errorf("cuda: %w: batch has %d inputs, over the launch limit of %d total token rows", embeddinggemma2.ErrUnsupportedBatchShape, len(ids), rowLimit)
 	}
+	// Every check runs before the gather buffer is allocated, so a refused batch costs no more than its lengths.
 	lens := make([]int, len(ids))
 	for b, in := range ids {
-		if len(in) == 0 {
-			return nil, fmt.Errorf("cuda: batch input %d has no ids", b)
-		}
-		if err := a.checkPositions(len(in)); err != nil {
-			return nil, fmt.Errorf("cuda: batch input %d: %w", b, err)
-		}
-		if len(in) > rowLimit-T {
-			return nil, fmt.Errorf("cuda: batch exceeds the launch limit of %d total token rows", rowLimit)
-		}
-		lens[b], T = len(in), T+len(in)
+		lens[b] = len(in)
+	}
+	if _, _, err := a.validateBatchLengths(lens); err != nil {
+		return nil, err
 	}
 	for b, in := range ids {
 		for _, id := range in {
@@ -364,15 +594,11 @@ func (a *eg2Accel) batchRope(lens []int) map[eg2RopeKey][2]Buffer {
 	for _, n := range lens {
 		T, maxT = T+n, max(maxT, n)
 	}
-	src := map[eg2RopeKey][2]Buffer{}
-	var keys []eg2RopeKey
-	for _, ly := range a.layers {
-		k := eg2RopeKey{ly.w.HeadDim, ly.w.RopeTheta}
-		if _, ok := src[k]; !ok {
-			cs, sn := a.rope(maxT, k.hd, k.theta)
-			src[k] = [2]Buffer{cs, sn}
-			keys = append(keys, k)
-		}
+	keys := a.distinctRopeKeys()
+	src := make(map[eg2RopeKey][2]Buffer, len(keys))
+	for _, k := range keys {
+		cs, sn := a.rope(maxT, k.hd, k.theta)
+		src[k] = [2]Buffer{cs, sn}
 	}
 	out := map[eg2RopeKey][2]Buffer{}
 	for _, k := range keys {
@@ -411,17 +637,16 @@ func (a *eg2Accel) forwardRows(x0 []float32, lens []int, keepLayers bool) ([]flo
 	}
 	slLo, slHi := eg2BatchBounds(lens, W)
 	fuLo, fuHi := eg2BatchBounds(lens, -1)
-	maxQD, maxKVD := 0, 0
-	for _, ly := range a.layers {
-		maxQD = max(maxQD, nH*ly.w.HeadDim)
-		maxKVD = max(maxKVD, ly.w.KVHeads*ly.w.HeadDim)
+	plan, err := a.scratchPlan(T)
+	if err != nil {
+		return nil, nil, err
 	}
 	var out []float32
 	var layers [][]float32
 	if keepLayers {
 		layers = append(layers, append([]float32(nil), x0...))
 	}
-	err := a.ops.do(func() error {
+	err = a.ops.do(func() error {
 		o := a.ops
 		done := false
 		defer func() {
@@ -437,13 +662,13 @@ func (a *eg2Accel) forwardRows(x0 []float32, lens []int, keepLayers bool) ([]flo
 			o.releaseScratch()
 		}()
 		af := o.af
-		x, xn := af(T*H), af(T*H)
-		q, k, v := af(T*maxQD), af(T*maxKVD), af(T*maxKVD)
-		qkv, ctx := af(T*3*maxQD), af(T*maxQD)
-		ob, g, u, f := af(T*H), af(T*I), af(T*I), af(T*H)
-		ple, pleL, gg, pr := af(T*L*P), af(T*P), af(T*P), af(T*H)
-		res := af(T * E)
-		slLoB, slHiB, fuLoB, fuHiB := o.ai(T), o.ai(T), o.ai(T), o.ai(T)
+		x, xn := af(plan.x), af(plan.xn)
+		q, k, v := af(plan.q), af(plan.k), af(plan.v)
+		qkv, ctx := af(plan.qkv), af(plan.ctx)
+		ob, g, u, f := af(plan.ob), af(plan.g), af(plan.u), af(plan.f)
+		ple, pleL, gg, pr := af(plan.ple), af(plan.pleL), af(plan.gg), af(plan.pr)
+		res := af(plan.res)
+		slLoB, slHiB, fuLoB, fuHiB := o.ai(plan.bounds), o.ai(plan.bounds), o.ai(plan.bounds), o.ai(plan.bounds)
 		if e := gpu.Upload(x, x0); e != nil {
 			return e
 		}
