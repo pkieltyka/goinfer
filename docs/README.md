@@ -63,6 +63,8 @@ Raw logs and per-run write-ups. A number in `benchmarks.md` should be traceable 
 They are dated and machine-stamped by convention, and they are **not** updated when the world
 moves — a superseded measurement stays as it was and the page that quotes it is what changes.
 
+For the pbrain workload, see the [EmbeddingGemma 2 indexing and CUDA measurements](measurements/pbrain-embedding-rtx-combined-2026-11-21/README.md) and the [backend research snapshot](../specs/research/embeddinggemma2-inference/research_summary.md).
+
 ## Archive — `completed/`
 
 Finished work, kept for the reasoning rather than the outcome — including negative results, which

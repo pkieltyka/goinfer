@@ -392,3 +392,4 @@ apps/site/data/release.json
 
 # A maintainer's private overlay for Claude Code (see CLAUDE.md).
 CLAUDE.local.md
+factory.toml

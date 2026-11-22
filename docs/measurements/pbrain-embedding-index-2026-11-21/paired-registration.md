@@ -1,0 +1,7 @@
+# Fresh pbrain CUDA singleton and pair index comparison
+
+Compare the opt-in pbrain CUDA singleton and adjacent-pair builds on the same frozen 32-note template and digest-verified derived Google model pack. The builds share pbrain source, the same goinfer root and CUDA revisions, toolchain, architecture and cgo settings. Select the paired dispatch with its benchmark build tag. Use four Go scheduler threads and the RTX PRO 6000. Each pbrain process gets a distinct fresh copy of the brain and a new vector cache, while both arms share the same OS-cached model files.
+
+Two ABBA quartets run under the exclusive timing lock. Record per-cell start load and memory, binary digests, pbrain process wall time, and the sum of embedding call times. Use the existing idle and fit rules. Plan for under a minute of process execution plus idle waits. Keep the historical CPU and RTX baseline as provenance for the fixture. Verify that every fresh index has 32 items and 59 passages, that SQLite integrity passes, and that all 59 prepared-ID and vector digests match in order. Require zero cache hits, 59 device forwards in the singleton arm, and a lower device-forward count in the pair arm with an exact trace for every dispatch. Reject missing trace phases and device fallback.
+
+The outcome is an end-to-end measurement of pbrain's fixed adjacent pairing. Record each adjacent unlike ratio and its median. A kernel adoption decision uses its own native corpus experiment. This run uses a process-local model enable flag and scratch directories.
