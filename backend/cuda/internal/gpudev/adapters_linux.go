@@ -64,9 +64,16 @@ func enumerateAdapters(init func() error, count func() (int, error), get func(in
 				continue
 			}
 		}
-		failures = append(failures, fmt.Errorf("cuda: ordinal %d: %w", ordinal, err))
+		failures = append(failures, fmt.Errorf("cuda: ordinal %d: %w", ordinal, adapterAccessError(err)))
 	}
 	return adapters, errors.Join(failures...)
+}
+
+func adapterAccessError(err error) error {
+	if errors.Is(err, gc.ErrInvalidOrdinal) || errors.Is(err, gc.ErrInvalidDevice) || errors.Is(err, gc.ErrNoDevice) {
+		return fmt.Errorf("%w: %w", ErrAdapterChanged, err)
+	}
+	return err
 }
 
 func describeAdapter(dev adapterHandle) (Adapter, error) {
@@ -106,11 +113,15 @@ func retainPrimary(dev interface {
 	if expectedUUID != "" {
 		uuid, err := dev.UUID()
 		if err != nil {
-			return nil, fmt.Errorf("cuda: verify selected device UUID: %w", err)
+			return nil, fmt.Errorf("cuda: verify selected device UUID: %w", adapterAccessError(err))
 		}
 		if !strings.EqualFold(uuid, expectedUUID) {
 			return nil, fmt.Errorf("%w: wanted %s, found %s", ErrAdapterChanged, expectedUUID, uuid)
 		}
 	}
-	return dev.Primary()
+	cx, err := dev.Primary()
+	if err != nil {
+		return nil, fmt.Errorf("cuda: retain primary context: %w", adapterAccessError(err))
+	}
+	return cx, nil
 }

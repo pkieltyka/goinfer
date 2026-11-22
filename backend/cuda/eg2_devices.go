@@ -13,7 +13,6 @@ import (
 	gc "github.com/eitamring/gocudrv/cuda"
 	gpu "github.com/pkieltyka/goinfer/backend/cuda/internal/gpudev"
 	"github.com/pkieltyka/goinfer/embeddinggemma2"
-	"github.com/pkieltyka/goinfer/internal/runtime/mem"
 )
 
 func selectedEG2Factory(combined bool) func(*embeddinggemma2.Model, string) (embeddinggemma2.Accelerator, error) {
@@ -30,11 +29,7 @@ func selectedEG2Factory(combined bool) func(*embeddinggemma2.Model, string) (emb
 			return nil, err
 		}
 		acc, err := newEG2AccelOn(m, combined, func() (*Device, error) {
-			dev, err := gpu.CreateSelectedDevice(selected)
-			if errors.Is(err, gc.ErrInvalidDevice) || errors.Is(err, gc.ErrInvalidOrdinal) {
-				return nil, fmt.Errorf("%w: %w", embeddinggemma2.ErrNoDevice, err)
-			}
-			return dev, err
+			return gpu.CreateSelectedDevice(selected)
 		})
 		if err != nil {
 			return nil, err
@@ -45,9 +40,9 @@ func selectedEG2Factory(combined bool) func(*embeddinggemma2.Model, string) (emb
 
 func classifyCUDAAttach(err error) error {
 	switch {
-	case errors.Is(err, gc.ErrOutOfMemory), mem.DeviceOutOfMemory(err):
+	case errors.Is(err, gc.ErrOutOfMemory):
 		return fmt.Errorf("%w: %w", embeddinggemma2.ErrDeviceOutOfMemory, err)
-	case errors.Is(err, gc.ErrNoDevice), errors.Is(err, gpu.ErrAdapterChanged):
+	case errors.Is(err, gpu.ErrAdapterChanged), errors.Is(err, gpu.ErrDriverInit) && errors.Is(err, gc.ErrNoDevice):
 		return fmt.Errorf("%w: %w", embeddinggemma2.ErrNoDevice, err)
 	case errors.Is(err, gpu.ErrDriverInit):
 		return fmt.Errorf("%w: %w", embeddinggemma2.ErrBackendUnavailable, err)

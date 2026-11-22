@@ -51,6 +51,8 @@ func TestResolveCUDADevice(t *testing.T) {
 }
 
 func TestCUDAAttachErrorCategories(t *testing.T) {
+	invalidAlloc := gpu.AllocFailedPanic("weight", 4096, gc.ErrInvalidValue)
+	textOOM := errors.New("OUT_OF_MEMORY without a native result")
 	for _, tt := range []struct {
 		native error
 		want   error
@@ -58,13 +60,21 @@ func TestCUDAAttachErrorCategories(t *testing.T) {
 		{fmt.Errorf("%w: %w", gpu.ErrDriverInit, gc.ErrOutOfMemory), embeddinggemma2.ErrDeviceOutOfMemory},
 		{fmt.Errorf("%w: %w", gpu.ErrDriverInit, gc.ErrNoDevice), embeddinggemma2.ErrNoDevice},
 		{fmt.Errorf("%w: %w", gpu.ErrDriverInit, gc.ErrStubLibrary), embeddinggemma2.ErrBackendUnavailable},
-		{gpu.ErrAdapterChanged, embeddinggemma2.ErrNoDevice},
+		{fmt.Errorf("%w: %w", gpu.ErrAdapterChanged, gc.ErrInvalidOrdinal), embeddinggemma2.ErrNoDevice},
+		{fmt.Errorf("%w: %w", gpu.ErrAdapterChanged, gc.ErrInvalidDevice), embeddinggemma2.ErrNoDevice},
+		{gpu.AllocFailedPanic("weight", 4096, gc.ErrOutOfMemory), embeddinggemma2.ErrDeviceOutOfMemory},
+		{invalidAlloc, invalidAlloc},
+		{textOOM, textOOM},
+		{gc.ErrInvalidDevice, gc.ErrInvalidDevice},
 		{gc.ErrInvalidPTX, gc.ErrInvalidPTX},
 	} {
 		got := classifyCUDAAttach(tt.native)
 		if !errors.Is(got, tt.want) || !errors.Is(got, tt.native) ||
 			tt.want == embeddinggemma2.ErrDeviceOutOfMemory && errors.Is(got, embeddinggemma2.ErrDeviceUnavailable) {
 			t.Errorf("classify %v: got %v, want %v preserving native cause", tt.native, got, tt.want)
+		}
+		if tt.native == tt.want && got != tt.native {
+			t.Errorf("unclassified %v unexpectedly wrapped: %v", tt.native, got)
 		}
 	}
 }

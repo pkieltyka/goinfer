@@ -64,6 +64,14 @@ func TestCUDAAdapterEnumeration(t *testing.T) {
 	if len(rows) != 0 || !errors.Is(err, ErrDriverInit) || !errors.Is(err, failure) {
 		t.Fatalf("init failure: rows %+v, error %v", rows, err)
 	}
+	for _, native := range []error{gc.ErrInvalidOrdinal, gc.ErrInvalidDevice} {
+		rows, err := enumerateAdapters(init, func() (int, error) { return 1, nil }, func(int) (adapterHandle, error) {
+			return nil, native
+		})
+		if len(rows) != 0 || !errors.Is(err, ErrAdapterChanged) || !errors.Is(err, native) {
+			t.Fatalf("vanished ordinal: rows %+v, error %v (%v)", rows, err, native)
+		}
+	}
 }
 
 func TestCUDAAdapterRetainsOnlyVerifiedHandle(t *testing.T) {
@@ -78,6 +86,10 @@ func TestCUDAAdapterRetainsOnlyVerifiedHandle(t *testing.T) {
 	second.uuidErr = gc.ErrSymbolUnavailable
 	if _, err := retainPrimary(second, "second"); !errors.Is(err, gc.ErrSymbolUnavailable) || second.retains != 1 {
 		t.Fatalf("unverified adapter: error %v, %d retains", err, second.retains)
+	}
+	second.uuidErr = gc.ErrInvalidDevice
+	if _, err := retainPrimary(second, "second"); !errors.Is(err, ErrAdapterChanged) || !errors.Is(err, gc.ErrInvalidDevice) || second.retains != 1 {
+		t.Fatalf("vanished adapter: error %v, %d retains", err, second.retains)
 	}
 	if _, err := retainPrimary(first, ""); err != nil || first.retains != 1 {
 		t.Fatalf("bare selection: error %v, %d retains", err, first.retains)

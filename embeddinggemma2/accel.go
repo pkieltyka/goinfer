@@ -90,21 +90,32 @@ func Accelerators() []string {
 
 // NewAccelerator builds the named accelerator over this model's weights.
 func (m *Model) NewAccelerator(name string) (Accelerator, error) {
+	a, _, err := m.newAccelerator(name)
+	return a, err
+}
+
+func (m *Model) newAccelerator(name string) (Accelerator, bool, error) {
 	accelMu.Lock()
 	f := accels[name]
 	backend, id, qualified := strings.Cut(name, ":")
 	selected := selectedAccels[backend]
 	accelMu.Unlock()
-	if f == nil && qualified && selected != nil {
+	deviceSelected := f == nil && qualified && selected != nil
+	if deviceSelected {
 		f = func(m *Model) (Accelerator, error) { return selected(m, id) }
 	}
 	if f == nil && qualified {
-		return nil, fmt.Errorf("%w: no %q device selector in this binary", ErrBackendUnavailable, backend)
+		return nil, false, fmt.Errorf("%w: no %q device selector in this binary", ErrBackendUnavailable, backend)
 	}
 	if f == nil {
-		return nil, fmt.Errorf("%w: no %q accelerator in this binary (registered: %v)", ErrBackendUnavailable, name, Accelerators())
+		return nil, false, fmt.Errorf("%w: no %q accelerator in this binary (registered: %v)", ErrBackendUnavailable, name, Accelerators())
 	}
 	a, err := f(m)
+	a, err = checkAccelerator(name, a, err)
+	return a, deviceSelected, err
+}
+
+func checkAccelerator(name string, a Accelerator, err error) (Accelerator, error) {
 	if err != nil {
 		return a, err
 	}
@@ -189,11 +200,11 @@ func RopeTables(T, hd int, theta float64) (cos, sin []float32) { return ropeTabl
 // then use it. A bare selector also moves the vision and audio towers when compatible tower accelerators
 // are registered. An explicit device ID or alias leaves both towers on the CPU. An error leaves the encoder unchanged.
 func (e *Encoder) UseAccelerator(name string) (Accelerator, error) {
-	a, err := e.m.NewAccelerator(name)
+	a, deviceSelected, err := e.m.newAccelerator(name)
 	if err != nil {
 		return nil, err
 	}
-	e.attachAccelerator(a, strings.Contains(name, ":"))
+	e.attachAccelerator(a, deviceSelected)
 	return a, nil
 }
 
