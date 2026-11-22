@@ -94,7 +94,15 @@ type Weights struct {
 // Weights returns the model's weights for an accelerator. On a model built by NewModel the token table is widened to
 // float32 the first time this is called, which the CPU path never needs.
 func (m *Model) Weights() Weights {
-	w := Weights{Config: m.cfg, Embed: m.embedF32(), PLEProj: m.pleProj, PLENorm: m.pleNorm, FinalNorm: m.finalNorm,
+	w := m.TransformerWeights()
+	w.Embed = m.embedF32()
+	return w
+}
+
+// TransformerWeights returns the read-only encoder weights with Embed left nil.
+// Accelerators that obtain input rows through EmbedTokens can leave a packed token table packed.
+func (m *Model) TransformerWeights() Weights {
+	w := Weights{Config: m.cfg, PLEProj: m.pleProj, PLENorm: m.pleNorm, FinalNorm: m.finalNorm,
 		Projection: m.projection, Layers: make([]LayerWeights, len(m.layers))}
 	for i := range m.layers {
 		l := &m.layers[i]
