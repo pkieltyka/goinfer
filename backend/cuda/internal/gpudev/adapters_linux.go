@@ -50,7 +50,7 @@ func enumerateAdapters(init func() error, count func() (int, error), get func(in
 	}
 	n, err := count()
 	if err != nil {
-		return nil, fmt.Errorf("cuda: device count: %w", err)
+		return nil, fmt.Errorf("cuda: device count: %w", adapterAccessError(err))
 	}
 	var adapters []Adapter
 	var failures []error

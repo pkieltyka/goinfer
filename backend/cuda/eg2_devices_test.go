@@ -62,6 +62,7 @@ func TestCUDAAttachErrorCategories(t *testing.T) {
 		{fmt.Errorf("%w: %w", gpu.ErrDriverInit, gc.ErrStubLibrary), embeddinggemma2.ErrBackendUnavailable},
 		{fmt.Errorf("%w: %w", gpu.ErrAdapterChanged, gc.ErrInvalidOrdinal), embeddinggemma2.ErrNoDevice},
 		{fmt.Errorf("%w: %w", gpu.ErrAdapterChanged, gc.ErrInvalidDevice), embeddinggemma2.ErrNoDevice},
+		{fmt.Errorf("%w: %w", gpu.ErrAdapterChanged, gc.ErrNoDevice), embeddinggemma2.ErrNoDevice},
 		{gpu.AllocFailedPanic("weight", 4096, gc.ErrOutOfMemory), embeddinggemma2.ErrDeviceOutOfMemory},
 		{invalidAlloc, invalidAlloc},
 		{textOOM, textOOM},

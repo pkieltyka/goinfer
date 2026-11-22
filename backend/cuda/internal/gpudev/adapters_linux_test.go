@@ -72,6 +72,12 @@ func TestCUDAAdapterEnumeration(t *testing.T) {
 			t.Fatalf("vanished ordinal: rows %+v, error %v (%v)", rows, err, native)
 		}
 	}
+	for _, native := range []error{gc.ErrNoDevice, gc.ErrInvalidDevice} {
+		rows, err := enumerateAdapters(init, func() (int, error) { return 0, native }, nil)
+		if len(rows) != 0 || !errors.Is(err, ErrAdapterChanged) || !errors.Is(err, native) {
+			t.Fatalf("failed count: rows %+v, error %v (%v)", rows, err, native)
+		}
+	}
 }
 
 func TestCUDAAdapterRetainsOnlyVerifiedHandle(t *testing.T) {
