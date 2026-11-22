@@ -19,11 +19,12 @@ const (
 )
 
 var (
-	ErrRuntimeUnavailable = errors.New("vulkan: runtime unavailable")
-	ErrNoAdapter          = errors.New("vulkan: no discrete AMD adapter matches the selection")
-	ErrAmbiguousAdapter   = errors.New("vulkan: several discrete AMD adapters match the selection")
-	ErrOutOfMemory        = errors.New("vulkan: native allocation failed")
-	ErrDeviceLost         = errors.New("vulkan: native device lost")
+	ErrRuntimeUnavailable      = errors.New("vulkan: runtime unavailable")
+	ErrNoAdapter               = errors.New("vulkan: no discrete AMD adapter matches the selection")
+	ErrAmbiguousAdapter        = errors.New("vulkan: several discrete AMD adapters match the selection")
+	ErrOutOfMemory             = errors.New("vulkan: native allocation failed")
+	ErrBufferDeviceOutOfMemory = errors.New("vulkan: buffer device memory allocation failed")
+	ErrDeviceLost              = errors.New("vulkan: native device lost")
 )
 
 type ResultError struct {

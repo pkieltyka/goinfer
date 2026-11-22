@@ -45,13 +45,20 @@ func openAccelerator(m *embeddinggemma2.Model) (embeddinggemma2.Accelerator, err
 }
 
 func attach(m *embeddinggemma2.Model, selector vk.Selector) (embeddinggemma2.Accelerator, error) {
-	a, err := newEncoder(m, selector)
+	return attachWithOpener(m, func() (*vk.Device, error) { return vk.Open(selector) })
+}
+
+func attachWithOpener(m *embeddinggemma2.Model, openDev func() (*vk.Device, error)) (embeddinggemma2.Accelerator, error) {
+	a, err := newEncoderWithOpener(m, openDev)
 	if err != nil {
 		return nil, classify(err)
 	}
 	return a, nil
 }
 func newEncoder(m *embeddinggemma2.Model, selector vk.Selector) (*encoder, error) {
+	return newEncoderWithOpener(m, func() (*vk.Device, error) { return vk.Open(selector) })
+}
+func newEncoderWithOpener(m *embeddinggemma2.Model, openDev func() (*vk.Device, error)) (*encoder, error) {
 	if m == nil {
 		return nil, errors.New("vulkan: nil model")
 	}
@@ -70,7 +77,7 @@ func newEncoder(m *embeddinggemma2.Model, selector vk.Selector) (*encoder, error
 		a.maxQ = max(a.maxQ, cfg.Heads*l.HeadDim)
 		a.maxKV = max(a.maxKV, l.KVHeads*l.HeadDim)
 	}
-	d, err := vk.Open(selector)
+	d, err := openDev()
 	if err != nil {
 		return nil, err
 	}

@@ -58,16 +58,32 @@ func (f *forward) close() error {
 func (a *encoder) forwardRows(x []float32, lengths []int, keep bool) (out []float32, hidden [][]float32, err error) {
 	t := len(x) / a.cfg.Hidden
 	f := forward{a: a, rows: t, maxGroupX: int(a.device.Info().MaxGroupCount[0]), lengths: lengths, tables: make(map[rotation][2]*vk.Buffer)}
+	beforeSub := a.device.Activity().Submissions
+	submitted := false
 	defer func() {
-		if closeErr := f.close(); closeErr != nil {
+		closeErr := f.close()
+		if closeErr != nil {
 			out, hidden = nil, nil
 			err = errors.Join(err, closeErr)
 		}
-		if status := a.device.Status(); errors.Is(status, vk.ErrDeviceLost) && !errors.Is(err, vk.ErrDeviceLost) {
+		status := a.device.Status()
+		if errors.Is(status, vk.ErrDeviceLost) && !errors.Is(err, vk.ErrDeviceLost) {
 			err = fmt.Errorf("%w (forward returned %v)", status, err)
 			out, hidden = nil, nil
 		}
-		if errors.Is(err, vk.ErrDeviceLost) {
+		if err == nil {
+			return
+		}
+		out, hidden = nil, nil
+		if errors.Is(err, vk.ErrDeviceLost) || errors.Is(status, vk.ErrDeviceLost) {
+			err = classify(err)
+			return
+		}
+		if !submitted && a.device.Activity().Submissions == beforeSub && closeErr == nil && status == nil && errors.Is(err, vk.ErrBufferDeviceOutOfMemory) {
+			err = fmt.Errorf("%w: %w", embeddinggemma2.ErrBatchOutOfMemory, err)
+			return
+		}
+		if errors.Is(err, vk.ErrOutOfMemory) {
 			err = classify(err)
 		}
 	}()
@@ -121,6 +137,7 @@ func (a *encoder) forwardRows(x []float32, lengths []int, keep bool) (out []floa
 		return nil, nil, plan.err
 	}
 	for i, group := range plan.groups {
+		submitted = true
 		if err := a.device.Run(func(c *vk.Commands) error {
 			for _, command := range group.commands {
 				if err := command(c); err != nil {

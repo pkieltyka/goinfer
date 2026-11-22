@@ -143,6 +143,76 @@ func TestFailedBufferSetupIgnoresPoisonedOutputs(t *testing.T) {
 	}
 }
 
+func TestNewBuffer_TagsOnlyAllocateMemoryDeviceOOM(t *testing.T) {
+	for _, tc := range []struct {
+		name          string
+		mem           Memory
+		hooks         FakeHooksForTest
+		wantBufDevOOM bool
+		wantCommonOOM bool
+		wantCode      int32
+	}{
+		{
+			name:          "device-local-alloc-device-oom",
+			mem:           DeviceLocal,
+			hooks:         FakeHooksForTest{AllocateMemory: func(Memory, uint64) int32 { return -2 }},
+			wantBufDevOOM: true, wantCommonOOM: true, wantCode: -2,
+		},
+		{
+			name:          "host-visible-alloc-device-oom",
+			mem:           HostVisible,
+			hooks:         FakeHooksForTest{AllocateMemory: func(Memory, uint64) int32 { return -2 }},
+			wantBufDevOOM: true, wantCommonOOM: true, wantCode: -2,
+		},
+		{
+			name:          "alloc-host-oom-not-retry",
+			mem:           DeviceLocal,
+			hooks:         FakeHooksForTest{AllocateMemory: func(Memory, uint64) int32 { return -1 }},
+			wantBufDevOOM: false, wantCommonOOM: true, wantCode: -1,
+		},
+		{
+			name:          "create-buffer-device-oom-not-retry",
+			mem:           DeviceLocal,
+			hooks:         FakeHooksForTest{CreateBuffer: func(uint64) int32 { return -2 }},
+			wantBufDevOOM: false, wantCommonOOM: true, wantCode: -2,
+		},
+		{
+			name:          "bind-device-oom-not-retry",
+			mem:           DeviceLocal,
+			hooks:         FakeHooksForTest{BindMemory: func() int32 { return -2 }},
+			wantBufDevOOM: false, wantCommonOOM: true, wantCode: -2,
+		},
+		{
+			name:          "map-failed-not-retry",
+			mem:           HostVisible,
+			hooks:         FakeHooksForTest{MapMemory: func() int32 { return -5 }},
+			wantBufDevOOM: false, wantCommonOOM: false, wantCode: -5,
+		},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			d := NewFakeDeviceForTest(&tc.hooks)
+			defer d.Close()
+			b, err := d.NewBuffer(64, tc.mem)
+			if b != nil || err == nil {
+				t.Fatalf("got (%v, %v), want nil buffer and error", b, err)
+			}
+			if errors.Is(err, ErrBufferDeviceOutOfMemory) != tc.wantBufDevOOM {
+				t.Fatalf("ErrBufferDeviceOutOfMemory=%v, want %v (err=%v)", errors.Is(err, ErrBufferDeviceOutOfMemory), tc.wantBufDevOOM, err)
+			}
+			if errors.Is(err, ErrOutOfMemory) != tc.wantCommonOOM {
+				t.Fatalf("ErrOutOfMemory=%v, want %v (err=%v)", errors.Is(err, ErrOutOfMemory), tc.wantCommonOOM, err)
+			}
+			var re *ResultError
+			if !errors.As(err, &re) || re.Code != tc.wantCode {
+				t.Fatalf("ResultError = %v, want code %d", re, tc.wantCode)
+			}
+			if d.LiveBuffersForTest() != 0 {
+				t.Fatalf("partial buffer leaked: live=%d", d.LiveBuffersForTest())
+			}
+		})
+	}
+}
+
 func TestFailedFenceCreationDiscardsPoisonedHandle(t *testing.T) {
 	d := &Device{device: 1}
 	d.api.createCmdPool = func(_ handle, _ *cmdPoolInfo, _ unsafe.Pointer, out *handle) result {

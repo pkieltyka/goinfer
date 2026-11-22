@@ -62,6 +62,204 @@ type Device struct {
 	activity                Activity
 	inFlight                bool
 	broken                  error
+	allocMemHook            func(Memory, uint64) result
+	closeBufHook            func() error
+}
+
+// SetAllocMemoryHookForTest installs an optional per-device hook invoked right
+// at vkAllocateMemory inside Device.NewBuffer. Returning 0 delegates to the
+// underlying allocateMemory function; any nonzero VkResult fails the call.
+func (d *Device) SetAllocMemoryHookForTest(fn func(Memory, uint64) int32) {
+	d.mu.Lock()
+	if fn == nil {
+		d.allocMemHook = nil
+	} else {
+		d.allocMemHook = func(m Memory, size uint64) result { return result(fn(m, size)) }
+	}
+	d.mu.Unlock()
+}
+
+// SetCloseBufferHookForTest installs an optional per-device hook invoked at
+// Buffer.Close before releasing the buffer. Returning a non-nil error leaves
+// the buffer open (and poisons the device if the error matches ErrDeviceLost).
+func (d *Device) SetCloseBufferHookForTest(fn func() error) {
+	d.mu.Lock()
+	d.closeBufHook = fn
+	d.mu.Unlock()
+}
+
+// LiveBuffersForTest reports how many Buffer handles this Device currently owns.
+func (d *Device) LiveBuffersForTest() int {
+	d.mu.Lock()
+	defer d.mu.Unlock()
+	return len(d.buffers)
+}
+
+// FakeHooksForTest configures deterministic native VkResult injections for
+// NewFakeDeviceForTest. Nil hooks succeed (0).
+type FakeHooksForTest struct {
+	MaxAllocations uint32
+	CreateBuffer   func(size uint64) int32
+	AllocateMemory func(memory Memory, size uint64) int32
+	BindMemory     func() int32
+	MapMemory      func() int32
+	QueueSubmit    func() int32
+	WaitFences     func() int32
+	DeviceWaitIdle func() int32
+}
+
+// NewFakeDeviceForTest constructs a CPU-only Device backed by in-memory fake
+// Vulkan entry points so package vulkan tests can inject deterministic native
+// results without opening libvulkan.so.1 or touching hardware.
+func NewFakeDeviceForTest(h *FakeHooksForTest) *Device {
+	if h == nil {
+		h = &FakeHooksForTest{}
+	}
+	maxAlloc := h.MaxAllocations
+	if maxAlloc == 0 {
+		maxAlloc = 4096
+	}
+	var nextHandle handle = 100
+	newHandle := func() handle {
+		nextHandle++
+		return nextHandle
+	}
+	bufSizes := map[handle]uint64{}
+	memBacking := map[handle][]byte{}
+	d := &Device{
+		instance:       1,
+		physical:       2,
+		device:         3,
+		queue:          4,
+		cmdPool:        5,
+		cmd:            6,
+		descPool:       7,
+		fence:          8,
+		maxBindings:    16,
+		maxAllocations: maxAlloc,
+		buffers:        make(map[*Buffer]struct{}),
+		pipelines:      make(map[*Pipeline]struct{}),
+		info: Info{
+			Name:            "fake-vulkan-cpu",
+			UUID:            [16]byte{0xde, 0xad, 0xbe, 0xef},
+			VendorID:        amdVendor,
+			DeviceID:        0x744c,
+			MaxStorageRange: 1 << 30,
+			MaxGroupCount:   [3]uint32{65535, 65535, 65535},
+			MaxPushBytes:    128,
+		},
+	}
+	d.properties.Count = 2
+	d.properties.Types[0].Flags = memoryDeviceLocal
+	d.properties.Types[1].Flags = memoryHostVisible | memoryCoherent | memoryHostCached
+	d.api = api{
+		destroyInstance: func(handle, unsafe.Pointer) {},
+		destroyDevice:   func(handle, unsafe.Pointer) {},
+		deviceWaitIdle: func(handle) result {
+			if h.DeviceWaitIdle != nil {
+				return result(h.DeviceWaitIdle())
+			}
+			return success
+		},
+		createBuffer: func(_ handle, info *bufferInfo, _ unsafe.Pointer, out *handle) result {
+			if h.CreateBuffer != nil {
+				if r := result(h.CreateBuffer(info.Size)); r != success {
+					return r
+				}
+			}
+			id := newHandle()
+			bufSizes[id] = info.Size
+			*out = id
+			return success
+		},
+		destroyBuffer: func(_ handle, b handle, _ unsafe.Pointer) { delete(bufSizes, b) },
+		bufferRequirements: func(_ handle, b handle, req *memoryRequirements) {
+			*req = memoryRequirements{Size: bufSizes[b], Alignment: 16, Bits: 0x3}
+		},
+		allocateMemory: func(_ handle, info *memoryInfo, _ unsafe.Pointer, out *handle) result {
+			mem := DeviceLocal
+			if info.Index == 1 {
+				mem = HostVisible
+			}
+			if h.AllocateMemory != nil {
+				if r := result(h.AllocateMemory(mem, info.Size)); r != success {
+					return r
+				}
+			}
+			id := newHandle()
+			memBacking[id] = make([]byte, max(info.Size, 1))
+			*out = id
+			return success
+		},
+		freeMemory: func(_ handle, m handle, _ unsafe.Pointer) { delete(memBacking, m) },
+		bindMemory: func(_, _, _ handle, _ uint64) result {
+			if h.BindMemory != nil {
+				return result(h.BindMemory())
+			}
+			return success
+		},
+		mapMemory: func(_ handle, m handle, _, _ uint64, _ uint32, out *unsafe.Pointer) result {
+			if h.MapMemory != nil {
+				if r := result(h.MapMemory()); r != success {
+					return r
+				}
+			}
+			b := memBacking[m]
+			*out = unsafe.Pointer(&b[0])
+			return success
+		},
+		unmapMemory: func(handle, handle) {},
+		createShader: func(_ handle, _ *shaderInfo, _ unsafe.Pointer, out *handle) result {
+			*out = newHandle()
+			return success
+		},
+		destroyShader: func(handle, handle, unsafe.Pointer) {},
+		createSetLayout: func(_ handle, _ *setLayoutInfo, _ unsafe.Pointer, out *handle) result {
+			*out = newHandle()
+			return success
+		},
+		destroySetLayout: func(handle, handle, unsafe.Pointer) {},
+		createLayout: func(_ handle, _ *layoutInfo, _ unsafe.Pointer, out *handle) result {
+			*out = newHandle()
+			return success
+		},
+		destroyLayout: func(handle, handle, unsafe.Pointer) {},
+		createPipelines: func(_ handle, _ handle, _ uint32, _ *pipelineInfo, _ unsafe.Pointer, out *handle) result {
+			*out = newHandle()
+			return success
+		},
+		destroyPipeline: func(handle, handle, unsafe.Pointer) {},
+		destroyDescPool: func(handle, handle, unsafe.Pointer) {},
+		resetDescPool:   func(handle, handle, uint32) result { return success },
+		allocateSets:    func(_ handle, _ *setInfo, out *handle) result { *out = newHandle(); return success },
+		updateSets:      func(handle, uint32, *writeInfo, uint32, unsafe.Pointer) {},
+		destroyCmdPool:  func(handle, handle, unsafe.Pointer) {},
+		resetCmdPool:    func(handle, handle, uint32) result { return success },
+		beginCmd:        func(handle, *cmdBegin) result { return success },
+		endCmd:          func(handle) result { return success },
+		destroyFence:    func(handle, handle, unsafe.Pointer) {},
+		resetFences:     func(handle, uint32, *handle) result { return success },
+		waitFences: func(handle, uint32, *handle, uint32, uint64) result {
+			if h.WaitFences != nil {
+				return result(h.WaitFences())
+			}
+			return success
+		},
+		bindPipeline:  func(handle, uint32, handle) {},
+		bindSets:      func(handle, uint32, handle, uint32, uint32, *handle, uint32, *uint32) {},
+		pushConstants: func(handle, handle, uint32, uint32, uint32, *uint32) {},
+		dispatch:      func(handle, uint32, uint32, uint32) {},
+		copyBuffer:    func(handle, handle, handle, uint32, *bufferCopy) {},
+		barrier: func(handle, uint32, uint32, uint32, uint32, *memoryBarrier, uint32, unsafe.Pointer, uint32, unsafe.Pointer) {
+		},
+		queueSubmit: func(handle, uint32, *submitInfo, handle) result {
+			if h.QueueSubmit != nil {
+				return result(h.QueueSubmit())
+			}
+			return success
+		},
+	}
+	return d
 }
 
 var loadLibrary = loadNativeLibrary
