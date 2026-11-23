@@ -22,6 +22,7 @@ import json
 import os
 import re
 import subprocess
+import sys
 import tarfile
 import tempfile
 
@@ -104,7 +105,20 @@ def main():
                       if f.endswith(".json") and f != "shared_sets.json")
     if not families or not shared:
         sys.exit("repo_census: testdata/parity held no family records or shared sets")
-    print(f"\n## parity: {len(families)} family records; {len(shared)} shared sets")
+    # Use the records, not just their names: each family declares which shared sets it is validated
+    # against, and that usage is the census's point.
+    usage = collections.Counter()
+    for fam in families:
+        path = os.path.join("testdata/parity", fam + ".json")
+        try:
+            rec = json.load(open(path))
+        except (OSError, ValueError) as e:
+            sys.exit(f"repo_census: malformed family record {path}: {e}")
+        if not isinstance(rec, dict) or not isinstance(rec.get("uses"), list):
+            sys.exit(f"repo_census: family record {path} has no uses list")
+        for u in rec["uses"]:
+            usage[u] += 1
+    print(f"\n## parity: {len(families)} family records; {len(shared)} shared sets; families per set: {dict(usage)}")
     for name, files in shared.items():
         for f in files:
             if not os.path.exists(f):
