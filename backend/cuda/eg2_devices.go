@@ -56,7 +56,18 @@ func classifyCUDAAttach(err error) error {
 }
 
 func cudaEligible(a gpu.Adapter) bool {
-	return a.Major > ptxTargetMajor || a.Major == ptxTargetMajor && a.Minor >= ptxTargetMinor
+	return cudaSupportsPTX(a.Major, a.Minor)
+}
+
+func cudaSupportsPTX(major, minor int) bool {
+	return major > ptxTargetMajor || major == ptxTargetMajor && minor >= ptxTargetMinor
+}
+
+func cudaSupportsEG2(d embeddinggemma2.DeviceInfo) bool {
+	token, qualified := strings.CutPrefix(d.ID, "cuda:")
+	capability := d.ComputeCapability
+	return qualified && strings.Contains(token, "-") && validCUDADeviceToken(token) &&
+		cudaSupportsPTX(capability.Major, capability.Minor)
 }
 
 func validCUDADeviceToken(token string) bool {

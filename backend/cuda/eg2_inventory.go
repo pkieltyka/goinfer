@@ -52,8 +52,9 @@ func describeCUDADevices(adapters []gpu.Adapter, opts embeddinggemma2.ProbeOptio
 func cudaDeviceInfo(adapter gpu.Adapter) embeddinggemma2.DeviceInfo {
 	row := embeddinggemma2.DeviceInfo{
 		Backend: "cuda", Name: adapter.Name, VendorID: 0x10de,
-		Memory:       embeddinggemma2.DeviceMemory{TotalBytes: int64(min(adapter.TotalBytes, math.MaxInt64))},
-		TextBatching: true,
+		Memory:            embeddinggemma2.DeviceMemory{TotalBytes: int64(min(adapter.TotalBytes, math.MaxInt64))},
+		TextBatching:      true,
+		ComputeCapability: embeddinggemma2.CUDAComputeCapability{Major: adapter.Major, Minor: adapter.Minor},
 	}
 	if adapter.IntegratedKnown {
 		row.MemoryKind = embeddinggemma2.MemoryDedicated
