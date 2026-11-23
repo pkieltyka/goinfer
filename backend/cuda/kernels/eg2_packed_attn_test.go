@@ -3,6 +3,7 @@
 package kernels
 
 import (
+	"fmt"
 	"math"
 	"os"
 	"regexp"
@@ -99,7 +100,7 @@ func TestEG2PackedAttn_TileTableAndSpecContract(t *testing.T) {
 		t.Fatal("empty packed tile table")
 	}
 
-	// Error cases.
+	// Error and overflow cases.
 	if _, err := launchgeom.BuildEG2PackedTiles(nil, 32); err == nil {
 		t.Fatal("expected error for empty batch")
 	}
@@ -108,6 +109,15 @@ func TestEG2PackedAttn_TileTableAndSpecContract(t *testing.T) {
 	}
 	if _, err := launchgeom.BuildEG2PackedTiles([]int{4}, 15); err == nil {
 		t.Fatal("expected error for invalid bm")
+	}
+	if _, err := launchgeom.BuildEG2PackedTiles([]int{math.MaxInt}, 32); err == nil {
+		t.Fatal("expected error for math.MaxInt segment length")
+	}
+	if _, err := launchgeom.BuildEG2PackedTiles([]int{math.MaxInt32, 1}, 32); err == nil {
+		t.Fatal("expected error for total rows exceeding int32")
+	}
+	if _, err := launchgeom.BuildEG2PackedTiles([]int{65536 * 32}, 32); err == nil {
+		t.Fatal("expected error for tile count exceeding GridY 65535")
 	}
 }
 
@@ -288,14 +298,28 @@ func TestEG2PackedAttn_DeviceParityAndBitIdentity(t *testing.T) {
 		return out
 	}
 
-	makeSeg := func(seed, n, nH, nKV, hd int) (q, k, v []float32) {
+	// Original sinusoidal generator preserved verbatim so the three previously
+	// failing high-cancellation fixtures remain active parity gates.
+	makeSinSeg := func(seed, n, nH, nKV, hd int) (q, k, v []float32) {
 		q = make([]float32, n*nH*hd)
 		k = make([]float32, n*nKV*hd)
 		v = make([]float32, n*nKV*hd)
-		// Deterministic SplitMix64 post-RMSNorm-like activations (realistic
-		// non-periodic Q/K/V with a modest shared signal component so output
-		// vectors have realistic non-degenerate norms instead of periodic
-		// beat-frequency cancellation).
+		for i := range q {
+			q[i] = float32(math.Sin(float64(seed*997+i)*0.173)) * 0.85
+		}
+		for i := range k {
+			k[i] = float32(math.Cos(float64(seed*613+i)*0.131)) * 0.90
+		}
+		for i := range v {
+			v[i] = float32(math.Sin(float64(seed*409+i)*0.097)) * 0.75
+		}
+		return q, k, v
+	}
+
+	makeRandSeg := func(seed, n, nH, nKV, hd int) (q, k, v []float32) {
+		q = make([]float32, n*nH*hd)
+		k = make([]float32, n*nKV*hd)
+		v = make([]float32, n*nKV*hd)
 		state := uint64(seed)*0x9e3779b97f4a7c15 + 0xbf58476d1ce4e5b9
 		nextF32 := func() float32 {
 			state += 0x9e3779b97f4a7c15
@@ -303,7 +327,6 @@ func TestEG2PackedAttn_DeviceParityAndBitIdentity(t *testing.T) {
 			z = (z ^ (z >> 30)) * 0xbf58476d1ce4e5b9
 			z = (z ^ (z >> 27)) * 0x94d049bb133111eb
 			z ^= z >> 31
-			// Uniform in [-1, 1].
 			return float32(int64(z>>40)-int64(1<<23)) / float32(1<<23)
 		}
 		for i := range q {
@@ -312,17 +335,8 @@ func TestEG2PackedAttn_DeviceParityAndBitIdentity(t *testing.T) {
 		for i := range k {
 			k[i] = nextF32() * 0.90
 		}
-		for pos := range n {
-			for kvh := range nKV {
-				base := pos*nKV*hd + kvh*hd
-				for d := range hd {
-					bias := float32(0.25)
-					if ((d + kvh) & 1) == 1 {
-						bias = -0.25
-					}
-					v[base+d] = bias + nextF32()*0.75
-				}
-			}
+		for i := range v {
+			v[i] = nextF32() * 0.75
 		}
 		return q, k, v
 	}
@@ -393,23 +407,24 @@ func TestEG2PackedAttn_DeviceParityAndBitIdentity(t *testing.T) {
 	}
 
 	cases := []struct {
-		name      string
-		nH        int
-		nKV       int
-		hd        int
-		window    int
-		scale     float32
-		lens      []int
-		highRange bool
+		name   string
+		nH     int
+		nKV    int
+		hd     int
+		window int
+		scale  float32
+		lens   []int
+		gen    string // "sin", "rand", "highrange"
 	}{
-		{"real-eg2-sliding-hd256-scale1", 4, 2, 256, 512, 1.0, []int{1, 17, 32, 33, 65, 514, 600}, false},
-		{"real-eg2-full-hd512-scale1", 4, 1, 512, -1, 1.0, []int{1, 17, 32, 33, 65, 193}, false},
-		{"real-eg2-sliding-hd256-highrange", 4, 2, 256, 512, 1.0, []int{7, 33, 97, 193}, true},
-		{"real-eg2-full-hd512-highrange", 4, 1, 512, -1, 1.0, []int{7, 33, 97, 193}, true},
-		{"real-eg2-sliding-hd256-invsqrt", 4, 2, 256, 48, float32(1.0 / math.Sqrt(256)), []int{19, 64, 129, 7}, false},
-		{"real-eg2-full-hd512-scale025", 4, 1, 512, -1, 0.25, []int{5, 33, 70}, false},
-		{"tiny-eg2-sliding-hd16", 4, 2, 16, 3, 1.0, []int{1, 3, 4, 17, 33}, false},
-		{"tiny-eg2-full-hd32", 4, 1, 32, -1, 1.0, []int{1, 5, 32, 35}, false},
+		{"real-eg2-sliding-hd256-scale1", 4, 2, 256, 512, 1.0, []int{1, 17, 32, 33, 65, 513, 514}, "sin"},
+		{"real-eg2-full-hd512-scale1", 4, 1, 512, -1, 1.0, []int{1, 17, 32, 33, 65, 193}, "sin"},
+		{"real-eg2-sliding-hd256-invsqrt", 4, 2, 256, 48, float32(1.0 / math.Sqrt(256)), []int{19, 64, 129, 7}, "sin"},
+		{"real-eg2-sliding-hd256-rand", 4, 2, 256, 512, 1.0, []int{17, 65, 514, 600}, "rand"},
+		{"real-eg2-sliding-hd256-highrange", 4, 2, 256, 512, 1.0, []int{7, 33, 97, 193}, "highrange"},
+		{"real-eg2-full-hd512-highrange", 4, 1, 512, -1, 1.0, []int{7, 33, 97, 193}, "highrange"},
+		{"real-eg2-full-hd512-scale025", 4, 1, 512, -1, 0.25, []int{5, 33, 70}, "sin"},
+		{"tiny-eg2-sliding-hd16", 4, 2, 16, 3, 1.0, []int{1, 3, 4, 17, 33}, "sin"},
+		{"tiny-eg2-full-hd32", 4, 1, 32, -1, 1.0, []int{1, 5, 32, 35}, "sin"},
 	}
 
 	for _, tc := range cases {
@@ -418,15 +433,19 @@ func TestEG2PackedAttn_DeviceParityAndBitIdentity(t *testing.T) {
 			singleOuts := make([][]float32, len(tc.lens))
 			qDim := tc.nH * tc.hd
 
-			// 1. Run each segment as a singleton and verify FP32 CPU & f16-tile logic parity.
+			// 1. Run each segment as a singleton and verify FP32 CPU & split-f16 logic parity.
 			worstCPU := 1.0
+			worstCPUInfo := ""
 			worstLogic := 1.0
 			for i, n := range tc.lens {
 				var q, k, v []float32
-				if tc.highRange {
+				switch tc.gen {
+				case "highrange":
 					q, k, v = makeHighRangeSeg(i+1, n, tc.nH, tc.nKV, tc.hd)
-				} else {
-					q, k, v = makeSeg(i+1, n, tc.nH, tc.nKV, tc.hd)
+				case "rand":
+					q, k, v = makeRandSeg(i+1, n, tc.nH, tc.nKV, tc.hd)
+				default:
+					q, k, v = makeSinSeg(i+1, n, tc.nH, tc.nKV, tc.hd)
 				}
 				segs[i] = [3][]float32{q, k, v}
 				out := runPacked(t, tc.hd, tc.nH, tc.nKV, tc.window, tc.scale, q, k, v, []int{n})
@@ -460,19 +479,20 @@ func TestEG2PackedAttn_DeviceParityAndBitIdentity(t *testing.T) {
 				for _, row := range rows {
 					for h := range tc.nH {
 						off := row*qDim + h*tc.hd
-						cos := eg2AttnAssertCosine(t, tc.name+" FP32 CPU", i, n, row, h, out[off:off+tc.hd], cpuRef[off:off+tc.hd], 0.999)
+						cos, refNorm, maxAbs := eg2AttnAssertCosine(t, tc.name+" FP32 CPU", i, n, row, h, out[off:off+tc.hd], cpuRef[off:off+tc.hd], 0.999)
 						if cos < worstCPU {
 							worstCPU = cos
+							worstCPUInfo = eg2AttnRowDiag(i, n, row, h, refNorm, maxAbs)
 						}
 					}
 				}
 				if n <= 70 {
 					spec, _ := launchgeom.EG2PackedAttnSpecForHD(tc.hd)
-					logicRef := eg2AttnRefF16Tiles(q, k, v, n, tc.nH, tc.nKV, tc.hd, tc.window, tc.scale, spec.BM, spec.BN)
+					logicRef := eg2AttnRefSplitF16Tiles(q, k, v, n, tc.nH, tc.nKV, tc.hd, tc.window, tc.scale, spec.BM, spec.BN)
 					for row := range n {
 						for h := range tc.nH {
 							off := row*qDim + h*tc.hd
-							cos := eg2AttnAssertCosine(t, tc.name+" f16-tile f64", i, n, row, h, out[off:off+tc.hd], logicRef[off:off+tc.hd], 0.99999)
+							cos, _, _ := eg2AttnAssertCosine(t, tc.name+" split-f16 f64", i, n, row, h, out[off:off+tc.hd], logicRef[off:off+tc.hd], 0.99999)
 							if cos < worstLogic {
 								worstLogic = cos
 							}
@@ -480,7 +500,7 @@ func TestEG2PackedAttn_DeviceParityAndBitIdentity(t *testing.T) {
 					}
 				}
 			}
-			t.Logf("%s: worst per-row cosine vs FP32 CPU = %.8f, vs f16-tile f64 = %.8f", tc.name, worstCPU, worstLogic)
+			t.Logf("%s: worst FP32 CPU cos = %.8f (%s), worst split-f16 f64 cos (n<=70) = %.8f", tc.name, worstCPU, worstCPUInfo, worstLogic)
 
 			// 2. Verify exact math.Float32bits identity across packed, split, and reordered layouts.
 			checkOrder := func(label string, order []int) {
@@ -553,9 +573,8 @@ func TestEG2PackedAttn_DeviceParityAndBitIdentity(t *testing.T) {
 			}
 		})
 	}
-	// 4. Masked NaN/Inf isolation within a single union tile:
-	// rows that cannot attend a nonfinite key must return finite 1.0 (never 0*NaN or 0*Inf),
-	// while rows that CAN attend it must still expose the nonfinite input.
+	// 4. Masked NaN/Inf/FP16-overflow isolation within a single union tile,
+	// including layout-change bit-identity on the masked finite rows.
 	t.Run("masked-nonfinite-isolation", func(t *testing.T) {
 		for _, hd := range []int{16, 256} {
 			for _, kind := range []struct {
@@ -606,6 +625,47 @@ func TestEG2PackedAttn_DeviceParityAndBitIdentity(t *testing.T) {
 						}
 					}
 				}
+				// Verify layout-change bit-identity on the finite rows (rows 2..3) when packed after a neighbor.
+				if kind.name == "V-NaN" {
+					nq, nk, nv := makeSinSeg(9, 13, nH, nKV, hd)
+					pq, pk, pv := concatSegs([][3][]float32{{nq, nk, nv}, {q, k, v}}, []int{0, 1})
+					pOut := runPacked(t, hd, nH, nKV, win, 1.0, pq, pk, pv, []int{13, n})
+					gotSeg := pOut[13*qDim : (13+n)*qDim]
+					for row := 2; row < n; row++ {
+						for j := row * qDim; j < (row+1)*qDim; j++ {
+							if math.Float32bits(gotSeg[j]) != math.Float32bits(out[j]) {
+								t.Fatalf("hd=%d V-NaN packed row=%d bit mismatch at %d: got %08x (%g), want %08x (%g)",
+									hd, row, j, math.Float32bits(gotSeg[j]), gotSeg[j], math.Float32bits(out[j]), out[j])
+							}
+						}
+					}
+				}
+			}
+
+			// Finite V that overflows FP16 (> 65504 -> half +Inf): eligible rows must
+			// return exact finite FP32 averages (not Inf/NaN), masked rows finite 1.0.
+			const (
+				n    = 4
+				nH   = 4
+				nKV  = 2
+				win  = 1
+				colD = 5
+			)
+			q := make([]float32, n*nH*hd)
+			k := make([]float32, n*nKV*hd)
+			v := make([]float32, n*nKV*hd)
+			for i := range v {
+				v[i] = 1.0
+			}
+			v[0*nKV*hd+0*hd+colD] = 1e5
+			out := runPacked(t, hd, nH, nKV, win, 1.0, q, k, v, []int{n})
+			qDim := nH * hd
+			wantByRow := [4]float64{(1e5 + 1.0) / 2.0, (1e5 + 2.0) / 3.0, 1.0, 1.0}
+			for row := range n {
+				got := float64(out[row*qDim+0*hd+colD])
+				if math.IsNaN(got) || math.IsInf(got, 0) || math.Abs(got-wantByRow[row]) > 1e-1 {
+					t.Fatalf("hd=%d V-fp16-overflow row=%d h=0 d=%d: got %g, want finite %g", hd, row, colD, got, wantByRow[row])
+				}
 			}
 		}
 
@@ -628,7 +688,6 @@ func TestEG2PackedAttn_DeviceParityAndBitIdentity(t *testing.T) {
 		out := runPacked(t, hd, nH, nKV, win, 1.0, q, k, v, []int{n})
 		qDim := nH * hd
 		for _, row := range []int{0, 6, 7, 512, 513, 519} {
-			// Head 0 (kvh=0) sees V[0,17]=NaN iff row <= 512.
 			g0 := float64(out[row*qDim+0*hd+17])
 			if row <= win {
 				if !math.IsNaN(g0) {
@@ -637,7 +696,6 @@ func TestEG2PackedAttn_DeviceParityAndBitIdentity(t *testing.T) {
 			} else if math.IsNaN(g0) || math.IsInf(g0, 0) || math.Abs(g0-1.0) > 1e-5 {
 				t.Fatalf("W=512 boundary row=%d h=0 d=17: got %g, want finite 1.0", row, g0)
 			}
-			// Head 2 (kvh=1) sees V[519,200]=+Inf iff row >= 519-512 = 7.
 			g2 := float64(out[row*qDim+2*hd+200])
 			if row >= (n-1)-win {
 				if !math.IsNaN(g2) && !math.IsInf(g2, 0) {
@@ -648,15 +706,107 @@ func TestEG2PackedAttn_DeviceParityAndBitIdentity(t *testing.T) {
 			}
 		}
 	})
+
+	// 5. Clipped sliding-window endpoint test (n=514, W=512): plant a strong key
+	// at k=513 with distinct V so query 0 (|0-513|=513 > 512) excludes it while
+	// query 1 (|1-513|=512 <= 512) attends it strongly.
+	t.Run("clipped-endpoint-514-w512", func(t *testing.T) {
+		const (
+			n   = 514
+			nH  = 4
+			nKV = 2
+			hd  = 256
+			win = 512
+		)
+		q := make([]float32, n*nH*hd)
+		k := make([]float32, n*nKV*hd)
+		v := make([]float32, n*nKV*hd)
+		for pos := range n {
+			for kvh := range nKV {
+				for d := range hd {
+					v[pos*nKV*hd+kvh*hd+d] = 1.0
+				}
+			}
+		}
+		for h := range nH {
+			q[0*nH*hd+h*hd+0] = 10.0
+			q[1*nH*hd+h*hd+0] = 10.0
+		}
+		for kvh := range nKV {
+			k[513*nKV*hd+kvh*hd+0] = 10.0 // score = +100 for q0/q1
+			for d := range hd {
+				v[513*nKV*hd+kvh*hd+d] = -5.0
+			}
+		}
+		out := runPacked(t, hd, nH, nKV, win, 1.0, q, k, v, []int{n})
+		qDim := nH * hd
+		for h := range nH {
+			// Query 0 excludes k=513 -> must equal +1.0.
+			g0 := float64(out[0*qDim+h*hd+0])
+			if math.IsNaN(g0) || math.Abs(g0-1.0) > 1e-4 {
+				t.Fatalf("q=0 h=%d: got %g, want +1.0 (k=513 must be masked)", h, g0)
+			}
+			// Query 1 includes k=513 (score +100 vs 0) -> must equal -5.0.
+			g1 := float64(out[1*qDim+h*hd+0])
+			if math.IsNaN(g1) || math.Abs(g1-(-5.0)) > 1e-4 {
+				t.Fatalf("q=1 h=%d: got %g, want -5.0 (k=513 must be attended)", h, g1)
+			}
+		}
+	})
+
+	// 6. General scale / window edge cases: score below -1e30f normalizes via
+	// -INFINITY tile-max initializer, and window=MaxInt32 does not overflow.
+	t.Run("extreme-negative-score-and-large-window", func(t *testing.T) {
+		const (
+			n   = 4
+			nH  = 4
+			nKV = 2
+			hd  = 16
+		)
+		q := make([]float32, n*nH*hd)
+		k := make([]float32, n*nKV*hd)
+		v := make([]float32, n*nKV*hd)
+		for pos := range n {
+			for h := range nH {
+				q[pos*nH*hd+h*hd+0] = 1.0
+			}
+			for kvh := range nKV {
+				k[pos*nKV*hd+kvh*hd+0] = -1.0 // dot = -1.0 -> score = -1e35 with scale=1e35
+				for d := range hd {
+					v[pos*nKV*hd+kvh*hd+d] = 2.5
+				}
+			}
+		}
+		out := runPacked(t, hd, nH, nKV, math.MaxInt32, 1e35, q, k, v, []int{n})
+		for i, got := range out {
+			if math.IsNaN(float64(got)) || math.Abs(float64(got)-2.5) > 1e-4 {
+				t.Fatalf("extreme-negative-score idx=%d: got %g, want 2.5", i, got)
+			}
+		}
+	})
 }
 
-func eg2AttnAssertCosine(t *testing.T, label string, segIdx, segLen, row, head int, got, want []float32, minCos float64) float64 {
+func eg2AttnRowDiag(segIdx, segLen, row, head int, refNorm, maxAbs float64) string {
+	return fmt.Sprintf("seg=%d(len=%d) row=%d h=%d refNorm=%.4g maxAbs=%.4g", segIdx, segLen, row, head, refNorm, maxAbs)
+}
+
+func eg2AttnAssertCosine(t *testing.T, label string, segIdx, segLen, row, head int, got, want []float32, minCos float64) (cos, refNorm, maxAbs float64) {
 	t.Helper()
-	cos := eg2AttnCosineF32(got, want)
-	if math.IsNaN(cos) || math.IsInf(cos, 0) || cos < minCos {
-		t.Fatalf("%s seg=%d(len=%d) row=%d head=%d: cosine=%.8f (min %.6f)", label, segIdx, segLen, row, head, cos, minCos)
+	var sumSq float64
+	for i := range want {
+		sumSq += float64(want[i]) * float64(want[i])
+		d := math.Abs(float64(got[i]) - float64(want[i]))
+		if d > maxAbs {
+			maxAbs = d
+		}
 	}
-	return cos
+	refNorm = math.Sqrt(sumSq)
+	cos = eg2AttnCosineF32(got, want)
+	if math.IsNaN(cos) || math.IsInf(cos, 0) || cos < minCos {
+		t.Fatalf("%s seg=%d(len=%d) row=%d head=%d: cosine=%.8f (min %.6f, refNorm=%.6g, maxAbs=%.6g)",
+			label, segIdx, segLen, row, head, cos, minCos, refNorm, maxAbs)
+	}
+	return cos, refNorm, maxAbs
 }
 
 func eg2AttnRefFP32Rows(q, k, v []float32, n, nH, nKV, hd, window int, scale float32, rows []int) []float32 {
@@ -705,7 +855,14 @@ func eg2AttnRefFP32Rows(q, k, v []float32, n, nH, nKV, hd, window int, scale flo
 	return out
 }
 
-func eg2AttnRefF16Tiles(q, k, v []float32, n, nH, nKV, hd, window int, scale float32, bm, bn int) []float32 {
+func splitF16(x float32) (hi, lo float64) {
+	h := f16rne(x)
+	hi = float64(h)
+	lo = float64(f16rne(x - h))
+	return hi, lo
+}
+
+func eg2AttnRefSplitF16Tiles(q, k, v []float32, n, nH, nKV, hd, window int, scale float32, bm, bn int) []float32 {
 	qDim, kvDim, group := nH*hd, nKV*hd, nH/nKV
 	out := make([]float32, n*qDim)
 	for q0 := 0; q0 < n; q0 += bm {
@@ -740,7 +897,9 @@ func eg2AttnRefF16Tiles(q, k, v []float32, n, nH, nKV, hd, window int, scale flo
 						anyValid = true
 						var dot float64
 						for d := range hd {
-							dot += float64(f16rne(q[row*qDim+h*hd+d])) * float64(f16rne(k[kl*kvDim+kvh*hd+d]))
+							qh, ql := splitF16(q[row*qDim+h*hd+d])
+							kh, klv := splitF16(k[kl*kvDim+kvh*hd+d])
+							dot += qh*kh + qh*klv + ql*kh
 						}
 						sc[j] = dot * float64(scale)
 						if sc[j] > tmax {
@@ -772,10 +931,11 @@ func eg2AttnRefF16Tiles(q, k, v []float32, n, nH, nKV, hd, window int, scale flo
 						if !valid[j] {
 							continue
 						}
-						pj := float64(f16rne(float32(sc[j])))
+						ph, pl := splitF16(float32(sc[j]))
 						kl := k0 + j
 						for d := range hd {
-							acc[d] += pj * float64(f16rne(v[kl*kvDim+kvh*hd+d]))
+							vh, vl := splitF16(v[kl*kvDim+kvh*hd+d])
+							acc[d] += ph*vh + ph*vl + pl*vh
 						}
 					}
 					lRun = alpha*lRun + sum

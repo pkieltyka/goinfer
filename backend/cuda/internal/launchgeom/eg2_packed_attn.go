@@ -1,6 +1,9 @@
 package launchgeom
 
-import "fmt"
+import (
+	"fmt"
+	"math"
+)
 
 // EG2PackedAttnMaxDefaultShmem is the 48 KiB default shared-memory budget per
 // block on sm_75+ (requiring no cuFuncSetAttribute opt-in).
@@ -21,14 +24,16 @@ type EG2PackedAttnSpec struct {
 
 // EG2PackedAttnSpecForHD returns the eg2_packed_attn.cu launch specification
 // for a supported head dimension (real EG2: 256, 512; tiny EG2 fixture: 16, 32).
+// Shared memory budgets account for split-f16 (hi + lo) Q, K, and V staging
+// slabs overlaid with the cross-warp score reduction buffer Ssh.
 func EG2PackedAttnSpecForHD(hd int) (EG2PackedAttnSpec, bool) {
 	const kpad = 8
 	makeSpec := func(entry string, hd, bm, bn, warpD, dkSub int) EG2PackedAttnSpec {
 		warpM := bm / 16
 		dkTot := warpD * dkSub
-		qBytes := bm * (hd + kpad) * 2
-		kBytes := bn * (dkTot + kpad) * 2
-		vBytes := dkTot * (bn + kpad) * 2
+		qBytes := 2 * bm * (hd + kpad) * 2
+		kBytes := 2 * bn * (dkTot + kpad) * 2
+		vBytes := 2 * dkTot * (bn + kpad) * 2
 		sBytes := 0
 		if warpD > 1 {
 			sBytes = warpM * (warpD - 1) * 16 * bn * 4
@@ -47,9 +52,9 @@ func EG2PackedAttnSpecForHD(hd int) (EG2PackedAttnSpec, bool) {
 	}
 	switch hd {
 	case 256:
-		return makeSpec("eg2_packed_attn_hd256", 256, 32, 64, 2, 64), true
+		return makeSpec("eg2_packed_attn_hd256", 256, 32, 32, 2, 32), true
 	case 512:
-		return makeSpec("eg2_packed_attn_hd512", 512, 32, 32, 4, 32), true
+		return makeSpec("eg2_packed_attn_hd512", 512, 16, 32, 4, 16), true
 	case 16:
 		return makeSpec("eg2_packed_attn_hd16", 16, 32, 32, 1, 16), true
 	case 32:
@@ -77,15 +82,25 @@ func BuildEG2PackedTiles(lens []int, bm int) (EG2PackedTileTable, error) {
 	if len(lens) == 0 {
 		return EG2PackedTileTable{}, fmt.Errorf("launchgeom: empty packed attention batch")
 	}
+	const maxGridY = 65535
 	totalTiles := 0
+	totalRows := 0
 	for i, n := range lens {
 		if n <= 0 {
 			return EG2PackedTileTable{}, fmt.Errorf("launchgeom: packed attention segment %d has invalid length %d", i, n)
 		}
-		totalTiles += (n + bm - 1) / bm
-	}
-	if totalTiles > 65535 {
-		return EG2PackedTileTable{}, fmt.Errorf("launchgeom: packed attention tile count %d exceeds GridY limit 65535", totalTiles)
+		if n > math.MaxInt32 {
+			return EG2PackedTileTable{}, fmt.Errorf("launchgeom: packed attention segment %d length %d exceeds int32 range", i, n)
+		}
+		if totalRows > math.MaxInt32-n {
+			return EG2PackedTileTable{}, fmt.Errorf("launchgeom: packed attention total rows exceed int32 range at segment %d", i)
+		}
+		tiles := 1 + (n-1)/bm
+		if tiles > maxGridY-totalTiles {
+			return EG2PackedTileTable{}, fmt.Errorf("launchgeom: packed attention tile count exceeds GridY limit %d", maxGridY)
+		}
+		totalRows += n
+		totalTiles += tiles
 	}
 	tab := EG2PackedTileTable{
 		SegStart: make([]int32, 0, totalTiles),
