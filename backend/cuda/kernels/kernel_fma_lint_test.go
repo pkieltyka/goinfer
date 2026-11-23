@@ -26,7 +26,7 @@ var lintedKernels = []string{
 	"router_f32.cu", "gemv_w4f32.cu", "argmax.cu", "attn_block.cu", "gptoss_act.cu", "deltanet.cu",
 	"attn_fused.cu", "attn_fused_bm.cu", "attn_fused_vit.cu", "gemm_w4a8_mma.cu", "lora.cu", "attn_img_prefill.cu", "rope_mrope_prefill.cu", "rope_pairwise.cu",
 	"layernorm_quant.cu", "gelu_quant.cu", "mla.cu", "topk.cu", "gumbel.cu", "decode_fa.cu", "fused_qkv_rows.cu", "fused_gu_rows.cu",
-	"actgroup.cu", "tower_base.cu", "eg2_transposed_experiment.cu", "moe_fold.cu", "moe_rows.cu", "audio_encoder.cu", "mamba.cu", "nongated_act.cu", "prefill_splitkv.cu", "kv8_store.cu",
+	"actgroup.cu", "tower_base.cu", "eg2_transposed_experiment.cu", "eg2_ffn_fp16.cu", "moe_fold.cu", "moe_rows.cu", "audio_encoder.cu", "mamba.cu", "nongated_act.cu", "prefill_splitkv.cu", "kv8_store.cu",
 }
 
 // fmaLintExempt lists embedded PTX deliberately outside the lint, with the reason. Anything else
@@ -121,25 +121,25 @@ func TestKernelFMALint(t *testing.T) {
 
 // TestKernelFMALint_coversEmbeddedPTX is the gate on the gate. TestKernelFMALint only checks the
 // kernels someone remembered to list, so nothing connected "this kernel ships" to "this kernel is
-// linted"; this test derives the required set from what kernels.go actually embeds.
+// linted"; this test derives the required set from production embeds.
 //
 // A new kernel fails here the moment it is embedded without being linted or explicitly exempted,
 // which is the point at which the author is still holding the context to decide which it should be.
 func TestKernelFMALint_coversEmbeddedPTX(t *testing.T) {
-	src, err := os.ReadFile("../kernels.go")
+	embedded, err := launchgeom.EmbeddedPTXModules("..")
 	if err != nil {
-		t.Fatalf("read kernels.go: %v", err)
+		t.Fatal(err)
 	}
-	embedded := regexp.MustCompile(`//go:embed testdata/([\w]+)\.ptx`).FindAllStringSubmatch(string(src), -1)
 	if len(embedded) == 0 {
-		t.Fatal("no //go:embed testdata/*.ptx found in kernels.go — this test is no longer measuring anything")
+		t.Fatal("no production PTX embeds found")
 	}
 	linted := make(map[string]bool, len(lintedKernels))
 	for _, f := range lintedKernels {
 		linted[f] = true
 	}
 	for _, m := range embedded {
-		cu := func() string { s, _ := launchgeom.PTXSourceName(m[1]); return s }() + ".cu" // a _kv16, _cap or _kv16_cap twin is its base source built with a define, linted as that source
+		src, _ := launchgeom.PTXSourceName(strings.TrimSuffix(m, ".ptx"))
+		cu := src + ".cu"
 		if linted[cu] {
 			continue
 		}

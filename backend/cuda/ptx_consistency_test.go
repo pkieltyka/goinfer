@@ -24,21 +24,18 @@ import (
 //
 // It reads files only, so it runs in CI's -short cuda job.
 func TestPTX_matchesSourcesAndBindings(t *testing.T) {
-	kb, err := os.ReadFile("kernels.go")
+	mods, err := launchgeom.EmbeddedPTXModules(".")
 	if err != nil {
-		t.Fatalf("read kernels.go: %v", err)
-	}
-	var mods []string
-	for _, m := range regexp.MustCompile(`//go:embed testdata/([A-Za-z0-9_]+)\.ptx`).FindAllStringSubmatch(string(kb), -1) {
-		mods = append(mods, m[1])
+		t.Fatalf("scan PTX embeds: %v", err)
 	}
 	if len(mods) < 10 {
-		t.Fatalf("found %d embedded PTX modules in kernels.go — the scan is broken", len(mods))
+		t.Fatalf("found only %d embedded PTX modules", len(mods))
 	}
 	entryMod := map[string]string{}
 	checked, kernels := 0, 0
-	for _, mod := range mods {
-		ptx, err := os.ReadFile(filepath.Join("testdata", mod+".ptx"))
+	for _, embedded := range mods {
+		mod := strings.TrimSuffix(embedded, ".ptx")
+		ptx, err := os.ReadFile(filepath.Join("testdata", embedded))
 		if err != nil {
 			t.Errorf("%s.ptx is embedded but unreadable: %v", mod, err)
 			continue

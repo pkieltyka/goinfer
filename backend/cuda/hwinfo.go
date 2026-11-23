@@ -9,8 +9,8 @@ import (
 	"github.com/pkieltyka/goinfer/decoder"
 )
 
-// ptxTargetMajor/Minor: every PTX file in this package targets sm_75 (Turing), JIT-compiled forward by the driver on a newer card. A card
-// OLDER than that cannot load the kernels at all, and the report says so.
+// ptxTargetMajor and ptxTargetMinor are the minimum compute capability for
+// the default CUDA kernels. A newer card uses the driver's forward JIT.
 const ptxTargetMajor, ptxTargetMinor = 7, 5
 
 func init() { decoder.RegisterHardwareInfo("cuda", cudaHardwareInfo) }
@@ -28,12 +28,12 @@ func cudaHardwareInfo() []string {
 	maj, e1 := d.Attribute(gc.DeviceAttributeComputeCapabilityMajor)
 	min, e2 := d.Attribute(gc.DeviceAttributeComputeCapabilityMinor)
 	if e1 == nil && e2 == nil {
-		how := "PTX targets sm_75 and is JIT-compiled forward by the driver for this card"
+		how := "default CUDA PTX targets sm_75 and is JIT-compiled forward by the driver for this card"
 		switch {
 		case maj == ptxTargetMajor && min == ptxTargetMinor:
-			how = "PTX targets sm_75: this card's own architecture"
+			how = "default CUDA PTX targets this card's sm_75 architecture"
 		case maj < ptxTargetMajor || (maj == ptxTargetMajor && min < ptxTargetMinor):
-			how = "OLDER than the sm_75 these kernels are built for: they cannot load on it"
+			how = "this card is older than the default CUDA PTX target sm_75"
 		}
 		out = append(out, fmt.Sprintf("compute capability: %d.%d (%s)", maj, min, how))
 	}
