@@ -64,16 +64,16 @@ demo/chat/dist/
 # and able to fail".
 !testdata/glm-ocr-tiny/
 !testdata/glm-ocr-tiny/model.safetensors
-# EXCEPTION: glm-ocr-vision-tiny is aikit's tiny GLM-OCR tower (1.6 MB, a copy of aikit's testdata fixture), committed
-# so S2's Metal GLM-OCR tower gate (metal/grid_vision_test.go) runs without an aikit checkout beside this one.
+# EXCEPTION: glm-ocr-vision-tiny is the tiny GLM-OCR tower (1.6 MB, a copy of the upstream testdata fixture),
+# committed so S2's Metal GLM-OCR tower gate (metal/grid_vision_test.go) runs from a clean clone.
 !testdata/glm-ocr-vision-tiny/
 !testdata/glm-ocr-vision-tiny/model.safetensors
-# EXCEPTION: qwen3vl-vision-tiny is aikit's tiny Qwen3-VL tower with DeepStack (about 1 MB, a copy of aikit's fixture,
-# pinned by scripts/pin_qwen3vl_vision_tiny.py), committed so G-S10e's Metal check runs without an aikit checkout.
+# EXCEPTION: qwen3vl-vision-tiny is the tiny Qwen3-VL tower with DeepStack (about 1 MB, a copy of the upstream
+# fixture, pinned by scripts/pin_qwen3vl_vision_tiny.py), committed so G-S10e's Metal check runs from a clean clone.
 !testdata/qwen3vl-vision-tiny/
 !testdata/qwen3vl-vision-tiny/model.safetensors
 # EXCEPTION: internal/vision/testdata holds the tiny tower checkpoints the vision package's tests read (copied from
-# aikit's testdata at v1.75.0 with the package, Track AX). Several share a name with a root testdata fixture and differ
+# the upstream testdata at v1.75.0 with the package, Track AX). Several share a name with a root testdata fixture and differ
 # from it (siglip-tiny), which is why they sit beside the package rather than in testdata/.
 !internal/vision/testdata/*/model.safetensors
 # EXCEPTION: lfm2-tiny is a 708 KB deterministic random-weight conv/attention hybrid

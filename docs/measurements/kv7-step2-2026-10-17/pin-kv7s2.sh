@@ -6,9 +6,11 @@
 set -euo pipefail
 REV=${REV:?the commit to pin}
 B=${B:?the pinned directory}
-REPO=${REPO:-$HOME/mycode/goinfer}
+REPO=${REPO:-$(cd "$(dirname "${BASH_SOURCE[0]}")/../../.." && pwd)}
 HERE=docs/measurements/integration-harness-2026-10
 SRC=$(cd "$(dirname "$0")" && pwd)
+mkdir -p "$B"
+B=$(cd "$B" && pwd -P)
 mkdir -p "$B/bin"
 WT="$B/wt"
 [ -d "$WT" ] || git -C "$REPO" worktree add --detach "$WT" "$REV" >/dev/null
@@ -21,11 +23,19 @@ toolchain go1.27.2
 
 use (
 	.
-	./cuda
-	./gpu
+	./backend/cuda
+	./backend/metal
+	./backend/vulkan
 )
 EOF
-(cd "$WT" && CGO_ENABLED=0 go build -tags cuda -o "$B/bin/serve-cuda-kv7s2" github.com/townsendmerino/goinfer/cuda/cmd/serve)
+WT_ABS=$(cd "$WT" && pwd -P)
+GW="$WT_ABS/go.work"
+root=$(cd "$WT_ABS" && GOWORK="$GW" go list -m -f '{{.Dir}}' github.com/pkieltyka/goinfer) || { echo "FATAL: cannot resolve the workspace root module" >&2; exit 2; }
+[ "$(cd "$root" && pwd -P)" = "$WT_ABS" ] || { echo "FATAL: the workspace root resolved to $root, not $WT" >&2; exit 2; }
+cuda=$(cd "$WT_ABS" && GOWORK="$GW" go list -m -f '{{.Dir}}' github.com/pkieltyka/goinfer/backend/cuda) || { echo "FATAL: cannot resolve backend/cuda in the workspace" >&2; exit 2; }
+[ "$(cd "$cuda" && pwd -P)" = "$WT_ABS/backend/cuda" ] || { echo "FATAL: backend/cuda resolved to $cuda, not $WT/backend/cuda" >&2; exit 2; }
+
+(cd "$WT" && GOWORK="$GW" CGO_ENABLED=0 go build -tags cuda -o "$B/bin/serve-cuda-kv7s2" github.com/pkieltyka/goinfer/backend/cuda/cmd/serve)
 echo "$FULL" > "$B/bin/serve-cuda-kv7s2.rev"
 sha256sum "$B/bin/serve-cuda-kv7s2" | cut -d' ' -f1 > "$B/bin/serve-cuda-kv7s2.sha256"
 rm -rf "$B/matrix-pinned"

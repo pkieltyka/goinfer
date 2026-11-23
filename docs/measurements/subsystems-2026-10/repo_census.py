@@ -3,16 +3,16 @@
 
 Read-only. Run from a goinfer checkout (a worktree of origin/main, so another session's tree is not read):
 
-  python3 docs/measurements/subsystems-2026-10/repo_census.py [--since YYYY-MM-DD] [--aikit PATH]
+  python3 docs/measurements/subsystems-2026-10/repo_census.py [--since YYYY-MM-DD]
 
---aikit names an aikit git checkout; its files are read at --aikit-ref (default origin/main) through `git archive`
-into a temporary directory, so the checkout's own branch does not matter. Without --aikit the aikit sections are
+The donor-checkout mode was retired with goinfer#71: it read an external module's tree through `git archive`, and
+that module is gone. Everything below runs on this repository alone; the retired mode's original is the file at
+ab2721995e027c8ce6630396c922916cb2357a1d.
 skipped.
 
 Sections: commit rate and the most-touched files; the parity manifest's shared sets and how often their files change;
-aikit bumps in goinfer by what drove them (by commit subject, so approximate); test and non-test files that import
-`decoder`, per module; the memory-related file groups; and, with --aikit, the moving packages' sizes, importers,
-churn and aikit's tag count.
+module-version bumps in goinfer by what drove them (by commit subject, so approximate); test and non-test files that import
+`decoder`, per module; and the memory-related file groups.
 """
 import argparse
 import collections
@@ -22,10 +22,11 @@ import json
 import os
 import re
 import subprocess
+import sys
 import tarfile
 import tempfile
 
-DECODER = '"github.com/townsendmerino/goinfer/decoder"'
+DECODER = '"github.com/pkieltyka/goinfer/decoder"'
 MEMORY_GROUPS = {
     "residency": ["decoder/residency.go"],
     "fit guard": ["decoder/fitguard.go"],
@@ -83,8 +84,6 @@ def go_files(root, test):
 def main():
     ap = argparse.ArgumentParser()
     ap.add_argument("--since", default="2026-09-26")
-    ap.add_argument("--aikit")
-    ap.add_argument("--aikit-ref", default="origin/main")
     a = ap.parse_args()
     head = git("log", "-1", "--format=%h %ad", "--date=short").strip()
     print(f"# repository census at {head}, window since {a.since}\n")
@@ -98,13 +97,33 @@ def main():
     for f, n in collections.Counter(names).most_common(25):
         print(f"  {n:4d}  {f}")
 
-    m = json.load(open("testdata/parity_manifest.json"))
-    uses = collections.Counter(u for v in m["families"].values() for u in v.get("uses", []))
-    print(f"\n## parity manifest: {len(m['families'])} families; sets used: {dict(uses)}")
-    for name, files in m["shared_sets"].items():
+    sets_path = "testdata/parity/shared_sets.json"
+    if not os.path.exists(sets_path):
+        sys.exit(f"repo_census: required input missing: {sets_path}")
+    shared = json.load(open(sets_path))
+    families = sorted(f[:-5] for f in os.listdir("testdata/parity")
+                      if f.endswith(".json") and f != "shared_sets.json")
+    if not families or not shared:
+        sys.exit("repo_census: testdata/parity held no family records or shared sets")
+    # Use the records, not just their names: each family declares which shared sets it is validated
+    # against, and that usage is the census's point.
+    usage = collections.Counter()
+    for fam in families:
+        path = os.path.join("testdata/parity", fam + ".json")
+        try:
+            rec = json.load(open(path))
+        except (OSError, ValueError) as e:
+            sys.exit(f"repo_census: malformed family record {path}: {e}")
+        if not isinstance(rec, dict) or not isinstance(rec.get("uses"), list):
+            sys.exit(f"repo_census: family record {path} has no uses list")
+        for u in rec["uses"]:
+            usage[u] += 1
+    print(f"\n## parity: {len(families)} family records; {len(shared)} shared sets; families per set: {dict(usage)}")
+    for name, files in shared.items():
         for f in files:
-            if os.path.exists(f):
-                print(f"  {name:10s} {f:32s} {lines([f]):5d} lines {count_commits(a.since, [f]):4d} commits")
+            if not os.path.exists(f):
+                sys.exit(f"repo_census: shared set {name} names a missing file: {f}")
+            print(f"  {name:10s} {f:32s} {lines([f]):5d} lines {count_commits(a.since, [f]):4d} commits")
     adapters = len(re.findall(r"^func \w+Architecture\(cfg \*Config\)", open("decoder/registry.go").read(), re.M))
     print(f"  decoder/registry.go holds {adapters} family adapters")
 
@@ -113,12 +132,16 @@ def main():
     cls = collections.Counter()
     for s in subjects:
         cls[next((k for k, rx in BUMP_CLASSES if re.search(rx, s.lower())), "other")] += 1
-    print(f"\n## aikit requirement changes in go.mod: {len(subjects)}; by subject: {dict(cls)}")
+    print(f"\n## module requirement changes in go.mod: {len(subjects)}; by subject: {dict(cls)}")
 
     print("\n## files importing decoder")
-    for mod in ("cuda", "metal", "gpu", "internal/serveapp"):
+    for mod in ("backend/cuda", "backend/metal", "backend/vulkan", "internal/app/serveapp"):
+        if not os.path.isdir(mod):
+            sys.exit(f"repo_census: required module directory missing: {mod}")
         t = list(go_files(mod, True))
         n = list(go_files(mod, False))
+        if not n:
+            sys.exit(f"repo_census: no non-test Go files under {mod}")
         ti = sum(1 for f in t if DECODER in open(f, errors="replace").read())
         ni = [f for f in n if DECODER in open(f, errors="replace").read()]
         ids = set()
@@ -134,34 +157,6 @@ def main():
         allf += [f for f in fs if f.startswith("decoder/")]
         print(f"  {name:28s} {len(fs):3d} files {lines(fs):6d} lines {count_commits(a.since, fs):4d} commits")
     print(f"  decoder files above: {len(allf)}, {lines(allf)} lines, {count_commits(a.since, allf)} commits")
-
-    if not a.aikit:
-        return
-    repo = os.path.expanduser(a.aikit)
-    ref = a.aikit_ref
-    tags = git("for-each-ref", "--format=%(creatordate:short) %(refname:short)", "refs/tags", cwd=repo).splitlines()
-    recent = [t.split()[1] for t in tags if t.split()[0] >= a.since]
-    print(f"\n## aikit at {ref} ({git('log', '-1', '--format=%h', ref, cwd=repo).strip()}): tags since {a.since}: "
-          f"{sum(1 for t in recent if re.match(r'v[0-9]', t))} root, {sum(1 for t in recent if t.startswith('gpu/'))} gpu/*")
-    with tempfile.TemporaryDirectory() as ak:
-        tar = subprocess.run(["git", "archive", ref], cwd=repo, capture_output=True).stdout
-        tarfile.open(fileobj=io.BytesIO(tar)).extractall(ak, filter="data")
-        imp = re.compile(r'"github\.com/townsendmerino/aikit([^"]*)"')
-        graph = collections.defaultdict(set)
-        for f in go_files(ak, False):
-            rel = os.path.relpath(os.path.dirname(f), ak)
-            for x in imp.findall(open(f, errors="replace").read()):
-                graph[rel].add(x or "/")
-        for pkg in MOVING:
-            src = [f for f in glob.glob(os.path.join(ak, pkg, "*.go")) if not f.endswith("_test.go")]
-            tst = glob.glob(os.path.join(ak, pkg, "*_test.go"))
-            users = sorted(k for k, v in graph.items() if "/" + pkg in v and k != pkg)
-            log = lambda *p: len([x for x in git("log", ref, f"--since={a.since}", "--no-merges", "--format=%H", "--",
-                                                 *p, cwd=repo).splitlines() if x])
-            print(f"  {pkg:16s} {len(src):3d} files {lines(src):6d} lines {len(tst):3d} tests; imports "
-                  f"{sorted(graph.get(pkg, []))}; aikit importers {users}; commits {log(pkg)} "
-                  f"({log(pkg + '/*.go')} touching .go)")
-
 
 if __name__ == "__main__":
     main()
