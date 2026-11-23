@@ -18,10 +18,13 @@
 #   REV=<candidate> python3 scripts/timing_lock.py run --label release-scoped-unreached -- bash docs/measurements/release-v0.21.0/run-scoped-unreached.sh
 #
 # Current-tree template. This file is the template RELEASING.md §C1 names for a GATE_RUN re-run; the v0.21.0 run above is
-# its record. It has no historical default: set REV to the candidate commit. It saves whichever parity artifact that
-# revision writes (testdata/parity/ now, testdata/parity_manifest.json before that directory existed), and it returns the
-# gate's own exit status even when the copy succeeds. To reproduce v0.21.0 itself, set REV=7b50947a: that is the only case
-# that resolves the donor-era module, and it is a historical reproduction, not a candidate gate.
+# its record. It has no historical default: set REV to a candidate of THIS repository. It saves whichever parity artifact
+# that revision writes (testdata/parity/ now, testdata/parity_manifest.json before that directory existed), and it returns
+# the gate's own exit status even when the copy succeeds.
+#
+# A candidate whose go.mod depends on the donor module is refused before any go command. The v0.21.0 reproduction is not
+# a mode of this template: it is the file at this path in goinfer ab2721995e027c8ce6630396c922916cb2357a1d, run from that
+# revision, so the historical gate never runs through a live tree.
 set -euo pipefail
 REV=${REV:?set REV to the candidate commit to gate}
 SRC=${SRC:-$(cd "$(dirname "${BASH_SOURCE[0]}")/../../.." && pwd)}
@@ -57,6 +60,15 @@ for d in testdata decoder/testdata; do
 done
 
 cd "$WT"
+# Fail closed, before any go command: a donor-dependent candidate is not a candidate of this repository.
+grep -q '^module github.com/pkieltyka/goinfer$' go.mod || {
+  echo "FATAL: $REV is not a candidate of this repository (root module line); the v0.21.0 recipe is at ab2721995" >&2
+  exit 2
+}
+if grep -Eqs 'github\.com/townsendmerino/' go.mod backend/*/go.mod 2>/dev/null; then
+  echo "FATAL: $REV depends on the donor module; the v0.21.0 recipe is the file at ab2721995" >&2
+  exit 2
+fi
 if [ -d testdata/parity ]; then
   ARTIFACT=testdata/parity
 elif [ -f testdata/parity_manifest.json ]; then
