@@ -14,7 +14,11 @@ func TestMain(m *testing.M) {
 	// Freeze the settings snapshot before any test runs, so a test that sets a knob (or an env var for the whole
 	// suite) sees the same process-wide value the old package-level initialisers produced. Production takes this
 	// snapshot on its first decoder construction instead, which is why the package imports no environment.
-	ensureSettings()
+	// The isolated-process control needs a process where no earlier snapshot exists, so the child drives
+	// its own first use through a public route instead.
+	if os.Getenv("ISSUE70_CHILD") == "" {
+		ensureSettings()
+	}
 	boundSuiteMemory()
 	stopReclaim := startMemReclaimer() // return freed pages promptly so RSS tracks the working set, not the high-water
 	stop := startMemTicker()           // GOINFER_MEM_PROBE: per-2s RSS/heap ticks (interleave with -v to name the accumulator)

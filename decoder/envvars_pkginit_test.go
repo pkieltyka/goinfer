@@ -37,7 +37,7 @@ func readsEnvAtInit(e ast.Expr, helpers map[string]*ast.BlockStmt) bool {
 }
 
 func readsEnvAtInitDepth(e ast.Node, helpers map[string]*ast.BlockStmt, seen map[string]bool, depth int) bool {
-	if e == nil || depth > 8 {
+	if e == nil {
 		return false
 	}
 	found := false
@@ -78,8 +78,10 @@ func readsEnvAtInitDepth(e ast.Node, helpers map[string]*ast.BlockStmt, seen map
 	return found
 }
 
-// pkgInitEnvReads lists file:var for each package-level var in the non-test Go files under root whose initialiser reads the
-// environment.
+// pkgInitEnvReads lists file:name for every production package initialiser that reads the environment: a
+// package-level variable whose initialiser does, or a package `init` function whose body does. It walks
+// directories, not files, and parses each directory once — the decoder package alone holds hundreds of
+// files, and re-parsing the whole directory per file made this test quadratic.
 func pkgInitEnvReads(t *testing.T, root string) []string {
 	t.Helper()
 	var out []string
@@ -87,20 +89,14 @@ func pkgInitEnvReads(t *testing.T, root string) []string {
 		if err != nil {
 			return err
 		}
-		if d.IsDir() {
-			switch d.Name() {
-			case "testdata", "node_modules", ".git", ".claude":
-				return filepath.SkipDir
-			}
+		if !d.IsDir() {
 			return nil
 		}
-		if !strings.HasSuffix(p, ".go") || strings.HasSuffix(p, "_test.go") {
-			return nil
+		switch d.Name() {
+		case "testdata", "node_modules", ".git", ".claude":
+			return filepath.SkipDir
 		}
-		// One package per directory: parse its files together so an initialiser's helper can be
-		// followed, and keep each file's own name for the report.
-		dir := filepath.Dir(p)
-		ents, err := os.ReadDir(dir)
+		ents, err := os.ReadDir(p)
 		if err != nil {
 			return err
 		}
@@ -108,14 +104,19 @@ func pkgInitEnvReads(t *testing.T, root string) []string {
 			rel string
 			f   *ast.File
 		}
+		type pkgInit struct {
+			rel  string
+			body *ast.BlockStmt
+		}
 		var files []pkgFile
+		var inits []pkgInit
 		helpers := map[string]*ast.BlockStmt{}
 		for _, ent := range ents {
 			n := ent.Name()
 			if !strings.HasSuffix(n, ".go") || strings.HasSuffix(n, "_test.go") {
 				continue
 			}
-			full := filepath.Join(dir, n)
+			full := filepath.Join(p, n)
 			af, err := parser.ParseFile(token.NewFileSet(), full, nil, parser.SkipObjectResolution)
 			if err != nil {
 				return err
@@ -123,9 +124,15 @@ func pkgInitEnvReads(t *testing.T, root string) []string {
 			rel, _ := filepath.Rel(root, full)
 			files = append(files, pkgFile{rel: rel, f: af})
 			for _, decl := range af.Decls {
-				if fd, ok := decl.(*ast.FuncDecl); ok && fd.Recv == nil && fd.Body != nil {
-					helpers[fd.Name.Name] = fd.Body
+				fd, ok := decl.(*ast.FuncDecl)
+				if !ok || fd.Recv != nil || fd.Body == nil {
+					continue
 				}
+				if fd.Name.Name == "init" {
+					inits = append(inits, pkgInit{rel: rel, body: fd.Body})
+					continue
+				}
+				helpers[fd.Name.Name] = fd.Body
 			}
 		}
 		for _, pf := range files {
@@ -143,6 +150,11 @@ func pkgInitEnvReads(t *testing.T, root string) []string {
 						}
 					}
 				}
+			}
+		}
+		for _, in := range inits {
+			if readsEnvAtInitDepth(in.body, helpers, map[string]bool{}, 0) {
+				out = append(out, filepath.ToSlash(in.rel)+":init")
 			}
 		}
 		return nil
@@ -285,6 +297,40 @@ func TestIssue70_hiddenHelperInitRead(t *testing.T) {
 	if got := pkgInitEnvReads(t, plant); len(got) == 0 {
 		t.Fatal("VOID: the scan misses an environment read behind a same-package helper")
 	}
+	// An init FUNCTION body is a root too: `func init(){ read() }` runs before main exactly as a variable
+	// initialiser does, and the linked gate only sees a direct Getenv inside decoder.init, not a call.
+	initPlant := filepath.Join(t.TempDir(), "initfn")
+	if err := os.MkdirAll(initPlant, 0o755); err != nil {
+		t.Fatal(err)
+	}
+	srcInit := "package p\n\nimport \"os\"\n\nfunc read() string { return os.Getenv(\"GOINFER_HIDDEN\") }\n\nfunc init() { _ = read() }\n"
+	if err := os.WriteFile(filepath.Join(initPlant, "p.go"), []byte(srcInit), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	if got := strings.Join(pkgInitEnvReads(t, initPlant), ","); got != "p.go:init" {
+		t.Fatalf("VOID: the scan misses an environment read in a package init function: found %q", got)
+	}
+	// And a long helper chain: the cycle guard bounds recursion, so no depth cap may hide the ninth hop.
+	chain := filepath.Join(t.TempDir(), "chain")
+	if err := os.MkdirAll(chain, 0o755); err != nil {
+		t.Fatal(err)
+	}
+	var b strings.Builder
+	b.WriteString("package p\n\nimport \"os\"\n\n")
+	for i := 1; i <= 9; i++ {
+		if i == 9 {
+			b.WriteString("func h9() string { return os.Getenv(\"GOINFER_CHAIN\") }\n")
+			continue
+		}
+		b.WriteString("func h" + strconv.Itoa(i) + "() string { return h" + strconv.Itoa(i+1) + "() }\n")
+	}
+	b.WriteString("\nvar viaChain = h1()\n")
+	if err := os.WriteFile(filepath.Join(chain, "p.go"), []byte(b.String()), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	if got := strings.Join(pkgInitEnvReads(t, chain), ","); got != "p.go:viaChain" {
+		t.Fatalf("VOID: the scan stops before the ninth helper: found %q", got)
+	}
 }
 
 // TestIssue70_snapshotIsRaceSafe runs the once from many goroutines with reads beside it: under -race this
@@ -318,8 +364,13 @@ func TestIssue70_isolatedProcessReadsEnv(t *testing.T) {
 		}
 		return
 	}
+	// A real public first-use route, with an invalid path so no fixture is needed: LoadWeights snapshots
+	// before it touches the filesystem, which is the boundary the constructor fixes implement.
+	if _, err := LoadWeights(filepath.Join(t.TempDir(), "absent")); err == nil {
+		t.Fatal("LoadWeights on an absent directory returned no error")
+	}
 	if !decodeTiming {
-		t.Fatalf("the child did not take GOINFER_DECODE_TIMING: decodeTiming=%v", decodeTiming)
+		t.Fatalf("the child did not take GOINFER_DECODE_TIMING through LoadWeights: decodeTiming=%v", decodeTiming)
 	}
 	if w4a8BatchEnabled {
 		t.Fatalf("the child did not take GOINFER_W4A8_BATCH=0: w4a8BatchEnabled=%v", w4a8BatchEnabled)
