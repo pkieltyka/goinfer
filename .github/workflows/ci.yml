@@ -105,7 +105,7 @@ jobs:
         run: python3 -B scripts/ci_pr_covered.py --repo "$GITHUB_REPOSITORY" --sha "$GITHUB_SHA" || echo "pr_covered=false" >> "$GITHUB_OUTPUT"
 
   # Root module: the pure-Go runtime (decoder / tokenizer / constrain / demo).
-  # Resolves the published aikit from the proxy — no workspace needed.
+  # Builds the root module without a workspace.
   #
   # C1 (docs/completed/task-ci-speed-2026-09.md): split from one `root` job into `lint` (gofmt,
   # build, both vets, staticcheck, apidiff, citation lint, book link lint, cleanliness guard --
@@ -190,22 +190,7 @@ jobs:
       - name: apidiff_check.sh's classification (the alias list's two licensed lines, and plants that stay fatal)
         run: python3 -B scripts/test_apidiff_check.py
 
-      # The lint resolves a cross-repo citation at the version a go.mod requires today. No goinfer module
-      # requires aikit/gpu since Track AX moved the device package in; cuda's own dependencies are downloaded
-      # here into the shared GOMODCACHE, and a pinned record's older aikit/gpu comes through the next step.
-      - name: populate module cache for cross-repo citations (cuda's requires)
-        run: cd backend/cuda && go mod download
-
-      # A PINNED record's aikit citations are checked at the aikit version the pinned commit required, read from
-      # the module cache, and the steps above download only the versions go.mod requires today. The lint lists
-      # what its pinned records need, so a new pinned record needs no edit here. Two commands, not a pipe: this
-      # shell has no pipefail, and a lint that could not list anything must fail this step.
-      - name: populate module cache for pinned records (the aikit versions their commits required)
-        run: |
-          mods=$(python3 scripts/queue_citation_lint.py --pinned-modules)
-          echo "$mods"
-          [ -z "$mods" ] || go mod download $mods
-
+      # Pinned external citations are checked against the committed source evidence.
       # Content keys make a stale citation DETECTABLE on the next sweep; they do not prevent one.
       # Here it goes red in the commit that makes the entry stale — while someone is already in that
       # code — which is the difference between the F group happening again and not. Citations whose
@@ -341,7 +326,7 @@ jobs:
       # binding it exists to keep out. Any WebGPU binding in the root is a leak, whoever wrote it.
       - name: cleanliness guard (no GPU backend modules in root)
         run: |
-          leak='webgpu|eitamring/gocudrv|ebitengine/purego|pkieltyka/aikit/gpu|pkieltyka/goinfer/(backend/(webgpu|cuda|metal|vulkan)|gpu|cuda|metal)'
+          leak='webgpu|eitamring/gocudrv|ebitengine/purego|pkieltyka/aikit|townsendmerino/aikit|pkieltyka/goinfer/(backend/(webgpu|cuda|metal|vulkan)|gpu|cuda|metal)'
           if go list -deps ./... | grep -Eiq "$leak"; then
             echo "::error::an opt-in backend dep leaked into the compiled root package set"
             go list -deps ./... | grep -Ei "$leak"
@@ -352,7 +337,7 @@ jobs:
             go list -m all | grep -Ei "$leak"
             exit 1
           fi
-          echo "clean: no webgpu/gocudrv/purego/aikit-gpu/submodules in the goinfer root (packages or module graph)"
+          echo "clean: no webgpu/gocudrv/purego/retired modules/submodules in the goinfer root (packages or module graph)"
 
   linux:
     needs: changes

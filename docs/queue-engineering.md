@@ -1156,7 +1156,7 @@ not a failure, and a gate that cannot say which it had is asking the operator to
 
 ~~**B7 · `aikit_version` is a hand-maintained input to a computed gate**~~ **Done, checked 2026-11-09 (mbp2-fit):** the parity manifest has no aikit field;
 `deps_hash` reads the kernel fingerprint table at hash time (`decoder/parity_manifest_test.go`, the manifest's doc), and
-`decoder/aikit_pin_test.go:TestAikitPinsAgree` holds every module to the root's pin. Kept as written: — `linux`, **found 2026-08-12
+The former pin agreement test held each module to the root's pin until the dependency was removed. Kept as written: — `linux`, **found 2026-08-12
 during the v1.17.0 bump; MEASURED AND STILL LIVE 2026-09-06 — see the box immediately below**
 
 > **STATUS 2026-09-06: CONFIRMED LIVE, AND A RELEASE WAS CUT THROUGH IT. ONE ACTION OUTSTANDING.**
@@ -1374,7 +1374,7 @@ line was corrected (it had drifted when A9-FIX inserted the warm-up above it);
 the two bare `decoder/weightmat.go` / `decoder/mlp.go` references repo-qualified or de-numbered; the
 `linalg/quant.go` reference resolves in aikit once the lint searches the sibling set (line 113 at the
 time — the scalar `int8→f32` widen loop this citation was making the point about; that code is gone,
-replaced by the SIMD widen at `linalg/quant.go:q8SpanColumn` (shifted from `:216` by the 2026-09-16 aikit
+replaced by the SIMD widen at `internal/modelcore/linalg/quant.go:q8SpanColumn` (shifted from `:216` by the 2026-09-16 aikit
 v1.44.0 bump; previously shifted from `:138` by the 2026-09-03 aikit v1.33.0 bump) once aikit
 v1.18.0/P2 landed and goinfer bumped to v1.19.0, 2026-08-15 — retargeted so the citation still
 resolves).

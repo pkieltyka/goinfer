@@ -10,8 +10,8 @@ citations come in two forms since CC0 (docs/completed/task-code-comments-2026-10
   - `path.go:Name` / `path.go:Type.Method` in a LIVE doc names a declaration, and the lint checks the file declares it NOW. Nothing is
     recorded and nothing goes stale when lines move above it.
   - `path:line` is accepted only in a PINNED record: a doc carrying `<!-- citations-at: <commit> -->` in its first lines. The lint
-    checks that every cited file and line exists AT THAT COMMIT (aikit paths in the module at the version that commit's go.mod
-    required) and never looks at HEAD, never records content, never rewrites the doc.
+    checks each file and line in the local Git tree or in checksum-verified historical source recorded for that commit.
+    It leaves the pinned document unchanged.
   - `path:line` in an unpinned doc is red: "pin this doc (`citations-at`) or name the declaration". A path under an allow-path
     comment (stdlib, llama.cpp) is not a citation into this project and is exempt.
 
@@ -77,6 +77,8 @@ rather than silencing it — see `untracked_live_docs()` and its doc comment.
 
 import collections
 import functools
+import hashlib
+import json
 import os
 import pathlib
 import re
@@ -250,13 +252,8 @@ def looks_like_sha(tok: str) -> bool:
     return any(c.isdigit() for c in tok) and any(c.isalpha() for c in tok)
 
 
-# The queue legitimately cites SIBLING repositories — aikit's gpu module ships the kernels goinfer
-# embeds, so its SHAs appear here as a matter of course. Searching only this repo made a correct
-# citation (be049df) look fabricated, which is a false RED and exactly as bad as the false green the
-# lint exists to prevent: it would have driven someone to "fix" an accurate reference.
-#
-# Override with GOINFER_SHA_LINT_REPOS (colon-separated). Absent repos are skipped silently — they
-# are a property of the machine, not of the queue.
+# GOINFER_SHA_LINT_REPOS can add explicit Git checkouts for commit and live
+# citations. Pinned source checks always use this repository and its evidence.
 class SearchError(Exception):
     """A repository could not be searched — distinct from a SHA not being found in it."""
 
@@ -266,10 +263,7 @@ class SearchError(Exception):
 # not fabricated, it points at history that no longer exists anywhere others can see.
 ORPHANED = object()
 
-# Where each path citation was answered from, so the scope line can say whether the version-pinned
-# resolution ACTUALLY RAN rather than merely being available. A fix that is present but never
-# exercised is the exercised-but-never-triggered shape, and this one exists to make a verdict
-# reproducible — so "it would have resolved from the module cache" is not good enough to print.
+# Count the checkout paths that resolved during this run.
 RESOLVED_FROM = collections.Counter()
 
 # Cited commits reachable only from a LOCAL ref — reported as a warning, never a hard failure here.
@@ -280,10 +274,7 @@ def sibling_repos():
     root = QUEUE.parent.parent
     env = os.environ.get("GOINFER_SHA_LINT_REPOS")
     if env:
-        # EXPLICITLY named repos are required to be searchable. A typo'd or moved path must be a hard
-        # error, not a silent narrowing of the search — that is precisely how be049df, a correct
-        # citation contained in six released tags, was reported as fabricated: the aikit path was one
-        # level off, `git -C` failed for that reason, and the failure was read as absence.
+        # Explicit search roots must be usable Git repositories.
         out = [str(root)]
         for c in env.split(":"):
             pp = pathlib.Path(c).expanduser()
@@ -291,26 +282,11 @@ def sibling_repos():
                 raise SearchError(f"GOINFER_SHA_LINT_REPOS names {pp}, which is not a git repository")
             out.append(str(pp))
         return out
-    # The DEFAULT sibling is best-effort: its absence is a property of the machine, not of the queue.
-    # Two plausible layouts exist across machines that have both hit this script's "one level off"
-    # failure mode before (see the comment above): `<parent>/aikit` (a flat sibling checkout) and
-    # `<parent>/aikit/aikit` (a nested one, e.g. an `aikit/` workspace dir containing the `aikit`
-    # repo itself). Try both rather than guessing one — this repo's own machine has the flat layout,
-    # and getting it wrong here reproduces the exact ada417e/be049df false-fabricated report the
-    # explicit-override path above exists to prevent, just for the default case instead.
-    out = [str(root)]
-    for candidate in ((root / ".." / "aikit").resolve(), (root / ".." / "aikit" / "aikit").resolve()):
-        if (candidate / ".git").exists():
-            out.append(str(candidate))
-            break
-    return out
+    return [str(root)]
 
 
-# The variables through which git pins a command to ONE repository whatever its cwd. A git hook exports GIT_DIR for the
-# repository being pushed (from a worktree, as an absolute path), and the lookups below name OTHER repositories (the
-# aikit checkout) by cwd alone, so an inherited GIT_DIR silently searches goinfer for aikit's SHAs and reports them as
-# not resolving. Measured 2026-10-07: a push from a goinfer worktree was refused on two aikit SHAs (`ada417e`'s E6
-# citation) that the same lint, run by hand in the same worktree, resolved green.
+# Git hooks export the pushing repository's environment. Clear it when looking
+# up citations whose repository is selected by cwd.
 _GIT_REPO_VARS = ("GIT_DIR", "GIT_WORK_TREE", "GIT_INDEX_FILE", "GIT_COMMON_DIR", "GIT_OBJECT_DIRECTORY",
                   "GIT_ALTERNATE_OBJECT_DIRECTORIES", "GIT_NAMESPACE", "GIT_PREFIX")
 
@@ -418,113 +394,9 @@ def subject_of(sha: str):
 PATH_RE = re.compile(r"(?<![\w/])((?:[a-z0-9_]+/)*[a-z0-9_]+\.(?:go|sh|py)):(\d+)(?![\d])")
 
 
-_MODCACHE = None
-
-
-def modcache_root():
-    global _MODCACHE
-    if _MODCACHE is None:
-        try:
-            r = subprocess.run(["go", "env", "GOMODCACHE"], capture_output=True, text=True, cwd=str(ROOT))
-        except FileNotFoundError:
-            # A non-zero exit was handled from the start; a MISSING toolchain was not, and it
-            # raised a traceback out of the pre-push hook that read like a citation failure. It is
-            # not one — and it must not degrade to a red either: without the module cache every
-            # cross-repo aikit citation becomes unresolvable, so a silent fallback would report
-            # correct citations as broken. Refuse, and say what to do.
-            sys.exit(
-                "queue_citation_lint: `go` is not on PATH.\n"
-                "  This lint resolves cross-repo citations through the Go module cache, so without\n"
-                "  the toolchain it would report perfectly good aikit citations as unresolvable.\n"
-                "  Refusing to run rather than printing a misleading red.\n"
-                "  Non-interactive shells often lack it (ssh, or a hook invoked from one):\n"
-                "      PATH=$PATH:/usr/local/go/bin git push\n"
-            )
-        _MODCACHE = pathlib.Path(r.stdout.strip()) if r.returncode == 0 and r.stdout.strip() else pathlib.Path("")
-    return _MODCACHE
-
-
-# aikit requirements in either a require block or the single-line form, before and after the fork.
-_REQUIRE_RE = re.compile(
-    r"^[ \t]*(?:require[ \t]+)?(github\.com/(?:pkieltyka|townsendmerino)/aikit(?:/gpu)?)"
-    r"[ \t]+(v[0-9][^\s]*)[ \t]*(?://[^\n]*)?$", re.M,
-)
-
-
-def required_modules():
-    """{module path: version} for the cross-repo modules goinfer cites, read from the ROOT go.mod.
-
-    Derived, never restated — the same rule B7 filed against hand-maintained version literals. The
-    version this returns IS the one goinfer compiles against, so a citation checked against it is a
-    citation about the code goinfer actually runs.
-    """
-    out = {}
-    # BOTH aikit modules, from the go.mod that actually requires each. aikit and aikit/gpu are
-    # SEPARATE modules with separate tag series (B7, E6), so gpu/ is not inside aikit@vX's module
-    # cache directory — reading only the root go.mod left every `gpu/...` citation unresolvable and
-    # reddened CI on a reference that was perfectly correct.
-    for mod_file, want in ((ROOT / "go.mod", "github.com/pkieltyka/aikit"),
-                           (ROOT / "backend" / "cuda" / "go.mod", "github.com/pkieltyka/aikit/gpu")):
-        try:
-            text = mod_file.read_text()
-        except OSError:
-            continue
-        for m in _REQUIRE_RE.finditer(text):
-            if m.group(1) == want:
-                out[m.group(1)] = m.group(2)
-    return out
-
-
-def modcache_dir(mod: str, ver: str):
-    root = modcache_root()
-    if not root or not root.exists():
-        return None
-    d = root / f"{mod}@{ver}"
-    return d if d.is_dir() else None
-
-
 def path_repos():
-    """Search roots for path citations — literally the same set the commit check uses.
-
-    These were two functions with two notions of "the sibling set", and they disagreed the moment the
-    env override was exercised: the commit search honoured it and repo_present did not, so a foreign
-    commit was reported fabricated while its repo was still considered present. Same defect shape as
-    capSlots and its inline copy — one concept, two implementations.
-
-    linalg/quant.go:113 and weightmat.go:202 were written as if local and are aikit paths. Resolving
-    across the sibling set and RECORDING WHERE IT RESOLVED is the same repair that fixed be049df's
-    false red: searching one place and reporting absence is a claim the search was not entitled to
-    make.
-    """
-    roots = [(repo_name(r), pathlib.Path(r)) for r in sibling_repos()]
-    # A cross-repo path citation resolves against the VERSION GOINFER REQUIRES, not against whatever
-    # the sibling checkout happens to be on. Those are different questions and only one of them is
-    # about goinfer.
-    #
-    # linalg/quant.go:113 went red TWICE in one day because aikit committed — the citation was fine
-    # and goinfer had not changed. A gate whose verdict moves when another repository's working tree
-    # moves is not measuring this repo; it is the Environment class again, with the environment being
-    # somebody else's uncommitted work.
-    #
-    # The module cache is the right root: content-addressed and immutable per version, present in CI
-    # once anything has built, reproducible on any machine, and stale EXACTLY when goinfer bumps the
-    # dependency — which is when a citation into it genuinely should be re-checked.
-    #
-    # Placed FIRST so it wins over the sibling checkout when both exist. The sibling stays as a
-    # fallback for a machine with no populated module cache.
-    for mod, ver in required_modules().items():
-        d = modcache_dir(mod, ver)
-        if d is not None:
-            roots.insert(0, (repo_name(d), d))
-    return roots
-
-
-def is_modcache(base) -> bool:
-    r = modcache_root()
-    try:
-        return bool(r) and str(base).startswith(str(r))
-    except Exception:
-        return False
+    """Search the local project and explicitly selected checkouts for live citations."""
+    return [(repo_name(repo), pathlib.Path(repo)) for repo in sibling_repos()]
 
 
 def repo_name(path) -> str:
@@ -537,8 +409,7 @@ def repo_name(path) -> str:
 
     `module github.com/pkieltyka/goinfer` is in go.mod regardless of what the checkout is
     called, so the last element of the module path is the stable answer. Directory name remains the
-    fallback for a root with no go.mod (the aikit module cache directory is `aikit@v1.17.1`, and its
-    own go.mod names it, so it resolves correctly too).
+    fallback for a root with no go.mod.
     """
     p = pathlib.Path(path)
     gm = p / "go.mod"
@@ -553,24 +424,12 @@ def repo_name(path) -> str:
 
 
 def path_repo_present(name: str) -> bool:
-    """Can PATH citations into this repo be checked here? A module-cache directory counts."""
+    """Can path citations into this repository be checked here?"""
     return any(n == name for n, _ in path_repos())
 
 
 def commit_repo_present(name: str) -> bool:
-    """Can COMMIT citations into this repo be checked here? Only a GIT checkout counts.
-
-    These were one predicate, and merging them was right while both callers needed the same thing —
-    a git checkout. Adding the module cache as a path root broke that premise, because a module cache
-    answers "what is at line 327 of quant.go" and cannot answer "what is commit be049df": it has no
-    history at all. The single predicate then reported aikit as present, the four aikit SHAs stopped
-    being skipped, and CI called four accurate citations fabricated.
-
-    That is the be049df false red for the third time, arriving by a third route, and produced BY the
-    fix meant to make path resolution reproducible. The lesson is not "do not merge duplicated
-    predicates" — the merge was correct. It is that a predicate answers ONE question, and adding a
-    root that can answer only half of them re-split the question without re-splitting the predicate.
-    """
+    """Can Git history for this repository be checked here?"""
     return any(repo_name(r) == name and (pathlib.Path(r) / ".git").exists()
                for r in sibling_repos())
 
@@ -655,7 +514,7 @@ def resolve_path(rel: str, line: int):
     for name, base in path_repos():
         f = base / rel
         if f.is_file():
-            RESOLVED_FROM[("module cache" if is_modcache(base) else "checkout", name)] += 1
+            RESOLVED_FROM[("checkout", name)] += 1
             lines = f.read_text(errors="replace").split("\n")
             if line <= len(lines):
                 c = lines[line - 1].strip()
@@ -879,8 +738,6 @@ PIN_NEAR_TOP = 40  # the marker must sit in the first N lines; a marker buried i
 
 # (repo root, commit, rel) -> (label, text) | None
 PINNED_FILE_CACHE = {}
-# "module@version" for every module a pinned record's citation was looked for in (file_at): what --pinned-modules prints.
-PINNED_MODULES_NEEDED = set()
 
 # Set True by step CC0.c (the door): a path:line in an UNPINNED doc is then a red. Off while live docs are being migrated.
 CLOSE_THE_DOOR = True
@@ -922,102 +779,43 @@ def _git_show(commit: str, rel: str):
     return r.stdout.decode("utf-8", "replace") if r.returncode == 0 else None
 
 
-def modules_at(commit: str):
-    """Distinct (module, version) pins at the record's commit, in search order."""
-    files = (("go.mod", False), ("backend/cuda/go.mod", True), ("cuda/go.mod", True),
-             ("backend/metal/go.mod", True), ("metal/go.mod", True))
-    pins = []
-    for mod_file, gpu in files:
-        for mod, ver in _REQUIRE_RE.findall(_git_show(commit, mod_file) or ""):
-            if mod.endswith("/gpu") == gpu:
-                pins.append((mod, ver))
-    return tuple(dict.fromkeys(pins))
-
-
-_PSEUDO_VER_RE = re.compile(r"^v\d+\.\d+\.\d+-(?:0\.|\d+\.)?\d{14}-([0-9a-f]{12})(?:\+incompatible)?$")
-
-
-def _aikit_sibling_repo():
-    for r in sibling_repos():
-        if pathlib.Path(r) != ROOT.resolve() and repo_name(r) == "aikit" and (pathlib.Path(r) / ".git").exists():
-            return str(r)
-    return None
-
-
-def _aikit_git_file_at(mod: str, ver: str, rel: str):
-    """Resolve (mod, ver, rel) from the sibling aikit git checkout when GOMODCACHE does not hold mod@ver.
-    Returns (searched: bool, text: str | None)."""
-    repo = _aikit_sibling_repo()
-    if repo is None:
-        return False, None
-    m = _PSEUDO_VER_RE.match(ver)
-    if m:
-        ref = m.group(1)
-    elif mod.endswith("/gpu"):
-        ref = f"gpu/{ver}"
-    else:
-        ref = ver
-    chk = subprocess.run(["git", "rev-parse", "--verify", "--quiet", f"{ref}^{{commit}}"],
-                         capture_output=True, text=True, cwd=repo, env=_repo_env())
-    if chk.returncode != 0:
-        return False, None
-    # A sibling fork can carry an identically named tag for a different module path.
-    mod_file = "gpu/go.mod" if mod.endswith("/gpu") else "go.mod"
-    manifest = subprocess.run(["git", "show", f"{ref}:{mod_file}"], capture_output=True, text=True, cwd=repo, env=_repo_env())
-    declared = re.search(r"^module[ \t]+(\S+)", manifest.stdout, re.M)
-    if manifest.returncode != 0 or not declared or declared.group(1) != mod:
-        return False, None
-    if mod.endswith("/gpu"):
-        git_rel = f"gpu/{rel}"
-    elif rel.startswith("gpu/"):
-        return True, None
-    else:
-        git_rel = rel
-    r = subprocess.run(["git", "show", f"{ref}:{git_rel}"], capture_output=True, cwd=repo, env=_repo_env())
-    return True, (r.stdout.decode("utf-8", "replace") if r.returncode == 0 else None)
-
-
 class CannotSearch(Exception):
-    """A module the commit required is not in the module cache: the search did not happen, so the answer is not 'absent'."""
+    """Historical source evidence is unavailable or corrupt."""
+
+
+def sealed_file_at(commit: str, rel: str):
+    directory = ROOT / "testdata" / "citation-history"
+    manifest = directory / "manifest.json"
+    if not manifest.is_file():
+        return None
+    try:
+        entries = json.loads(manifest.read_text(encoding="utf-8"))
+        full = subprocess.check_output(["git", "rev-parse", f"{commit}^{{commit}}"], cwd=ROOT,
+                                       env=_repo_env(), text=True).strip()
+        entry = entries.get(full, {}).get(rel)
+        if entry is None:
+            return None
+        digest = entry["sha256"]
+        if not re.fullmatch(r"[0-9a-f]{64}", digest):
+            raise ValueError("invalid SHA-256")
+        data = (directory / (digest + ".txt")).read_bytes()
+        if hashlib.sha256(data).hexdigest() != digest:
+            raise ValueError("SHA-256 mismatch")
+        text = data.decode("utf-8", "replace")
+        if len(text.splitlines()) != entry["lines"]:
+            raise ValueError("line count differs")
+        return "sealed source", text
+    except (AttributeError, KeyError, OSError, TypeError, ValueError, subprocess.CalledProcessError) as err:
+        raise CannotSearch(f"sealed source {commit}:{rel}: {err}") from err
 
 
 def file_at(commit: str, rel: str):
-    """(label, text) of `rel` as it was at `commit`: this repo first, then the aikit module(s) at the version that commit's go.mod
-    required, read from the module cache (or the sibling aikit git repository at that exact tag/commit when the module cache does not
-    hold it). None when the file existed in neither. Raises CannotSearch when it was not found AND a required module cannot be searched
-    — a missing download is not an absence, and calling it one would be a green that covers nothing.
-
-    This repo wins when a path exists in both: a goinfer record cites goinfer first, and the live-doc resolver's aikit-first order
-    exists to pin versions, which a commit already does."""
+    """Read the file from its original Git tree or the sealed historical source."""
     key = (str(ROOT), commit, rel)
-    if key in PINNED_FILE_CACHE:
-        return PINNED_FILE_CACHE[key]
-    hit = None
-    t = _git_show(commit, rel)
-    if t is not None:
-        hit = (repo_name(ROOT), t)
-    else:
-        missing = []
-        mods = modules_at(commit)
-        PINNED_MODULES_NEEDED.update(f"{mod}@{ver}" for mod, ver in mods)  # all of them, whatever is cached here
-        for mod, ver in mods:
-            d = modcache_dir(mod, ver)
-            if d is not None:
-                if (d / rel).is_file():
-                    hit = (repo_name(d), (d / rel).read_text(errors="replace"))
-                    break
-                continue
-            searched, txt = _aikit_git_file_at(mod, ver, rel)
-            if not searched:
-                missing.append(f"{mod}@{ver}")
-            elif txt is not None:
-                hit = (mod.rstrip("/").split("/")[-1], txt)
-                break
-        if hit is None and missing:
-            raise CannotSearch(f"{rel} is not in this repository at {commit[:10]}, and the module(s) it may belong to are not downloaded: "
-                               + ", ".join(missing) + " — run `go mod download " + " ".join(missing) + "`")
-    PINNED_FILE_CACHE[key] = hit
-    return hit
+    if key not in PINNED_FILE_CACHE:
+        text = _git_show(commit, rel)
+        PINNED_FILE_CACHE[key] = (repo_name(ROOT), text) if text is not None else sealed_file_at(commit, rel)
+    return PINNED_FILE_CACHE[key]
 
 
 def check_pinned(doc_rel: str, commit: str, text: str, allow):
@@ -1062,11 +860,11 @@ def check_pinned(doc_rel: str, commit: str, text: str, allow):
 
 def check_symbol(rel: str, name: str):
     """('ok'|'gone'|'nofile', repo) for a `path:Name` citation in an UNPINNED doc, resolved through the same roots as a line citation
-    (the module cache at go.mod's version first, then the checkouts)."""
+    (the current checkout, then explicitly named checkouts)."""
     for rname, base in path_repos():
         f = base / rel
         if f.is_file():
-            RESOLVED_FROM[("module cache" if is_modcache(base) else "checkout", rname)] += 1
+            RESOLVED_FROM[("checkout", rname)] += 1
             return ("ok" if name in declared_names(rel, f.read_text(errors="replace")) else "gone"), rname
     return "nofile", ""
 
@@ -1133,7 +931,7 @@ def tail_after_index(text: str) -> str:
 # of the repository, checkable identically in every clone.
 #
 # SCOPE, stated because it is narrower than it sounds: this decides by THIS repository's gitignore.
-# A path into ANOTHER repo's gitignored directory (aikit/docs/internal/...) is not ignored here and
+# A path into another repository's gitignored directory is not ignored here and
 # this check cannot see it. Those are handled by not writing them -- see the cleanup in this commit.
 #
 # Concrete file paths only. A directory mention (`docs/internal/`) or a glob (`docs/internal/
@@ -1187,14 +985,13 @@ def main() -> int:
     global _REPOINT_PASSES
     _REPOINT_PASSES = 0
     rc = _main()
-    if "--pinned-modules" not in sys.argv:  # its stdout is a module list for xargs
-        sys.stderr.flush()
-        print(verdict_line(rc), flush=True)
+    sys.stderr.flush()
+    print(verdict_line(rc), flush=True)
     return rc
 
 
 def verdict_line(rc: int) -> str:
-    """The last line of every run but --pinned-modules, so `| tail` shows the outcome; the exit code (which the pre-push hook
+    """The last line of every run, so `| tail` shows the outcome; the exit code (which the pre-push hook
     reads) is unchanged. Exit 2 is a search that could not run (CANNOT SEARCH, a path that resolves in no repository)."""
     if rc == 0:
         return "VERDICT: PASS — citation lint: every citation resolves"
@@ -1202,34 +999,7 @@ def verdict_line(rc: int) -> str:
     return f"VERDICT: FAIL — citation lint: {why} (exit {rc}; the reasons are printed above); the pre-push hook refuses this push"
 
 
-def pinned_modules() -> int:
-    """--pinned-modules: print, one per line, each module@version a pinned record's citations are looked for in, and exit 0.
-
-    A pinned record's aikit paths are checked at the aikit version its commit required, from the module cache. A machine that
-    has not downloaded that version gets CANNOT SEARCH, by design. This is the list to download first:
-
-        python3 scripts/queue_citation_lint.py --pinned-modules | xargs -r go mod download
-
-    It runs the same lookups the lint does and discards their verdicts, so the list cannot drift from what the lint needs."""
-    PINNED_MODULES_NEEDED.clear()
-    PINNED_FILE_CACHE.clear()
-    pallow = path_allowlist()
-    queue = queue_file()
-    body = body_without_index(queue.read_text()) if queue else ""
-    for doc in live_docs():
-        dbody = body if doc == queue else doc.read_text(errors="replace")
-        commit, _ = pinned_marker(dbody)
-        if commit and commit_resolves(commit):
-            check_pinned(doc_label(doc), commit, dbody, pallow)
-    PINNED_FILE_CACHE.clear()  # a later lint run in this process must look again, with whatever has been downloaded since
-    for m in sorted(PINNED_MODULES_NEEDED):
-        print(m)
-    return 0
-
-
 def _main() -> int:
-    if "--pinned-modules" in sys.argv:
-        return pinned_modules()
     update = "--update" in sys.argv
     queue = queue_file()
     notes = notes_root()
@@ -1578,7 +1348,7 @@ def _main() -> int:
     for sha in unresolved:
         # The index records a foreign subject as "[repo] subject". If that repo is not checked out
         # here — CI clones goinfer alone — the citation is UNCHECKED, not fabricated. Reporting it as
-        # fabricated is the be049df false red, reintroduced by a different route.
+        # fabricated would misstate the evidence.
         rec = index.get(sha, "")
         m = re.match(r"\[([a-z0-9_-]+)\]", rec)
         if m and not commit_repo_present(m.group(1)):
@@ -1642,19 +1412,10 @@ def _main() -> int:
             continue
         # The content moved or vanished. Look for it elsewhere IN THE SAME FILE before calling it red.
         #
-        # SCOPED TO THE RESOLVING BASE, and that scoping is the whole point. This search used to
-        # re-walk EVERY root in path_repos(). When the first root lacked the content it fell through
-        # to a later one -- a sibling checkout, or another version of the same module in the module
-        # cache -- and reported THAT file's line number as a shift in this one. The symptom was a
-        # self-contradictory message ("cited :113 ... now at line 113": two different files, same
-        # line). The danger was the quiet case: a sibling holding the content at line 405 would have
-        # produced "Update the citation to linalg/quant.go:405" -- a confident instruction naming a
-        # line in a DIFFERENT VERSION of the file, which would then verify green against the wrong
-        # root. A search that crosses repositories cannot report a line number.
+        # Search for shifted lines only in the checkout used to resolve this path.
         rname, rbase = resolve_base(rel)
         found_at, found_n = moved_to(rel, want)
-        # Absent HERE, present in another root, is a different diagnosis: the citation is keyed to a
-        # version other than the one goinfer requires. Named, never converted into a line number.
+        # Evidence in another checkout can explain a mismatch, but gives no line number here.
         elsewhere = []
         if found_at is None and found_n == 0 and want:
             for name, base in path_repos():
@@ -1760,31 +1521,8 @@ def _main() -> int:
             print(f"    {sha}  reachable from {ref} — push it, or allowlist it with a reason")
         print("    Not failed here on purpose: citing a commit in the same push that creates it is "
               "normal. CI is the enforcement; this is the advance warning.")
-    # THE VERSION-PINNED RESOLUTION, reported rather than assumed. A required module whose cache is
-    # cold AND which has no sibling checkout cannot be searched at all — and by the could-not-search
-    # rule that is a HARD ERROR, never a skip: reporting "unchecked" when the answer is "we could not
-    # look" is how a green comes to cover nothing. CI populates the cache with `go build ./...`
-    # before this step; if that ever stops being true, this says so instead of quietly narrowing.
-    cold_modules = []
-    nmc = sum(c for (k, _), c in RESOLVED_FROM.items() if k == "module cache")
-    nco = sum(c for (k, _), c in RESOLVED_FROM.items() if k == "checkout")
-    print(f"  CROSS-REPO RESOLUTION: {nmc} path lookup(s) answered from the MODULE CACHE at the "
-          f"version go.mod requires, {nco} from a checkout.")
-    for mod, ver in sorted(required_modules().items()):
-        name = mod.rstrip("/").split("/")[-1]
-        cached = modcache_dir(mod, ver) is not None
-        sib = commit_repo_present(name)
-        state = ("module cache @ " + ver) if cached else ("sibling checkout" if sib else "NOWHERE")
-        print(f"    {mod} -> {state}")
-        if not cached and not sib:
-            print(f"      COLD CACHE and no checkout — citations into {name} could not be searched. "
-                  f"Run `go mod download` before this lint; a skip here would be a green that "
-                  f"covers nothing.")
-            cold_modules.append(mod)
-    if nmc == 0 and required_modules():
-        print("    NOTE: zero lookups used the module cache. Either no citation points into a "
-              "required module, or the pinning is not being exercised here — the second is the "
-              "exercised-but-never-triggered shape and worth checking.")
+    paths_from_checkout = sum(RESOLVED_FROM.values())
+    print(f"  PATH RESOLUTION: {paths_from_checkout} lookup(s) answered from a checkout. Pinned external paths use sealed sources.")
     print("  docs/completed/ is EXCLUDED on purpose — archived records are supposed to age with the "
           "code they described, and linting them would fight the archival rule.")
     print("  NOT validated: RELEVANCE. A commit citation is checked to resolve and to match its "
@@ -1792,12 +1530,7 @@ def _main() -> int:
     print("    9e5f8fa passed green through two documents for weeks as \"the goldens-refresh "
           "precedent\" while touching the manifest not at all — a resolving sha with a matching "
           "subject and a false claim attached.")
-    print("    The same gap on the PATH side, and worse because the anchor keeps working: "
-          "docs/task-moe-streaming.md read \"goinfer is now on aikit v1.16.0 (go.mod:6)\". The "
-          "aikit bump changed what go.mod:6 SAYS without changing that it is the aikit require, so "
-          "the content key still matched and the citation stayed green while the version it "
-          "asserted went stale. A path citation is checked to point somewhere stable — not to "
-          "still mean what the sentence around it claims.")
+    print("    Source citations resolve declarations or historical lines. The surrounding prose still needs review.")
     print("  Also NOT validated: every test name, tag, env var and URL — and for the bare file "
           "references, WHAT IS SAID ABOUT THEM, since there is no line to key against.")
     print("  A lint on a document raises trust in EVERY citation in it, not only the kinds it checks — "
@@ -1819,13 +1552,6 @@ def _main() -> int:
         print(f"  GITIGNORED DESTINATIONS: none. A committed document citing a path under a "
               f"gitignored directory is red without an existence test — the gitignore status "
               f"decides, because an uncommitted target has no history to audit.")
-    if cold_modules:
-        sys.stderr.write("queue_citation_lint: CANNOT SEARCH — no module cache and no checkout for: "
-                         + ", ".join(cold_modules) + "\n")
-        sys.stderr.write("  This is a hard failure on purpose. Citations into these modules were not "
-                         "checked, and calling that a skip would make the green cover nothing.\n")
-        sys.stderr.write("  Fix: run `go mod download` (CI does `go build ./...`) before this lint.\n")
-        return 1
     return 0
 
 
