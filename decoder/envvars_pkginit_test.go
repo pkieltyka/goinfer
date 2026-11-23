@@ -32,11 +32,27 @@ var pkgInitEnvReadsKnown = map[string]bool{
 // reads it), or a call to a same-package function whose own body does either, followed recursively — a
 // helper chain is exactly how the decoder's eight reads were hidden from a scan that only looked at the
 // initialiser expression. A function literal's body runs later, so it is not looked into.
-func readsEnvAtInit(e ast.Expr, helpers map[string]*ast.BlockStmt) bool {
-	return readsEnvAtInitDepth(e, helpers, map[string]bool{}, 0)
+func readsEnvAtInit(e ast.Expr, scope *pkgScope) bool {
+	return readsEnvAtInitDepth(e, scope, map[string]bool{}, 0)
 }
 
-func readsEnvAtInitDepth(e ast.Node, helpers map[string]*ast.BlockStmt, seen map[string]bool, depth int) bool {
+// pkgScope is what an initialiser can reach inside its own package: free functions by name, methods by
+// receiver type and name, and the package names its files import, which must not be mistaken for local
+// methods.
+//
+// The scan is deliberately a bounded subset of the call graph, not a resolver: it follows free functions at
+// any depth (cycle-guarded), package init bodies, immediately invoked literals, and methods called on a
+// composite-literal receiver (T{} or &T{}). Stored method values, interface dispatch, methods reached
+// through a typed variable, and cross-package calls are out of scope, so a new initialiser that reads the
+// environment through one of those shapes would not be caught here — the linked binary gate catches a
+// direct call in decoder.init, and neither gate is a substitute for the other.
+type pkgScope struct {
+	funcs   map[string]*ast.BlockStmt
+	methods map[string]map[string]*ast.BlockStmt // receiver type name -> method name -> body
+	imports map[string]bool
+}
+
+func readsEnvAtInitDepth(e ast.Node, scope *pkgScope, seen map[string]bool, depth int) bool {
 	if e == nil {
 		return false
 	}
@@ -47,8 +63,17 @@ func readsEnvAtInitDepth(e ast.Node, helpers map[string]*ast.BlockStmt, seen map
 		}
 		switch n := n.(type) {
 		case *ast.FuncLit:
+			// A literal that is merely stored runs later, so its body is not init work. An immediately
+			// invoked one is handled from its CallExpr below, where the body does run synchronously.
 			return false
 		case *ast.CallExpr:
+			if lit, ok := n.Fun.(*ast.FuncLit); ok {
+				// `func(){ os.Getenv(...) }()` runs during the initialiser, so follow its body.
+				if readsEnvAtInitDepth(lit.Body, scope, seen, depth+1) {
+					found = true
+					return false
+				}
+			}
 			if sel, ok := n.Fun.(*ast.SelectorExpr); ok {
 				if x, ok := sel.X.(*ast.Ident); ok && x.Name == "os" && (sel.Sel.Name == "Getenv" || sel.Sel.Name == "LookupEnv") {
 					found = true
@@ -64,11 +89,28 @@ func readsEnvAtInitDepth(e ast.Node, helpers map[string]*ast.BlockStmt, seen map
 				}
 			}
 			if id, ok := n.Fun.(*ast.Ident); ok {
-				if body, ok := helpers[id.Name]; ok && !seen[id.Name] {
+				if body, ok := scope.funcs[id.Name]; ok && !seen[id.Name] {
 					seen[id.Name] = true
-					if readsEnvAtInitDepth(body, helpers, seen, depth+1) {
+					if readsEnvAtInitDepth(body, scope, seen, depth+1) {
 						found = true
 						return false
+					}
+				}
+			}
+			// A method call on an obvious concrete receiver: `(&settings{}).read()` or `settings{}.read()`.
+			// Only that shape is resolved — a stored method value, an interface call, or a selector on an
+			// imported package is not followed, so the scan cannot invent a call edge that does not exist.
+			if sel, ok := n.Fun.(*ast.SelectorExpr); ok {
+				if recv := compositeReceiverType(sel.X); recv != "" {
+					if body, ok := scope.methods[recv][sel.Sel.Name]; ok {
+						key := "method:" + recv + "." + sel.Sel.Name
+						if !seen[key] {
+							seen[key] = true
+							if readsEnvAtInitDepth(body, scope, seen, depth+1) {
+								found = true
+								return false
+							}
+						}
 					}
 				}
 			}
@@ -76,6 +118,39 @@ func readsEnvAtInitDepth(e ast.Node, helpers map[string]*ast.BlockStmt, seen map
 		return true
 	})
 	return found
+}
+
+// recvTypeName is a method's receiver type name, `T` or `*T` alike; "" when it is not a local identifier.
+func recvTypeName(fd *ast.FuncDecl) string {
+	if fd.Recv == nil || len(fd.Recv.List) == 0 {
+		return ""
+	}
+	t := fd.Recv.List[0].Type
+	if star, ok := t.(*ast.StarExpr); ok {
+		t = star.X
+	}
+	if id, ok := t.(*ast.Ident); ok {
+		return id.Name
+	}
+	return ""
+}
+
+// compositeReceiverType is the type name of a receiver written as a composite literal, `T{}` or `(&T{})`,
+// and "" for anything else: a variable, an interface, or an imported package's identifier.
+func compositeReceiverType(x ast.Expr) string {
+	switch e := x.(type) {
+	case *ast.CompositeLit:
+		if id, ok := e.Type.(*ast.Ident); ok {
+			return id.Name
+		}
+	case *ast.ParenExpr:
+		return compositeReceiverType(e.X)
+	case *ast.UnaryExpr:
+		if e.Op == token.AND {
+			return compositeReceiverType(e.X)
+		}
+	}
+	return ""
 }
 
 // pkgInitEnvReads lists file:name for every production package initialiser that reads the environment: a
@@ -110,7 +185,7 @@ func pkgInitEnvReads(t *testing.T, root string) []string {
 		}
 		var files []pkgFile
 		var inits []pkgInit
-		helpers := map[string]*ast.BlockStmt{}
+		scope := &pkgScope{funcs: map[string]*ast.BlockStmt{}, methods: map[string]map[string]*ast.BlockStmt{}, imports: map[string]bool{}}
 		for _, ent := range ents {
 			n := ent.Name()
 			if !strings.HasSuffix(n, ".go") || strings.HasSuffix(n, "_test.go") {
@@ -123,16 +198,34 @@ func pkgInitEnvReads(t *testing.T, root string) []string {
 			}
 			rel, _ := filepath.Rel(root, full)
 			files = append(files, pkgFile{rel: rel, f: af})
+			for _, imp := range af.Imports {
+				if path, err := strconv.Unquote(imp.Path.Value); err == nil {
+					name := path[strings.LastIndex(path, "/")+1:]
+					if imp.Name != nil {
+						name = imp.Name.Name
+					}
+					scope.imports[name] = true
+				}
+			}
 			for _, decl := range af.Decls {
 				fd, ok := decl.(*ast.FuncDecl)
-				if !ok || fd.Recv != nil || fd.Body == nil {
+				if !ok || fd.Body == nil {
+					continue
+				}
+				if fd.Recv != nil {
+					if recv := recvTypeName(fd); recv != "" {
+						if scope.methods[recv] == nil {
+							scope.methods[recv] = map[string]*ast.BlockStmt{}
+						}
+						scope.methods[recv][fd.Name.Name] = fd.Body
+					}
 					continue
 				}
 				if fd.Name.Name == "init" {
 					inits = append(inits, pkgInit{rel: rel, body: fd.Body})
 					continue
 				}
-				helpers[fd.Name.Name] = fd.Body
+				scope.funcs[fd.Name.Name] = fd.Body
 			}
 		}
 		for _, pf := range files {
@@ -144,7 +237,7 @@ func pkgInitEnvReads(t *testing.T, root string) []string {
 				for _, spec := range g.Specs {
 					vs := spec.(*ast.ValueSpec)
 					for i, v := range vs.Values {
-						if readsEnvAtInit(v, helpers) {
+						if readsEnvAtInit(v, scope) {
 							name := vs.Names[min(i, len(vs.Names)-1)].Name
 							out = append(out, filepath.ToSlash(pf.rel)+":"+name)
 						}
@@ -153,7 +246,7 @@ func pkgInitEnvReads(t *testing.T, root string) []string {
 			}
 		}
 		for _, in := range inits {
-			if readsEnvAtInitDepth(in.body, helpers, map[string]bool{}, 0) {
+			if readsEnvAtInitDepth(in.body, scope, map[string]bool{}, 0) {
 				out = append(out, filepath.ToSlash(in.rel)+":init")
 			}
 		}
@@ -309,6 +402,67 @@ func TestIssue70_hiddenHelperInitRead(t *testing.T) {
 	}
 	if got := strings.Join(pkgInitEnvReads(t, initPlant), ","); got != "p.go:init" {
 		t.Fatalf("VOID: the scan misses an environment read in a package init function: found %q", got)
+	}
+	// An immediately invoked function literal runs inside the initialiser; a stored one does not.
+	iife := filepath.Join(t.TempDir(), "iife")
+	if err := os.MkdirAll(iife, 0o755); err != nil {
+		t.Fatal(err)
+	}
+	srcIIFE := "package p\n\nimport \"os\"\n\nvar viaIIFE = func() string { return os.Getenv(\"GOINFER_IIFE\") }()\n"
+	if err := os.WriteFile(filepath.Join(iife, "p.go"), []byte(srcIIFE), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	if got := strings.Join(pkgInitEnvReads(t, iife), ","); got != "p.go:viaIIFE" {
+		t.Fatalf("VOID: the scan misses an environment read inside an immediately invoked literal: found %q", got)
+	}
+	stored := filepath.Join(t.TempDir(), "stored")
+	if err := os.MkdirAll(stored, 0o755); err != nil {
+		t.Fatal(err)
+	}
+	srcStored := "package p\n\nimport \"os\"\n\nvar later = func() string { return os.Getenv(\"GOINFER_LATER\") }\n"
+	if err := os.WriteFile(filepath.Join(stored, "p.go"), []byte(srcStored), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	if got := pkgInitEnvReads(t, stored); len(got) != 0 {
+		t.Fatalf("a stored literal runs later, not at init, but the scan reported %q", got)
+	}
+	// A receiver method reached from an initialiser: `var snapshot = (&settings{}).read()` has no direct
+	// env call in its init expression, and the method body is only reachable through the call edge.
+	method := filepath.Join(t.TempDir(), "method")
+	if err := os.MkdirAll(method, 0o755); err != nil {
+		t.Fatal(err)
+	}
+	srcMethod := "package p\n\nimport \"os\"\n\ntype settings struct{}\n\nfunc (*settings) read() string { return os.Getenv(\"GOINFER_METHOD\") }\n\nvar snapshot = (&settings{}).read()\n"
+	if err := os.WriteFile(filepath.Join(method, "p.go"), []byte(srcMethod), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	if got := strings.Join(pkgInitEnvReads(t, method), ","); got != "p.go:snapshot" {
+		t.Fatalf("VOID: the scan misses an environment read behind a receiver method: found %q", got)
+	}
+	// A call through an interface, or a stored method value, is not a concrete receiver: the scan must not
+	// follow it just because a method of that name exists in the package.
+	iface := filepath.Join(t.TempDir(), "iface")
+	if err := os.MkdirAll(iface, 0o755); err != nil {
+		t.Fatal(err)
+	}
+	srcIface := "package p\n\nimport \"os\"\n\ntype settings struct{}\n\nfunc (*settings) read() string { return os.Getenv(\"GOINFER_IFACE\") }\n\ntype reader interface{ read() string }\n\nfunc later(r reader) string { return r.read() }\n\nvar viaIface = later(&settings{})\n"
+	if err := os.WriteFile(filepath.Join(iface, "p.go"), []byte(srcIface), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	if got := pkgInitEnvReads(t, iface); len(got) != 0 {
+		t.Fatalf("an interface call is not an obvious concrete receiver, but the scan followed it: %q", got)
+	}
+	// A method named like an imported package's function, `strings.Cut`, is not a local method.
+	pkgmethod := filepath.Join(t.TempDir(), "pkgmethod")
+	if err := os.MkdirAll(pkgmethod, 0o755); err != nil {
+		t.Fatal(err)
+	}
+	srcPkgMethod := "package p\n\nimport \"strings\"\n\nvar viaPkg = strings.Cut(\"a\", \"b\")\n"
+	if err := os.WriteFile(filepath.Join(pkgmethod, "p.go"), []byte(srcPkgMethod), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	if got := pkgInitEnvReads(t, pkgmethod); len(got) != 0 {
+		t.Fatalf("an imported package's selector must not be followed as a local method: found %q", got)
 	}
 	// And a long helper chain: the cycle guard bounds recursion, so no depth cap may hide the ninth hop.
 	chain := filepath.Join(t.TempDir(), "chain")
