@@ -3256,4 +3256,23 @@ func TestEG2CUDA_PackedAttn_ParityBitIdentityRangeAndMemory(t *testing.T) {
 	if ovAcc.(*eg2Accel).broken != nil {
 		t.Fatalf("ErrEG2NumericRange unexpectedly poisoned accelerator: %v", ovAcc.(*eg2Accel).broken)
 	}
+	// Clean next-call reuse on the same accelerator: zero input keeps K=0 (no
+	// FP16 overflow even with KNorm=1e5) and must succeed cleanly.
+	zeros := make([]float32, 4*ovModel.Config().Hidden)
+	reuseOut, _, err := ovAcc.ForwardEmbeds(zeros, 4, false)
+	if err != nil {
+		t.Fatalf("valid reuse after ErrEG2NumericRange failed: %v", err)
+	}
+	if len(reuseOut) != 4*ovModel.Config().EmbeddingDim || !eg2Finite(reuseOut) {
+		t.Fatalf("valid reuse returned invalid output (len=%d finite=%v)", len(reuseOut), eg2Finite(reuseOut))
+	}
+	// Native execution error priority: a forward failure must surface ahead of
+	// ErrEG2NumericRange without returning ErrEG2NumericRange.
+	planted := errors.New("cuda: planted native forward fault")
+	ovAcc.(*eg2Accel).defect.failForward = true
+	ovAcc.(*eg2Accel).defect.failForwardErr = planted
+	_, _, err = ovAcc.Forward(inputs[0], false)
+	if !errors.Is(err, planted) || errors.Is(err, ErrEG2NumericRange) {
+		t.Fatalf("expected planted native fault ahead of ErrEG2NumericRange, got %v", err)
+	}
 }
