@@ -600,7 +600,7 @@ one sample each (exploratory). Nothing was timed on Metal.
 for Gemma 3, Qwen2.5-VL and GLM-OCR (and Gemma 4 26B-A4B)** with no C toolchain. The macOS binaries carry Metal (no vision tower: the tower runs on the CPU) and the Windows binaries are CPU. WebGPU, the one cgo build,
 is in no release binary.
 
-**GLM-OCR** (a 0.9B document model; `model_type` `glm_ocr`) is auto-discovered from its checkpoint directory and uses aikit's own tower (`vision.GlmOcrVisionEncoder`, aikit v1.52.0), loaded on the
+**GLM-OCR** (a 0.9B document model; `model_type` `glm_ocr`) is auto-discovered from its checkpoint directory and uses the in-tree `vision.GlmOcrVisionEncoder` tower, loaded on the
 first image. An image is at most 6,144 image tokens (about 4.8 megapixels, the default; the owner chose to keep the model's own ceiling, 2026-10-04) and `-vision-max-pixels N` lowers the cap (it never raises it; `goinfer-chat --vision-max-pixels` likewise). The CPU tower costs about 29 s at 1 MP, 92 s at 2 MP and 7 min at 4.8 MP on an M1 Pro (`measurements/glm-ocr-tower-cost-2026-10.md`); one that does not fit the resolved context is refused with
 `image_too_large_for_context` before the tower runs. The CPU tower costs about 44 s for a 1,656-token page on this class of machine (exploratory, one rendered invoice). Under `--backend metal` or `cuda` the float32 tower runs on the device (S2): about 5 s for that page on an M1 Pro (exploratory), and `goinfer-chat --image` takes the same device tower since 2026-10-09. Structured extraction with
 `response_format` is described below; the measured accuracy is in `docs/measurements/glm-ocr-o5-2026-10/`.
@@ -1170,7 +1170,7 @@ after it (text before the image is a 400 for now), at most 16 per request and 16
 loads on the first image request, so a text-only server never pays for it. It runs on Metal with the encoder when
 the encoder is on Metal (startup says where, and so does a line when the first image loads it), on the CPU otherwise. The image is resized as the reference's processor does it (torchvision's antialiased
 bicubic, reproduced bit for bit), and an image embedding then matches sentence-transformers' to cosine 1.000000000 on
-the gate's 12 cases (`docs/completed/task-embeddinggemma2.md`, Phase V). `--embed-image-resize bilinear` selects aikit's
+the gate's 12 cases (`docs/completed/task-embeddinggemma2.md`, Phase V). `--embed-image-resize bilinear` selects the tower's
 bilinear resize instead (0.9992 to 0.9999 from the reference); `bicubic` is the default.
 
 **Audio.** EmbeddingGemma 2 embeds audio into the same space too. An `input` element may be `{"audio": "<data:
@@ -1192,8 +1192,8 @@ and queried under another retrieves worse without any error, and the echo is the
 against sentence-transformers are in `docs/completed/task-embeddinggemma2.md`.
 
 **Startup self-tests, and `check --hardware`.** goinfer is built and measured on two machines, and a wrong kernel on hardware nobody here owns does not crash: it returns slightly wrong numbers (an AVX-512 VNNI
-accumulator bug did exactly that in September, and surfaced only because one CI runner happened to have the CPU). So the first model load of a process runs aikit's `linalg.SelfCheck`: the dispatched CPU kernels
-(`dotI8`, `dotW4A8`, the activation quantizer, and the activation-sum centering of the W4A8 fold) against their portable references on a small fixed input, held to **the agreement aikit's own tests assert for each**
+accumulator bug did exactly that in September, and surfaced only because one CI runner happened to have the CPU). So the first model load of a process runs the model core's `linalg.SelfCheck`: the dispatched CPU kernels
+(`dotI8`, `dotW4A8`, the activation quantizer, and the activation-sum centering of the W4A8 fold) against their portable references on a small fixed input, held to **the agreement the kernel tests assert for each**
 (exact, or a relative 1e-5), in about a millisecond (1.2-1.3 ms on a Ryzen 7 3700X). On a mismatch the highest active ISA tier (AVX-512 VNNI, then AVX2; DotProd on arm64) is stepped down and the kernels are checked
 again, so a bad tier degrades to the next one instead of producing wrong numbers, and one `WARN: self-test:` line on stderr names the kernel, the observed and allowed figures and the tier stepped off. Each result is in
 `GET /health` under `selftest` (always an array: `backend`, `status` of `pass`, `repaired`, `declined` or `skipped`, `elapsed_ms`, and `mismatches` and `stepped_down` when there are any). `-no-selftest` skips it (on `goinfer-chat`

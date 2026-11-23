@@ -464,9 +464,8 @@ fixed?** If the write-up names a mechanism and no list exists, the list is the m
 > **A hand-maintained literal duplicates a value that is computed or declared somewhere else.
 > Sibling drift with a literal as one of the siblings.**
 
-Two instances landed the same day, which is what made it a shape rather than a chore. The manifest's
-`aikit_version` field is mixed into `deps_hash` — so changing it re-stales every family, which is the
-right design — but nothing *computes* it, and it read `v1.12.0` against a `go.mod` saying `v1.16.0`
+Two instances landed the same day, which is what made it a shape rather than a chore. The manifest once mixed a manual dependency version into `deps_hash`. The field re-staled every
+family when edited, but nothing computed its value, and it read `v1.12.0` against a `go.mod` saying `v1.16.0`
 (QUEUE B7). And `RELEASING.md`'s version-alignment step named the versions to align on, going stale
 **twice** — once telling you to align on what had become a downgrade — before being rewritten to read
 them instead (`0898295`).

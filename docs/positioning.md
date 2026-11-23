@@ -79,8 +79,7 @@ and goinfer is not.
 It is also not a provider-orchestration library (e.g. `teilomillet/gollm`) that calls remote
 LLM APIs. goinfer runs the weights itself, locally, in-process.
 
-Built on [`aikit`](https://github.com/pkieltyka/aikit)'s embedding and tensor
-primitives.
+The CPU embedding and tensor primitives live in the root's private model core.
 
 Full, generated support map (every supported `model_type`, how each family is
 configured — coverage axis, MoE, RoPE, norm, loaders, modality):

@@ -231,7 +231,7 @@ below is declaring it (§3), not proving it.
 - [ ] **REQUIRED · Submodule posture decided and recorded**: do `gpu/`, `cuda/`, `metal/`,
   `demo/agent` tag v1.0.0 alongside the core or stay on their own 0.x series (aikit kept `gpu/`
   at 0.x)? Either is fine; undecided is not — the tag-day script needs to know.
-- [ ] `RELEASING.md` gains the 1.0 addendum: this gate, the tag order, and the C3 aikit-bump
+- [ ] `RELEASING.md` gains the 1.0 addendum: this gate, the tag order, and the C3 Metal consumer
   trigger it already carries.
 
 ## 4. Consumer trust — the C group, run against the RC
@@ -326,7 +326,7 @@ into the gate, and so nothing in the gate is deferred *into* this list without a
 1. **v0.14.0 — RC minus one.** Replace-free tags across all five modules (the `go install` fix
    reaches consumers); D3 merged behind its goldens run on a fixture-bearing checkout; the
    backfill record rides as reserved (E1's 2026-08-12 decision); B13's two reds resolved; the
-   w4a8 asset built; B15 fixed. If this tag carries an aikit bump, C3's auto-pickup fires — let it.
+   w4a8 asset built; B15 fixed. Apply the C3 Metal consumer trigger in the release runbook.
 2. **The freeze declaration** (§3 wholesale): tier doc, apidiff baseline, format promises, docs
    rewrite, E7 sweep. If any of it moves user-visible surface, that's v0.15.0; otherwise it rides
    the RC.
