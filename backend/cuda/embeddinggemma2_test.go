@@ -3,6 +3,7 @@
 package cuda
 
 import (
+	"bufio"
 	"crypto/sha256"
 	"encoding/json"
 	"errors"
@@ -3444,4 +3445,258 @@ func TestEG2FP16FailedAttach(t *testing.T) {
 	if allocs, objects := dev.LedgerLen(); allocs != 0 || objects != 0 {
 		t.Fatalf("invalid-weight attach retains %d allocations and %d objects", allocs, objects)
 	}
+}
+
+var eg2FusionPack = flag.String("eg2-fusion-pack", "", "EmbeddingGemma 2 pack for the fusion test")
+var eg2FusionIDs = flag.String("eg2-fusion-ids", "", "pinned prepared IDs for the fusion test")
+
+func TestEG2FusionsTiny(t *testing.T) {
+	m := eg2TinyModel(t)
+	inputs := make([][]int, 3)
+	for i, n := range []int{17, 129, 36} {
+		inputs[i] = eg2SeqIDs(n, i+1, m.Config().VocabSize)
+	}
+	checkEG2Fusions(t, m, inputs, true)
+}
+
+func TestEG2FusionsReal(t *testing.T) {
+	if *eg2FusionPack == "" || *eg2FusionIDs == "" {
+		t.Skip("set eg2-fusion-pack and eg2-fusion-ids for the fixed real batch")
+	}
+	data, err := os.ReadFile(*eg2FusionIDs)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if digest := fmt.Sprintf("%x", sha256.Sum256(data)); digest != "97c426da8c155b04bf0b34e270dcfa5e8cf18bfc1343e926f63e638fea6bcd22" {
+		t.Fatalf("unexpected prepared-ID digest: %s", digest)
+	}
+	scanner := bufio.NewScanner(strings.NewReader(string(data)))
+	scanner.Buffer(nil, 1<<17)
+	if !scanner.Scan() || scanner.Text() != "batch\tids" {
+		t.Fatal("missing prepared-ID TSV header")
+	}
+	var inputs [][]int
+	positions := 0
+	for scanner.Scan() {
+		f := strings.Fields(scanner.Text())
+		if len(f) < 2 {
+			t.Fatal("empty input row")
+		}
+		if f[0] != "1" {
+			break
+		}
+		ids := make([]int, len(f)-1)
+		for i, field := range f[1:] {
+			id, err := strconv.Atoi(field)
+			if err != nil || id < 0 {
+				t.Fatalf("bad token %q", field)
+			}
+			ids[i] = id
+		}
+		inputs = append(inputs, ids)
+		positions += len(ids)
+	}
+	if err := scanner.Err(); err != nil {
+		t.Fatal(err)
+	}
+	if len(inputs) != 17 || positions != 7924 {
+		t.Fatalf("wanted the first frozen group, got %d inputs and %d positions", len(inputs), positions)
+	}
+
+	read := func(name string) []byte {
+		t.Helper()
+		buf, err := os.ReadFile(filepath.Join(*eg2FusionPack, name))
+		if err != nil {
+			t.Fatal(err)
+		}
+		return buf
+	}
+	var packed struct {
+		Config json.RawMessage
+	}
+	if err := json.Unmarshal(read("config.json"), &packed); err != nil {
+		t.Fatal(err)
+	}
+	cfg, err := embeddinggemma2.LoadConfigBytes(packed.Config)
+	if err != nil {
+		t.Fatal(err)
+	}
+	m, err := embeddinggemma2.NewModel(cfg, read("tokens.bf16"), read("layers.safetensors"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	checkEG2Fusions(t, m, inputs, false)
+}
+
+func checkEG2Fusions(t *testing.T, m *embeddinggemma2.Model, inputs [][]int, keepLayers bool) {
+	t.Helper()
+	if len(eg2FusionsPTX) == 0 {
+		t.Skip("build with cuda,eg2_fusions for the fused encoder experiment")
+	}
+	id := os.Getenv("GOINFER_TEST_CUDA_UUID")
+	if id == "" {
+		t.Skip("set GOINFER_TEST_CUDA_UUID for the fusion encoder check")
+	}
+	all, err := gpu.Adapters()
+	if err != nil {
+		t.Fatal(err)
+	}
+	device, err := resolveCUDADevice(id, all)
+	if err != nil {
+		t.Fatal(err)
+	}
+	lengths := make([]int, len(inputs))
+	rows := 0
+	for i, in := range inputs {
+		lengths[i] = len(in)
+		rows += len(in)
+	}
+	type evidence struct {
+		output, snapshots        [][]float32
+		estimate, peak           int64
+		launches, copies, allocs int
+	}
+	run := func(ptx []byte) evidence {
+		t.Helper()
+		rec := &eg2RecordingLeaser{}
+		old := leaseSeenForTest
+		leaseSeenForTest = func(onDevice bool, line string, requested int64, release func()) func() {
+			if old != nil {
+				release = old(onDevice, line, requested, release)
+			}
+			recordRelease := rec.Lease(onDevice, line, requested, gpu.ChargedBytes(requested))
+			return func() { release(); recordRelease() }
+		}
+		defer func() { leaseSeenForTest = old }()
+		a, err := newEG2AccelConfigured(m, true, nil, ptx, func() (*Device, error) {
+			return gpu.CreateSelectedDevice(device)
+		})
+		if err != nil {
+			t.Fatal(err)
+		}
+		defer func() {
+			if err := a.Close(); err != nil {
+				t.Error(err)
+			}
+		}()
+		if a.AttachedDevice().ID != "cuda:"+device.UUID || (a.fusions != nil) != (len(ptx) != 0) {
+			t.Fatal("wrong device or fusion mode")
+		}
+		fit, err := a.BatchMemory(lengths)
+		if err != nil || fit.Quality != embeddinggemma2.BatchMemoryUpperBound {
+			t.Fatalf("batch fit = %v, %v", fit, err)
+		}
+		mem, err := a.DeviceMemory()
+		const GiB = 1 << 30
+		if err != nil || mem.AvailableBytes < fit.AdditionalPeakBytes+GiB ||
+			mem.TotalBytes-mem.AvailableBytes+fit.AdditionalPeakBytes+GiB > 6*GiB {
+			t.Fatalf("device fit refused: memory=%v estimate=%v error=%v", mem, fit, err)
+		}
+
+		stats := evidence{estimate: fit.AdditionalPeakBytes}
+		base, beforeAllocs := rec.resetWindow()
+		lo, _ := a.ops.dev.Activity()
+		oldTrace := gpu.TraceForTest
+		func() {
+			defer func() { gpu.TraceForTest = oldTrace }()
+			gpu.TraceForTest = func(event gpu.TraceEvent) {
+				if oldTrace != nil {
+					oldTrace(event)
+				}
+				if event.Op == gpu.TraceCopy2D {
+					stats.copies++
+				}
+			}
+			stats.output, err = a.ForwardBatch(inputs)
+		}()
+		if err != nil {
+			t.Fatal(err)
+		}
+		hi, _ := a.ops.dev.Activity()
+		stats.launches = int(hi - lo)
+		stats.peak, _, stats.allocs = rec.windowDelta(base, beforeAllocs)
+		if stats.peak > stats.estimate {
+			t.Fatalf("observed peak %d exceeds fit estimate %d", stats.peak, stats.estimate)
+		}
+
+		if keepLayers {
+			single, snapshots, err := a.Forward(inputs[0], true)
+			if err != nil {
+				t.Fatal(err)
+			}
+			if len(snapshots) != m.Config().Layers+1 {
+				t.Fatalf("got %d retained layer snapshots", len(snapshots))
+			}
+			if diff := eg2FirstDiff(single, stats.output[0], m.Dim()); diff != "" {
+				t.Fatalf("kept singleton differs from packed: %s", diff)
+			}
+			stats.snapshots = snapshots
+		}
+		if len(ptx) == 0 {
+			return stats
+		}
+		for i, ids := range inputs {
+			single, _, err := a.Forward(ids, false)
+			if err != nil {
+				t.Fatal(err)
+			}
+			if diff := eg2FirstDiff(single, stats.output[i], m.Dim()); diff != "" {
+				t.Fatalf("singleton input %d: %s", i, diff)
+			}
+		}
+		mid := len(inputs) / 2
+		for _, span := range [][2]int{{0, mid}, {mid, len(inputs)}} {
+			part, err := a.ForwardBatch(inputs[span[0]:span[1]])
+			if err != nil {
+				t.Fatal(err)
+			}
+			for i, got := range part {
+				if diff := eg2FirstDiff(got, stats.output[span[0]+i], m.Dim()); diff != "" {
+					t.Fatalf("split input %d: %s", span[0]+i, diff)
+				}
+			}
+		}
+		reverse := slices.Clone(inputs)
+		slices.Reverse(reverse)
+		got, err := a.ForwardBatch(reverse)
+		if err != nil {
+			t.Fatal(err)
+		}
+		for i, out := range got {
+			if diff := eg2FirstDiff(out, stats.output[len(inputs)-1-i], m.Dim()); diff != "" {
+				t.Fatalf("reversed input %d: %s", i, diff)
+			}
+		}
+		return stats
+	}
+	ref, fused := run(nil), run(eg2FusionsPTX)
+	for i, out := range fused.output {
+		if diff := eg2FirstDiff(out, ref.output[i], m.Dim()); diff != "" {
+			t.Fatalf("packed input %d: %s", i, diff)
+		}
+		if !eg2Finite(out) {
+			t.Fatalf("input %d produced nonfinite output", i)
+		}
+		// Pooling is shared by the two paths and receives identical rows.
+		got := eg2PoolNorm(out, lengths[i], m.Dim(), m.Dim())
+		want := eg2PoolNorm(ref.output[i], lengths[i], m.Dim(), m.Dim())
+		if diff := eg2FirstDiff(got, want, m.Dim()); diff != "" {
+			t.Fatalf("pooled input %d: %s", i, diff)
+		}
+	}
+	for i := range fused.snapshots {
+		if diff := eg2FirstDiff(fused.snapshots[i], ref.snapshots[i], m.Config().Hidden); diff != "" {
+			t.Fatalf("layer state %d: %s", i, diff)
+		}
+	}
+	wantBytes := gpu.ChargedBytes(int64(rows) * int64(m.Config().PLEDim) * 4)
+	layers := m.Config().Layers
+	if ref.launches-fused.launches != 2*layers || ref.copies-fused.copies != layers ||
+		ref.allocs-fused.allocs != 1 || ref.estimate-fused.estimate != wantBytes || ref.peak-fused.peak != wantBytes {
+		t.Fatalf("unexpected fusion savings: launches %d, copies %d, allocations %d, estimated bytes %d, peak bytes %d",
+			ref.launches-fused.launches, ref.copies-fused.copies, ref.allocs-fused.allocs,
+			ref.estimate-fused.estimate, ref.peak-fused.peak)
+	}
+	t.Logf("%d inputs, %d rows: raw and pooled bits match, kernel launches %d -> %d, D2D copies %d -> %d, allocations %d -> %d, tracked peak bytes %d -> %d",
+		len(inputs), rows, ref.launches, fused.launches, ref.copies, fused.copies, ref.allocs, fused.allocs, ref.peak, fused.peak)
 }
