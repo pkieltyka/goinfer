@@ -34,7 +34,7 @@ import (
 
 func TestResolveCUDADevice(t *testing.T) {
 	const first = "GPU-abcd1234-1111-2222-3333-444444444444"
-	const second = "GPU-abcd1234-1111-2222-3333-555555555555"
+	const second = "MIG-abcd1234-1111-2222-3333-555555555555"
 	const old = "GPU-abcd1234-1111-2222-3333-666666666666"
 	adapters := []gpu.Adapter{
 		{Ordinal: 0, UUID: first, Major: 7, Minor: 5},
@@ -52,6 +52,9 @@ func TestResolveCUDADevice(t *testing.T) {
 		{"02", 0, embeddinggemma2.ErrNoDevice}, {"3", 0, embeddinggemma2.ErrNoDevice},
 		{"", 0, embeddinggemma2.ErrDeviceUnavailable}, {"zz", 0, embeddinggemma2.ErrDeviceUnavailable},
 		{"GPU-xyz", 0, embeddinggemma2.ErrDeviceUnavailable},
+		{"foo1", 0, embeddinggemma2.ErrDeviceUnavailable},
+		{"GPU-abcd1234-1111-2222-3333-55555555555z", 0, embeddinggemma2.ErrDeviceUnavailable},
+		{"MIG-abcd1234-11112222-3333-555555555555", 0, embeddinggemma2.ErrDeviceUnavailable},
 	} {
 		got, err := resolveCUDADevice(tt.token, adapters)
 		if !errors.Is(err, tt.want) || err == nil && got.Ordinal != tt.ordinal ||

@@ -5,6 +5,8 @@ import (
 	"maps"
 	"slices"
 	"strings"
+
+	"github.com/pkieltyka/goinfer/internal/cudaid"
 )
 
 // MemoryKind describes how a device's memory is provisioned.
@@ -112,7 +114,7 @@ func (d DeviceInfo) RunnableSelectors() []string {
 		return nil
 	}
 	token, qualified := strings.CutPrefix(d.ID, "cuda:")
-	if !qualified || strings.Trim(token, "0123456789") == "" || strings.ContainsAny(token, ": \t\r\n") || d.ID == d.Alias {
+	if !qualified || !cudaid.ValidUUID(token) || d.ID == d.Alias {
 		return nil
 	}
 	accelMu.Lock()

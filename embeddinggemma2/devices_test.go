@@ -174,7 +174,20 @@ func TestDeviceRunnableSelectors(t *testing.T) {
 	if linked := DeviceSelectors(backend); !slices.Equal(linked, []string{"", first, denied, legacy, last}) {
 		t.Fatalf("linked selectors = %v", linked)
 	}
-	for _, id := range []string{"", "abc", "cuda:", "cuda::0", "cuda:12", "cuda:bad token", "metal:abc", d.Alias} {
+	mig := d
+	mig.ID = "cuda:mIg-ABCD1234-1111-2222-3333-444444444444"
+	if before := calls; !slices.Equal(mig.RunnableSelectors(), []string{first, last}) || calls != before+2 {
+		t.Fatalf("valid MIG UUID did not dispatch the predicates")
+	}
+	invalidIDs := []string{
+		"", "abc", "cuda:", "cuda::0", "cuda:12", "cuda:bad token", "other:abc", d.Alias,
+		"cuda:foo1",
+		"cuda:GPU-abcd1234-1111-2222-3333-44444444444z",
+		"cuda:MIG-abcd1234-1111-2222-3333-44444444444",
+		"cuda:GPU-abcd1234-1111_2222-3333-444444444444",
+		"cuda:CPU-abcd1234-1111-2222-3333-444444444444",
+	}
+	for _, id := range invalidIDs {
 		invalid := d
 		invalid.ID = id
 		before := calls
