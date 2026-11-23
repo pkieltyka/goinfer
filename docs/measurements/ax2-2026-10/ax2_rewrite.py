@@ -2,11 +2,13 @@
 """AX2b: switch every importer of aikit's vision, audio and gpu/visioncuda packages to goinfer's copies, or check that a
 commit did.
 
-    ax2_rewrite.py rewrite            # in the repository root: rewrites the tracked .go files in place, then gofmt
-    ax2_rewrite.py check <commit>     # gate AX2b-N: <commit> is exactly this rewrite applied to its parent
+    ax2_rewrite.py rewrite <tree>     # mutates <tree>'s tracked .go files in place, then gofmt
+    ax2_rewrite.py check <commit>     # gate AX2b-N (read-only): <commit> is exactly this rewrite applied to its parent
 
-The rewrite is the import path and nothing else; gofmt re-sorts an import block whose order the new path changes.
+The rewrite is the import path and nothing else; gofmt re-sorts an import block whose order the new path changes. Both
+the old and the new paths are donor-era, so name a historical tree; the working tree is never rewritten implicitly.
 """
+import os
 import subprocess
 import sys
 
@@ -19,8 +21,8 @@ OLD_NEW = [
 ]
 
 
-def git(*args, binary=False):
-    out = subprocess.run(["git", *args], capture_output=True, check=True).stdout
+def git(*args, binary=False, cwd=None):
+    out = subprocess.run(["git", *args], capture_output=True, check=True, cwd=cwd).stdout
     return out if binary else out.decode()
 
 
@@ -31,23 +33,29 @@ def rewrite(src: bytes) -> bytes:
     return subprocess.run(["gofmt"], input=text.encode(), capture_output=True, check=True).stdout
 
 
-def importers(rev=None):
+def importers(rev=None, cwd=None):
     pattern = "|".join(old.strip('"').replace(".", r"\.") for old, _ in OLD_NEW)
     args = ["grep", "-l", "-E", f'"({pattern})"'] + ([rev] if rev else []) + ["--", "*.go"]
-    r = subprocess.run(["git", *args], capture_output=True)
+    r = subprocess.run(["git", *args], capture_output=True, cwd=cwd)
     names = r.stdout.decode().split()
     return [n.split(":", 1)[1] if rev else n for n in names]
 
 
 def main():
     if sys.argv[1] == "rewrite":
-        files = importers()
+        if len(sys.argv) != 3:
+            sys.exit("usage: ax2_rewrite.py rewrite <tree>")
+        root = sys.argv[2]
+        if not os.path.isdir(os.path.join(root, ".git")) and not os.path.isfile(os.path.join(root, ".git")):
+            sys.exit(f"FATAL: {root} is not a git checkout")
+        files = importers(cwd=root)
         for f in files:
-            with open(f, "rb") as fh:
+            path = os.path.join(root, f)
+            with open(path, "rb") as fh:
                 data = rewrite(fh.read())
-            with open(f, "wb") as fh:
+            with open(path, "wb") as fh:
                 fh.write(data)
-        print(f"rewrote {len(files)} files")
+        print(f"rewrote {len(files)} files in {root}")
         return
     commit = sys.argv[2]
     parent = commit + "^"
