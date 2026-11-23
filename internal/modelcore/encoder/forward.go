@@ -1,0 +1,112 @@
+package encoder
+
+// clampTokenID maps a token id to a valid row index into a [vocab, D] embedding
+// table: id if in range, else 0 (always valid for vocab ≥ 1). The tokenizer
+// should never emit an out-of-range id, but a corrupt fixture or a drop-in
+// checkpoint could; substituting row 0 avoids an index-out-of-range panic in the
+// embedding gather. (The old fallback to id 100 assumed a ≥101-token vocab — the
+// repo's own vocab_size:4 fixtures would index WordEmb[400:404] and panic, the
+// exact crash this guards — and that 100 is [UNK] for every drop-in checkpoint.)
+// Shared by every embed-gather site in the package — CodeRankEmbed/nomic's
+// single/batched/f32/Q8/MaxSim-probe paths here, and BERT's and GTE's own word-
+// embedding gathers (bert.go, gte.go) despite their otherwise-unshared embedding
+// prologues (learned positions + segments for BERT, RoPE-only for GTE) — so the
+// fallback can't drift between them again.
+func clampTokenID(id int32, vocab int) int {
+	if int(id) < 0 || int(id) >= vocab {
+		return 0
+	}
+	return int(id)
+}
+
+// forward runs the full CodeRankEmbed transformer on a single token
+// sequence and returns the raw (UN-normalized) CLS hidden state.
+//
+// Caller is responsible for L2-normalizing if the consumer is cosine
+// (the M0 harness does), and for owning the token-id slice (forward
+// does not mutate `ids` but treats it as read-only).
+//
+// Pipeline (plan §6, with the M1-confirmed schema):
+//
+//	h = WordEmb[ids] + TokenTypeEmb[0]
+//	h = LayerNorm(h; EmbLN_W, EmbLN_B, eps)
+//	for each of 12 layers:
+//	  h = LayerNorm(h + SelfAttention(h);   norm1)   // post-norm
+//	  h = LayerNorm(h + SwiGLU_MLP(h);      norm2)   // post-norm
+//	return h[0]   // CLS at position 0
+//
+// Single-sequence only in M2 (no batching, no padding mask). M7 brings
+// batched mode if needed.
+func (w *Weights) forward(ids []int32) []float32 {
+	enterForward()
+	defer leaveForward()
+	return w.forwardInner(ids)
+}
+
+// forwardInner is forward WITHOUT the in-flight bracket, for callers that
+// already hold one. forwardBatch does: it brackets once for the whole batch and
+// then delegates per sequence on the fallback and B==1 paths, which used to
+// bracket a SECOND time. The nested count of 2 made wantParallelMatmul decline,
+// so EncodeBatch(texts, …, 1) on a MoE / dense-GELU / qkv-bias checkpoint ran
+// every matmul serially and was strictly slower than a bare Encode per text
+// (perf-campaign item 34).
+func (w *Weights) forwardInner(ids []int32) []float32 {
+	L := len(ids)
+	if L == 0 {
+		// Degenerate input — return zero vector (matches the empty-input
+		// contract of internal/embed and the model's behavior on an
+		// empty string after the tokenizer wraps to just [CLS][SEP],
+		// which is L=2 not 0).
+		return make([]float32, w.Cfg.HiddenDim)
+	}
+	D := w.Cfg.HiddenDim
+	heads := w.Cfg.NumHeads
+	headDim := w.Cfg.HeadDim()
+	intermediate := w.Cfg.IntermediateDim
+	eps := w.Cfg.LayerNormEpsilon
+
+	// M8c: borrow a scratch arena for this forward's intermediate
+	// buffers. Returned to the pool on exit; the same worker's next
+	// forward reuses them (typical rerank loop). ensureLayer grows
+	// the per-buffer caps to fit this forward's L if needed.
+	s := getScratch()
+	s.be = w.be
+	defer putScratch(s)
+	s.ensureLayer(w.scratchLayout(), L, D, intermediate, heads, headDim, L)
+
+	// 1) Build the input hidden state h = word_emb[id] + token_type_emb[0].
+	// Single-segment input ⇒ every row gets token_type_emb row 0 added.
+	h := make([]float32, L*D)
+	tte0 := w.TokenTypeEmb[:D] // row 0
+	for i, id := range ids {
+		src := w.WordEmb[clampTokenID(id, w.Cfg.VocabSize)*D:][:D]
+		dst := h[i*D : (i+1)*D]
+		for j := range D {
+			dst[j] = src[j] + tte0[j]
+		}
+	}
+	// 2) Embedding LayerNorm.
+	layerNorm(h, w.EmbLN_W, w.EmbLN_B, L, D, eps)
+
+	// 3) Precompute RoPE table once for this seq length.
+	rope := w.ropeCache.get(L, headDim, w.Cfg.RoPEBase)
+
+	// 4) Twelve transformer blocks (post-norm).
+	for i := 0; i < w.Cfg.NumLayers; i++ {
+		l := &w.Layers[i]
+		// Attention sub-layer + residual (in place on h). mOut=L: every row is
+		// read downstream (CLS pooling happens after the full stack, not via a
+		// trimmed last layer), so this never actually trims.
+		s.phaseBoundary()
+		h = selfAttention(h, l.Wqkv, l.WqkvB, l.OutProj, l.OutProjB, heads, headDim, D, L, L, rope, s)
+		layerNorm(h, l.Norm1W, l.Norm1B, L, D, eps)
+		// MLP sub-layer + residual (SwiGLU, dense GELU, or MoE per layer).
+		s.phaseBoundary()
+		applyMLP(w, l, h, D, intermediate, L, s)
+		layerNorm(h, l.Norm2W, l.Norm2B, L, D, eps)
+	}
+
+	// 5) Pool the [L, D] hidden states to one vector (fresh allocation, so the
+	// caller can L2-normalize without aliasing h). CLS by default; see pooling.
+	return poolOne(h[:L*D], L, D, w.Cfg.pooling)
+}

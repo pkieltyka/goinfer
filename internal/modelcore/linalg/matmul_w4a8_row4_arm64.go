@@ -1,0 +1,247 @@
+//go:build arm64
+
+package linalg
+
+import "fmt"
+
+// RepackW4A8Row4 converts a canonical group-int4 packed weight matrix
+// (QuantizeGroupsInt4's layout: [N,K] row-major, interleaved even/odd
+// nibbles per row) into the split-half + 4-row-interleaved layout
+// MatmulBTW4A8Row4Into consumes, for use as a one-time arm64 CPU load-time
+// repack (docs/task-w4a8-neon-bandwidth.md's item-3+4 harness result — GO,
+// 2026-08-23/24). The canonical packer, the .giw on-disk format, the scalar
+// oracle, and amd64 are all untouched by this: this produces a SECOND,
+// arm64-only byte array the caller stores alongside (or in place of) the
+// canonical one.
+//
+// N must be a multiple of 4 and K a multiple of group (32, the only group
+// size MatmulBTW4A8Row4Into accepts) — both are the interleave's own
+// contract, not negotiable per-call. A caller whose tensor doesn't meet
+// both should not call this at all; route that tensor through the
+// unmodified MatmulBTW4A8Into/canonical packing instead. Output is the same
+// total byte count as the input (repacking, not re-quantizing), so this
+// costs one extra O(N*K) pass at load time and briefly doubles the
+// CPU-resident bytes for the tensor (both copies exist until the caller
+// drops one) — a real load-time/RAM cost, not free; the plumbing phase
+// measures both.
+func RepackW4A8Row4(packed []byte, N, K, group int) []byte {
+	if group != 32 {
+		panic(fmt.Sprintf("linalg: RepackW4A8Row4 requires group=32, got %d", group))
+	}
+	if N%4 != 0 {
+		panic(fmt.Sprintf("linalg: RepackW4A8Row4 requires N a multiple of 4, got %d", N))
+	}
+	if K%group != 0 {
+		panic(fmt.Sprintf("linalg: RepackW4A8Row4 requires K a multiple of group=%d, got %d", group, K))
+	}
+	_, bpr := groupsFor(K, group)
+	if len(packed) < N*bpr {
+		panic(fmt.Sprintf("linalg: RepackW4A8Row4 packed len %d < N*bytesPerRow = %d", len(packed), N*bpr))
+	}
+	// Zero-alloc-per-quad (audit M-22): RepackInt4Row4Quad writes directly
+	// into out's own quad slice — src (packed's quad, canonical, untouched)
+	// and dst (out's quad, being built) never overlap here, so this is
+	// exactly RepackInt4Row4Quad's contract, not the aliased case
+	// RepackInt4Row4InPlace's scratch dance is for. Used to call
+	// repackSplitHalf4RowBlock, which does the same transform via 5 per-quad
+	// allocations (4 per-row split-half temporaries + 1 output); that
+	// function is unchanged and still exercised directly by its own tests.
+	out := make([]byte, N*bpr)
+	for q := 0; q < N/4; q++ {
+		base := q * 4 * bpr
+		RepackInt4Row4Quad(out[base:base+4*bpr], packed[base:base+4*bpr], K)
+	}
+	return out
+}
+
+// RepackW4A8Row4Scales is RepackW4A8Row4's counterpart for the per-group f32
+// scales array: same interleaving, same N/K/group contract.
+func RepackW4A8Row4Scales(scales []float32, N, K, group int) []float32 {
+	if group != 32 {
+		panic(fmt.Sprintf("linalg: RepackW4A8Row4Scales requires group=32, got %d", group))
+	}
+	if N%4 != 0 {
+		panic(fmt.Sprintf("linalg: RepackW4A8Row4Scales requires N a multiple of 4, got %d", N))
+	}
+	if K%group != 0 {
+		panic(fmt.Sprintf("linalg: RepackW4A8Row4Scales requires K a multiple of group=%d, got %d", group, K))
+	}
+	nGroups, _ := groupsFor(K, group)
+	if len(scales) < N*nGroups {
+		panic(fmt.Sprintf("linalg: RepackW4A8Row4Scales scales len %d < N*nGroups = %d", len(scales), N*nGroups))
+	}
+	// Zero-alloc-per-quad, same reasoning as RepackW4A8Row4 above (audit
+	// M-22): used to call interleaveScales4Row, unchanged and still tested
+	// directly.
+	out := make([]float32, N*nGroups)
+	for q := 0; q < N/4; q++ {
+		base := q * 4 * nGroups
+		RepackInt4Row4ScalesQuad(out[base:base+4*nGroups], scales[base:base+4*nGroups], nGroups)
+	}
+	return out
+}
+
+// MatmulBTW4A8Row4Into computes dst[N] = a[K]·bᵀ where b is [N,K] stored
+// group-int4 in RepackW4A8Row4/RepackW4A8Row4Scales's layout — a drop-in
+// PERFORMANCE replacement for MatmulBTW4A8Into at M=1 (bit-identical given
+// the same logical weights: docs/task-w4a8-neon-bandwidth.md's
+// TestDotW4A8SplitHalf4Row_bitIdenticalToCanonical), not a numerics change.
+//
+// Hard contract, checked and panicking (caller decides per-tensor whether it
+// holds, mirroring how MatmulBTW4A8Into's own ragged-K tail is handled by
+// falling back rather than growing hybrid logic here): M must be 1 (this
+// kernel fuses one activation row's quantization with 4-row weight
+// processing — M>1/batched prefill gets nothing from this optimization and
+// should keep routing through MatmulBTW4A8Into, matching the harness
+// brief's own "no M>1-specific work" scoping), N a multiple of 4, K a
+// multiple of group=32. A tensor that doesn't meet all three should never
+// have been repacked with RepackW4A8Row4 in the first place — route its
+// whole matmul through MatmulBTW4A8Into with the canonical layout instead
+// of mixing layouts within one call.
+//
+// Output contract: overwrites dst; do not pre-zero. Covers dst[:M*N].
+func MatmulBTW4A8Row4Into(ws *Workspace, a []float32, w4Row4 []byte, wScales4 []float32, dst []float32, M, K, N, group int) {
+	checkMatmulW4A8("MatmulBTW4A8Row4", len(a), len(w4Row4), len(wScales4), len(dst), M, K, N, group)
+	checkGroupMatmul("MatmulBTW4A8Row4", len(a), w4Row4, wScales4, len(dst), M, K, N, group)
+	if M != 1 {
+		panic(fmt.Sprintf("linalg: MatmulBTW4A8Row4Into requires M=1, got M=%d — use MatmulBTW4A8Into for M>1", M))
+	}
+	if group != 32 {
+		panic(fmt.Sprintf("linalg: MatmulBTW4A8Row4Into requires group=32, got %d", group))
+	}
+	if N%4 != 0 {
+		panic(fmt.Sprintf("linalg: MatmulBTW4A8Row4Into requires N a multiple of 4, got %d", N))
+	}
+	if g := actGroupFor(ws); g > 0 {
+		if g == 32 && K%32 == 0 && K >= 32 {
+			matmulBTW4A8Row4GroupedInto(ws, a, w4Row4, wScales4, dst, K, N)
+			return
+		}
+		matmulW4A8Grouped(ws, g, a, int4Layout{r4: w4Row4, r4S: wScales4, group: group, K: K}, dst, M, N) // actgroup.go
+		return
+	}
+	if K%group != 0 {
+		panic(fmt.Sprintf("linalg: MatmulBTW4A8Row4Into requires K a multiple of group=%d, got %d", group, K))
+	}
+	// Same K=0 hole as MatmulBTW4A8Row4TileInto: K%group==0 admits it, and the
+	// span then indexes an empty block.
+	if K < group {
+		panic(fmt.Sprintf("linalg: MatmulBTW4A8Row4Into requires K >= group=%d, got %d", group, K))
+	}
+	nGroups, bpr := groupsFor(K, group)
+	aq := ws.int8Buf(K)
+	aScale := quantizeRowInt8(a[:K], aq)
+	if aScale == 0 {
+		for j := range N {
+			dst[j] = 0
+		}
+		return
+	}
+	nQuads := N / 4
+	// S-05 (docs/task-simd-audit.md): the -8 centering folded into the SDOT
+	// accumulators' initial value. corr is the activation's per-lane sums × -8,
+	// computed ONCE per call here (K/32 groups, two SDOTs each) and shared by every
+	// quad; the row kernel then skips both per-row VSUBs. nil corr selects the
+	// pre-S-05 kernel — bit-identical, kept for the in-process A/B (SetW4A8RowFold).
+	var corr []int32
+	if w4a8RowFold {
+		corr = ws.int32Buf(4 * nGroups)
+		w4a8LaneCorrNeg8(&aq[0], &corr[0], nGroups)
+	}
+	if M*N*K < ws.thr() || nQuads < 2 {
+		w4a8Row4Span(aq, corr, aScale, w4Row4, wScales4, dst, nGroups, bpr, 0, nQuads)
+		return
+	}
+	ws.parallel(nQuads, func(q0, q1 int) {
+		w4a8Row4Span(aq, corr, aScale, w4Row4, wScales4, dst, nGroups, bpr, q0, q1)
+	})
+}
+
+// w4a8Row4Span computes output quads [q0,q1) — 4 real rows each — of
+// MatmulBTW4A8Row4Into's dst, given the already-quantized activation row and,
+// when corr is non-nil, its S-05 lane-sum correction (w4a8LaneCorrNeg8).
+func w4a8Row4Span(aq []int8, corr []int32, aScale float32, w4Row4 []byte, wScales4 []float32, dst []float32, nGroups, bpr, q0, q1 int) {
+	var out [4]float32
+	for q := q0; q < q1; q++ {
+		blk := w4Row4[q*4*bpr : q*4*bpr+4*bpr]
+		sblk := wScales4[q*4*nGroups : q*4*nGroups+4*nGroups]
+		if corr != nil {
+			dotW4A8SplitHalf4RowFold(&aq[0], &corr[0], &blk[0], &sblk[0], &out[0], nGroups)
+		} else {
+			dotW4A8SplitHalf4Row(&aq[0], &blk[0], &sblk[0], &out[0], nGroups)
+		}
+		dst[q*4] = out[0] * aScale
+		dst[q*4+1] = out[1] * aScale
+		dst[q*4+2] = out[2] * aScale
+		dst[q*4+3] = out[3] * aScale
+	}
+}
+
+// matmulBTW4A8Row4GroupedInto is MatmulBTW4A8Row4Into (M=1) with per-32 ACTIVATION scales, on the
+// unchanged row4 kernels. They return sum_g int32dot_g * sblk[4g+r] for four rows; handed the combined
+// scale sblk[4g+r]*aS[g] and without the final per-row activation multiply, they compute the per-group
+// product exactly. The S-05 fold's -8 correction is integer per group and is unaffected. Matches
+// matmulW4A8GroupedRef to accumulation order (TestActGroup_row4KernelMatchesReference).
+func matmulBTW4A8Row4GroupedInto(ws *Workspace, a []float32, w4Row4 []byte, wScales4, dst []float32, K, N int) {
+	nGroups, _ := groupsFor(K, 32)
+	aq := ws.int8Buf(K)
+	aS := ws.f32Buf(nGroups)
+	QuantizeActivationsGroupedInto(aq, aS, a[:K], 1, K, 32)
+	matmulBTW4A8Row4GroupedQ(ws, aq, aS, w4Row4, wScales4, dst, K, N)
+}
+
+// matmulBTW4A8Row4GroupedQ is matmulBTW4A8Row4GroupedInto on one activation row already quantized per 32 (aq, aS) (R-13).
+func matmulBTW4A8Row4GroupedQ(ws *Workspace, aq []int8, aS []float32, w4Row4 []byte, wScales4, dst []float32, K, N int) {
+	const group = 32
+	nGroups, bpr := groupsFor(K, group)
+	var corr []int32
+	if w4a8RowFold {
+		corr = ws.int32Buf(4 * nGroups)
+		w4a8LaneCorrNeg8(&aq[0], &corr[0], nGroups)
+	}
+	nQuads := N / 4
+	span := func(q0, q1 int) {
+		var out [4]float32
+		cs := make([]float32, 4*nGroups)
+		for q := q0; q < q1; q++ {
+			blk := w4Row4[q*4*bpr : q*4*bpr+4*bpr]
+			sblk := wScales4[q*4*nGroups : q*4*nGroups+4*nGroups]
+			for g := range nGroups {
+				s := aS[g]
+				cs[4*g], cs[4*g+1], cs[4*g+2], cs[4*g+3] = sblk[4*g]*s, sblk[4*g+1]*s, sblk[4*g+2]*s, sblk[4*g+3]*s
+			}
+			if corr != nil {
+				dotW4A8SplitHalf4RowFold(&aq[0], &corr[0], &blk[0], &cs[0], &out[0], nGroups)
+			} else {
+				dotW4A8SplitHalf4Row(&aq[0], &blk[0], &cs[0], &out[0], nGroups)
+			}
+			dst[q*4], dst[q*4+1], dst[q*4+2], dst[q*4+3] = out[0], out[1], out[2], out[3]
+		}
+	}
+	if N*K < ws.thr() || nQuads < 2 {
+		span(0, nQuads)
+		return
+	}
+	ws.parallel(nQuads, span)
+}
+
+// w4a8GroupedFastRowsQ serves matmulW4A8GroupedQ from the row4 kernels, one activation row at a time.
+// false when the layout is not row4.
+// It takes the activation already quantized per 32 for all M rows (R-13): each row's codes and scales are the
+// slices the per-row quantization produced, the grouped quantizer being row-independent.
+func w4a8GroupedFastRowsQ(ws *Workspace, q *ActQ, l int4Layout, dst []float32, M, N int) bool {
+	if l.r4 == nil || N%4 != 0 {
+		return false
+	}
+	K := l.K
+	nG := K / 32
+	for m := range M {
+		aq, aS := q.Q[m*K:(m+1)*K], q.S[m*nG:(m+1)*nG]
+		if l.r4S != nil {
+			matmulBTW4A8Row4GroupedQ(ws, aq, aS, l.r4, l.r4S, dst[m*N:(m+1)*N], K, N)
+		} else {
+			matmulBTW4A8Row4GroupedF16Q(ws, aq, aS, l.r4, l.r4S16, dst[m*N:(m+1)*N], K, N)
+		}
+	}
+	return true
+}
