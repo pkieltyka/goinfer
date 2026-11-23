@@ -2,6 +2,7 @@ package embeddinggemma2
 
 import (
 	"errors"
+	"fmt"
 	"slices"
 	"testing"
 )
@@ -43,12 +44,16 @@ func TestUseDeviceBindsOnlyRequestedSelectorAndToken(t *testing.T) {
 	const backend, override, other = "fake-dev", "fake-override", "fake-other"
 	var called []string
 	failure := errors.New("attach failed")
+	unsupported := fmt.Errorf("selector hardware: %w", ErrUnsupportedSelector)
 	registerTempAccelerator(t, backend, fakeText{"bare"})
 	open := func(selector string) func(*Model, string) (Accelerator, error) {
 		return func(_ *Model, token string) (Accelerator, error) {
 			called = append(called, selector+":"+token)
-			if token == "fail" {
+			switch token {
+			case "fail":
 				return nil, failure
+			case "unsupported":
+				return nil, unsupported
 			}
 			return fakeText{selector}, nil
 		}
@@ -90,6 +95,7 @@ func TestUseDeviceBindsOnlyRequestedSelectorAndToken(t *testing.T) {
 		{backend + ":abcd", "unlinked", ErrBackendUnavailable},
 		{"unlinked:abcd", "", ErrBackendUnavailable},
 		{backend + ":fail", override, failure},
+		{backend + ":unsupported", override, ErrUnsupportedSelector},
 	} {
 		acc, err := e.UseDevice(tt.id, tt.selector)
 		if acc != nil || !errors.Is(err, tt.want) || e.Accelerator() != attached ||
@@ -97,11 +103,91 @@ func TestUseDeviceBindsOnlyRequestedSelectorAndToken(t *testing.T) {
 			t.Fatalf("UseDevice(%q, %q): %v %v; attached %v", tt.id, tt.selector, acc, err, e.Accelerator())
 		}
 	}
-	wantCalls := []string{backend + ":abcd", override + ":0", override + ":fail"}
+	wantCalls := []string{backend + ":abcd", override + ":0", override + ":fail", override + ":unsupported"}
 	if !slices.Equal(called, wantCalls) {
 		t.Fatalf("called %v, want %v", called, wantCalls)
 	}
 	if acc, err := e.UseAccelerator(backend); err != nil || acc.Name() != "bare" {
 		t.Fatalf("bare behavior changed: %v %v", acc, err)
+	}
+}
+
+func TestDeviceRunnableSelectors(t *testing.T) {
+	const backend = "cuda"
+	const (
+		first   = "test-capability-a"
+		last    = "test-capability-z"
+		legacy  = "test-capability-legacy"
+		denied  = "test-capability-denied"
+		nilOpen = "test-capability-nil"
+		other   = "test-capability-other"
+	)
+	t.Cleanup(func() {
+		accelMu.Lock()
+		defer accelMu.Unlock()
+		for _, name := range []string{first, last, legacy, denied, nilOpen, other} {
+			delete(selectedAccels, name)
+		}
+	})
+	open := func(*Model, string) (Accelerator, error) {
+		t.Error("inventory must not open a device")
+		return nil, nil
+	}
+	var calls, otherCalls int
+	supports := func(d DeviceInfo) bool {
+		calls++
+		return d.ComputeCapability.Major >= 8 && slices.Contains(DeviceSelectors(backend), first)
+	}
+	RegisterDeviceAcceleratorWithSupport(last, backend, open, supports)
+	RegisterDeviceAcceleratorWithSupport(first, backend, open, supports)
+	RegisterDeviceAccelerator(legacy, backend, open)
+	RegisterDeviceAcceleratorWithSupport(denied, backend, open, func(DeviceInfo) bool { return false })
+	RegisterDeviceAcceleratorWithSupport(nilOpen, backend, nil, func(DeviceInfo) bool {
+		t.Error("ran predicate without a factory")
+		return true
+	})
+	RegisterDeviceAcceleratorWithSupport(other, "test-non-cuda", open, func(DeviceInfo) bool {
+		otherCalls++
+		return true
+	})
+
+	d := DeviceInfo{ID: "cuda:GPU-abcd1234-1111-2222-3333-444444444444", Alias: "cuda:0", Backend: backend,
+		ComputeCapability: CUDAComputeCapability{Major: 8}}
+	different := d
+	different.ComputeCapability.Minor++
+	seen := map[DeviceInfo]bool{d: true}
+	if !seen[d] || seen[different] {
+		t.Fatal("DeviceInfo lost value semantics")
+	}
+	got := d.RunnableSelectors()
+	if !slices.Equal(got, []string{first, last}) || calls != 2 {
+		t.Fatalf("runnable selectors = %v, %d predicate calls", got, calls)
+	}
+	got[0] = "caller mutation"
+	if next := d.RunnableSelectors(); !slices.Equal(next, []string{first, last}) {
+		t.Fatalf("caller changed later snapshot: %v", next)
+	}
+	if linked := DeviceSelectors(backend); !slices.Equal(linked, []string{first, denied, legacy, last}) {
+		t.Fatalf("linked selectors = %v", linked)
+	}
+	for _, id := range []string{"", "abc", "cuda:", "cuda::0", "metal:abc", d.Alias} {
+		invalid := d
+		invalid.ID = id
+		before := calls
+		if got := invalid.RunnableSelectors(); got != nil || calls != before {
+			t.Errorf("unusable ID %q: selectors %v, predicate calls %d", id, got, calls-before)
+		}
+	}
+	nonCUDA := DeviceInfo{ID: "test-non-cuda:abc", Backend: "test-non-cuda"}
+	if got := nonCUDA.RunnableSelectors(); got != nil || otherCalls != 0 {
+		t.Fatalf("non-CUDA: selectors %v, calls %d", got, otherCalls)
+	}
+	if got := DeviceSelectors(nonCUDA.Backend); !slices.Equal(got, []string{other}) {
+		t.Fatalf("non-CUDA linked selectors = %v", got)
+	}
+	RegisterDeviceAccelerator(first, backend, open)
+	RegisterDeviceAcceleratorWithSupport(last, backend, open, func(DeviceInfo) bool { return false })
+	if got := d.RunnableSelectors(); got != nil {
+		t.Fatalf("overwritten factories retained support: %v", got)
 	}
 }
