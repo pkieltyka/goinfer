@@ -9,7 +9,7 @@ import (
 	"net/http"
 	"slices"
 
-	"github.com/pkieltyka/aikit/encoder"
+	"github.com/pkieltyka/goinfer/internal/modelcore/encoder"
 )
 
 // embedReq is the subset of the OpenAI /v1/embeddings request we honor, plus the

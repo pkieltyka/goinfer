@@ -12,7 +12,7 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/pkieltyka/aikit/encoder"
+	"github.com/pkieltyka/goinfer/internal/modelcore/encoder"
 )
 
 func TestParseEmbedInput(t *testing.T) {

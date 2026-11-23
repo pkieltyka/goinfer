@@ -10,7 +10,7 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/pkieltyka/aikit/embed"
+	"github.com/pkieltyka/goinfer/internal/modelcore/embed"
 )
 
 // TK-G: the rank map keyed by ids, the typed

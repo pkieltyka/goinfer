@@ -18,8 +18,8 @@ import (
 	"sync/atomic"
 	"time"
 
-	"github.com/pkieltyka/aikit/embed"
-	"github.com/pkieltyka/aikit/encoder"
+	"github.com/pkieltyka/goinfer/internal/modelcore/embed"
+	"github.com/pkieltyka/goinfer/internal/modelcore/encoder"
 	"github.com/pkieltyka/goinfer/chat"
 	"github.com/pkieltyka/goinfer/constrain"
 	"github.com/pkieltyka/goinfer/decoder"
