@@ -24,7 +24,9 @@ for p in "$BIN/serve-cuda" "$BIN/cuda.test" "$MODEL"; do
 done
 [ -f "$BIN/SHA256SUMS" ] || { echo "FATAL: $BIN/SHA256SUMS is missing; the binaries' provenance must be recorded"; exit 2; }
 for f in serve-cuda cuda.test; do
-  grep -Eq "(^|[[:space:]])\*?${f//./\\.}\$" "$BIN/SHA256SUMS" || { echo "FATAL: $BIN/SHA256SUMS does not name $f; both executables must be recorded"; exit 2; }
+  # A complete GNU checksum record from column one: 64 hex digits, the mode marker, the exact name.
+  pat=${f//./\\.}
+  grep -Eq "^[0-9a-fA-F]{64} [ *]$pat\$" "$BIN/SHA256SUMS" || { echo "FATAL: $BIN/SHA256SUMS has no checksum record for $f; both executables must be recorded"; exit 2; }
 done
 (cd "$BIN" && sha256sum -c --quiet SHA256SUMS) || { echo "FATAL: the binaries do not match $BIN/SHA256SUMS"; exit 2; }
 case "$MODEL" in /Volumes/*|/srv/models/*) echo "FATAL: $MODEL is on the archive (CLAUDE.md)"; exit 2;; esac
