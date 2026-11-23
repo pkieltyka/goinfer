@@ -3542,7 +3542,7 @@ func eg2Synthetic256_512Model(t *testing.T) *embeddinggemma2.Model {
 			binary.LittleEndian.PutUint32(buf[i*4:], math.Float32bits(val))
 		}
 		rawData = append(rawData, buf...)
-		header[sp.name] = map[string]any{
+		header["language_model."+sp.name] = map[string]any{
 			"dtype":        "F32",
 			"shape":        sp.shape,
 			"data_offsets": []int{start, len(rawData)},
