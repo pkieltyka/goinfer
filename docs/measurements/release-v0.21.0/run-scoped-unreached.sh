@@ -18,7 +18,7 @@
 #   python3 scripts/timing_lock.py run --label release-v021-scoped-unreached -- bash docs/measurements/release-v0.21.0/run-scoped-unreached.sh
 set -euo pipefail
 REV=${REV:-7b50947a}
-SRC=$HOME/mycode/goinfer
+SRC=${SRC:-$(cd "$(dirname "${BASH_SOURCE[0]}")/../../.." && pwd)}
 BASE=${BASE:-$HOME/goinfer-bench/release-v0.21.0}
 WT=$BASE/scoped-wt
 LOG=${LOG:-$HOME/goinfer-logs/parity-scoped-unreached-v021-$(date +%F)}
@@ -52,7 +52,7 @@ done
 
 cd "$WT"
 {
-  echo "rev:        $(git rev-parse HEAD) ($(grep 'townsendmerino/aikit v' go.mod | head -1 | xargs))"
+  echo "rev:        $(git rev-parse HEAD) ($(grep -E '^[[:space:]]*github\.com/[^[:space:]]+/aikit v' go.mod | head -1 | xargs))"
   echo "started:    $(date '+%F %T %Z')"
   echo "fixtures:   $n gitignored entries symlinked from $SRC"
   echo "tree:       $(git status --porcelain | wc -l) entries in git status (0 = clean)"
@@ -63,5 +63,5 @@ cd "$WT"
 [ "${DRY:-0}" = 1 ] && { echo "DRY=1: stopping before the sweep"; exit 0; }
 
 GOWORK=off GATE_RUN="$RE" EMIT_MANIFEST=1 go run ./cmd/gate parity 2>&1 | tee "$LOG/scoped.log" || true
-cp testdata/parity_manifest.json "$LOG/parity_manifest.after.json"
+cp -r testdata/parity "$LOG/parity.after"
 echo "finished:   $(date '+%F %T %Z')" | tee -a "$LOG/provenance.txt"

@@ -9,7 +9,7 @@
 set -euo pipefail
 REV=${REV:?the commit to pin}
 B=${B:?the pinned directory}
-REPO=${REPO:-$HOME/mycode/goinfer}
+REPO=${REPO:-$(cd "$(dirname "${BASH_SOURCE[0]}")/../../../.." && pwd)}
 HERE=docs/measurements/integration-harness-2026-10
 mkdir -p "$B/bin"
 WT="$B/wt"
@@ -25,11 +25,12 @@ toolchain go1.27.2
 
 use (
 	.
-	./cuda
-	./gpu
+	./backend/cuda
+	./backend/metal
+	./backend/vulkan
 )
 EOF
-(cd "$WT" && CGO_ENABLED=0 go build -tags cuda -o "$B/bin/serve-cuda-ids3" github.com/townsendmerino/goinfer/cuda/cmd/serve)
+(cd "$WT" && CGO_ENABLED=0 go build -tags cuda -o "$B/bin/serve-cuda-ids3" github.com/pkieltyka/goinfer/backend/cuda/cmd/serve)
 echo "$FULL" > "$B/bin/serve-cuda-ids3.rev"
 sha256sum "$B/bin/serve-cuda-ids3" | cut -d' ' -f1 > "$B/bin/serve-cuda-ids3.sha256"
 rm -rf "$B/matrix-pinned"
@@ -44,7 +45,7 @@ json.dump(p, open(sys.argv[2], "w"), indent=1)
 EOF
 {
   echo "Pinned $(date '+%F %T %Z') for G-ids-3 (ids-carried-2026-10-15.md, Tier 2)."
-  echo "bin/serve-cuda-ids3 built at $FULL, CGO_ENABLED=0 -tags cuda, from a detached worktree with its own go.work (aikit from go.mod)."
+  echo "bin/serve-cuda-ids3 built at $FULL, CGO_ENABLED=0 -tags cuda, from a detached worktree with its own go.work (the workspace modules from this checkout)."
   echo "sha256 $(cat "$B/bin/serve-cuda-ids3.sha256")"
   echo "matrix-pinned/ is $HERE/matrix at $FULL; plan-ids3.json, gids3_check.py and ../run-ids3.sh from $HERE/ids-carried-tier2 at $FULL."
 } > "$B/pinned.txt"
