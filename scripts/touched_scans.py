@@ -239,6 +239,8 @@ SCANS = [
     Scan("backend/cuda", "TestKernelLocalMemoryCensus", NT("backend/cuda") + F("backend/cuda/testdata/*.ptx", "backend/cuda/internal/launchgeom/ptx_embeds.go")),
     Scan("backend/cuda/kernels", "TestKernelFMALint_coversEmbeddedPTX", NT("backend/cuda") + CU("backend/cuda") + F("backend/cuda/internal/launchgeom/ptx_embeds.go")),
     Scan("backend/cuda/kernels", "TestKernelFMALint", CU("backend/cuda")),
+    Scan("backend/cuda/kernels", "TestEG2PackedAttn_PTXStaticAndFMALint",
+         F("backend/cuda/eg2_packed_attn.cu", "backend/cuda/testdata/eg2_packed_attn.ptx")),
     Scan("backend/cuda", "TestPTX_matchesSourcesAndBindings", NT("backend/cuda") + CU("backend/cuda") + F("backend/cuda/internal/launchgeom/ptx_embeds.go")),
     Scan("backend/cuda", "TestPTXModules_coverEveryEmbed", NT("backend/cuda") + F("backend/cuda/testdata/*.ptx", "backend/cuda/internal/launchgeom/ptx_embeds.go")),
     Scan("backend/cuda/kernels", "TestPipelineLint_boundKernelsAreLaunched", NT("backend/cuda")),
