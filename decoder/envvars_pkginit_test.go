@@ -37,8 +37,15 @@ func readsEnvAtInit(e ast.Expr, scope *pkgScope) bool {
 }
 
 // pkgScope is what an initialiser can reach inside its own package: free functions by name, methods by
-// name (a receiver type is hard to resolve statically, so a name match is followed conservatively), and
-// the package names its files import, which must not be mistaken for local methods.
+// receiver type and name, and the package names its files import, which must not be mistaken for local
+// methods.
+//
+// The scan is deliberately a bounded subset of the call graph, not a resolver: it follows free functions at
+// any depth (cycle-guarded), package init bodies, immediately invoked literals, and methods called on a
+// composite-literal receiver (T{} or &T{}). Stored method values, interface dispatch, methods reached
+// through a typed variable, and cross-package calls are out of scope, so a new initialiser that reads the
+// environment through one of those shapes would not be caught here — the linked binary gate catches a
+// direct call in decoder.init, and neither gate is a substitute for the other.
 type pkgScope struct {
 	funcs   map[string]*ast.BlockStmt
 	methods map[string]map[string]*ast.BlockStmt // receiver type name -> method name -> body
