@@ -642,29 +642,62 @@ func TestEG2PackedAttn_DeviceParityAndBitIdentity(t *testing.T) {
 				}
 			}
 
-			// Finite V that overflows FP16 (> 65504 -> half +Inf): eligible rows must
-			// return exact finite FP32 averages (not Inf/NaN), masked rows finite 1.0.
+			// Non-round-exact witness (V = 1.0002f): mutating ONLY V[0, 0] to NaN,
+			// +Inf, or finite FP16-overflow 65520f must leave EVERY unaffected row
+			// (rows 2..3) and EVERY unaffected column (d != 0 on rows 0..1)
+			// bit-identical to the finite baseline!
 			const (
 				n    = 4
 				nH   = 4
 				nKV  = 2
 				win  = 1
-				colD = 5
+				colD = 0
 			)
 			q := make([]float32, n*nH*hd)
 			k := make([]float32, n*nKV*hd)
-			v := make([]float32, n*nKV*hd)
-			for i := range v {
-				v[i] = 1.0
+			vBase := make([]float32, n*nKV*hd)
+			for i := range vBase {
+				vBase[i] = 1.0002
 			}
-			v[0*nKV*hd+0*hd+colD] = 1e5
-			out := runPacked(t, hd, nH, nKV, win, 1.0, q, k, v, []int{n})
+			baseOut := runPacked(t, hd, nH, nKV, win, 1.0, q, k, vBase, []int{n})
 			qDim := nH * hd
-			wantByRow := [4]float64{(1e5 + 1.0) / 2.0, (1e5 + 2.0) / 3.0, 1.0, 1.0}
-			for row := range n {
-				got := float64(out[row*qDim+0*hd+colD])
-				if math.IsNaN(got) || math.IsInf(got, 0) || math.Abs(got-wantByRow[row]) > 1e-1 {
-					t.Fatalf("hd=%d V-fp16-overflow row=%d h=0 d=%d: got %g, want finite %g", hd, row, colD, got, wantByRow[row])
+
+			for _, mut := range []struct {
+				name     string
+				val      float32
+				isFinite bool
+			}{
+				{"NaN", float32(math.NaN()), false},
+				{"Inf", float32(math.Inf(1)), false},
+				{"FP16Overflow65520", 65520.0, true},
+			} {
+				vMut := append([]float32(nil), vBase...)
+				vMut[0*nKV*hd+0*hd+colD] = mut.val
+				mutOut := runPacked(t, hd, nH, nKV, win, 1.0, q, k, vMut, []int{n})
+				for row := range n {
+					for h := range nH {
+						kvh := h / (nH / nKV)
+						admits := (row <= win) && (kvh == 0)
+						for d := range hd {
+							idx := row*qDim + h*hd + d
+							if admits && d == colD {
+								got := float64(mutOut[idx])
+								if mut.isFinite {
+									want := (65520.0 + float64(row+1)*1.0002) / float64(row+2)
+									if math.IsNaN(got) || math.IsInf(got, 0) || math.Abs(got-want) > 1e-1 {
+										t.Fatalf("hd=%d witness %s row=%d h=%d d=%d: got %g, want finite %g", hd, mut.name, row, h, d, got, want)
+									}
+								} else if !math.IsNaN(got) && !math.IsInf(got, 0) {
+									t.Fatalf("hd=%d witness %s row=%d h=%d d=%d: got finite %g, want nonfinite", hd, mut.name, row, h, d, got)
+								}
+							} else if math.Float32bits(mutOut[idx]) != math.Float32bits(baseOut[idx]) {
+								t.Fatalf("hd=%d witness %s leaked into unaffected row=%d h=%d d=%d: got %08x (%g), baseline %08x (%g)",
+									hd, mut.name, row, h, d,
+									math.Float32bits(mutOut[idx]), mutOut[idx],
+									math.Float32bits(baseOut[idx]), baseOut[idx])
+							}
+						}
+					}
 				}
 			}
 		}

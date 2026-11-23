@@ -44,13 +44,33 @@ __device__ __forceinline__ void mma_m16n8k8_f32(float &d0, float &d1, float &d2,
         : "r"(a0), "r"(a1), "r"(b0), "f"(c0), "f"(c1), "f"(c2), "f"(c3));
 }
 
+__device__ __forceinline__ bool f16_is_exceptional(__half h) {
+    return (__half_as_ushort(h) & 0x7c00u) == 0x7c00u;
+}
+
 __device__ __forceinline__ void f32_split_f16(float x, __half &hi, __half &lo) {
     hi = __float2half_rn(x);
-    if ((__half_as_ushort(hi) & 0x7c00u) == 0x7c00u) {
+    if (f16_is_exceptional(hi)) {
         lo = __float2half_rn(0.f);
     } else {
         lo = __float2half_rn(__fsub_rn(x, __half2float(hi)));
     }
+}
+
+// f32_split_f16_v_safe splits V into (hi, lo), substituting (0, 0) and returning
+// true whenever hi would be NaN or Inf (including finite |x| >= 65520). That
+// guarantees the baseline MMA never multiplies 0 * NaN/Inf and unaffected rows
+// keep identical bits to a finite baseline; admitted exceptional cells are
+// patched afterwards in FP32 directly from vc.
+__device__ __forceinline__ bool f32_split_f16_v_safe(float x, __half &hi, __half &lo) {
+    hi = __float2half_rn(x);
+    if (f16_is_exceptional(hi)) {
+        hi = __float2half_rn(0.f);
+        lo = __float2half_rn(0.f);
+        return true;
+    }
+    lo = __float2half_rn(__fsub_rn(x, __half2float(hi)));
+    return false;
 }
 
 __device__ __forceinline__ unsigned int pack_halves(__half a, __half b) {
@@ -118,7 +138,6 @@ __device__ __forceinline__ void eg2_packed_attn_impl(
     constexpr size_t vPlane = (size_t)DK_TOT * vStride;
 
     extern __shared__ __half sh[];
-    __shared__ int tileVNonFinite;
     __half* QshHi = sh;                                  // [BM][HD + KPAD]
     __half* QshLo = QshHi + qPlane;                      // [BM][HD + KPAD]
     __half* KVsh = QshLo + qPlane;                       // overlays Ksh, Vtsh, and Ssh
@@ -127,7 +146,6 @@ __device__ __forceinline__ void eg2_packed_attn_impl(
     __half* VtshHi = KVsh;                               // [DK_TOT][BN + KPAD]
     __half* VtshLo = VtshHi + vPlane;                    // [DK_TOT][BN + KPAD]
     float* Ssh = reinterpret_cast<float*>(KVsh);         // [WARP_M][WARP_D - 1][16][BN] when WARP_D > 1
-    if (tid == 0) tileVNonFinite = 0;
 
     const int nqTile = (segLen - qLocal0 < BM) ? (segLen - qLocal0) : BM;
     const bool qVecOK = (reinterpret_cast<unsigned long long>(q) & 15ull) == 0ull;
@@ -453,6 +471,7 @@ __device__ __forceinline__ void eg2_packed_attn_impl(
 #pragma unroll
         for (int ch = 0; ch < N_CHUNKS; ch++) {
             __syncthreads();
+            int threadSawExceptional = 0;
             if (vVecOK) {
                 for (int idx = tid; idx < nk * DK_TOT_V4; idx += blockDim.x) {
                     const int kk = idx / DK_TOT_V4;
@@ -464,16 +483,10 @@ __device__ __forceinline__ void eg2_packed_attn_impl(
                     const float* src = vc + (long)(segStart + k0 + kk) * kvDim + kvh * HD + gD;
                     v.u = *reinterpret_cast<const uint4*>(src);
                     __half h0, l0, h1, l1, h2, l2, h3, l3;
-                    f32_split_f16(v.f[0], h0, l0);
-                    f32_split_f16(v.f[1], h1, l1);
-                    f32_split_f16(v.f[2], h2, l2);
-                    f32_split_f16(v.f[3], h3, l3);
-                    if (((__half_as_ushort(h0) & 0x7c00u) == 0x7c00u) ||
-                        ((__half_as_ushort(h1) & 0x7c00u) == 0x7c00u) ||
-                        ((__half_as_ushort(h2) & 0x7c00u) == 0x7c00u) ||
-                        ((__half_as_ushort(h3) & 0x7c00u) == 0x7c00u)) {
-                        tileVNonFinite = 1;
-                    }
+                    if (f32_split_f16_v_safe(v.f[0], h0, l0)) threadSawExceptional = 1;
+                    if (f32_split_f16_v_safe(v.f[1], h1, l1)) threadSawExceptional = 1;
+                    if (f32_split_f16_v_safe(v.f[2], h2, l2)) threadSawExceptional = 1;
+                    if (f32_split_f16_v_safe(v.f[3], h3, l3)) threadSawExceptional = 1;
                     const int dd = dv * 4;
                     VtshHi[(dd + 0) * vStride + kk] = h0;
                     VtshHi[(dd + 1) * vStride + kk] = h1;
@@ -493,56 +506,52 @@ __device__ __forceinline__ void eg2_packed_attn_impl(
                     const int gD = wd * HD_WARP + ch * DK_SUB + dOff;
                     const float vv = vc[(long)(segStart + k0 + kk) * kvDim + kvh * HD + gD];
                     __half hv, lv;
-                    f32_split_f16(vv, hv, lv);
-                    if ((__half_as_ushort(hv) & 0x7c00u) == 0x7c00u) {
-                        tileVNonFinite = 1;
-                    }
+                    if (f32_split_f16_v_safe(vv, hv, lv)) threadSawExceptional = 1;
                     VtshHi[dd * vStride + kk] = hv;
                     VtshLo[dd * vStride + kk] = lv;
                 }
             }
-            __syncthreads();
+            const int tileSawExceptional = __syncthreads_or(threadSawExceptional);
 
-            const int vNonFinite = tileVNonFinite;
-            if (vNonFinite == 0) {
-                // Fast path: every staged V element is finite, so 0 * Vtsh == 0 in MMA.
+            // Always execute the exact baseline MMA on finite/zero-substituted Vtsh so
+            // unaffected rows and columns preserve bit-identical results even when a
+            // masked or sibling key carries NaN, Inf, or FP16-overflowing V.
 #pragma unroll
-                for (int g = 0; g < NG; g++) {
-                    const unsigned int pHi0 = pFragHi[g][0];
-                    const unsigned int pHi1 = pFragHi[g][1];
-                    const unsigned int pLo0 = pFragLo[g][0];
-                    const unsigned int pLo1 = pFragLo[g][1];
-                    const int kIdx = g * 8 + colBase;
+            for (int g = 0; g < NG; g++) {
+                const unsigned int pHi0 = pFragHi[g][0];
+                const unsigned int pHi1 = pFragHi[g][1];
+                const unsigned int pLo0 = pFragLo[g][0];
+                const unsigned int pLo1 = pFragLo[g][1];
+                const int kIdx = g * 8 + colBase;
 #pragma unroll
-                    for (int tSub = 0; tSub < SUB_TILES; tSub++) {
-                        const int t = ch * SUB_TILES + tSub;
-                        const int dIdx = warpD * DK_SUB + tSub * 8 + (lane >> 2);
-                        unsigned int vbHi = 0u, vbLo = 0u;
-                        if (kIdx + 1 < nk) {
-                            const int vOff = dIdx * vStride + kIdx;
-                            vbHi = *reinterpret_cast<const unsigned int*>(&VtshHi[vOff]);
-                            vbLo = *reinterpret_cast<const unsigned int*>(&VtshLo[vOff]);
-                        } else if (kIdx < nk) {
-                            const int vOff = dIdx * vStride + kIdx;
-                            vbHi = pack_halves(VtshHi[vOff], __float2half_rn(0.f));
-                            vbLo = pack_halves(VtshLo[vOff], __float2half_rn(0.f));
-                        }
-                        mma_m16n8k8_f32(acc[t][0], acc[t][1], acc[t][2], acc[t][3],
-                                        pHi0, pHi1, vbHi,
-                                        acc[t][0], acc[t][1], acc[t][2], acc[t][3]);
-                        mma_m16n8k8_f32(acc[t][0], acc[t][1], acc[t][2], acc[t][3],
-                                        pHi0, pHi1, vbLo,
-                                        acc[t][0], acc[t][1], acc[t][2], acc[t][3]);
-                        mma_m16n8k8_f32(acc[t][0], acc[t][1], acc[t][2], acc[t][3],
-                                        pLo0, pLo1, vbHi,
-                                        acc[t][0], acc[t][1], acc[t][2], acc[t][3]);
+                for (int tSub = 0; tSub < SUB_TILES; tSub++) {
+                    const int t = ch * SUB_TILES + tSub;
+                    const int dIdx = warpD * DK_SUB + tSub * 8 + (lane >> 2);
+                    unsigned int vbHi = 0u, vbLo = 0u;
+                    if (kIdx + 1 < nk) {
+                        const int vOff = dIdx * vStride + kIdx;
+                        vbHi = *reinterpret_cast<const unsigned int*>(&VtshHi[vOff]);
+                        vbLo = *reinterpret_cast<const unsigned int*>(&VtshLo[vOff]);
+                    } else if (kIdx < nk) {
+                        const int vOff = dIdx * vStride + kIdx;
+                        vbHi = pack_halves(VtshHi[vOff], __float2half_rn(0.f));
+                        vbLo = pack_halves(VtshLo[vOff], __float2half_rn(0.f));
                     }
+                    mma_m16n8k8_f32(acc[t][0], acc[t][1], acc[t][2], acc[t][3],
+                                    pHi0, pHi1, vbHi,
+                                    acc[t][0], acc[t][1], acc[t][2], acc[t][3]);
+                    mma_m16n8k8_f32(acc[t][0], acc[t][1], acc[t][2], acc[t][3],
+                                    pHi0, pHi1, vbLo,
+                                    acc[t][0], acc[t][1], acc[t][2], acc[t][3]);
+                    mma_m16n8k8_f32(acc[t][0], acc[t][1], acc[t][2], acc[t][3],
+                                    pLo0, pLo1, vbHi,
+                                    acc[t][0], acc[t][1], acc[t][2], acc[t][3]);
                 }
-            } else {
-                // Guarded exceptional-V path: at least one V element in this union tile is
-                // NaN, Inf, or overflows FP16. Accumulate in FP32 strictly over each row's
-                // valid keys so masked rows never compute 0 * NaN/Inf while eligible rows
-                // still expose nonfinite inputs.
+            }
+
+            if (tileSawExceptional != 0) {
+                // Patch ONLY the exact (admitted row, exceptional V[k, d]) cells in FP32.
+                // Masked rows and finite columns are untouched and remain bit-identical to baseline.
                 const int rowBase = lane & ~3;
 #pragma unroll
                 for (int g = 0; g < NG; g++) {
@@ -577,29 +586,27 @@ __device__ __forceinline__ void eg2_packed_attn_impl(
                             const int dcol = dBaseWarp + t * 8 + colBase;
                             if (v0A) {
                                 const float* vr = vc + (long)(segStart + k0 + kA) * kvDim + kvh * HD + dcol;
-                                acc[t][0] = __fmaf_rn(p0A, vr[0], acc[t][0]);
-                                acc[t][1] = __fmaf_rn(p0A, vr[1], acc[t][1]);
+                                if (f16_is_exceptional(__float2half_rn(vr[0]))) acc[t][0] = __fmaf_rn(p0A, vr[0], acc[t][0]);
+                                if (f16_is_exceptional(__float2half_rn(vr[1]))) acc[t][1] = __fmaf_rn(p0A, vr[1], acc[t][1]);
                             }
                             if (v0B) {
                                 const float* vr = vc + (long)(segStart + k0 + kB) * kvDim + kvh * HD + dcol;
-                                acc[t][0] = __fmaf_rn(p0B, vr[0], acc[t][0]);
-                                acc[t][1] = __fmaf_rn(p0B, vr[1], acc[t][1]);
+                                if (f16_is_exceptional(__float2half_rn(vr[0]))) acc[t][0] = __fmaf_rn(p0B, vr[0], acc[t][0]);
+                                if (f16_is_exceptional(__float2half_rn(vr[1]))) acc[t][1] = __fmaf_rn(p0B, vr[1], acc[t][1]);
                             }
                             if (v1A) {
                                 const float* vr = vc + (long)(segStart + k0 + kA) * kvDim + kvh * HD + dcol;
-                                acc[t][2] = __fmaf_rn(p1A, vr[0], acc[t][2]);
-                                acc[t][3] = __fmaf_rn(p1A, vr[1], acc[t][3]);
+                                if (f16_is_exceptional(__float2half_rn(vr[0]))) acc[t][2] = __fmaf_rn(p1A, vr[0], acc[t][2]);
+                                if (f16_is_exceptional(__float2half_rn(vr[1]))) acc[t][3] = __fmaf_rn(p1A, vr[1], acc[t][3]);
                             }
                             if (v1B) {
                                 const float* vr = vc + (long)(segStart + k0 + kB) * kvDim + kvh * HD + dcol;
-                                acc[t][2] = __fmaf_rn(p1B, vr[0], acc[t][2]);
-                                acc[t][3] = __fmaf_rn(p1B, vr[1], acc[t][3]);
+                                if (f16_is_exceptional(__float2half_rn(vr[0]))) acc[t][2] = __fmaf_rn(p1B, vr[0], acc[t][2]);
+                                if (f16_is_exceptional(__float2half_rn(vr[1]))) acc[t][3] = __fmaf_rn(p1B, vr[1], acc[t][3]);
                             }
                         }
                     }
                 }
-                __syncthreads();
-                if (tid == 0) tileVNonFinite = 0;
             }
         }
     }
