@@ -4,17 +4,17 @@
 
 goinfer is a Go inference library, CLI, and HTTP server for running local models on CPU and through CUDA, Metal, and WebGPU. It also includes a served web UI and a Go-built documentation site. Read `AGENTS.md` and `CLAUDE.md` in full before changing the tree. Use `docs/layout.md` to locate modules and `scripts/make_work.sh` to prepare a Go workspace for cross-module work.
 
-The team's focus is pbrain's Markdown indexing and retrieval workload. pbrain uses BM25, EmbeddingGemma 2 from goinfer, and BGE-small separately from its own external dependency, alongside SQLite and sqlite-vec. Keep the Go inference core and use independent reference vectors and retrieval fixtures to check changes. Prioritize EmbeddingGemma 2 on NVIDIA CUDA, profile CPU separately, and investigate AMD support as its own track.
+The team's focus is pbrain's Markdown indexing and retrieval workload. pbrain combines BM25, EmbeddingGemma 2 from goinfer and a separately supplied BGE-small encoder with SQLite and sqlite-vec. Keep the Go inference core and use independent reference vectors and retrieval fixtures to check changes. Prioritize EmbeddingGemma 2 on NVIDIA CUDA, profile CPU separately, and investigate AMD support as its own track.
 
 Use the frozen Markdown fixture directly for EmbeddingGemma 2 experiments in goinfer. On 2026-11-21 the maintainer authorized enabling EmbeddingGemma 2 for the isolated pbrain CPU/RTX benchmark with fresh indexes and caches. Use a process-local setting for that run.
 
-goinfer's model core is a vendored copy of aikit, taken from v1.79.0 at its donor commit `3c0896c0`; the dependency itself is gone, so a fix from upstream is a focused in-tree change with its own tests, and the donor SHA goes in the commit message. Review relevant changes in `townsendmerino/goinfer` and `townsendmerino/aikit` for upstream fixes, and keep the aikit `LICENSE`/`NOTICE` provenance with the vendored code. Use llama.cpp as a reference for algorithms and performance experiments.
+goinfer's model core is a vendored copy of its upstream donor, taken at v1.79.0 / `3c0896c0`; the external dependency itself is gone, so a fix from upstream is a focused in-tree change with its own tests, and the donor SHA goes in the commit message. The provenance for the vendored code is the `LICENSE`/`NOTICE` shipped beside it in `internal/modelcore`, and the commit that imports a package carries its donor path and SHA. Use llama.cpp as a reference for algorithms and performance experiments.
 
 ## Tasks
 
 The PM owns GitHub Issues on `pkieltyka/goinfer` and project `pkieltyka/4`. Use `todos skill` to learn the CLI, `todos doctor --json` to check access, and `todos board --json` to inspect work. Pass `--repo pkieltyka/goinfer --project pkieltyka/4` whenever the current checkout or saved board selection differs. Pass `--json` on agent operations.
 
-Use this tracker for both goinfer and the aikit donor. Name the affected repository in each issue, and link a donor-side change that goinfer needs rather than moving the dependency back.
+Use this tracker for both goinfer and the upstream donor. Name the affected repository in each issue, and link a donor-side change that goinfer needs rather than moving the dependency back.
 
 The maintainer moves scoped work to Todo. The operator assigns it when its dependencies are clear. Move assigned work to In Progress and leave discoveries without a status until triaged. Record owner, acceptance criteria, branch or commit, verdict, and next step on the issue. Verify uncertain writes before retrying. Link the PR and close the issue after confirming merge. Use close to retire an issue.
 
