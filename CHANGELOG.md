@@ -17,6 +17,20 @@ any surface may still change.
 
 Each unreleased change is a file in [`changelog.d/`](changelog.d/), collected into the release's section when it is tagged (`scripts/changelog.py release`).
 
+## [v0.6.6] — 2026-11-23
+
+### Added
+
+- **Pre-attach EmbeddingGemma 2 CUDA capability and selectors.** `Devices` reports native CUDA compute capability. A CUDA row's `RunnableSelectors()` lists the linked explicit selectors whose hardware requirements it meets. `DeviceSelectors` continues to report linked factories. An incomplete CUDA scan retains healthy device metadata while withholding unverified IDs. [#68](https://github.com/pkieltyka/goinfer/issues/68), [#74](https://github.com/pkieltyka/goinfer/pull/74)
+
+### Fixed
+
+- **Distinguish insufficient CUDA capability from device disappearance.** An identified CUDA device that meets the default floor and falls short of the FP16 requirement returns `ErrUnsupportedSelector` under `ErrDeviceUnavailable`. Attachment still checks the selected native handle. [#74](https://github.com/pkieltyka/goinfer/pull/74)
+
+### Verification
+
+The root, CUDA, and Vulkan modules share one release commit. Metal is outside the tag set. The targeted host and CUDA attach checks passed. [Verification record](docs/releases/v0.6.6-verification.md)
+
 ## [v0.6.5] — 2026-11-23
 
 ### Changed
