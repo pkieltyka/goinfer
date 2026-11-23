@@ -14,13 +14,14 @@ if [ "$PART" = build ]; then
   [ -d $W/wt ] || git -C "$SRC" worktree add --detach $W/wt $REV || exit 1
   [ "$(git -C $W/wt rev-parse HEAD)" = "$(git -C $W/wt rev-parse $REV)" ] || { echo "wt is not at $REV"; exit 1; }
   (cd $W/wt && sh scripts/make_work.sh) || exit 1
-  GW=$W/wt/go.work
-  root=$(cd $W/wt && GOWORK="$GW" go list -m -f '{{.Dir}}' github.com/pkieltyka/goinfer) || { echo "FATAL: cannot resolve the workspace root module"; exit 1; }
-  [ "$(cd "$root" && pwd -P)" = "$(cd $W/wt && pwd -P)" ] || { echo "FATAL: the workspace root resolved to $root, not $W/wt"; exit 1; }
-  cuda=$(cd $W/wt && GOWORK="$GW" go list -m -f '{{.Dir}}' github.com/pkieltyka/goinfer/backend/cuda) || { echo "FATAL: cannot resolve backend/cuda in the workspace"; exit 1; }
-  [ "$(cd "$cuda" && pwd -P)" = "$(cd $W/wt/backend/cuda && pwd -P)" ] || { echo "FATAL: backend/cuda resolved to $cuda, not $W/wt/backend/cuda"; exit 1; }
-  (cd $W/wt/backend/cuda && GOWORK="$GW" CGO_ENABLED=0 go build -tags cuda -o $W/bin/serve-cuda ./cmd/serve) || exit 1
-  (cd $W/wt && GOWORK="$GW" CGO_ENABLED=0 go build -o $W/bin/serve-cpu ./cmd/serve) || exit 1
+  WT_ABS=$(cd $W/wt && pwd -P)
+  GW=$WT_ABS/go.work
+  root=$(cd "$WT_ABS" && GOWORK="$GW" go list -m -f '{{.Dir}}' github.com/pkieltyka/goinfer) || { echo "FATAL: cannot resolve the workspace root module"; exit 1; }
+  [ "$(cd "$root" && pwd -P)" = "$WT_ABS" ] || { echo "FATAL: the workspace root resolved to $root, not $WT_ABS"; exit 1; }
+  cuda=$(cd "$WT_ABS" && GOWORK="$GW" go list -m -f '{{.Dir}}' github.com/pkieltyka/goinfer/backend/cuda) || { echo "FATAL: cannot resolve backend/cuda in the workspace"; exit 1; }
+  [ "$(cd "$cuda" && pwd -P)" = "$WT_ABS/backend/cuda" ] || { echo "FATAL: backend/cuda resolved to $cuda, not $WT_ABS/backend/cuda"; exit 1; }
+  (cd "$WT_ABS/backend/cuda" && GOWORK="$GW" CGO_ENABLED=0 go build -tags cuda -o $W/bin/serve-cuda ./cmd/serve) || exit 1
+  (cd "$WT_ABS" && GOWORK="$GW" CGO_ENABLED=0 go build -o $W/bin/serve-cpu ./cmd/serve) || exit 1
   git -C $W/wt rev-parse --short=9 HEAD > $W/bin/REV; (cd $W/bin && sha256sum serve-cuda serve-cpu > SHA256SUMS); cat $W/bin/REV $W/bin/SHA256SUMS; exit 0
 fi
 case $PART in cuda|cpu) ;; *) echo "unknown part $PART"; exit 2;; esac

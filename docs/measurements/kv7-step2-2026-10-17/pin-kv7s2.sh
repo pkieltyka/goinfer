@@ -27,10 +27,10 @@ use (
 )
 EOF
 WT_ABS=$(cd "$WT" && pwd -P)
-GW="$WT/go.work"
-root=$(cd "$WT" && GOWORK="$GW" go list -m -f '{{.Dir}}' github.com/pkieltyka/goinfer) || { echo "FATAL: cannot resolve the workspace root module" >&2; exit 2; }
+GW="$WT_ABS/go.work"
+root=$(cd "$WT_ABS" && GOWORK="$GW" go list -m -f '{{.Dir}}' github.com/pkieltyka/goinfer) || { echo "FATAL: cannot resolve the workspace root module" >&2; exit 2; }
 [ "$(cd "$root" && pwd -P)" = "$WT_ABS" ] || { echo "FATAL: the workspace root resolved to $root, not $WT" >&2; exit 2; }
-cuda=$(cd "$WT" && GOWORK="$GW" go list -m -f '{{.Dir}}' github.com/pkieltyka/goinfer/backend/cuda) || { echo "FATAL: cannot resolve backend/cuda in the workspace" >&2; exit 2; }
+cuda=$(cd "$WT_ABS" && GOWORK="$GW" go list -m -f '{{.Dir}}' github.com/pkieltyka/goinfer/backend/cuda) || { echo "FATAL: cannot resolve backend/cuda in the workspace" >&2; exit 2; }
 [ "$(cd "$cuda" && pwd -P)" = "$WT_ABS/backend/cuda" ] || { echo "FATAL: backend/cuda resolved to $cuda, not $WT/backend/cuda" >&2; exit 2; }
 
 (cd "$WT" && GOWORK="$GW" CGO_ENABLED=0 go build -tags cuda -o "$B/bin/serve-cuda-kv7s2" github.com/pkieltyka/goinfer/backend/cuda/cmd/serve)
