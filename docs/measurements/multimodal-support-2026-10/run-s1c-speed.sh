@@ -12,17 +12,20 @@
 #   (cd backend/cuda && go test -c -tags 'cuda goinfer_testhooks' -o $BIN/cuda.test .)
 #   python3 scripts/night.py add s1c-e2b-speed --est 30 --by "Claude, S1 on CUDA" --doc docs/completed/task-multimodal-support-2026-10.md -- bash docs/measurements/multimodal-support-2026-10/run-s1c-speed.sh
 set -uo pipefail
+BIN=${BIN:?set BIN to the directory holding serve-cuda, cuda.test and the rev file they were built at}
 SRC=$(cd "$(dirname "$0")/../../.." && pwd)
 REV=$(cat "$BIN/rev" 2>/dev/null) || { echo "FATAL: $BIN/rev is missing; the binaries' revision must be recorded"; exit 2; }
 git -C "$SRC" cat-file -e "$REV^{commit}" 2>/dev/null || { echo "FATAL: $BIN/rev names $REV, which is not a commit in $SRC"; exit 2; }
 git -C "$SRC" merge-base --is-ancestor "$REV" HEAD || { echo "FATAL: $REV is not in this checkout's history"; exit 2; }
-BIN=${BIN:?set BIN to the directory holding serve-cuda, cuda.test and the rev file they were built at}
 OUT=${1:-$HOME/goinfer-bench/s1c/run-$(date +%F)}
 MODEL=$HOME/models/gemma-4-e2b-gguf/gemma-4-E2B_q4_0-it.gguf
 for p in "$BIN/serve-cuda" "$BIN/cuda.test" "$MODEL"; do
   [ -e "$p" ] || { echo "FATAL: $p is missing"; exit 2; }
 done
 [ -f "$BIN/SHA256SUMS" ] || { echo "FATAL: $BIN/SHA256SUMS is missing; the binaries' provenance must be recorded"; exit 2; }
+for f in serve-cuda cuda.test; do
+  grep -Eq "(^|[[:space:]])\*?${f//./\\.}\$" "$BIN/SHA256SUMS" || { echo "FATAL: $BIN/SHA256SUMS does not name $f; both executables must be recorded"; exit 2; }
+done
 (cd "$BIN" && sha256sum -c --quiet SHA256SUMS) || { echo "FATAL: the binaries do not match $BIN/SHA256SUMS"; exit 2; }
 case "$MODEL" in /Volumes/*|/srv/models/*) echo "FATAL: $MODEL is on the archive (CLAUDE.md)"; exit 2;; esac
 mkdir -p "$OUT"
