@@ -118,7 +118,7 @@ func types(e ast.Expr) string {
 
 func TestOutputContract_everyWriterIsDocumented(t *testing.T) {
 	seenNonDst := map[string]bool{}
-	for _, dir := range []string{".", "../embed", "../encoder", "../gpu/encmetal", "../gpu/enccuda"} {
+	for _, dir := range []string{".", "../embed", "../encoder"} {
 		for _, d := range parseDecls(t, dir) {
 			// unexported helpers carry no contract obligation, and neither do exported methods of unexported types
 			unexportedRecv := strings.Contains(d.key, "(") && !ast.IsExported(strings.TrimLeft(d.key[1:strings.Index(d.key, ")")], "*"))

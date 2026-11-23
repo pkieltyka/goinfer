@@ -4,7 +4,7 @@
 // THE SHAPE IS 4x1 BECAUSE 4x2 WAS MEASURED AND REJECTED. A 4-activation x
 // 2-weight version fits AVX2's 16 YMM registers and costs fewer instructions per
 // MAC (0.172 against this shape's 0.203), and on cache-resident B it duly measured
-// 1.34-1.52x. On streamed B it measured 0.70x and 0.57x -- a 1.75x REGRESSION -- 
+// 1.34-1.52x. On streamed B it measured 0.70x and 0.57x -- a 1.75x REGRESSION --
 // because two weight rows K bytes apart are two interleaved DRAM streams where the
 // span it replaces walks one. That is the same failure that got an eight-column
 // W8A8 kernel deleted in v1.17.0 after it was shipped on a single cache-resident

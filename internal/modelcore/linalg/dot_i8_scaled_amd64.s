@@ -331,4 +331,3 @@ scaled2_done:
 
 	VZEROUPPER
 	RET
-
