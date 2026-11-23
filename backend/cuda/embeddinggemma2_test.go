@@ -14,6 +14,7 @@ import (
 	"os"
 	"path/filepath"
 	"runtime"
+	"runtime/debug"
 	"slices"
 	"strconv"
 	"strings"
@@ -3143,7 +3144,29 @@ func TestCUDAProbeRetainsFailedCloseOwnership(t *testing.T) {
 
 const eg2FP16TestSelector = "cuda-eg2-fp16"
 
+func eg2FP16TaggedBinary(t *testing.T) bool {
+	t.Helper()
+	info, ok := debug.ReadBuildInfo()
+	if !ok {
+		t.Fatal("test binary has no Go build information")
+	}
+	for _, setting := range info.Settings {
+		if setting.Key == "-tags" {
+			tags := strings.Fields(strings.ReplaceAll(setting.Value, ",", " "))
+			return slices.Contains(tags, "eg2_combined") && slices.Contains(tags, "eg2_fp16")
+		}
+	}
+	return false
+}
+
 func TestEG2FP16Geometry(t *testing.T) {
+	tagsLinked := eg2FP16TaggedBinary(t)
+	selectors := embeddinggemma2.DeviceSelectors("cuda")
+	registered := slices.Contains(selectors, eg2FP16TestSelector)
+	if registered != tagsLinked {
+		t.Fatalf("FP16 selector registration = %t for combined and FP16 build tags = %t: %v", registered, tagsLinked, selectors)
+	}
+	t.Logf("combined and FP16 build tags = %t, selector registered = %t", tagsLinked, registered)
 	for _, shape := range [][2]int{{64, 96}, {512, 2048}, {16, 16}} {
 		if !eg2FFNGeometry(shape[0], shape[1]) {
 			t.Errorf("refused %v", shape)
@@ -3175,8 +3198,11 @@ func TestEG2FP16Weights(t *testing.T) {
 
 func eg2FP16TestAdapter(t *testing.T) gpu.Adapter {
 	t.Helper()
-	if !slices.Contains(embeddinggemma2.DeviceSelectors("cuda"), eg2FP16TestSelector) {
+	if !eg2FP16TaggedBinary(t) {
 		t.Skip("build with cuda,eg2_combined,eg2_fp16 to run FP16 encoder tests")
+	}
+	if !slices.Contains(embeddinggemma2.DeviceSelectors("cuda"), eg2FP16TestSelector) {
+		t.Fatalf("tagged FP16 build is missing the %q device selector", eg2FP16TestSelector)
 	}
 	id := os.Getenv("GOINFER_TEST_CUDA_UUID")
 	if id == "" {
