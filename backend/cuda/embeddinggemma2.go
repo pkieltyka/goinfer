@@ -27,7 +27,7 @@ import (
 
 func init() {
 	embeddinggemma2.RegisterAccelerator("cuda", bareEG2Factory(false))
-	embeddinggemma2.RegisterSelectedAccelerator("cuda", selectedEG2Factory(false))
+	embeddinggemma2.RegisterDeviceAcceleratorWithSupport("cuda", "cuda", selectedEG2Factory(false), cudaSupportsEG2)
 	embeddinggemma2.RegisterDeviceProber("cuda", probeCUDADevices)
 }
 
@@ -380,7 +380,6 @@ func newEG2AccelConfigured(m *embeddinggemma2.Model, combined bool, fp16PTX, pac
 		return nil, err
 	}
 	a := &eg2Accel{ops: ops, cfg: c, model: m}
-	a.identity = cudaDeviceInfo(ops.dev.Adapter())
 	if err := ops.do(func() error {
 		if len(fusionPTX) != 0 {
 			fusions, err := loadEG2Fusions(ops.dev, fusionPTX)
@@ -389,8 +388,10 @@ func newEG2AccelConfigured(m *embeddinggemma2.Model, combined bool, fp16PTX, pac
 			}
 			a.fusions = fusions
 		}
+		adapter, capabilityErr := gpu.AttachedAdapter(ops.dev)
+		a.identity = cudaDeviceInfo(adapter)
 		if len(fp16PTX) != 0 {
-			p, err := eg2FP16Pipeline(ops.dev, fp16PTX)
+			p, err := eg2FP16Pipeline(ops.dev, fp16PTX, a.identity.ComputeCapability, capabilityErr)
 			if err != nil {
 				return err
 			}

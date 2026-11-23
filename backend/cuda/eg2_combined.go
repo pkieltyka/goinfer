@@ -6,5 +6,5 @@ import "github.com/pkieltyka/goinfer/embeddinggemma2"
 
 func init() {
 	embeddinggemma2.RegisterAccelerator("cuda-eg2-combined", bareEG2Factory(true))
-	embeddinggemma2.RegisterDeviceAccelerator("cuda-eg2-combined", "cuda", selectedEG2Factory(true))
+	embeddinggemma2.RegisterDeviceAcceleratorWithSupport("cuda-eg2-combined", "cuda", selectedEG2Factory(true), cudaSupportsEG2)
 }

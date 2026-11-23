@@ -11,8 +11,8 @@ import (
 
 type fakeAdapterHandle struct {
 	Adapter
-	uuidErr error
-	retains int
+	uuidErr, capabilityErr   error
+	retains, capabilityReads int
 }
 
 func (d *fakeAdapterHandle) Ordinal() int                 { return d.Adapter.Ordinal }
@@ -21,7 +21,8 @@ func (d *fakeAdapterHandle) Name() (string, error)        { return d.Adapter.Nam
 func (d *fakeAdapterHandle) PCIBusID() (string, error)    { return d.Adapter.PCIBusID, nil }
 func (d *fakeAdapterHandle) TotalMemory() (uint64, error) { return d.TotalBytes, nil }
 func (d *fakeAdapterHandle) ComputeCapability() (int, int, error) {
-	return d.Major, d.Minor, nil
+	d.capabilityReads++
+	return d.Major, d.Minor, d.capabilityErr
 }
 func (d *fakeAdapterHandle) Attribute(attr gc.DeviceAttribute) (int, error) {
 	if attr != gc.DeviceAttributeIntegrated || !d.IntegratedKnown {
@@ -53,7 +54,7 @@ func TestCUDAAdapterEnumeration(t *testing.T) {
 		t.Fatalf("enumerate: rows %+v, error %v", rows, err)
 	}
 	for i, row := range rows {
-		if row != devs[i].Adapter || devs[i].retains != 0 {
+		if row != devs[i].Adapter || devs[i].retains != 0 || devs[i].capabilityReads != 1 {
 			t.Fatalf("ordinal %d: got %+v, %d retains; want %+v, no retains", i, row, devs[i].retains, devs[i].Adapter)
 		}
 	}
@@ -62,6 +63,17 @@ func TestCUDAAdapterEnumeration(t *testing.T) {
 	rows, err = enumerateAdapters(init, count, get)
 	if len(rows) != 2 || rows[1].Ordinal != 2 || !errors.Is(err, failure) {
 		t.Fatalf("partial enumeration: rows %+v, error %v", rows, err)
+	}
+	devs[1].uuidErr = nil
+	devs[1].capabilityErr = failure
+	rows, err = enumerateAdapters(init, count, get)
+	if !errors.Is(err, failure) || len(rows) != 2 || rows[0] != devs[0].Adapter || rows[1] != devs[2].Adapter {
+		t.Fatalf("capability failure lost sibling rows or native error: rows %+v, error %v", rows, err)
+	}
+	for _, dev := range devs {
+		if dev.retains != 0 {
+			t.Fatalf("cheap enumeration retained ordinal %d", dev.Adapter.Ordinal)
+		}
 	}
 	rows, err = enumerateAdapters(func() error { return gc.ErrNoDevice }, nil, nil)
 	if len(rows) != 0 || err != nil {
@@ -92,17 +104,28 @@ func TestCUDAAdapterEnumeration(t *testing.T) {
 }
 
 func TestCUDAAttachedAdapterPreservesVerifiedIdentity(t *testing.T) {
-	d := &fakeAdapterHandle{Adapter: Adapter{Ordinal: 2, UUID: "actual", Integrated: true, IntegratedKnown: true}, uuidErr: gc.ErrNotSupported}
-	got := attachedAdapter(d, "actual", nil)
-	if got.Ordinal != 2 || got.UUID != "actual" || !got.Integrated || !got.IntegratedKnown {
-		t.Fatalf("attachment lost verified identity: %+v", got)
+	d := &fakeAdapterHandle{
+		Adapter: Adapter{Ordinal: 2, UUID: "actual", Major: 7, Minor: 5, Integrated: true, IntegratedKnown: true},
+		uuidErr: gc.ErrNotSupported,
 	}
-	d.uuidErr = nil
+	got, err := attachedAdapter(d, "actual", nil)
+	if err != nil || got != d.Adapter || d.capabilityReads != 1 {
+		t.Fatalf("attachment got %+v, %v, %d capability reads; want %+v", got, err, d.capabilityReads, d.Adapter)
+	}
+	d.capabilityErr = gc.ErrInvalidDevice
+	got, err = attachedAdapter(d, "actual", nil)
+	want := d.Adapter
+	want.Major, want.Minor = 0, 0
+	if !errors.Is(err, d.capabilityErr) || got != want || d.capabilityReads != 2 {
+		t.Fatalf("failed capability read got %+v, %v, %d capability reads; want %+v", got, err, d.capabilityReads, want)
+	}
+
+	d.uuidErr, d.capabilityErr = nil, nil
 	list := func() ([]Adapter, error) {
 		return []Adapter{d.Adapter, {Ordinal: 3, UUID: "ACTUAL"}}, nil
 	}
-	if got := attachedAdapter(d, "", list); got.UUID != "" {
-		t.Fatalf("bare attachment advertised an ambiguous ID: %+v", got)
+	if got, err := attachedAdapter(d, "", list); err != nil || got.UUID != "" || got.Major != 7 || got.Minor != 5 {
+		t.Fatalf("bare attachment did not preserve capability while suppressing an ambiguous ID: %+v, %v", got, err)
 	}
 }
 

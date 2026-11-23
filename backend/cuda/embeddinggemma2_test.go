@@ -34,7 +34,7 @@ import (
 
 func TestResolveCUDADevice(t *testing.T) {
 	const first = "GPU-abcd1234-1111-2222-3333-444444444444"
-	const second = "GPU-abcd1234-1111-2222-3333-555555555555"
+	const second = "MIG-abcd1234-1111-2222-3333-555555555555"
 	const old = "GPU-abcd1234-1111-2222-3333-666666666666"
 	adapters := []gpu.Adapter{
 		{Ordinal: 0, UUID: first, Major: 7, Minor: 5},
@@ -52,6 +52,9 @@ func TestResolveCUDADevice(t *testing.T) {
 		{"02", 0, embeddinggemma2.ErrNoDevice}, {"3", 0, embeddinggemma2.ErrNoDevice},
 		{"", 0, embeddinggemma2.ErrDeviceUnavailable}, {"zz", 0, embeddinggemma2.ErrDeviceUnavailable},
 		{"GPU-xyz", 0, embeddinggemma2.ErrDeviceUnavailable},
+		{"foo1", 0, embeddinggemma2.ErrDeviceUnavailable},
+		{"GPU-abcd1234-1111-2222-3333-55555555555z", 0, embeddinggemma2.ErrDeviceUnavailable},
+		{"MIG-abcd1234-11112222-3333-555555555555", 0, embeddinggemma2.ErrDeviceUnavailable},
 	} {
 		got, err := resolveCUDADevice(tt.token, adapters)
 		if !errors.Is(err, tt.want) || err == nil && got.Ordinal != tt.ordinal ||
@@ -186,6 +189,97 @@ func TestCUDAEG2SelectedDevice(t *testing.T) {
 	}
 	if _, err := m.NewAccelerator("cuda:GPU-00000000-0000-0000-0000-000000000000"); !errors.Is(err, embeddinggemma2.ErrNoDevice) {
 		t.Fatalf("absent UUID: %v", err)
+	}
+}
+
+func TestCUDAEG2InventoryAttach(t *testing.T) {
+	uuid := os.Getenv("GOINFER_TEST_CUDA_UUID")
+	if uuid == "" {
+		t.Skip("set GOINFER_TEST_CUDA_UUID to the target CUDA device's GPU UUID")
+	}
+	linked := linkedEG2CUDASelectors(t)
+	adapters, err := gpu.Adapters()
+	if err != nil {
+		t.Fatal(err)
+	}
+	target, err := resolveCUDADevice(uuid, adapters)
+	if err != nil {
+		t.Fatal(err)
+	}
+	rows, failures := embeddinggemma2.Devices(embeddinggemma2.ProbeOptions{})
+	if len(failures) != 0 {
+		t.Fatalf("device inventory failed: %v", failures)
+	}
+	var row embeddinggemma2.DeviceInfo
+	for _, device := range rows {
+		if strings.EqualFold(device.ID, "cuda:"+uuid) {
+			row = device
+			break
+		}
+	}
+	wantCC := embeddinggemma2.CUDAComputeCapability{Major: target.Major, Minor: target.Minor}
+	if row.ID == "" || row.ComputeCapability != wantCC || row.Alias != "cuda:"+strconv.Itoa(target.Ordinal) ||
+		row.Memory.Basis != embeddinggemma2.MemoryUnknown {
+		t.Fatalf("cheap inventory row %+v disagrees with pinned adapter %+v", row, target)
+	}
+	want := linked
+	rejectFP16 := target.Major < 8 && slices.Contains(linked, eg2FP16TestSelector)
+	if rejectFP16 {
+		want = want[:len(want)-1]
+	}
+	selectors := row.RunnableSelectors()
+	if !slices.Equal(selectors, want) {
+		t.Fatalf("pinned device runnable selectors %v, want %v", selectors, want)
+	}
+
+	tok, err := tokenizer.LoadJSONBytes([]byte(`{
+		"added_tokens": [{"id":0,"content":"<pad>"},{"id":1,"content":"<eos>"},{"id":2,"content":"<bos>"},{"id":3,"content":"<unk>"}],
+		"model": {"type":"BPE","unk_token":"<unk>","vocab":{"<pad>":0,"<eos>":1,"<bos>":2,"<unk>":3},"merges":[]}
+	}`))
+	if err != nil {
+		t.Fatal(err)
+	}
+	m := eg2TinyModel(t)
+	for _, selector := range selectors {
+		t.Run(selector, func(t *testing.T) {
+			enc, err := embeddinggemma2.NewEncoder(m, tok, nil)
+			if err != nil {
+				t.Fatal(err)
+			}
+			acc, err := enc.UseDevice(row.ID, selector)
+			if err != nil {
+				t.Fatal(err)
+			}
+			t.Cleanup(func() {
+				if err := acc.Close(); err != nil {
+					t.Error(err)
+				}
+			})
+			a := acc.(*eg2Accel)
+			native := a.ops.dev.Context().Device()
+			gotUUID, uuidErr := native.UUID()
+			major, minor, ccErr := native.ComputeCapability()
+			if uuidErr != nil || ccErr != nil || !strings.EqualFold(gotUUID, uuid) || native.Ordinal() != target.Ordinal ||
+				major != wantCC.Major || minor != wantCC.Minor {
+				t.Fatalf("retained native UUID %q ordinal %d CC %d.%d, errors %v, %v", gotUUID, native.Ordinal(), major, minor, uuidErr, ccErr)
+			}
+			reported := acc.(embeddinggemma2.AttachedDeviceReporter).AttachedDevice()
+			if reported.ID != row.ID || reported.Alias != row.Alias || reported.ComputeCapability != wantCC ||
+				!slices.Equal(reported.RunnableSelectors(), selectors) {
+				t.Fatalf("retained row %+v disagrees with inventory %+v", reported, row)
+			}
+			if wantFP16 := selector == eg2FP16TestSelector; (a.ffnFP16 != (Pipeline{})) != wantFP16 || a.packedAttnMode != wantFP16 {
+				t.Fatalf("%s attached the wrong precision path", selector)
+			}
+			if rejectFP16 && selector == "cuda" {
+				failed, err := enc.UseDevice(row.ID, eg2FP16TestSelector)
+				if failed != nil || !errors.Is(err, embeddinggemma2.ErrUnsupportedSelector) ||
+					errors.Is(err, embeddinggemma2.ErrNoDevice) || enc.Accelerator() != acc {
+					t.Fatalf("FP16 rejection returned %v, %v; accelerator %v", failed, err, enc.Accelerator())
+				}
+			}
+			t.Logf("%s, CUDA %d.%d, ordinal %d, UUID %s, selectors %v", target.Name, major, minor, target.Ordinal, gotUUID, selectors)
+		})
 	}
 }
 
@@ -3066,7 +3160,7 @@ func TestCUDAInventoryRows(t *testing.T) {
 		}
 		return embeddinggemma2.DeviceMemory{TotalBytes: int64(a.TotalBytes), AvailableBytes: 512, Basis: embeddinggemma2.MemoryLive}, nil
 	}
-	cheap, err := describeCUDADevices(adapters, embeddinggemma2.ProbeOptions{}, read)
+	cheap, err := describeCUDADevices(adapters, nil, embeddinggemma2.ProbeOptions{}, read)
 	if err != nil || len(sampled) != 0 || len(cheap) != 5 || cheap[0].Alias != "cuda:1" || cheap[2].Alias != "cuda:3" ||
 		cheap[0].ID != "cuda:First" || cheap[0].Backend != "cuda" || cheap[0].MemoryKind != embeddinggemma2.MemoryDedicated ||
 		cheap[0].VendorID != 0x10de || !cheap[0].TextBatching || cheap[0].Memory.TotalBytes != 2048 ||
@@ -3081,10 +3175,161 @@ func TestCUDAInventoryRows(t *testing.T) {
 	if cheap[1].MemoryKind != embeddinggemma2.MemoryKindUnknown || cheap[2].MemoryKind != embeddinggemma2.MemoryShared {
 		t.Fatalf("memory architecture: %+v", cheap)
 	}
-	live, err := describeCUDADevices(adapters, embeddinggemma2.ProbeOptions{IncludeMemory: true}, read)
+	live, err := describeCUDADevices(adapters, nil, embeddinggemma2.ProbeOptions{IncludeMemory: true}, read)
 	if !errors.Is(err, failure) || !slices.Equal(sampled, []int{1, 3}) || len(live) != len(cheap) ||
 		live[0].Memory.Basis != embeddinggemma2.MemoryLive || live[0].Memory.AvailableBytes != 512 || live[2] != cheap[2] {
 		t.Fatalf("live inventory %+v, queries %v, error %v", live, sampled, err)
+	}
+}
+
+func linkedEG2CUDASelectors(t *testing.T) []string {
+	t.Helper()
+	want := []string{"cuda"}
+	if eg2TaggedBinary(t, "eg2_combined") {
+		want = append(want, "cuda-eg2-combined")
+		if eg2TaggedBinary(t, "eg2_fp16") {
+			want = append(want, eg2FP16TestSelector)
+		}
+	}
+	if linked := embeddinggemma2.DeviceSelectors("cuda"); !slices.Equal(linked, want) {
+		t.Fatalf("linked CUDA selectors = %v, want %v for build tags", linked, want)
+	}
+	return want
+}
+
+func TestCUDAInventoryRunnableSelectors(t *testing.T) {
+	linked := linkedEG2CUDASelectors(t)
+	base := linked
+	if slices.Contains(linked, eg2FP16TestSelector) {
+		base = base[:len(base)-1]
+	}
+	adapters := []gpu.Adapter{
+		{Ordinal: 0, UUID: "GPU-abcd1234-1111-2222-3333-444444444440", Major: 7},
+		{Ordinal: 1, UUID: "GPU-abcd1234-1111-2222-3333-444444444441", Major: 7, Minor: 5},
+		{Ordinal: 2, UUID: "GPU-abcd1234-1111-2222-3333-444444444442", Major: 7, Minor: 9},
+		{Ordinal: 3, UUID: "GPU-abcd1234-1111-2222-3333-444444444443", Major: 8},
+		{Ordinal: 4, UUID: "MIG-abcd1234-1111-2222-3333-444444444444", Major: 12},
+		{Ordinal: 5, Major: 12},
+		{Ordinal: 6, UUID: "GPU-abcd1234-1111-2222-3333-444444444446", Major: 8},
+		{Ordinal: 7, UUID: "gpu-ABCD1234-1111-2222-3333-444444444446", Major: 8},
+	}
+	rows, err := describeCUDADevices(adapters, nil, embeddinggemma2.ProbeOptions{}, func(gpu.Adapter) (embeddinggemma2.DeviceMemory, error) {
+		t.Fatal("cheap CUDA probe acquired a memory context")
+		return embeddinggemma2.DeviceMemory{}, nil
+	})
+	if err != nil || len(rows) != len(adapters)-1 {
+		t.Fatalf("inventory has %d rows, err %v", len(rows), err)
+	}
+	wantSelectors := [][]string{base, base, linked, linked, nil, nil, nil}
+	for i, row := range rows {
+		adapter := adapters[i+1]
+		want := embeddinggemma2.CUDAComputeCapability{Major: adapter.Major, Minor: adapter.Minor}
+		if row.ComputeCapability != want || !slices.Equal(row.RunnableSelectors(), wantSelectors[i]) {
+			t.Errorf("ordinal %d: capability %+v and selectors %v, want %+v and %v",
+				adapter.Ordinal, row.ComputeCapability, row.RunnableSelectors(), want, wantSelectors[i])
+		}
+		if i < 4 {
+			if row.ID != "cuda:"+adapter.UUID || row.Alias != "cuda:"+strconv.Itoa(adapter.Ordinal) {
+				t.Errorf("ordinal %d lost identity: %+v", adapter.Ordinal, row)
+			}
+		} else if row.ID != "" || row.Alias != "" || row.RunnableSelectors() != nil {
+			t.Errorf("ordinal %d advertised unverified identity: %+v", adapter.Ordinal, row)
+		}
+	}
+	unknown := rows[2]
+	unknown.ComputeCapability = embeddinggemma2.CUDAComputeCapability{}
+	if got := unknown.RunnableSelectors(); got != nil {
+		t.Errorf("unknown capability advertised %v", got)
+	}
+	for _, id := range []string{"cuda:0", "cuda:GPU-invalid"} {
+		invalid := rows[2]
+		invalid.ID = id
+		if got := invalid.RunnableSelectors(); got != nil {
+			t.Errorf("invalid persistent ID %q advertised %v", id, got)
+		}
+	}
+}
+
+func TestCUDAInventoryPartialIdentity(t *testing.T) {
+	adapter := gpu.Adapter{Ordinal: 1, UUID: "GPU-abcd1234-1111-2222-3333-444444444444",
+		Name: "healthy", Major: 8, TotalBytes: 2048}
+	capability := embeddinggemma2.CUDAComputeCapability{Major: 8}
+	enumerateErr := fmt.Errorf("ordinal 0: %w: %w", gpu.ErrAdapterChanged, gc.ErrInvalidDevice)
+	opts := embeddinggemma2.ProbeOptions{IncludeMemory: true}
+	adapters := []gpu.Adapter{adapter}
+	for _, includeMemory := range []bool{false, true} {
+		rows, err := describeCUDADevices(adapters, enumerateErr, embeddinggemma2.ProbeOptions{IncludeMemory: includeMemory},
+			func(gpu.Adapter) (embeddinggemma2.DeviceMemory, error) {
+				t.Error("partial inventory tried to open an unverified UUID")
+				return embeddinggemma2.DeviceMemory{}, nil
+			})
+		if len(rows) != 1 || !errors.Is(err, embeddinggemma2.ErrNoDevice) || !errors.Is(err, gc.ErrInvalidDevice) {
+			t.Fatalf("partial inventory: rows %+v, err %v", rows, err)
+		}
+		row := rows[0]
+		if row.Name != adapter.Name || row.ComputeCapability != capability || row.Memory.TotalBytes != 2048 ||
+			row.ID != "" || row.Alias != "" || row.RunnableSelectors() != nil {
+			t.Errorf("partial inventory advertised an unverified identity or hid healthy device metadata: %+v", row)
+		}
+	}
+
+	memoryErr := errors.New("optional memory read failed")
+	reads := 0
+	rows, err := describeCUDADevices(adapters, nil, opts, func(got gpu.Adapter) (embeddinggemma2.DeviceMemory, error) {
+		reads++
+		if got != adapter {
+			t.Errorf("memory queried wrong adapter: %+v", got)
+		}
+		return embeddinggemma2.DeviceMemory{}, memoryErr
+	})
+	if len(rows) != 1 || !errors.Is(err, memoryErr) || reads != 1 {
+		t.Fatalf("optional memory failure: rows %+v, err %v, reads %d", rows, err, reads)
+	}
+	row := rows[0]
+	if row.ID != "cuda:"+adapter.UUID || row.Alias != "cuda:1" || row.ComputeCapability != capability ||
+		row.Memory.Basis != embeddinggemma2.MemoryUnknown || row.Memory.TotalBytes != 2048 ||
+		!slices.Equal(row.RunnableSelectors(), linkedEG2CUDASelectors(t)) {
+		t.Errorf("optional memory failure hid verified identity or capability: %+v", row)
+	}
+}
+
+func TestCUDAEG2FP16RetainedCapability(t *testing.T) {
+	for _, tt := range []struct {
+		name         string
+		major, minor int
+		query, want  error
+	}{
+		{name: "below-default-floor", major: 7, want: embeddinggemma2.ErrNoDevice},
+		{name: "SM75", major: 7, minor: 5, want: embeddinggemma2.ErrUnsupportedSelector},
+		{name: "SM79", major: 7, minor: 9, want: embeddinggemma2.ErrUnsupportedSelector},
+		{name: "SM80", major: 8},
+		{name: "SM120", major: 12},
+		{name: "native-read-failure", major: 7, minor: 5, query: gc.ErrInvalidDevice, want: gc.ErrInvalidDevice},
+	} {
+		t.Run(tt.name, func(t *testing.T) {
+			cc := embeddinggemma2.CUDAComputeCapability{Major: tt.major, Minor: tt.minor}
+			if tt.want == nil {
+				if err := requireEG2FP16Capability(cc, tt.query); err != nil {
+					t.Fatal(err)
+				}
+				return
+			}
+			// A rejection must precede any JIT work on the device.
+			pipeline, err := eg2FP16Pipeline(nil, nil, cc, tt.query)
+			if pipeline != (Pipeline{}) || !errors.Is(err, tt.want) {
+				t.Fatalf("capability %+v: pipeline %v, error %v; want %v", cc, pipeline, err, tt.want)
+			}
+			if errors.Is(err, embeddinggemma2.ErrUnsupportedSelector) != (tt.want == embeddinggemma2.ErrUnsupportedSelector) ||
+				errors.Is(err, embeddinggemma2.ErrNoDevice) != (tt.want == embeddinggemma2.ErrNoDevice) ||
+				errors.Is(err, embeddinggemma2.ErrDeviceUnavailable) != (tt.query == nil) {
+				t.Fatalf("capability %+v misclassified: %v", cc, err)
+			}
+			if tt.want == embeddinggemma2.ErrUnsupportedSelector &&
+				(!strings.Contains(err.Error(), eg2FP16TestSelector) || !strings.Contains(err.Error(), "8.0") ||
+					!strings.Contains(err.Error(), fmt.Sprintf("%d.%d", tt.major, tt.minor))) {
+				t.Fatalf("missing selector and observed/required capability: %v", err)
+			}
+		})
 	}
 }
 
@@ -3123,7 +3368,7 @@ func TestCUDAProbeRetainsFailedCloseOwnership(t *testing.T) {
 		return &fakeCUDAMemoryContext{}, nil
 	}
 	list := func() ([]embeddinggemma2.DeviceInfo, error) {
-		return describeCUDADevices([]gpu.Adapter{first, second}, embeddinggemma2.ProbeOptions{IncludeMemory: true},
+		return describeCUDADevices([]gpu.Adapter{first, second}, nil, embeddinggemma2.ProbeOptions{IncludeMemory: true},
 			func(a gpu.Adapter) (embeddinggemma2.DeviceMemory, error) { return probe.read(a, open) })
 	}
 	for attempt := 1; attempt <= 2; attempt++ {

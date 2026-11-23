@@ -108,10 +108,17 @@ func memoryArchitecture(dev adapterHandle) (integrated, known bool) {
 // Adapter reports identity from the same handle that retained this context.
 // Unavailable details are left empty.
 func (d *Device) Adapter() Adapter {
+	adapter, _ := AttachedAdapter(d)
+	return adapter
+}
+
+// AttachedAdapter includes the retained handle's capability error for callers
+// that require a successful query. Other identity fields remain available.
+func AttachedAdapter(d *Device) (Adapter, error) {
 	return attachedAdapter(d.cx.Device(), d.verifiedUUID, Adapters)
 }
 
-func attachedAdapter(dev adapterHandle, verifiedUUID string, list func() ([]Adapter, error)) Adapter {
+func attachedAdapter(dev adapterHandle, verifiedUUID string, list func() ([]Adapter, error)) (Adapter, error) {
 	name, _ := dev.Name()
 	pci, _ := dev.PCIBusID()
 	total, _ := dev.TotalMemory()
@@ -123,8 +130,12 @@ func attachedAdapter(dev adapterHandle, verifiedUUID string, list func() ([]Adap
 			uuid = ""
 		}
 	}
+	major, minor, err := dev.ComputeCapability()
+	if err != nil {
+		major, minor = 0, 0
+	}
 	return Adapter{Ordinal: dev.Ordinal(), UUID: uuid, Name: name, PCIBusID: pci, TotalBytes: total,
-		Integrated: integrated, IntegratedKnown: known}
+		Major: major, Minor: minor, Integrated: integrated, IntegratedKnown: known}, err
 }
 
 func hasUniqueUUID(uuid string, list func() ([]Adapter, error)) bool {

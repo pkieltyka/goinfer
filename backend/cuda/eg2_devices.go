@@ -3,7 +3,6 @@
 package cuda
 
 import (
-	"encoding/hex"
 	"errors"
 	"fmt"
 	"math"
@@ -13,6 +12,7 @@ import (
 	gc "github.com/eitamring/gocudrv/cuda"
 	gpu "github.com/pkieltyka/goinfer/backend/cuda/internal/gpudev"
 	"github.com/pkieltyka/goinfer/embeddinggemma2"
+	"github.com/pkieltyka/goinfer/internal/cudaid"
 )
 
 func selectedEG2Factory(combined bool) func(*embeddinggemma2.Model, string) (embeddinggemma2.Accelerator, error) {
@@ -56,26 +56,20 @@ func classifyCUDAAttach(err error) error {
 }
 
 func cudaEligible(a gpu.Adapter) bool {
-	return a.Major > ptxTargetMajor || a.Major == ptxTargetMajor && a.Minor >= ptxTargetMinor
+	return cudaSupportsPTX(a.Major, a.Minor)
+}
+
+func cudaSupportsPTX(major, minor int) bool {
+	return major > ptxTargetMajor || major == ptxTargetMajor && minor >= ptxTargetMinor
+}
+
+func cudaSupportsEG2(d embeddinggemma2.DeviceInfo) bool {
+	capability := d.ComputeCapability
+	return cudaSupportsPTX(capability.Major, capability.Minor)
 }
 
 func validCUDADeviceToken(token string) bool {
-	if token == "" {
-		return false
-	}
-	prefix, uuid, ok := strings.Cut(token, "-")
-	if ok {
-		if !strings.EqualFold(prefix, "GPU") && !strings.EqualFold(prefix, "MIG") {
-			return false
-		}
-		if len(uuid) != 36 || uuid[8] != '-' || uuid[13] != '-' || uuid[18] != '-' || uuid[23] != '-' {
-			return false
-		}
-		hexUUID := strings.ReplaceAll(uuid, "-", "")
-		_, err := hex.DecodeString(hexUUID)
-		return len(hexUUID) == 32 && err == nil
-	}
-	return strings.IndexFunc(token, func(r rune) bool { return r < '0' || r > '9' }) < 0
+	return cudaid.ValidUUID(token) || token != "" && strings.Trim(token, "0123456789") == ""
 }
 
 func resolveCUDADevice(token string, adapters []gpu.Adapter) (gpu.Adapter, error) {

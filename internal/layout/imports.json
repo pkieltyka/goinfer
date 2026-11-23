@@ -221,6 +221,7 @@
       "embeddinggemma2",
       "internal/audio",
       "internal/cost",
+      "internal/cudaid",
       "internal/modelcore/linalg",
       "internal/runtime/logs",
       "internal/runtime/mem",
@@ -337,6 +338,7 @@
     ],
     "embeddinggemma2": [
       "internal/audio",
+      "internal/cudaid",
       "internal/gguf",
       "internal/modelcore/embed",
       "internal/modelcore/linalg",

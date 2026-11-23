@@ -48,6 +48,7 @@ Untagged, `backend/cuda/` does not build on its own (`backend/cuda/internal/gpud
 | `multimodal/` | vision and audio towers and preprocessing |
 | `embeddinggemma2/` | the EmbeddingGemma 2 text encoder |
 | `pull/` | resumable checkpoint download from HuggingFace |
+| `internal/cudaid/` | CUDA UUID syntax shared by inventory and device selection |
 | `internal/modelcore/` | private CPU tensor kernels, model-file readers, memory mapping, and serving encoder and WordPiece code |
 | `internal/` | packages private to the root module, grouped under `internal/app/` (CLI/server apps and wiring), `internal/guard/` (lint/CI/memory/parity guards), `internal/diag/` (hardware census and reports), and `internal/runtime/` (execution, memory, KV, scheduler, model loading, sampling, and runtime kernels), plus top-level domain packages (`audio`, `batchio`, `clef`, `codec`, `confidence`, `config`, `cost`, `decide`, `fidelity`, `layout`, `vision`, `wrappedupload`), and `testgate`, the skip gates tests share (imported by `_test.go` files only); `internal/layout` holds repository-shape checks as tests |
 
