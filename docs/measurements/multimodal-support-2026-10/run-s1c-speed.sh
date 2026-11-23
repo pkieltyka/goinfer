@@ -5,21 +5,28 @@
 #   2. the host's per-token PLE cost (TestGemma4EModel_realE2BPLEHostCost from a pre-built test binary).
 # Estimate: ~25 min (two cells of 64 tok x 8 completions x 2 runs; the CPU cell dominates; plus loads and idle gates at BENCH_MAX_LOADAVG=1.0).
 #
-# The binaries are pre-built (BIN, from the commit in BIN/rev), so whatever the checkout holds tonight is not what runs:
+# The binaries are pre-built (BIN, from the commit in BIN/rev and covered by BIN/SHA256SUMS), so whatever the checkout
+# holds tonight is not what runs. BIN is required, the revision must be a commit in this checkout's history, and the
+# sums must verify, or this is not a run against a known candidate:
 #   CGO_ENABLED=0 go build -tags cuda -o $BIN/serve-cuda github.com/pkieltyka/goinfer/backend/cuda/cmd/serve
 #   (cd backend/cuda && go test -c -tags 'cuda goinfer_testhooks' -o $BIN/cuda.test .)
 #   python3 scripts/night.py add s1c-e2b-speed --est 30 --by "Claude, S1 on CUDA" --doc docs/completed/task-multimodal-support-2026-10.md -- bash docs/measurements/multimodal-support-2026-10/run-s1c-speed.sh
 set -uo pipefail
 SRC=$(cd "$(dirname "$0")/../../.." && pwd)
-BIN=${BIN:-$HOME/goinfer-bench/s1c}
+REV=$(cat "$BIN/rev" 2>/dev/null) || { echo "FATAL: $BIN/rev is missing; the binaries' revision must be recorded"; exit 2; }
+git -C "$SRC" cat-file -e "$REV^{commit}" 2>/dev/null || { echo "FATAL: $BIN/rev names $REV, which is not a commit in $SRC"; exit 2; }
+git -C "$SRC" merge-base --is-ancestor "$REV" HEAD || { echo "FATAL: $REV is not in this checkout's history"; exit 2; }
+BIN=${BIN:?set BIN to the directory holding serve-cuda, cuda.test and the rev file they were built at}
 OUT=${1:-$HOME/goinfer-bench/s1c/run-$(date +%F)}
 MODEL=$HOME/models/gemma-4-e2b-gguf/gemma-4-E2B_q4_0-it.gguf
 for p in "$BIN/serve-cuda" "$BIN/cuda.test" "$MODEL"; do
   [ -e "$p" ] || { echo "FATAL: $p is missing"; exit 2; }
 done
+[ -f "$BIN/SHA256SUMS" ] || { echo "FATAL: $BIN/SHA256SUMS is missing; the binaries' provenance must be recorded"; exit 2; }
+(cd "$BIN" && sha256sum -c --quiet SHA256SUMS) || { echo "FATAL: the binaries do not match $BIN/SHA256SUMS"; exit 2; }
 case "$MODEL" in /Volumes/*|/srv/models/*) echo "FATAL: $MODEL is on the archive (CLAUDE.md)"; exit 2;; esac
 mkdir -p "$OUT"
-{ echo "binaries: $BIN (rev $(cat "$BIN/rev" 2>/dev/null || echo unknown))"; echo "started:  $(date '+%F %T %Z')"
+{ echo "binaries: $BIN (rev $REV)"; echo "started:  $(date '+%F %T %Z')"
   echo "model:    $MODEL"; echo "gpu:      $(nvidia-smi --query-gpu=name,driver_version,memory.used --format=csv,noheader)"; echo "load:     $(cat /proc/loadavg)"; } | tee "$OUT/provenance.txt"
 rc=0
 echo "== 1/2 bench_peer E2B cpu+cuda: start $(date '+%T')"
