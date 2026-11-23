@@ -4,7 +4,7 @@ go 1.27.0
 
 require (
 	github.com/eitamring/gocudrv v0.3.2
-	github.com/pkieltyka/goinfer v0.6.5-0.20261123194007-f8e257ee7d61
+	github.com/pkieltyka/goinfer v0.6.5
 )
 
 require (
