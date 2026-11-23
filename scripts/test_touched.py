@@ -112,6 +112,7 @@ READS = re.compile(r'parser\.Parse(File|Dir)\(|"\*\.go"|"\*\.cu"|\.go"\)|\.cu"\)
 # Test functions the patterns flag that read no repository source from disk: each parses an in-memory string, or reads only
 # go.mod or fixtures.
 NOT_SOURCE_READERS = {
+    "TestLoadMmap_matchesLoadFromFS": "optional checkpoint files, no source",
     "TestLogger_getsLevelTextAndCaller": "compares a stack frame's file name; it reads no file",
     "TestScan_flagsWhatItShouldAndNothingElse": "parses a Go source held in the test as a string; it reads no file",
     "TestSetLogger_takesWhatALoadWrites": "compares a stack frame's file name; it reads no file",

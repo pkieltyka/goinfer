@@ -9,7 +9,6 @@ import (
 	"go/scanner"
 	"go/token"
 	"os"
-	"os/exec"
 	"path/filepath"
 	"regexp"
 	"slices"
@@ -17,7 +16,6 @@ import (
 	"strconv"
 	"strings"
 	"testing"
-	"time"
 )
 
 // H0, the hardware census: a census, deliberately not a verdict, in the shape of decoder/dispatch_census_test.go.
@@ -35,11 +33,8 @@ import (
 // entry names a predicate the source no longer has, and the entry is stale. Adding an entry with a made-up record
 // defeats the census: a record names a machine, a date, how it ran, both commits, and the gate that ran.
 //
-// WHAT IS SCANNED. goinfer's whole tree (all five modules, the CUDA and Metal device queries in cuda/internal/gpudev and
-// metal/internal/gpudev included) and aikit's root module at the version go.mod pins, where the CPU feature predicates
-// live in linalg. A pinned module that cannot be found FAILS the test rather than skipping it: a census that silently left
-// aikit out would cover nothing, the citation lint's rule for the same situation. go/scanner tokenizes each file, so a
-// comment never counts and a string literal (an objc selector, a sysctl name, a /proc path) does.
+// The scan covers the four goinfer modules, including CPU dispatch in modelcore and the private device
+// packages in the backends. go/scanner ignores comments and recognizes literal probe names and paths.
 //
 // THE PREDICATES ARE DERIVED, NOT LISTED, so a new one enters the census without anyone remembering to add it here:
 //   - cpu:<name>   a package-level `var has<X> = ...` (aikit's dispatch flags: hasAVX2, hasDotProd, hasF16C, ...)
@@ -185,59 +180,7 @@ func appendUnique(s []string, v string) []string {
 	return append(s, v)
 }
 
-// pinned returns the version of module mod that the go.mod files under root require (every distinct one).
-func pinned(t *testing.T, root, mod string, gomods ...string) []string {
-	t.Helper()
-	re := regexp.MustCompile(`(?m)^\s*` + regexp.QuoteMeta(mod) + `\s+(v[^\s]+)`)
-	var vs []string
-	for _, g := range gomods {
-		b, err := os.ReadFile(filepath.Join(root, g))
-		if err != nil {
-			t.Fatalf("reading %s: %v", g, err)
-		}
-		for _, m := range re.FindAllStringSubmatch(string(b), -1) {
-			vs = appendUnique(vs, m[1])
-		}
-	}
-	if len(vs) == 0 {
-		t.Fatalf("no go.mod under %s requires %s (looked in %v)", root, mod, gomods)
-	}
-	return vs
-}
-
-// moduleDir finds mod@ver's source in the module cache, downloading it if needed. It FAILS rather than skipping:
-// a census that could not read aikit would report every aikit predicate missing from the source, or worse, pass.
-func moduleDir(t *testing.T, root, mod, ver string) string {
-	t.Helper()
-	// A module the cache lacks is fetched from the proxy here, so a transient network error is retried; a failure that
-	// persists still fails. go mod download -json reports its error in the JSON on stdout, so both streams are kept.
-	var out, errb bytes.Buffer
-	var err error
-	for attempt, wait := range []time.Duration{0, 2 * time.Second, 8 * time.Second} {
-		time.Sleep(wait)
-		cmd := exec.Command("go", "mod", "download", "-json", mod+"@"+ver)
-		cmd.Dir = root
-		cmd.Env = append(os.Environ(), "GOWORK=off", "GOFLAGS=-mod=mod")
-		out.Reset()
-		errb.Reset()
-		cmd.Stdout, cmd.Stderr = &out, &errb
-		if err = cmd.Run(); err == nil {
-			break
-		}
-		t.Logf("go mod download %s@%s, attempt %d: %v\nstdout: %s\nstderr: %s", mod, ver, attempt+1, err, out.String(), errb.String())
-	}
-	if err != nil {
-		t.Fatalf("CANNOT SEARCH %s@%s (go mod download: %v; stdout %s; stderr %s): the census needs the pinned source; fix with `go mod download`, never by skipping",
-			mod, ver, err, out.String(), errb.String())
-	}
-	var j struct{ Dir string }
-	if err := json.Unmarshal(out.Bytes(), &j); err != nil || j.Dir == "" {
-		t.Fatalf("CANNOT SEARCH %s@%s: no module directory in %q", mod, ver, out.String())
-	}
-	return j.Dir
-}
-
-// discover scans goinfer and the pinned aikit modules.
+// discover scans the four goinfer modules.
 func discover(t *testing.T) map[string][]string {
 	t.Helper()
 	root, err := filepath.Abs("../../..")
@@ -246,9 +189,6 @@ func discover(t *testing.T) map[string][]string {
 	}
 	found := map[string][]string{}
 	scanTree(t, root, "goinfer", found)
-	for _, v := range pinned(t, root, "github.com/pkieltyka/aikit", "go.mod") {
-		scanTree(t, moduleDir(t, root, "github.com/pkieltyka/aikit", v), "aikit", found)
-	}
 	return found
 }
 

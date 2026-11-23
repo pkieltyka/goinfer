@@ -12,12 +12,12 @@
    ],
    "selected_when": "an x86 CPU with AVX-512 VNNI (+VL): Zen 4/5, Intel Ice Lake and later",
    "files": [
-    "aikit/linalg/dot_i8_avx512vnni_amd64.go",
-    "aikit/linalg/dot_w4a8_avx512vnni_amd64.go",
-    "aikit/linalg/quant_i8_amd64.go",
-    "aikit/linalg/quant_w4a8_tile_amd64.go",
-    "aikit/linalg/weightmat_splithalf_amd64.go",
-    "aikit/linalg/matmul_w4a8_splithalf_tile_amd64.go"
+    "goinfer/internal/modelcore/linalg/dot_i8_avx512vnni_amd64.go",
+    "goinfer/internal/modelcore/linalg/dot_w4a8_avx512vnni_amd64.go",
+    "goinfer/internal/modelcore/linalg/quant_i8_amd64.go",
+    "goinfer/internal/modelcore/linalg/quant_w4a8_tile_amd64.go",
+    "goinfer/internal/modelcore/linalg/weightmat_splithalf_amd64.go",
+    "goinfer/internal/modelcore/linalg/matmul_w4a8_splithalf_tile_amd64.go"
    ],
    "our_machines": "never: the 3700X is Zen 2",
    "last_executed": [
@@ -57,7 +57,7 @@
    ],
    "selected_when": "any x86 CPU with AVX2 (Haswell and later, Zen and later)",
    "files": [
-    "aikit/linalg/*_amd64.go (the hasAVX2 branches: dot_amd64.go defines it)"
+    "goinfer/internal/modelcore/linalg/*_amd64.go (the hasAVX2 branches: dot_amd64.go defines it)"
    ],
    "our_machines": "nobara's 3700X; every GitHub x86 runner",
    "last_executed": [
@@ -87,7 +87,7 @@
    "predicates": [],
    "selected_when": "pre-2013 x86, and some VMs that hide AVX2",
    "files": [
-    "aikit/linalg/*_amd64.go (the !hasAVX2 side)"
+    "goinfer/internal/modelcore/linalg/*_amd64.go (the !hasAVX2 side)"
    ],
    "our_machines": "never on hardware",
    "last_executed": [
@@ -119,7 +119,7 @@
    ],
    "selected_when": "x86 with F16C (every AVX2 CPU in practice)",
    "files": [
-    "aikit/linalg/f16scale_amd64.go"
+    "goinfer/internal/modelcore/linalg/f16scale_amd64.go"
    ],
    "our_machines": "nobara's 3700X; GitHub x86 runners",
    "last_executed": [
@@ -151,7 +151,7 @@
    ],
    "selected_when": "x86 with AVX2 and F16C",
    "files": [
-    "aikit/linalg/q4k_dot_amd64.go"
+    "goinfer/internal/modelcore/linalg/q4k_dot_amd64.go"
    ],
    "our_machines": "nobara's 3700X; GitHub x86 runners",
    "last_executed": [
@@ -175,7 +175,7 @@
    ],
    "selected_when": "x86 with POPCNT",
    "files": [
-    "aikit/linalg/hamming_amd64.go"
+    "goinfer/internal/modelcore/linalg/hamming_amd64.go"
    ],
    "our_machines": "nobara's 3700X",
    "last_executed": [],
@@ -190,7 +190,7 @@
    ],
    "selected_when": "arm64 with the DotProd extension: Apple M-series, Pi 5, Graviton 2+",
    "files": [
-    "aikit/linalg/*_arm64.go (the hasDotProd branches: quant_i8_arm64.go defines it)"
+    "goinfer/internal/modelcore/linalg/*_arm64.go (the hasDotProd branches: quant_i8_arm64.go defines it)"
    ],
    "our_machines": "the M1 Pro; GitHub's macOS runners",
    "last_executed": [
@@ -228,7 +228,7 @@
    "predicates": [],
    "selected_when": "Raspberry Pi 4 class (Cortex-A72) and older ARM",
    "files": [
-    "aikit/linalg/*_arm64.go (the !hasDotProd side)"
+    "goinfer/internal/modelcore/linalg/*_arm64.go (the !hasDotProd side)"
    ],
    "our_machines": "never (M1 has DotProd)",
    "last_executed": [
@@ -599,14 +599,13 @@
   },
   {
    "id": "pager-budget",
-   "gate": "The pager's RAM budget (aikit mmap.AutoBudget, from /proc/meminfo on Linux)",
+   "gate": "The pager's RAM budget (mmap.AutoBudget, from the shared Linux memory probe)",
    "kind": "memory-probe",
-   "predicates": [
-    "mem:/proc/meminfo@aikit/mmap/align.go"
-   ],
+   "predicates": [],
    "selected_when": "layer and MoE expert paging (decoder/layerpaging.go, decoder/moepaging.go); 0 elsewhere, so a fixed budget",
    "files": [
-    "aikit/mmap/align.go",
+    "goinfer/internal/modelcore/mmap/align.go",
+    "goinfer/internal/runtime/mem/probe/physical_linux.go",
     "goinfer/decoder/layerpaging.go",
     "goinfer/decoder/moepaging.go"
    ],
@@ -621,7 +620,7 @@
      "gate": "ci run 37140125254: test-decoder-a..d, test-decoder-tail, test-rest (the CPU suite and the forward goldens)"
     }
    ],
-   "notes": "decoder's paging tests run in CI on Linux."
+   "notes": "The pager now shares the reader inventoried under host-ram-linux. Prior execution records retain their original versions."
   },
   {
    "id": "webgpu-vendors",

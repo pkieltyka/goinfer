@@ -274,6 +274,10 @@ SCANS = [
     Scan("chat", "TestCodecCensus_throughCodec", NT("internal/codec", "tokenizer", "multimodal") +
          F("testdata/chat_goldens/*.json", "testdata/chat_think_goldens/*.json", "tokenizer/testdata/*.gguf")),
     Scan("chat", "TestReleasing_standaloneBuildGateExists", F(".github/workflows/standalone-build.yml")),
+    Scan("internal/modelcore/linalg", "TestOutputContract_everyWriterIsDocumented",
+         NT("internal/modelcore/linalg", "internal/modelcore/embed", "internal/modelcore/encoder")),
+    Scan("internal/modelcore/encoder", "TestEmbedderCoverage_fresh", F("internal/modelcore/docs/embedder-coverage.md")),
+    Scan("internal/modelcore/encoder", "TestEmbedderCoverage_gatesExist", T("internal/modelcore/encoder")),
     # K3 checks that no production file names an entry point its exclusions call uncalled, against the census's predicates.
     Scan("internal/diag/kernelprint", "TestCompute_reachesCensus", TREE_NT + F("docs/hardware-coverage.json")),
     Scan("internal/diag/kernelprint", "TestCompute_table", F("testdata/kernel_fingerprints.json", "go.mod", "go.sum")),
@@ -281,6 +285,15 @@ SCANS = [
 
 # Tests that read Go source but are not selected here, each with the reason. A new reader goes in SCANS or here.
 EXCLUDED = {
+    # Local checkpoint controls use repository files as input texts, not source structure.
+    "TestBPESpan_matchesStringRef": "text corpus, requires local Granite tokenizer",
+    "TestEncodeBatch_matchesSerial": "text corpus, requires local static model",
+    "TestEncodeBatch_concurrentCallers": "text corpus, requires local static model",
+    "TestEncodeConcurrent": "text corpus, requires local static model",
+    "TestEncode_carveOutSlicedMatchesRebuilt": "text corpus, requires local static model",
+    "TestPreTokenize_slicedMatchesRebuilt": "text corpus, requires local static model",
+    "TestWordPieceMemo_concurrent": "text corpus, requires local MiniLM checkpoint",
+    "TestWordPieceMemo_equiv": "text corpus, requires local MiniLM checkpoint",
     # The repository's own source as prompt text: not a structural check, and each is env- or heavy-gated.
     "TestKV0_prefillInvariance_real1p5B": "prompt corpus, heavy-gated",
     "TestKV0_continuationEffect_real1p5B": "prompt corpus, heavy-gated",

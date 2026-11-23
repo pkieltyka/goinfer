@@ -1,6 +1,6 @@
 package kernelprint
 
-import "github.com/pkieltyka/aikit/linalg"
+import "github.com/pkieltyka/goinfer/internal/modelcore/linalg"
 
 // row4Emit is the .giw writer's row4 repack (decoder's w4a8_row4_emit_arm64.go), which exists on arm64 only.
 func row4Emit(q4 []byte, q4s []uint16, rows, cols, group int) ([]byte, []uint16) {

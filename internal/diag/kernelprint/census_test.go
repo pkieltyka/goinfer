@@ -21,12 +21,12 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/pkieltyka/aikit/linalg"
+	"github.com/pkieltyka/goinfer/internal/modelcore/linalg"
 )
 
 const (
-	aikitModule = "github.com/pkieltyka/aikit"
-	censusPath  = "../../../docs/hardware-coverage.json"
+	modelcoreImport = "github.com/pkieltyka/goinfer/internal/modelcore"
+	censusPath      = "../../../docs/hardware-coverage.json"
 )
 
 // censusPackages are the aikit packages whose kernels the suite runs.
@@ -121,7 +121,7 @@ var forcedTier = map[string]string{"noavx2": "avx2", "noavx512": "avx512vnni", "
 // a census predicate has its active side executed by Compute, read from a coverage profile of a child run.
 func TestCompute_reachesCensus(t *testing.T) {
 	if testing.Short() {
-		t.Skip("builds aikit with coverage; not in -short")
+		t.Skip("builds modelcore with coverage; not in -short")
 	}
 	cfg, k := CurrentConfig(), linalg.ActiveKernels()
 	for _, f := range cfg.Forced {
@@ -138,9 +138,9 @@ func TestCompute_reachesCensus(t *testing.T) {
 		}
 	}
 	tags := forcedTags(cfg)
-	dir := aikitDir(t)
+	dir := modelcoreDir(t)
 	profile := coverChild(t, tags)
-	t.Logf("configuration %s, tags %q, aikit at %s", cfg, tags, dir)
+	t.Logf("configuration %s, tags %q, modelcore at %s", cfg, tags, dir)
 
 	var sites, reached, excluded int
 	var unreached []string
@@ -161,7 +161,7 @@ func TestCompute_reachesCensus(t *testing.T) {
 				key := rel + "|" + s.fn + "|" + s.cond
 				missing := []string{}
 				for _, need := range s.need {
-					if !profile.covered(aikitModule+"/"+rel, f.fset.Position(need.pos)) {
+					if !profile.covered(modelcoreImport+"/"+rel, f.fset.Position(need.pos)) {
 						missing = append(missing, need.side)
 					}
 				}
@@ -291,27 +291,22 @@ func forcedTags(cfg Config) []string {
 	return tags
 }
 
-// aikitDir is the directory of the aikit module this test builds against: the module cache at go.mod's pin, or a
-// go.work checkout.
-func aikitDir(t *testing.T) string {
-	out, err := exec.Command("go", "list", "-m", "-f", "{{.Dir}}", aikitModule).Output()
+func modelcoreDir(t *testing.T) string {
+	t.Helper()
+	dir, err := filepath.Abs("../../modelcore")
 	if err != nil {
-		t.Fatalf("go list -m %s: %v", aikitModule, err)
-	}
-	dir := strings.TrimSpace(string(out))
-	if dir == "" {
-		t.Fatalf("go list -m %s: no directory (module not downloaded?)", aikitModule)
+		t.Fatal(err)
 	}
 	return dir
 }
 
-// coverChild runs TestCompute_child with coverage over aikit's census packages and returns the profile.
+// coverChild runs TestCompute_child with coverage over modelcore's census packages and returns the profile.
 func coverChild(t *testing.T, tags []string) coverProfile {
 	tmp := t.TempDir()
 	prof := filepath.Join(tmp, "cover.out")
 	var pkgs []string
 	for _, p := range censusPackages {
-		pkgs = append(pkgs, aikitModule+"/"+p)
+		pkgs = append(pkgs, modelcoreImport+"/"+p)
 	}
 	args := []string{"test", "-count=1", "-run", "^TestCompute_child$", "-covermode=set", "-coverpkg=" + strings.Join(pkgs, ","), "-coverprofile=" + prof}
 	if len(tags) > 0 {
