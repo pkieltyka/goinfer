@@ -6,8 +6,8 @@
 # Estimate: ~25 min (two cells of 64 tok x 8 completions x 2 runs; the CPU cell dominates; plus loads and idle gates at BENCH_MAX_LOADAVG=1.0).
 #
 # The binaries are pre-built (BIN, from the commit in BIN/rev), so whatever the checkout holds tonight is not what runs:
-#   CGO_ENABLED=0 go build -tags cuda -o $BIN/serve-cuda github.com/townsendmerino/goinfer/cuda/cmd/serve
-#   (cd cuda && go test -c -tags 'cuda goinfer_testhooks' -o $BIN/cuda.test .)
+#   CGO_ENABLED=0 go build -tags cuda -o $BIN/serve-cuda github.com/pkieltyka/goinfer/backend/cuda/cmd/serve
+#   (cd backend/cuda && go test -c -tags 'cuda goinfer_testhooks' -o $BIN/cuda.test .)
 #   python3 scripts/night.py add s1c-e2b-speed --est 30 --by "Claude, S1 on CUDA" --doc docs/completed/task-multimodal-support-2026-10.md -- bash docs/measurements/multimodal-support-2026-10/run-s1c-speed.sh
 set -uo pipefail
 SRC=$(cd "$(dirname "$0")/../../.." && pwd)
@@ -29,7 +29,7 @@ GOINFER_SERVE_CPU="$BIN/serve-cuda" GOINFER_SERVE_CUDA="$BIN/serve-cuda" \
 tail -20 "$OUT/bench-e2b.log"
 [ -s "$OUT/bench-e2b.json" ] || { echo "!! no results file: bench_peer exits 0 when it refuses a busy box"; rc=1; }
 echo "== 2/2 PLE host cost: start $(date '+%T')"
-cd "$SRC/cuda" || exit 2
+cd "$SRC/backend/cuda" || exit 2
 python3 "$SRC/scripts/timing_lock.py" run --label s1c-ple-host -- \
   env GOINFER_HEAVY_TESTS=1 "$BIN/cuda.test" -test.run '^TestGemma4EModel_realE2BPLEHostCost$' -test.v -test.timeout 10m \
   > "$OUT/ple-host.log" 2>&1

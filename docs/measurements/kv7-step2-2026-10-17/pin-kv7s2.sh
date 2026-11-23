@@ -6,7 +6,7 @@
 set -euo pipefail
 REV=${REV:?the commit to pin}
 B=${B:?the pinned directory}
-REPO=${REPO:-$HOME/mycode/goinfer}
+REPO=${REPO:-$(cd "$(dirname "${BASH_SOURCE[0]}")/../../.." && pwd)}
 HERE=docs/measurements/integration-harness-2026-10
 SRC=$(cd "$(dirname "$0")" && pwd)
 mkdir -p "$B/bin"
@@ -21,11 +21,12 @@ toolchain go1.27.2
 
 use (
 	.
-	./cuda
-	./gpu
+	./backend/cuda
+	./backend/metal
+	./backend/vulkan
 )
 EOF
-(cd "$WT" && CGO_ENABLED=0 go build -tags cuda -o "$B/bin/serve-cuda-kv7s2" github.com/townsendmerino/goinfer/cuda/cmd/serve)
+(cd "$WT" && CGO_ENABLED=0 go build -tags cuda -o "$B/bin/serve-cuda-kv7s2" github.com/pkieltyka/goinfer/backend/cuda/cmd/serve)
 echo "$FULL" > "$B/bin/serve-cuda-kv7s2.rev"
 sha256sum "$B/bin/serve-cuda-kv7s2" | cut -d' ' -f1 > "$B/bin/serve-cuda-kv7s2.sha256"
 rm -rf "$B/matrix-pinned"
