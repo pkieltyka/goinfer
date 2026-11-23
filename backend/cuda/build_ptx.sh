@@ -13,7 +13,7 @@
 # ----------------------
 # nvcc drives a HOST compiler and includes host C++ headers, so it inherits the host
 # toolchain's constraints. On this box (gcc 15) nvcc's `cicc` cannot parse libstdc++'s
-# fp16 literal in <c++config.h> and dies, even with -allow-unsupported-compiler; CUDA
+# bf16 literal in <c++config.h> and dies, even with -allow-unsupported-compiler; CUDA
 # 12.6 also refuses gcc > 13 outright. NVRTC compiles CUDA C++ -> PTX with NO host
 # compiler and no host headers, so it sidesteps the host-toolchain coupling entirely.
 # It only needs the CUDA headers for <cuda_fp16.h> (the f16 group scales).

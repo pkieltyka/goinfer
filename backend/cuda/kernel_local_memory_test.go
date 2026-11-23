@@ -34,6 +34,13 @@ type censusPTXModule struct {
 	minSM int
 }
 
+func validCensusPTXTarget(name string, target int) bool {
+	if name == "eg2_ffn_fp16.ptx" {
+		return target == 10*eg2FP16MinMajor
+	}
+	return target > 0 && target <= 10*ptxTargetMajor+ptxTargetMinor
+}
+
 // ptxModules derives the census inputs and their minimum SM from production embeds.
 func ptxModules(t *testing.T) []censusPTXModule {
 	t.Helper()
@@ -54,6 +61,9 @@ func ptxModules(t *testing.T) []censusPTXModule {
 		minSM, err := strconv.Atoi(string(match[1]))
 		if err != nil {
 			t.Fatalf("%s PTX SM target: %v", name, err)
+		}
+		if !validCensusPTXTarget(name, minSM) {
+			t.Fatalf("%s PTX target sm_%d exceeds or disagrees with its supported architecture", name, minSM)
 		}
 		out = append(out, censusPTXModule{name: name, ptx: b, minSM: minSM})
 	}

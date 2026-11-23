@@ -4,6 +4,7 @@ package cuda
 
 import (
 	"os"
+	"path/filepath"
 	"regexp"
 	"sort"
 	"strings"
@@ -15,8 +16,19 @@ import (
 // hand-written list had left gptoss_act.ptx, the gpt-oss expert-cache path, out). TestKernelFMALint_coversEmbeddedPTX
 // closes the same gap for the FMA lint.
 func TestPTXModules_coverEveryEmbed(t *testing.T) {
+	if !validCensusPTXTarget("argmax.ptx", 75) || validCensusPTXTarget("argmax.ptx", 80) ||
+		!validCensusPTXTarget("eg2_ffn_fp16.ptx", 80) || validCensusPTXTarget("eg2_ffn_fp16.ptx", 75) {
+		t.Fatal("production sm_75 targets and the FP16 sm_80 exception must be checked independently")
+	}
+	files, err := filepath.Glob("*.go")
+	if err != nil {
+		t.Fatal(err)
+	}
 	embedded := map[string]bool{}
-	for _, file := range []string{"kernels.go", "eg2_ffn_fp16.go"} {
+	for _, file := range files {
+		if strings.HasSuffix(file, "_test.go") {
+			continue
+		}
 		kb, err := os.ReadFile(file)
 		if err != nil {
 			t.Fatal(err)
@@ -25,7 +37,7 @@ func TestPTXModules_coverEveryEmbed(t *testing.T) {
 			embedded[m[1]] = true
 		}
 	}
-	if len(embedded) < 10 {
+	if len(embedded) < 10 || !embedded["eg2_ffn_fp16.ptx"] {
 		t.Fatalf("found %d embedded PTX in production embed files", len(embedded))
 	}
 	listed := map[string]bool{}

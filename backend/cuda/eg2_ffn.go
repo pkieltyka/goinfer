@@ -13,6 +13,8 @@ import (
 
 var errEG2FP16InputRange = errors.New("cuda: EmbeddingGemma 2 FFN input is outside the finite FP16 range")
 
+const eg2FP16MinMajor = 8
+
 func eg2FP16Weights(v []float32) ([]uint16, error) {
 	packed := make([]uint16, len(v))
 	for i, value := range v {
@@ -35,7 +37,7 @@ func eg2FP16Pipeline(dev *Device, ptx []byte) (Pipeline, error) {
 	if err != nil {
 		return Pipeline{}, fmt.Errorf("cuda: FP16 FFN device capability: %w", err)
 	}
-	if major < 8 {
+	if major < eg2FP16MinMajor {
 		return Pipeline{}, fmt.Errorf("%w: CUDA FP16 FFN needs compute capability 8.0, device has %d.%d",
 			embeddinggemma2.ErrNoDevice, major, minor)
 	}
