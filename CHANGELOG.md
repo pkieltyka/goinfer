@@ -17,6 +17,20 @@ any surface may still change.
 
 Each unreleased change is a file in [`changelog.d/`](changelog.d/), collected into the release's section when it is tagged (`scripts/changelog.py release`).
 
+## [v0.6.4] — 2026-11-23
+
+### Changed
+
+- **Faster opt-in CUDA embeddings.** The existing `cuda-eg2-fp16` selector brings FP16 feed-forward projections, packed attention, and fused FFN and PLE activations to EmbeddingGemma 2. Build with `cuda eg2_combined eg2_fp16` on compute capability 8.0 or newer. Keep the build revision and selector fixed for embeddings that share an index. [#64](https://github.com/pkieltyka/goinfer/pull/64), [#65](https://github.com/pkieltyka/goinfer/pull/65)
+
+### Fixed
+
+- **Packed-attention source checks.** The touched-test selector runs the static check when the CUDA source or embedded PTX changes. [#66](https://github.com/pkieltyka/goinfer/pull/66)
+
+### Verification
+
+This release covers root, CUDA, and Vulkan. Metal is outside the module tag set. Targeted CUDA correctness and paired throughput checks passed on the RTX PRO 6000 Blackwell Max-Q. Peter approved publishing with four broad release checks and exact final-commit CI pending. [Verification record](docs/releases/v0.6.4-verification.md)
+
 ## [v0.6.3] — 2026-11-22
 
 ### Added

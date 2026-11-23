@@ -1,0 +1,57 @@
+{
+  "schema": 1,
+  "release": "v0.6.4",
+  "scope": ["root", "backend/cuda", "backend/vulkan"],
+  "source_commit": "4f11adf195be6f22ec6aecb7c0ed33083064f19d",
+  "decision": "Peter approved publishing this scope with the four broad release rows and exact final-commit CI deferred. The targeted feature results passed. The four broad rows remain OWED in the inherited grader.",
+  "accepted_by": "Peter",
+  "accepted_on": "2026-11-23",
+  "accepted": [],
+  "owner_decisions": [
+    {
+      "row": 3,
+      "gate": "Previous-tag cold-user report",
+      "item": "Cold-user qualification on v0.6.3",
+      "candidate_record": null,
+      "evidence": "The source preflight found no cold-user report naming v0.6.3. See docs/releases/v0.6.4-verification.md.",
+      "accepted_by": "Peter",
+      "accepted_on": "2026-11-23"
+    },
+    {
+      "row": 4,
+      "gate": "Full CUDA and Metal GPU gates",
+      "item": "Full device qualification on both backends",
+      "candidate_record": null,
+      "evidence": "The source preflight judged cuda-20261105T022250Z-ccdfb3ad.json and metal-20261104T224100Z-ccdfb3ad.json stale. Targeted CUDA device tests passed. Metal is outside the tag scope. See docs/releases/v0.6.4-verification.md.",
+      "accepted_by": "Peter",
+      "accepted_on": "2026-11-23"
+    },
+    {
+      "row": 10,
+      "gate": "CI at the exact release commit",
+      "item": "Exact final-commit CI before publication",
+      "candidate_record": null,
+      "evidence": "Source CI run 45168147103 passed at 4f11adf195be6f22ec6aecb7c0ed33083064f19d. CI for the final pin commit was pending at freeze. See docs/releases/v0.6.4-verification.md.",
+      "accepted_by": "Peter",
+      "accepted_on": "2026-11-23"
+    },
+    {
+      "row": 11,
+      "gate": "Broad parity sweep",
+      "item": "Full parity qualification",
+      "candidate_record": null,
+      "evidence": "The source preflight judged parity-20261105T071007Z-ccdfb3ad.json stale after CUDA changes. See docs/releases/v0.6.4-verification.md.",
+      "accepted_by": "Peter",
+      "accepted_on": "2026-11-23"
+    },
+    {
+      "row": 12,
+      "gate": "Linux and Darwin quick -full",
+      "item": "Full deferred-test suite on both systems",
+      "candidate_record": null,
+      "evidence": "The source preflight judged linux-amd64-20261122T205740Z-6df55538.json and darwin-arm64-20261104T232151Z-ccdfb3ad.json stale. See docs/releases/v0.6.4-verification.md.",
+      "accepted_by": "Peter",
+      "accepted_on": "2026-11-23"
+    }
+  ]
+}
