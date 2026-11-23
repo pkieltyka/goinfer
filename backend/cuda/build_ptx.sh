@@ -91,7 +91,7 @@ for k in "${targets[@]}"; do
 	fi
 	nvrtc "$src" "out/${k%.cu}.ptx" "$target_arch" "$CUDA_INC"
 	case "${k%.cu}" in
-	eg2_transposed_experiment | eg2_ffn_fp16 | eg2_packed_attn)
+	eg2_transposed_experiment | eg2_ffn_fp16 | eg2_packed_attn | eg2_fusions)
 		# Strip NVRTC's trailing horizontal spaces and blank lines from this artifact.
 		sed -z -i -e 's/[ \t]*\n/\n/g' -e 's/\n\+$/\n/' "$STAGE/out/${k%.cu}.ptx"
 		;;

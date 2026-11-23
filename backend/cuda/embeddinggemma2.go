@@ -96,6 +96,7 @@ type eg2Accel struct {
 	ffnFP16                                 Pipeline
 	packedAttnMode                          bool
 	packedAttn                              map[int]Pipeline
+	fusions                                 *eg2Fusions
 	defect                                  eg2Defect
 }
 
@@ -339,10 +340,10 @@ func eg2CUDAAttach(combined bool, fp16PTX []byte) eg2Attacher {
 }
 
 func newEG2AccelWithFFN(m *embeddinggemma2.Model, combined bool, fp16PTX []byte, open func() (*Device, error)) (*eg2Accel, error) {
-	return newEG2AccelWithFP16(m, combined, fp16PTX, nil, open)
+	return newEG2AccelConfigured(m, combined, fp16PTX, nil, nil, open)
 }
 
-func newEG2AccelWithFP16(m *embeddinggemma2.Model, combined bool, fp16PTX, packedAttnPTX []byte, open func() (*Device, error)) (_ *eg2Accel, err error) {
+func newEG2AccelConfigured(m *embeddinggemma2.Model, combined bool, fp16PTX, packedAttnPTX, fusionPTX []byte, open func() (*Device, error)) (_ *eg2Accel, err error) {
 	defer func() { err = classifyCUDAAttach(err) }()
 	if open == nil {
 		return nil, errors.New("cuda: EmbeddingGemma 2 nil device opener")
@@ -381,6 +382,13 @@ func newEG2AccelWithFP16(m *embeddinggemma2.Model, combined bool, fp16PTX, packe
 	a := &eg2Accel{ops: ops, cfg: c, model: m}
 	a.identity = cudaDeviceInfo(ops.dev.Adapter())
 	if err := ops.do(func() error {
+		if len(fusionPTX) != 0 {
+			fusions, err := loadEG2Fusions(ops.dev, fusionPTX)
+			if err != nil {
+				return err
+			}
+			a.fusions = fusions
+		}
 		if len(fp16PTX) != 0 {
 			p, err := eg2FP16Pipeline(ops.dev, fp16PTX)
 			if err != nil {
@@ -503,7 +511,7 @@ func (a *eg2Accel) Close() error {
 		}
 		return fmt.Errorf("cuda: EmbeddingGemma 2 Close could not release device memory: %w", err)
 	}
-	a.closed, a.layers, a.ropes, a.packedAttn, a.model = true, nil, nil, nil, nil
+	a.closed, a.layers, a.ropes, a.packedAttn, a.fusions, a.model = true, nil, nil, nil, nil, nil
 	return nil
 }
 
@@ -618,16 +626,22 @@ func (a *eg2Accel) scratchPlan(T int) (eg2ScratchPlan, error) {
 }
 
 // scratchPlanForLens computes the element counts and total charged device bytes
-// for per-forward scratch buffers (20 base buffers for default/combined, or 15
-// base float32 buffers plus per-distinct-BM descriptor tables when packed
-// attention is active, plus 1 shared FP16 status word on res when FP16 FFN or
-// packed attention is active). Shared by forwardRows and BatchMemory.
+// for per-forward scratch buffers (including PLE gather on the unfused path,
+// omitting qkv/bounds in favor of per-distinct-BM descriptor tables when packed
+// attention is active, and adding 1 shared FP16 status word on res when FP16
+// FFN or packed attention is active). Shared by forwardRows and BatchMemory.
 func (a *eg2Accel) scratchPlanForLens(lens []int) (eg2ScratchPlan, error) {
 	T := 0
 	for _, n := range lens {
 		T += n
 	}
 	c := a.cfg
+	if a.fusions != nil {
+		// Both fused kernels take a signed 32-bit element count.
+		if width := max(c.Intermediate, c.PLEDim); width > 0 && T > math.MaxInt32/width {
+			return eg2ScratchPlan{}, fmt.Errorf("cuda: %w: fused activations exceed their launch element count", embeddinggemma2.ErrUnsupportedBatchShape)
+		}
+	}
 	if a.ffnFP16 != (Pipeline{}) && (T > math.MaxInt32/max(c.Hidden, c.Intermediate) || T > 65535*32) {
 		return eg2ScratchPlan{}, fmt.Errorf("%w: CUDA FP16 FFN exceeds its launch dimensions", embeddinggemma2.ErrUnsupportedBatchShape)
 	}
@@ -674,7 +688,6 @@ func (a *eg2Accel) scratchPlanForLens(lens []int) (eg2ScratchPlan, error) {
 		{&p.u, c.Intermediate, 1, 4},
 		{&p.f, c.Hidden, 1, 4},
 		{&p.ple, c.Layers * c.PLEDim, 1, 4},
-		{&p.pleL, c.PLEDim, 1, 4},
 		{&p.gg, c.PLEDim, 1, 4},
 		{&p.pr, c.Hidden, 1, 4},
 		{&p.res, c.EmbeddingDim, 1, 4},
@@ -697,6 +710,11 @@ func (a *eg2Accel) scratchPlanForLens(lens []int) (eg2ScratchPlan, error) {
 	}
 	for _, spec := range specs {
 		if err := add(spec.dst, spec.cols, spec.count, spec.bytes); err != nil {
+			return eg2ScratchPlan{}, err
+		}
+	}
+	if a.fusions == nil {
+		if err := add(&p.pleL, c.PLEDim, 1, 4); err != nil {
 			return eg2ScratchPlan{}, err
 		}
 	}
@@ -1081,6 +1099,10 @@ func (a *eg2Accel) forwardRows(x0 []float32, lens []int, keepLayers bool) ([]flo
 	for _, n := range lens {
 		T, maxT = T+n, max(maxT, n)
 	}
+	plan, err := a.scratchPlanForLens(lens)
+	if err != nil {
+		return nil, nil, err
+	}
 	W := c.SlidingWindow
 	if a.defect.windowWide {
 		W++
@@ -1092,10 +1114,6 @@ func (a *eg2Accel) forwardRows(x0 []float32, lens []int, keepLayers bool) ([]flo
 	if !a.packedAttnMode {
 		slLo, slHi = eg2BatchBounds(lens, W)
 		fuLo, fuHi = eg2BatchBounds(lens, -1)
-	}
-	plan, err := a.scratchPlanForLens(lens)
-	if err != nil {
-		return nil, nil, err
 	}
 	var out []float32
 	var layers [][]float32
@@ -1149,7 +1167,12 @@ func (a *eg2Accel) forwardRows(x0 []float32, lens []int, keepLayers bool) ([]flo
 		q, k, v := af(plan.q), af(plan.k), af(plan.v)
 		ctx := af(plan.ctx)
 		ob, g, u, f := af(plan.ob), af(plan.g), af(plan.u), af(plan.f)
-		ple, pleL, gg, pr := af(plan.ple), af(plan.pleL), af(plan.gg), af(plan.pr)
+		ple := af(plan.ple)
+		var pleL Buffer
+		if a.fusions == nil {
+			pleL = af(plan.pleL)
+		}
+		gg, pr := af(plan.gg), af(plan.pr)
 		res := af(plan.res)
 		var qkv, slLoB, slHiB, fuLoB, fuHiB Buffer
 		type packedTileBufs struct {
@@ -1287,18 +1310,13 @@ func (a *eg2Accel) forwardRows(x0 []float32, lens []int, keepLayers bool) ([]flo
 			o.rms(x, ly.preFFNorm, xn, T, H, eps)
 			a.ffnGEMM(xn, ly.gate, g, invalidInput, T, I, H)
 			a.ffnGEMM(xn, ly.up, u, invalidInput, T, I, H)
-			o.geluTanh(g, T*I)
-			o.mulVec(g, u, T*I)
+			a.ffnActivation(g, u, T*I)
 			a.ffnGEMM(g, ly.down, f, invalidInput, T, H, I)
 			o.rms(f, ly.postFFNorm, f, T, H, eps)
 			o.addVec(x, f, T*H)
 			// PLE block, then the layer scalar over the whole residual sum
 			o.gemm(x, ly.pleGate, gg, T, P, H)
-			o.geluTanh(gg, T*P)
-			if o.err == nil {
-				o.err = o.q.Copy2DAsync(pleL, P*4, ple.At(li*P*4), L*P*4, P*4, T)
-			}
-			o.mulVec(gg, pleL, T*P)
+			a.pleActivation(gg, ple, pleL, T, li)
 			o.gemm(gg, ly.pleProj, pr, T, H, P)
 			o.rms(pr, ly.plePostNorm, pr, T, H, eps)
 			o.addVec(x, pr, T*H)
