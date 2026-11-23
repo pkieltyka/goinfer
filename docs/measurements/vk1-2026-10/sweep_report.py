@@ -3,7 +3,7 @@
 
     python3 docs/measurements/vk1-2026-10/sweep_report.py SWEEP.jsonl.gz VK0-STEPS.jsonl.gz
 
-SWEEP is aikit_sweep.py's output; VK0-STEPS is docs/measurements/vk0-2026-10/steps-<date>.jsonl.gz. A bump "changed" a
+SWEEP is module_version_sweep.py's output (that producer is retired; the original is Git blob 2d30fdbde36a816ad78131647934aea55bce7081 in ab2721995); VK0-STEPS is docs/measurements/vk0-2026-10/steps-<date>.jsonl.gz. A bump "changed" a
 configuration when any kernel's fingerprint differs between its two versions there, or when either version does not
 build the suite (not comparable, counted as changed). A commit's re-stalings are "saved" only when its sole trigger is
 the aikit pin and the bump changed no fingerprint in any configuration.
