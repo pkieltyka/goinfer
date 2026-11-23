@@ -4,7 +4,6 @@ package cuda
 
 import (
 	"crypto/sha256"
-	"encoding/json"
 	"encoding/binary"
 	"encoding/json"
 	"errors"
