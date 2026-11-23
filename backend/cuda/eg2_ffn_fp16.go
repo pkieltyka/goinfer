@@ -21,3 +21,7 @@ func init() {
 	embeddinggemma2.RegisterAccelerator(eg2FP16Selector, bareEG2FactoryOn(attach))
 	embeddinggemma2.RegisterDeviceAcceleratorWithSupport(eg2FP16Selector, "cuda", selectedEG2FactoryOn(attach), cudaSupportsEG2FP16)
 }
+
+func cudaSupportsEG2FP16(d embeddinggemma2.DeviceInfo) bool {
+	return cudaSupportsEG2(d) && eg2FP16Supported(d.ComputeCapability.Major)
+}

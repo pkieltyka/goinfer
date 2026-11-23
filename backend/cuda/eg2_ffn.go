@@ -35,10 +35,6 @@ func eg2FFNGeometry(hidden, intermediate int) bool {
 		hidden <= math.MaxInt32/intermediate
 }
 
-func cudaSupportsEG2FP16(d embeddinggemma2.DeviceInfo) bool {
-	return cudaSupportsEG2(d) && eg2FP16Supported(d.ComputeCapability.Major)
-}
-
 func eg2FP16Supported(major int) bool {
 	return major >= eg2FP16MinMajor
 }
