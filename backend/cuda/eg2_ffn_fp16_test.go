@@ -189,10 +189,19 @@ func TestEG2FP16Encoder(t *testing.T) {
 	device := eg2FP16TestAdapter(t)
 	m := eg2TinyModel(t)
 	rec := &eg2RecordingLeaser{}
-	origLeaser := gpu.NewLeaser
-	gpu.NewLeaser = func() gpu.Leaser { return rec }
+	origHook := leaseSeenForTest
+	t.Cleanup(func() { leaseSeenForTest = origHook })
+	leaseSeenForTest = func(onDevice bool, line string, requested int64, release func()) func() {
+		if origHook != nil {
+			release = origHook(onDevice, line, requested, release)
+		}
+		recordRelease := rec.Lease(onDevice, line, requested, gpu.ChargedBytes(requested))
+		return func() {
+			release()
+			recordRelease()
+		}
+	}
 	acc, err := m.NewAccelerator(eg2FP16Selector + ":" + device.UUID)
-	gpu.NewLeaser = origLeaser
 	if err != nil {
 		t.Fatal(err)
 	}
