@@ -3,14 +3,14 @@
   "release": "v0.6.5",
   "scope": ["root", "backend/cuda", "backend/vulkan"],
   "source_commit": "f784b9da606ff3db6aa5b7fb7183dd9548ae53e7",
-  "decision": "Peter approved publishing v0.6.5 for the root, backend/cuda and backend/vulkan once source-tip CI and the release checksum checks pass, deferring only the full CUDA and Metal device suites, the broad parity sweep, the Linux and Darwin quick -full runs, the Intel SDE suite and the previous-tag cold-user run. The standalone-module graph and exact-CI rows are required and are not deferred. The final release pin commit takes its exact CI through a workflow dispatch on a staging ref and is published atomically to main and the three tags. Metal is outside the tag set; C3 is on the post-tag queue.",
+  "decision": "Peter approved publishing v0.6.5 for the root, backend/cuda and backend/vulkan once source-tip CI and the release checksum checks pass, deferring only the full CUDA and Metal device suites, the broad parity sweep, the Linux and Darwin quick -full runs, the Intel SDE suite and the previous-tag cold-user run. The standalone-module graph, source-tip CI and release checksum checks remain required. The final pin commit is checked against the staged canonical module archive before it is published atomically to main and the three tags. That push triggers public CI and standalone-build checks. Metal is outside the tag set; C3 is on the post-tag queue.",
   "accepted_by": "Peter",
   "accepted_on": "2026-11-23",
   "required": [
     "row 2: standalone modules exclude retired dependencies, re-read at the final pin commit",
     "row 10: CI green at the source tip f784b9da",
     "release checksum checks: release_prep.py check --verify-sum at the final pin commit",
-    "exact final-pin CI through a workflow dispatch on the staging ref"
+    "exact final-pin local verification against the staged canonical module archive"
   ],
   "accepted": [],
   "owner_decisions": [
