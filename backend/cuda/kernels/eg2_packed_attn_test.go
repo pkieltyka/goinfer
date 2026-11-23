@@ -451,7 +451,7 @@ func TestEG2PackedAttn_DeviceParityAndBitIdentity(t *testing.T) {
 					for r := 0; r < n; r += 19 {
 						addRow(r)
 					}
-					// Explicitly verify both sliding-window boundary edges (0, 1, W-1, W, W+1, n-W-2..n-W, n-2, n-1).
+					// Explicitly verify both sliding-window boundary edges around radius and length.
 					for _, r := range []int{0, 1, 2, tc.window - 1, tc.window, tc.window + 1, n - tc.window - 2, n - tc.window - 1, n - tc.window, n - 2, n - 1} {
 						addRow(r)
 					}
