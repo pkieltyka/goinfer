@@ -223,7 +223,7 @@ func TestEG2PackedAttn_DeviceParityAndBitIdentity(t *testing.T) {
 	}
 	stream := dev.NewCommandQueue()
 
-	runPacked := func(t *testing.T, hd, nH, nKV, window int, scale float32, q, k, v []float32, lens []int) []float32 {
+	runPackedWithFlag := func(t *testing.T, hd, nH, nKV, window int, scale float32, q, k, v []float32, lens []int, wantFlag bool) ([]float32, uint32) {
 		t.Helper()
 		spec, ok := launchgeom.EG2PackedAttnSpecForHD(hd)
 		if !ok {
@@ -245,6 +245,13 @@ func TestEG2PackedAttn_DeviceParityAndBitIdentity(t *testing.T) {
 		ssb := gpu.NewBufferLenOf[int32](dev, len(tab.SegStart))
 		slb := gpu.NewBufferLenOf[int32](dev, len(tab.SegLen))
 		q0b := gpu.NewBufferLenOf[int32](dev, len(tab.QLocal0))
+		var fb Buffer
+		if wantFlag {
+			fb = gpu.NewBufferLenOf[uint32](dev, 1)
+			if err := gpu.Upload(fb, []uint32{0}); err != nil {
+				t.Fatal(err)
+			}
+		}
 		defer func() {
 			dev.ReleaseBuf(qb)
 			dev.ReleaseBuf(kb)
@@ -253,6 +260,9 @@ func TestEG2PackedAttn_DeviceParityAndBitIdentity(t *testing.T) {
 			dev.ReleaseBuf(ssb)
 			dev.ReleaseBuf(slb)
 			dev.ReleaseBuf(q0b)
+			if wantFlag {
+				dev.ReleaseBuf(fb)
+			}
 		}()
 		for b, src := range map[Buffer][]float32{qb: q, kb: k, vb: v} {
 			if err := gpu.Upload(b, src); err != nil {
@@ -281,12 +291,16 @@ func TestEG2PackedAttn_DeviceParityAndBitIdentity(t *testing.T) {
 			BlockZ:         1,
 			SharedMemBytes: spec.SharedMem,
 		}
+		flagArg := gpu.ArgValue(uint64(0))
+		if wantFlag {
+			flagArg = Arg(fb)
+		}
 		if err := stream.Launch(pipes[hd], cfg,
 			Arg(qb), Arg(kb), Arg(vb),
 			Arg(ssb), Arg(slb), Arg(q0b),
 			gpu.ArgValue(int32(nH)), gpu.ArgValue(int32(nKV)), gpu.ArgValue(int32(window)),
 			gpu.ArgValue(scale), gpu.ArgValue(int32(len(tab.SegStart))),
-			Arg(ob)); err != nil {
+			Arg(ob), flagArg); err != nil {
 			t.Fatalf("Launch(%s): %v", spec.Entry, err)
 		}
 		if err := stream.Sync(); err != nil {
@@ -295,6 +309,19 @@ func TestEG2PackedAttn_DeviceParityAndBitIdentity(t *testing.T) {
 		if err := gpu.Download(ob, out); err != nil {
 			t.Fatalf("Download(%s): %v", spec.Entry, err)
 		}
+		var flagVal uint32
+		if wantFlag {
+			var fv [1]uint32
+			if err := gpu.Download(fb, fv[:]); err != nil {
+				t.Fatalf("Download flag(%s): %v", spec.Entry, err)
+			}
+			flagVal = fv[0]
+		}
+		return out, flagVal
+	}
+	runPacked := func(t *testing.T, hd, nH, nKV, window int, scale float32, q, k, v []float32, lens []int) []float32 {
+		t.Helper()
+		out, _ := runPackedWithFlag(t, hd, nH, nKV, window, scale, q, k, v, lens, false)
 		return out
 	}
 
@@ -817,6 +844,90 @@ func TestEG2PackedAttn_DeviceParityAndBitIdentity(t *testing.T) {
 			}
 		}
 	})
+
+	// 7. Analytic finite-V underflow-weight witness: n=2 full, Q=[1,0..],
+	// K[0]=[-20,0..], K[1]=[0,0..], V[0,d]=1e20, V[1,d]=0. exp(-20) underflows
+	// both half P limbs to 0, so the exceptional-V patch must use FP32 exp(s-m)
+	// and return ~2.0611536e11 instead of 0.
+	t.Run("exceptional-v-tiny-fp32-weight", func(t *testing.T) {
+		for _, hd := range []int{16, 256} {
+			const (
+				n    = 2
+				nH   = 4
+				nKV  = 2
+				colD = 3
+			)
+			q := make([]float32, n*nH*hd)
+			k := make([]float32, n*nKV*hd)
+			v := make([]float32, n*nKV*hd)
+			for pos := range n {
+				for h := range nH {
+					q[pos*nH*hd+h*hd+0] = 1.0
+				}
+			}
+			for kvh := range nKV {
+				k[0*nKV*hd+kvh*hd+0] = -20.0
+				v[0*nKV*hd+kvh*hd+colD] = 1e20
+			}
+			out := runPacked(t, hd, nH, nKV, -1, 1.0, q, k, v, []int{n})
+			want := math.Exp(-20.0) / (1.0 + math.Exp(-20.0)) * 1e20
+			qDim := nH * hd
+			for row := range n {
+				for h := range nH {
+					got := float64(out[row*qDim+h*hd+colD])
+					if math.IsNaN(got) || math.IsInf(got, 0) || math.Abs(got-want)/want > 1e-4 {
+						t.Fatalf("hd=%d row=%d h=%d d=%d: got %g, want %g", hd, row, h, colD, got, want)
+					}
+				}
+			}
+		}
+	})
+
+	// 8. Checked range flag regression: finite Q, K, or V overflowing FP16
+	// (|x| >= 65520, including the n=1 Q=0 K[0]=65520 V=ones one-key case)
+	// latches overflowFlag != 0, while normal finite inputs leave it 0.
+	t.Run("finite-half-overflow-flag", func(t *testing.T) {
+		for _, hd := range []int{16, 256} {
+			const (
+				n   = 1
+				nH  = 4
+				nKV = 2
+			)
+			mkOnes := func() (q, k, v []float32) {
+				q = make([]float32, n*nH*hd)
+				k = make([]float32, n*nKV*hd)
+				v = make([]float32, n*nKV*hd)
+				for i := range v {
+					v[i] = 1.0
+				}
+				return q, k, v
+			}
+			// Clean baseline: flag stays 0.
+			q, k, v := mkOnes()
+			k[0] = 1.0
+			if _, fl := runPackedWithFlag(t, hd, nH, nKV, -1, 1.0, q, k, v, []int{n}, true); fl != 0 {
+				t.Fatalf("hd=%d clean baseline set overflowFlag=%d, want 0", hd, fl)
+			}
+			// One-key finite K[0]=65520 (Q=0, V=1): flag latches 1.
+			q, k, v = mkOnes()
+			k[0] = 65520.0
+			if _, fl := runPackedWithFlag(t, hd, nH, nKV, -1, 1.0, q, k, v, []int{n}, true); fl == 0 {
+				t.Fatalf("hd=%d K[0]=65520 failed to latch overflowFlag", hd)
+			}
+			// Finite Q[0]=65520: flag latches 1.
+			q, k, v = mkOnes()
+			q[0] = 65520.0
+			if _, fl := runPackedWithFlag(t, hd, nH, nKV, -1, 1.0, q, k, v, []int{n}, true); fl == 0 {
+				t.Fatalf("hd=%d Q[0]=65520 failed to latch overflowFlag", hd)
+			}
+			// Finite V[0]=65520: flag latches 1.
+			q, k, v = mkOnes()
+			v[0] = 65520.0
+			if _, fl := runPackedWithFlag(t, hd, nH, nKV, -1, 1.0, q, k, v, []int{n}, true); fl == 0 {
+				t.Fatalf("hd=%d V[0]=65520 failed to latch overflowFlag", hd)
+			}
+		}
+	})
 }
 
 func eg2AttnRowDiag(segIdx, segLen, row, head int, refNorm, maxAbs float64) string {
@@ -1205,7 +1316,8 @@ func TestEG2PackedAttn_VsCombinedBench(t *testing.T) {
 				if err := stream.Launch(pHD256, cfgPackedSl,
 					Arg(qSlB), Arg(kSlB), Arg(vSlB), Arg(slSS), Arg(slSL), Arg(slQ0),
 					gpu.ArgValue(int32(nH)), gpu.ArgValue(int32(nKVSl)), gpu.ArgValue(int32(winSl)),
-					gpu.ArgValue(float32(1)), gpu.ArgValue(int32(len(tabSl.SegStart))), Arg(oSlPacked)); err != nil {
+					gpu.ArgValue(float32(1)), gpu.ArgValue(int32(len(tabSl.SegStart))), Arg(oSlPacked),
+					gpu.ArgValue(uint64(0))); err != nil {
 					t.Fatal(err)
 				}
 			}
@@ -1213,7 +1325,8 @@ func TestEG2PackedAttn_VsCombinedBench(t *testing.T) {
 				if err := stream.Launch(pHD512, cfgPackedFu,
 					Arg(qFuB), Arg(kFuB), Arg(vFuB), Arg(fuSS), Arg(fuSL), Arg(fuQ0),
 					gpu.ArgValue(int32(nH)), gpu.ArgValue(int32(nKVFu)), gpu.ArgValue(int32(winFu)),
-					gpu.ArgValue(float32(1)), gpu.ArgValue(int32(len(tabFu.SegStart))), Arg(oFuPacked)); err != nil {
+					gpu.ArgValue(float32(1)), gpu.ArgValue(int32(len(tabFu.SegStart))), Arg(oFuPacked),
+					gpu.ArgValue(uint64(0))); err != nil {
 					t.Fatal(err)
 				}
 			}

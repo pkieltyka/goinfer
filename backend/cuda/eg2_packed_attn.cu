@@ -15,14 +15,19 @@
 //   * Bidirectional full (window < 0) and symmetric sliding window (window >= 0,
 //     inclusive |qLocal - kLocal| <= window) with 64-bit window endpoint math
 //     and -INFINITY tile-max initialization for general float scale support.
-//   * Split-FP16 (hi + lo, 22-bit significand) mma.sync.aligned.m16n8k8
-//     tensor-core QK^T and PV (hi*hi + hi*lo + lo*hi) with FP32 accumulation
-//     and FP32 online softmax; all scalar float MACs use explicit
+//   * Three-term split-FP16 (hi + lo: hi*hi + hi*lo + lo*hi) mma.sync.aligned.m16n8k8
+//     tensor-core QK^T and PV with FP32 accumulation and FP32 online softmax
+//     (retaining the half subnormal floor); all scalar float MACs use explicit
 //     __fmaf_rn / __fmul_rn / __fadd_rn / __fsub_rn intrinsics (FMA-lint clean).
 //   * Per-chunk exceptional-V guard: if any staged V element in a union tile is
-//     NaN, Inf, or overflows FP16 (|v| >= 65520), PV switches uniformly for that
-//     chunk to a row-masked FP32 fallback over vc so masked rows never compute
-//     0 * NaN or 0 * Inf while eligible rows still expose nonfinite inputs.
+//     NaN, Inf, or overflows FP16 (|v| >= 65520), it is zero-substituted in
+//     VtshHi/Lo so the baseline MMA stays bit-identical on unaffected rows and
+//     columns; admitted exceptional cells are patched in FP32 directly from vc
+//     using the exact FP32 exp(score - mRun).
+//   * Optional per-forward range flag (overflowFlag, nullable): if any active
+//     staged finite Q, K, or V value overflows FP16 (|x| >= 65520), the CTA
+//     latches atomicOr(overflowFlag, 1u) once at exit so integrated callers can
+//     fail closed with a typed numeric-range error.
 //   * WARP_D warps cooperate along HD so each warp keeps HD/WARP_D <= 128 output
 //     columns in registers (0 bytes local-memory spill) and total shared memory
 //     stays under the 48 KiB default limit for HD=256 (43.0 KiB) and HD=512
@@ -48,23 +53,27 @@ __device__ __forceinline__ bool f16_is_exceptional(__half h) {
     return (__half_as_ushort(h) & 0x7c00u) == 0x7c00u;
 }
 
-__device__ __forceinline__ void f32_split_f16(float x, __half &hi, __half &lo) {
+__device__ __forceinline__ bool f32_finite_overflows_f16(float x, __half hi) {
+    return isfinite(x) && f16_is_exceptional(hi);
+}
+
+__device__ __forceinline__ bool f32_split_f16(float x, __half &hi, __half &lo) {
     hi = __float2half_rn(x);
     if (f16_is_exceptional(hi)) {
         lo = __float2half_rn(0.f);
-    } else {
-        lo = __float2half_rn(__fsub_rn(x, __half2float(hi)));
+        return isfinite(x);
     }
+    lo = __float2half_rn(__fsub_rn(x, __half2float(hi)));
+    return false;
 }
 
 // f32_split_f16_v_safe splits V into (hi, lo), substituting (0, 0) and returning
-// true whenever hi would be NaN or Inf (including finite |x| >= 65520). That
-// guarantees the baseline MMA never multiplies 0 * NaN/Inf and unaffected rows
-// keep identical bits to a finite baseline; admitted exceptional cells are
-// patched afterwards in FP32 directly from vc.
-__device__ __forceinline__ bool f32_split_f16_v_safe(float x, __half &hi, __half &lo) {
+// true whenever hi would be NaN or Inf (including finite |x| >= 65520). If x was
+// finite and overflowed FP16, finiteOverflow is set to 1.
+__device__ __forceinline__ bool f32_split_f16_v_safe(float x, __half &hi, __half &lo, int &finiteOverflow) {
     hi = __float2half_rn(x);
     if (f16_is_exceptional(hi)) {
+        if (isfinite(x)) finiteOverflow = 1;
         hi = __float2half_rn(0.f);
         lo = __float2half_rn(0.f);
         return true;
@@ -92,7 +101,8 @@ __device__ __forceinline__ void eg2_packed_attn_impl(
     const int* __restrict__ tileSegLen,
     const int* __restrict__ tileQLocal0,
     int nH, int nKV, int window, float scale, int totalTiles,
-    float* __restrict__ out) {
+    float* __restrict__ out,
+    unsigned int* __restrict__ overflowFlag) {
     static_assert(HD % 16 == 0, "HD must be a multiple of 16");
     static_assert(DK_SUB % 16 == 0, "DK_SUB must be a multiple of 16");
     static_assert((BN & (BN - 1)) == 0, "BN must be a power of two");
@@ -152,6 +162,8 @@ __device__ __forceinline__ void eg2_packed_attn_impl(
     const bool kVecOK = (reinterpret_cast<unsigned long long>(kc) & 15ull) == 0ull;
     const bool vVecOK = (reinterpret_cast<unsigned long long>(vc) & 15ull) == 0ull;
 
+    int threadSawOverflow = 0;
+
     // Stage this block's segment-local Q tile [nqTile, HD] as split-f16 (hi + lo).
     // Rows >= nqTile are zeroed; no reads ever occur past segStart + segLen.
     if (qVecOK) {
@@ -165,10 +177,10 @@ __device__ __forceinline__ void eg2_packed_attn_impl(
                 const float* src = q + (long)(segStart + qLocal0 + qr) * qDim + h * HD + dv * 4;
                 v.u = *reinterpret_cast<const uint4*>(src);
                 __half h0, l0, h1, l1, h2, l2, h3, l3;
-                f32_split_f16(v.f[0], h0, l0);
-                f32_split_f16(v.f[1], h1, l1);
-                f32_split_f16(v.f[2], h2, l2);
-                f32_split_f16(v.f[3], h3, l3);
+                if (f32_split_f16(v.f[0], h0, l0)) threadSawOverflow = 1;
+                if (f32_split_f16(v.f[1], h1, l1)) threadSawOverflow = 1;
+                if (f32_split_f16(v.f[2], h2, l2)) threadSawOverflow = 1;
+                if (f32_split_f16(v.f[3], h3, l3)) threadSawOverflow = 1;
                 hiPacked.x = pack_halves(h0, h1);
                 hiPacked.y = pack_halves(h2, h3);
                 loPacked.x = pack_halves(l0, l1);
@@ -187,7 +199,7 @@ __device__ __forceinline__ void eg2_packed_attn_impl(
                 val = q[(long)(segStart + qLocal0 + qr) * qDim + h * HD + dd];
             }
             __half hi, lo;
-            f32_split_f16(val, hi, lo);
+            if (f32_split_f16(val, hi, lo)) threadSawOverflow = 1;
             const int off = qr * qStride + dd;
             QshHi[off] = hi;
             QshLo[off] = lo;
@@ -255,10 +267,10 @@ __device__ __forceinline__ void eg2_packed_attn_impl(
                     const float* src = kc + (long)(segStart + k0 + kk) * kvDim + kvh * HD + gD;
                     v.u = *reinterpret_cast<const uint4*>(src);
                     __half h0, l0, h1, l1, h2, l2, h3, l3;
-                    f32_split_f16(v.f[0], h0, l0);
-                    f32_split_f16(v.f[1], h1, l1);
-                    f32_split_f16(v.f[2], h2, l2);
-                    f32_split_f16(v.f[3], h3, l3);
+                    if (f32_split_f16(v.f[0], h0, l0)) threadSawOverflow = 1;
+                    if (f32_split_f16(v.f[1], h1, l1)) threadSawOverflow = 1;
+                    if (f32_split_f16(v.f[2], h2, l2)) threadSawOverflow = 1;
+                    if (f32_split_f16(v.f[3], h3, l3)) threadSawOverflow = 1;
                     uint2 hiPacked = make_uint2(pack_halves(h0, h1), pack_halves(h2, h3));
                     uint2 loPacked = make_uint2(pack_halves(l0, l1), pack_halves(l2, l3));
                     const int off = kk * kStride + dv * 4;
@@ -274,7 +286,7 @@ __device__ __forceinline__ void eg2_packed_attn_impl(
                     const int gD = wd * HD_WARP + ch * DK_SUB + dOff;
                     const float kv = kc[(long)(segStart + k0 + kk) * kvDim + kvh * HD + gD];
                     __half hi, lo;
-                    f32_split_f16(kv, hi, lo);
+                    if (f32_split_f16(kv, hi, lo)) threadSawOverflow = 1;
                     const int off = kk * kStride + dd;
                     KshHi[off] = hi;
                     KshLo[off] = lo;
@@ -483,10 +495,10 @@ __device__ __forceinline__ void eg2_packed_attn_impl(
                     const float* src = vc + (long)(segStart + k0 + kk) * kvDim + kvh * HD + gD;
                     v.u = *reinterpret_cast<const uint4*>(src);
                     __half h0, l0, h1, l1, h2, l2, h3, l3;
-                    if (f32_split_f16_v_safe(v.f[0], h0, l0)) threadSawExceptional = 1;
-                    if (f32_split_f16_v_safe(v.f[1], h1, l1)) threadSawExceptional = 1;
-                    if (f32_split_f16_v_safe(v.f[2], h2, l2)) threadSawExceptional = 1;
-                    if (f32_split_f16_v_safe(v.f[3], h3, l3)) threadSawExceptional = 1;
+                    if (f32_split_f16_v_safe(v.f[0], h0, l0, threadSawOverflow)) threadSawExceptional = 1;
+                    if (f32_split_f16_v_safe(v.f[1], h1, l1, threadSawOverflow)) threadSawExceptional = 1;
+                    if (f32_split_f16_v_safe(v.f[2], h2, l2, threadSawOverflow)) threadSawExceptional = 1;
+                    if (f32_split_f16_v_safe(v.f[3], h3, l3, threadSawOverflow)) threadSawExceptional = 1;
                     const int dd = dv * 4;
                     VtshHi[(dd + 0) * vStride + kk] = h0;
                     VtshHi[(dd + 1) * vStride + kk] = h1;
@@ -506,7 +518,7 @@ __device__ __forceinline__ void eg2_packed_attn_impl(
                     const int gD = wd * HD_WARP + ch * DK_SUB + dOff;
                     const float vv = vc[(long)(segStart + k0 + kk) * kvDim + kvh * HD + gD];
                     __half hv, lv;
-                    if (f32_split_f16_v_safe(vv, hv, lv)) threadSawExceptional = 1;
+                    if (f32_split_f16_v_safe(vv, hv, lv, threadSawOverflow)) threadSawExceptional = 1;
                     VtshHi[dd * vStride + kk] = hv;
                     VtshLo[dd * vStride + kk] = lv;
                 }
@@ -550,8 +562,10 @@ __device__ __forceinline__ void eg2_packed_attn_impl(
             }
 
             if (tileSawExceptional != 0) {
-                // Patch ONLY the exact (admitted row, exceptional V[k, d]) cells in FP32.
-                // Masked rows and finite columns are untouched and remain bit-identical to baseline.
+                // Patch ONLY the exact (admitted row, exceptional V[k, d]) cells in FP32
+                // using the exact FP32 exp(score - mRun) (preserving tiny weights such as
+                // exp(-20) * 1e20 that underflow both half P limbs). Masked rows and finite
+                // columns are untouched and remain bit-identical to baseline.
                 const int rowBase = lane & ~3;
 #pragma unroll
                 for (int g = 0; g < NG; g++) {
@@ -562,22 +576,18 @@ __device__ __forceinline__ void eg2_packed_attn_impl(
                         const int srcLane = rowBase + srcCol;
                         const unsigned int m0 = __shfl_sync(0xffffffffu, validMask0, srcLane);
                         const unsigned int m1 = __shfl_sync(0xffffffffu, validMask1, srcLane);
-                        const unsigned int pfHi0 = __shfl_sync(0xffffffffu, pFragHi[g][0], srcLane);
-                        const unsigned int pfHi1 = __shfl_sync(0xffffffffu, pFragHi[g][1], srcLane);
-                        const unsigned int pfLo0 = __shfl_sync(0xffffffffu, pFragLo[g][0], srcLane);
-                        const unsigned int pfLo1 = __shfl_sync(0xffffffffu, pFragLo[g][1], srcLane);
-                        const __half2 hpHi0 = *reinterpret_cast<const __half2*>(&pfHi0);
-                        const __half2 hpHi1 = *reinterpret_cast<const __half2*>(&pfHi1);
-                        const __half2 hpLo0 = *reinterpret_cast<const __half2*>(&pfLo0);
-                        const __half2 hpLo1 = *reinterpret_cast<const __half2*>(&pfLo1);
-                        const float p0A = __fadd_rn(__low2float(hpHi0), __low2float(hpLo0));
-                        const float p0B = __fadd_rn(__high2float(hpHi0), __high2float(hpLo0));
-                        const float p1A = __fadd_rn(__low2float(hpHi1), __low2float(hpLo1));
-                        const float p1B = __fadd_rn(__high2float(hpHi1), __high2float(hpLo1));
+                        const float s0A = __shfl_sync(0xffffffffu, s[g][0], srcLane);
+                        const float s0B = __shfl_sync(0xffffffffu, s[g][1], srcLane);
+                        const float s1A = __shfl_sync(0xffffffffu, s[g][2], srcLane);
+                        const float s1B = __shfl_sync(0xffffffffu, s[g][3], srcLane);
                         const bool v0A = ((m0 >> bitA) & 1u) != 0u;
                         const bool v0B = ((m0 >> bitB) & 1u) != 0u;
                         const bool v1A = ((m1 >> bitA) & 1u) != 0u;
                         const bool v1B = ((m1 >> bitB) & 1u) != 0u;
+                        const float p0A = v0A ? __expf(__fsub_rn(s0A, mRun0)) : 0.f;
+                        const float p0B = v0B ? __expf(__fsub_rn(s0B, mRun0)) : 0.f;
+                        const float p1A = v1A ? __expf(__fsub_rn(s1A, mRun1)) : 0.f;
+                        const float p1B = v1B ? __expf(__fsub_rn(s1B, mRun1)) : 0.f;
                         const int kA = g * 8 + (srcCol << 1);
                         const int kB = kA + 1;
 #pragma unroll
@@ -627,36 +637,43 @@ __device__ __forceinline__ void eg2_packed_attn_impl(
             o[dcol + 1] = __fmul_rn(acc[t][3], inv1);
         }
     }
+    if (overflowFlag != nullptr && __syncthreads_or(threadSawOverflow) && tid == 0) {
+        atomicOr(overflowFlag, 1u);
+    }
 }
 
 extern "C" __global__ void eg2_packed_attn_hd256(
     const float* __restrict__ q, const float* __restrict__ kc, const float* __restrict__ vc,
     const int* __restrict__ tileSegStart, const int* __restrict__ tileSegLen, const int* __restrict__ tileQLocal0,
-    int nH, int nKV, int window, float scale, int totalTiles, float* __restrict__ out) {
+    int nH, int nKV, int window, float scale, int totalTiles, float* __restrict__ out,
+    unsigned int* __restrict__ overflowFlag) {
     eg2_packed_attn_impl<256, 32, 32, 2, 32>(
-        q, kc, vc, tileSegStart, tileSegLen, tileQLocal0, nH, nKV, window, scale, totalTiles, out);
+        q, kc, vc, tileSegStart, tileSegLen, tileQLocal0, nH, nKV, window, scale, totalTiles, out, overflowFlag);
 }
 
 extern "C" __global__ void eg2_packed_attn_hd512(
     const float* __restrict__ q, const float* __restrict__ kc, const float* __restrict__ vc,
     const int* __restrict__ tileSegStart, const int* __restrict__ tileSegLen, const int* __restrict__ tileQLocal0,
-    int nH, int nKV, int window, float scale, int totalTiles, float* __restrict__ out) {
+    int nH, int nKV, int window, float scale, int totalTiles, float* __restrict__ out,
+    unsigned int* __restrict__ overflowFlag) {
     eg2_packed_attn_impl<512, 16, 32, 4, 16>(
-        q, kc, vc, tileSegStart, tileSegLen, tileQLocal0, nH, nKV, window, scale, totalTiles, out);
+        q, kc, vc, tileSegStart, tileSegLen, tileQLocal0, nH, nKV, window, scale, totalTiles, out, overflowFlag);
 }
 
 extern "C" __global__ void eg2_packed_attn_hd16(
     const float* __restrict__ q, const float* __restrict__ kc, const float* __restrict__ vc,
     const int* __restrict__ tileSegStart, const int* __restrict__ tileSegLen, const int* __restrict__ tileQLocal0,
-    int nH, int nKV, int window, float scale, int totalTiles, float* __restrict__ out) {
+    int nH, int nKV, int window, float scale, int totalTiles, float* __restrict__ out,
+    unsigned int* __restrict__ overflowFlag) {
     eg2_packed_attn_impl<16, 32, 32, 1, 16>(
-        q, kc, vc, tileSegStart, tileSegLen, tileQLocal0, nH, nKV, window, scale, totalTiles, out);
+        q, kc, vc, tileSegStart, tileSegLen, tileQLocal0, nH, nKV, window, scale, totalTiles, out, overflowFlag);
 }
 
 extern "C" __global__ void eg2_packed_attn_hd32(
     const float* __restrict__ q, const float* __restrict__ kc, const float* __restrict__ vc,
     const int* __restrict__ tileSegStart, const int* __restrict__ tileSegLen, const int* __restrict__ tileQLocal0,
-    int nH, int nKV, int window, float scale, int totalTiles, float* __restrict__ out) {
+    int nH, int nKV, int window, float scale, int totalTiles, float* __restrict__ out,
+    unsigned int* __restrict__ overflowFlag) {
     eg2_packed_attn_impl<32, 32, 32, 1, 32>(
-        q, kc, vc, tileSegStart, tileSegLen, tileQLocal0, nH, nKV, window, scale, totalTiles, out);
+        q, kc, vc, tileSegStart, tileSegLen, tileQLocal0, nH, nKV, window, scale, totalTiles, out, overflowFlag);
 }

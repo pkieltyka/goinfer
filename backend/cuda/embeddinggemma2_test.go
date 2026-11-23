@@ -3140,3 +3140,120 @@ func TestCUDAProbeRetainsFailedCloseOwnership(t *testing.T) {
 			rows, err, firstOpens, failed, fresh, len(probe.pending))
 	}
 }
+
+// TestEG2CUDA_PackedAttn_ParityBitIdentityRangeAndMemory verifies the opt-in
+// cuda-eg2-packed-attn accelerator end-to-end on the tiny EG2 fixture: CPU
+// parity, exact singleton/packed/split/reordered bit-identity, BatchMemory
+// scratch savings (omitting qkv/bounds), and fail-closed ErrEG2NumericRange on
+// finite K half-overflow without poisoning the accelerator.
+func TestEG2CUDA_PackedAttn_ParityBitIdentityRangeAndMemory(t *testing.T) {
+	if !slices.Contains(embeddinggemma2.Accelerators(), "cuda-eg2-packed-attn") {
+		t.Skip("requires eg2_combined build tag")
+	}
+	m := eg2TinyModel(t)
+	acc, err := m.NewAccelerator("cuda-eg2-packed-attn")
+	if err != nil {
+		t.Skipf("CUDA unavailable: %v", err)
+	}
+	defer func() {
+		if cerr := acc.Close(); cerr != nil {
+			t.Errorf("packed Close: %v", cerr)
+		}
+	}()
+	comb, err := m.NewAccelerator("cuda-eg2-combined")
+	if err != nil {
+		t.Fatalf("combined attach: %v", err)
+	}
+	defer func() {
+		if cerr := comb.Close(); cerr != nil {
+			t.Errorf("combined Close: %v", cerr)
+		}
+	}()
+
+	// 1. BatchMemory: packed omits qkv and 4 bounds buffers, so its peak scratch
+	// is strictly below combined on non-trivial batches.
+	pEst, err := acc.(*eg2Accel).BatchMemory([]int{17, 33, 65})
+	if err != nil {
+		t.Fatalf("packed BatchMemory: %v", err)
+	}
+	cEst, err := comb.(*eg2Accel).BatchMemory([]int{17, 33, 65})
+	if err != nil {
+		t.Fatalf("combined BatchMemory: %v", err)
+	}
+	if pEst.AdditionalPeakBytes >= cEst.AdditionalPeakBytes {
+		t.Fatalf("packed AdditionalPeakBytes=%d >= combined %d (expected qkv/bounds savings)",
+			pEst.AdditionalPeakBytes, cEst.AdditionalPeakBytes)
+	}
+
+	// 2. CPU parity and exact singleton/packed/split/reordered bit-identity.
+	inputs := eg2TinyInputs(t, m.Config().VocabSize)
+	singles := make([][]float32, len(inputs))
+	for i, ids := range inputs {
+		want, _, err := m.ForwardCPU(ids, false)
+		if err != nil {
+			t.Fatalf("ForwardCPU(%d): %v", i, err)
+		}
+		got, _, err := acc.Forward(ids, false)
+		if err != nil {
+			t.Fatalf("packed Forward(%d): %v", i, err)
+		}
+		if len(got) != len(want) || !eg2Finite(got) || eg2Cos(got, want) < 0.9999 {
+			t.Fatalf("packed Forward(%d): cos=%.8f finite=%v", i, eg2Cos(got, want), eg2Finite(got))
+		}
+		singles[i] = got
+	}
+	checkOrder := func(label string, order []int) {
+		t.Helper()
+		batch := make([][]int, len(order))
+		for i, idx := range order {
+			batch[i] = inputs[idx]
+		}
+		got, err := acc.(*eg2Accel).ForwardBatch(batch)
+		if err != nil {
+			t.Fatalf("%s ForwardBatch: %v", label, err)
+		}
+		for i, idx := range order {
+			want := singles[idx]
+			if len(got[i]) != len(want) {
+				t.Fatalf("%s[%d] len=%d, want %d", label, i, len(got[i]), len(want))
+			}
+			for j := range want {
+				if math.Float32bits(got[i][j]) != math.Float32bits(want[j]) {
+					t.Fatalf("%s[%d] elem %d bit mismatch: got %08x (%g), want %08x (%g)",
+						label, i, j, math.Float32bits(got[i][j]), got[i][j], math.Float32bits(want[j]), want[j])
+				}
+			}
+		}
+	}
+	checkOrder("packed", []int{0, 1, 2, 3})
+	checkOrder("split-left", []int{0, 1})
+	checkOrder("split-right", []int{2, 3})
+	checkOrder("reversed", []int{3, 2, 1, 0})
+
+	// 3. Checked numeric-range contract: finite K > 65520 fails closed with
+	// ErrEG2NumericRange, returns nil output, and leaves the accelerator healthy.
+	ovModel := eg2TinyModel(t)
+	ovW := ovModel.Weights()
+	for i := range ovW.Layers[0].KNorm {
+		ovW.Layers[0].KNorm[i] = 1e5
+	}
+	ovAcc, err := ovModel.NewAccelerator("cuda-eg2-packed-attn")
+	if err != nil {
+		t.Fatalf("overflow attach: %v", err)
+	}
+	defer func() {
+		if cerr := ovAcc.Close(); cerr != nil {
+			t.Errorf("overflow Close: %v", cerr)
+		}
+	}()
+	ovOut, ovLays, err := ovAcc.Forward(inputs[0], false)
+	if !errors.Is(err, ErrEG2NumericRange) {
+		t.Fatalf("expected ErrEG2NumericRange on KNorm=1e5, got err=%v", err)
+	}
+	if ovOut != nil || ovLays != nil {
+		t.Fatalf("expected nil outputs on ErrEG2NumericRange, got len(out)=%d len(layers)=%d", len(ovOut), len(ovLays))
+	}
+	if ovAcc.(*eg2Accel).broken != nil {
+		t.Fatalf("ErrEG2NumericRange unexpectedly poisoned accelerator: %v", ovAcc.(*eg2Accel).broken)
+	}
+}

@@ -16,6 +16,14 @@ import (
 )
 
 func selectedEG2Factory(combined bool) func(*embeddinggemma2.Model, string) (embeddinggemma2.Accelerator, error) {
+	mode := eg2ModeDefault
+	if combined {
+		mode = eg2ModeCombined
+	}
+	return selectedEG2FactoryMode(mode)
+}
+
+func selectedEG2FactoryMode(mode eg2Mode) func(*embeddinggemma2.Model, string) (embeddinggemma2.Accelerator, error) {
 	return func(m *embeddinggemma2.Model, token string) (embeddinggemma2.Accelerator, error) {
 		if !validCUDADeviceToken(token) {
 			return nil, fmt.Errorf("%w: invalid CUDA device identifier %q", embeddinggemma2.ErrDeviceUnavailable, token)
@@ -28,7 +36,7 @@ func selectedEG2Factory(combined bool) func(*embeddinggemma2.Model, string) (emb
 		if err != nil {
 			return nil, err
 		}
-		acc, err := newEG2AccelOn(m, combined, func() (*Device, error) {
+		acc, err := newEG2AccelOnMode(m, mode, func() (*Device, error) {
 			return gpu.CreateSelectedDevice(selected)
 		})
 		if err != nil {

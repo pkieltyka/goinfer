@@ -13,6 +13,7 @@ import (
 	"github.com/eitamring/gocudrv/cudaresult"
 	"github.com/eitamring/gocudrv/cudasys"
 	gpu "github.com/pkieltyka/goinfer/backend/cuda/internal/gpudev"
+	"github.com/pkieltyka/goinfer/backend/cuda/internal/launchgeom"
 	"github.com/pkieltyka/goinfer/embeddinggemma2"
 	"github.com/pkieltyka/goinfer/internal/runtime/mem"
 )
@@ -30,9 +31,30 @@ func init() {
 	embeddinggemma2.RegisterDeviceProber("cuda", probeCUDADevices)
 }
 
+// ErrEG2NumericRange reports that an opt-in packed-attention forward saw a
+// finite Q, K, or V activation outside the FP16 staging range (|x| >= 65520).
+// No partial output is returned and the accelerator remains usable.
+var ErrEG2NumericRange = errors.New("cuda: EmbeddingGemma 2 packed attention numeric range overflow")
+
+type eg2Mode uint8
+
+const (
+	eg2ModeDefault eg2Mode = iota
+	eg2ModeCombined
+	eg2ModePackedAttn
+)
+
 func bareEG2Factory(combined bool) func(*embeddinggemma2.Model) (embeddinggemma2.Accelerator, error) {
+	mode := eg2ModeDefault
+	if combined {
+		mode = eg2ModeCombined
+	}
+	return bareEG2FactoryMode(mode)
+}
+
+func bareEG2FactoryMode(mode eg2Mode) func(*embeddinggemma2.Model) (embeddinggemma2.Accelerator, error) {
 	return func(m *embeddinggemma2.Model) (embeddinggemma2.Accelerator, error) {
-		acc, err := newEG2Accel(m, combined)
+		acc, err := newEG2AccelMode(m, mode)
 		if err != nil {
 			return nil, err
 		}
@@ -88,6 +110,8 @@ type eg2Accel struct {
 	broken                                  error // set when a failed forward could not be drained or Close failed; every later forward returns it
 	teardownStarted                         bool  // set once Close has drained (if needed) and entered closeChecked; retries skip q.Sync on destroyed streams
 	combinedTranspose, combinedAttention    Pipeline
+	packedAttnMode                          bool
+	packedAttn                              map[int]Pipeline
 	defect                                  eg2Defect
 }
 
@@ -260,7 +284,15 @@ func classifyEG2ForwardErr(err, latchedErr, drainErr, releaseErr, broken error, 
 }
 
 func newEG2Accel(m *embeddinggemma2.Model, combined bool) (*eg2Accel, error) {
-	return newEG2AccelOn(m, combined, CreateSystemDefaultDevice)
+	mode := eg2ModeDefault
+	if combined {
+		mode = eg2ModeCombined
+	}
+	return newEG2AccelMode(m, mode)
+}
+
+func newEG2AccelMode(m *embeddinggemma2.Model, mode eg2Mode) (*eg2Accel, error) {
+	return newEG2AccelOnMode(m, mode, CreateSystemDefaultDevice)
 }
 
 // eg2AttachCleanup serializes EmbeddingGemma 2 CUDA attach admission and
@@ -318,7 +350,15 @@ func pendingEG2CleanupsLen() int {
 // explicitly selected device openers: open acquires the device while this
 // constructor owns admission serialization, setup, checked rollback, and OOM
 // classification.
-func newEG2AccelOn(m *embeddinggemma2.Model, combined bool, open func() (*Device, error)) (_ *eg2Accel, err error) {
+func newEG2AccelOn(m *embeddinggemma2.Model, combined bool, open func() (*Device, error)) (*eg2Accel, error) {
+	mode := eg2ModeDefault
+	if combined {
+		mode = eg2ModeCombined
+	}
+	return newEG2AccelOnMode(m, mode, open)
+}
+
+func newEG2AccelOnMode(m *embeddinggemma2.Model, mode eg2Mode, open func() (*Device, error)) (_ *eg2Accel, err error) {
 	defer func() { err = classifyCUDAAttach(err) }()
 	if open == nil {
 		return nil, errors.New("cuda: EmbeddingGemma 2 nil device opener")
@@ -330,6 +370,11 @@ func newEG2AccelOn(m *embeddinggemma2.Model, combined bool, open func() (*Device
 	for i, ly := range w.Layers {
 		if ly.HeadDim%2 != 0 || ly.KVHeads <= 0 || c.Heads%ly.KVHeads != 0 {
 			return nil, fmt.Errorf("cuda: EmbeddingGemma 2 layer %d: %d heads over %d KV heads, head dim %d", i, c.Heads, ly.KVHeads, ly.HeadDim)
+		}
+		if mode == eg2ModePackedAttn {
+			if _, ok := launchgeom.EG2PackedAttnSpecForHD(ly.HeadDim); !ok {
+				return nil, fmt.Errorf("cuda: EmbeddingGemma 2 layer %d: packed attention does not support head dim %d", i, ly.HeadDim)
+			}
 		}
 		maxN = max(maxN, c.Heads*ly.HeadDim)
 		maxHD = max(maxHD, ly.HeadDim)
@@ -376,8 +421,16 @@ func newEG2AccelOn(m *embeddinggemma2.Model, combined bool, open func() (*Device
 		}
 		return nil, fmt.Errorf("cuda: EmbeddingGemma 2 upload: %w", err)
 	}
-	if combined {
+	switch mode {
+	case eg2ModeCombined:
 		if err := a.enableCombined(); err != nil {
+			if cerr := retireEG2AttachLocked(a.ops); cerr != nil {
+				return nil, errors.Join(err, cerr)
+			}
+			return nil, err
+		}
+	case eg2ModePackedAttn:
+		if err := a.enablePackedAttn(); err != nil {
 			if cerr := retireEG2AttachLocked(a.ops); cerr != nil {
 				return nil, errors.Join(err, cerr)
 			}
@@ -385,6 +438,38 @@ func newEG2AccelOn(m *embeddinggemma2.Model, combined bool, open func() (*Device
 		}
 	}
 	return a, nil
+}
+
+func (a *eg2Accel) enablePackedAttn() error {
+	pipes := make(map[int]Pipeline)
+	if err := a.ops.do(func() error {
+		lib, err := a.ops.dev.CompileLibrary(eg2PackedAttentionPTX)
+		if err != nil {
+			return err
+		}
+		for _, ly := range a.layers {
+			hd := ly.w.HeadDim
+			if _, ok := pipes[hd]; ok {
+				continue
+			}
+			spec, ok := launchgeom.EG2PackedAttnSpecForHD(hd)
+			if !ok {
+				return fmt.Errorf("unsupported head dim %d", hd)
+			}
+			p, err := a.ops.dev.NewComputePipeline(lib, spec.Entry)
+			if err != nil {
+				return err
+			}
+			pipes[hd] = p
+		}
+		return nil
+	}); err != nil {
+		return fmt.Errorf("cuda: load EmbeddingGemma 2 packed attention: %w", err)
+	}
+	a.packedAttn = pipes
+	a.packedAttnMode = true
+	a.ops.shortTiled = true
+	return nil
 }
 
 func (a *eg2Accel) enableCombined() error {
@@ -431,7 +516,7 @@ func (a *eg2Accel) Close() error {
 		}
 		return fmt.Errorf("cuda: EmbeddingGemma 2 Close could not release device memory: %w", err)
 	}
-	a.closed, a.layers, a.ropes, a.model = true, nil, nil, nil
+	a.closed, a.layers, a.ropes, a.packedAttn, a.model = true, nil, nil, nil, nil
 	return nil
 }
 
@@ -521,13 +606,40 @@ func addCharged(sum, delta int64) (int64, error) {
 
 type eg2ScratchPlan struct {
 	x, xn, q, k, v, qkv, ctx, ob, g, u, f, ple, pleL, gg, pr, res, bounds int
+	packedBMs                                                             []int
+	packedTabs                                                            map[int]launchgeom.EG2PackedTileTable
 	chargedBytes                                                          int64
 }
 
-// scratchPlan computes the element counts and total charged device bytes for
-// the 20 base per-forward scratch buffers (16 float32 and 4 int32 bounds).
-// Shared by forwardRows and BatchMemory so buffer dimensions stay aligned.
+func (a *eg2Accel) distinctPackedBMs() []int {
+	var bms []int
+	seen := make(map[int]bool, 2)
+	for _, ly := range a.layers {
+		spec, ok := launchgeom.EG2PackedAttnSpecForHD(ly.w.HeadDim)
+		if !ok || seen[spec.BM] {
+			continue
+		}
+		seen[spec.BM] = true
+		bms = append(bms, spec.BM)
+	}
+	return bms
+}
+
+// scratchPlan is the single-length shorthand for scratchPlanForLens.
 func (a *eg2Accel) scratchPlan(T int) (eg2ScratchPlan, error) {
+	return a.scratchPlanForLens([]int{T})
+}
+
+// scratchPlanForLens computes the element counts and total charged device bytes for
+// the per-forward scratch buffers (20 base buffers for default/combined, or
+// 15 base float32 buffers plus per-distinct-BM descriptor tables and one
+// overflow status word for packed attention). Shared by forwardRows and
+// BatchMemory so buffer dimensions stay aligned.
+func (a *eg2Accel) scratchPlanForLens(lens []int) (eg2ScratchPlan, error) {
+	T := 0
+	for _, n := range lens {
+		T += n
+	}
 	c := a.cfg
 	maxQD, maxKVD := 0, 0
 	for _, ly := range a.layers {
@@ -555,7 +667,7 @@ func (a *eg2Accel) scratchPlan(T int) (eg2ScratchPlan, error) {
 		}
 		return nil
 	}
-	for _, spec := range []struct {
+	specs := []struct {
 		dst   *int
 		cols  int
 		count int
@@ -566,7 +678,6 @@ func (a *eg2Accel) scratchPlan(T int) (eg2ScratchPlan, error) {
 		{&p.q, maxQD, 1, 4},
 		{&p.k, maxKVD, 1, 4},
 		{&p.v, maxKVD, 1, 4},
-		{&p.qkv, 3 * maxQD, 1, 4},
 		{&p.ctx, maxQD, 1, 4},
 		{&p.ob, c.Hidden, 1, 4},
 		{&p.g, c.Intermediate, 1, 4},
@@ -577,9 +688,55 @@ func (a *eg2Accel) scratchPlan(T int) (eg2ScratchPlan, error) {
 		{&p.gg, c.PLEDim, 1, 4},
 		{&p.pr, c.Hidden, 1, 4},
 		{&p.res, c.EmbeddingDim, 1, 4},
-		{&p.bounds, 1, 4, 4}, // slLoB, slHiB, fuLoB, fuHiB
-	} {
+	}
+	if !a.packedAttnMode {
+		specs = append(specs,
+			struct {
+				dst   *int
+				cols  int
+				count int
+				bytes int
+			}{&p.qkv, 3 * maxQD, 1, 4},
+			struct {
+				dst   *int
+				cols  int
+				count int
+				bytes int
+			}{&p.bounds, 1, 4, 4}, // slLoB, slHiB, fuLoB, fuHiB
+		)
+	}
+	for _, spec := range specs {
 		if err := add(spec.dst, spec.cols, spec.count, spec.bytes); err != nil {
+			return eg2ScratchPlan{}, err
+		}
+	}
+	if a.packedAttnMode {
+		bms := a.distinctPackedBMs()
+		p.packedBMs = bms
+		p.packedTabs = make(map[int]launchgeom.EG2PackedTileTable, len(bms))
+		for _, bm := range bms {
+			tab, err := launchgeom.BuildEG2PackedTiles(lens, bm)
+			if err != nil {
+				return eg2ScratchPlan{}, fmt.Errorf("cuda: %w: %v", embeddinggemma2.ErrUnsupportedBatchShape, err)
+			}
+			p.packedTabs[bm] = tab
+			_, charged, err := checkedBufCharged(len(tab.SegStart), 1, 4)
+			if err != nil {
+				return eg2ScratchPlan{}, err
+			}
+			for range 3 {
+				p.chargedBytes, err = addCharged(p.chargedBytes, charged)
+				if err != nil {
+					return eg2ScratchPlan{}, err
+				}
+			}
+		}
+		_, ovCharged, err := checkedBufCharged(1, 1, 4)
+		if err != nil {
+			return eg2ScratchPlan{}, err
+		}
+		p.chargedBytes, err = addCharged(p.chargedBytes, ovCharged)
+		if err != nil {
 			return eg2ScratchPlan{}, err
 		}
 	}
@@ -646,7 +803,7 @@ func (a *eg2Accel) BatchMemory(preparedLengths []int) (embeddinggemma2.BatchMemo
 			return embeddinggemma2.BatchMemoryEstimate{}, err
 		}
 	}
-	plan, err := a.scratchPlan(total)
+	plan, err := a.scratchPlanForLens(preparedLengths)
 	if err != nil {
 		return embeddinggemma2.BatchMemoryEstimate{}, err
 	}
@@ -936,9 +1093,12 @@ func (a *eg2Accel) forwardRows(x0 []float32, lens []int, keepLayers bool) ([]flo
 	if a.defect.windowNarrow {
 		W--
 	}
-	slLo, slHi := eg2BatchBounds(lens, W)
-	fuLo, fuHi := eg2BatchBounds(lens, -1)
-	plan, err := a.scratchPlan(T)
+	var slLo, slHi, fuLo, fuHi []int32
+	if !a.packedAttnMode {
+		slLo, slHi = eg2BatchBounds(lens, W)
+		fuLo, fuHi = eg2BatchBounds(lens, -1)
+	}
+	plan, err := a.scratchPlanForLens(lens)
 	if err != nil {
 		return nil, nil, err
 	}
@@ -991,21 +1151,49 @@ func (a *eg2Accel) forwardRows(x0 []float32, lens []int, keepLayers bool) ([]flo
 		af := o.af
 		x, xn := af(plan.x), af(plan.xn)
 		q, k, v := af(plan.q), af(plan.k), af(plan.v)
-		qkv, ctx := af(plan.qkv), af(plan.ctx)
+		ctx := af(plan.ctx)
 		ob, g, u, f := af(plan.ob), af(plan.g), af(plan.u), af(plan.f)
 		ple, pleL, gg, pr := af(plan.ple), af(plan.pleL), af(plan.gg), af(plan.pr)
 		res := af(plan.res)
-		slLoB, slHiB, fuLoB, fuHiB := o.ai(plan.bounds), o.ai(plan.bounds), o.ai(plan.bounds), o.ai(plan.bounds)
-		if e := gpu.Upload(x, x0); e != nil {
-			return e
+		var qkv, slLoB, slHiB, fuLoB, fuHiB, overflowBuf Buffer
+		type packedTileBufs struct {
+			segStart, segLen, qLocal0 Buffer
+			nTiles                    int32
 		}
-		for _, b := range []struct {
-			dst Buffer
-			v   []int32
-		}{{slLoB, slLo}, {slHiB, slHi}, {fuLoB, fuLo}, {fuHiB, fuHi}} {
-			if e := gpu.Upload(b.dst, b.v); e != nil {
+		var packedBufs map[int]packedTileBufs
+		if a.packedAttnMode {
+			overflowBuf = o.ai(1)
+			if e := gpu.Upload(overflowBuf, []int32{0}); e != nil {
 				return e
 			}
+			packedBufs = make(map[int]packedTileBufs, len(plan.packedBMs))
+			for _, bm := range plan.packedBMs {
+				tab := plan.packedTabs[bm]
+				ssb, slb, q0b := o.ai(len(tab.SegStart)), o.ai(len(tab.SegLen)), o.ai(len(tab.QLocal0))
+				for _, up := range []struct {
+					dst Buffer
+					src []int32
+				}{{ssb, tab.SegStart}, {slb, tab.SegLen}, {q0b, tab.QLocal0}} {
+					if e := gpu.Upload(up.dst, up.src); e != nil {
+						return e
+					}
+				}
+				packedBufs[bm] = packedTileBufs{segStart: ssb, segLen: slb, qLocal0: q0b, nTiles: int32(len(tab.SegStart))}
+			}
+		} else {
+			qkv = af(plan.qkv)
+			slLoB, slHiB, fuLoB, fuHiB = o.ai(plan.bounds), o.ai(plan.bounds), o.ai(plan.bounds), o.ai(plan.bounds)
+			for _, b := range []struct {
+				dst Buffer
+				v   []int32
+			}{{slLoB, slLo}, {slHiB, slHi}, {fuLoB, fuLo}, {fuHiB, fuHi}} {
+				if e := gpu.Upload(b.dst, b.v); e != nil {
+					return e
+				}
+			}
+		}
+		if e := gpu.Upload(x, x0); e != nil {
+			return e
 		}
 		var batchRope map[eg2RopeKey][2]Buffer
 		if len(lens) > 1 {
@@ -1048,29 +1236,46 @@ func (a *eg2Accel) forwardRows(x0 []float32, lens []int, keepLayers bool) ([]flo
 			}
 			o.ropeHalfTo(q, cs, sn, T, nH, hd)
 			o.ropeHalfTo(k, cs, sn, T, nKV, hd)
-			pitch := (T + 31) &^ 31
-			// Gate on the longest individual input. A pair of short inputs keeps the packed kernel.
-			transposed := a.combinedAttention != (Pipeline{}) && maxT >= 128 && hd <= 512 && kvd*pitch <= qkv.Len()
-			if transposed {
-				o.launch(a.combinedTranspose, LaunchConfig{
-					GridX: uint32((kvd + 31) / 32), GridY: uint32((T + 31) / 32), GridZ: 1,
-					BlockX: 32, BlockY: 8, BlockZ: 1,
-				}, Arg(k), Arg(qkv), i32(int32(T)), i32(int32(kvd)), i32(int32(pitch)))
-			} else if e := a.pack(qkv, q, k, v, T, nH, hd, group); e != nil {
-				return e
-			}
-			lo, hi, maxSeg := slLoB, slHiB, min(maxT, 2*W+1)
-			if ly.w.Full {
-				lo, hi, maxSeg = fuLoB, fuHiB, maxT
-			}
-			o.cls(clsAttn)
-			grid := gpu.SegAttentionGrid(T, nH, maxSeg)
-			if transposed {
-				o.launch(a.combinedAttention, grid, Arg(q), Arg(qkv), Arg(v), Arg(ctx), Arg(lo), Arg(hi),
-					i32(int32(T)), i32(int32(nH)), i32(int32(nKV)), i32(int32(hd)), i32(int32(pitch)), f32v(1))
+			if a.packedAttnMode {
+				spec, _ := launchgeom.EG2PackedAttnSpecForHD(hd)
+				td := packedBufs[spec.BM]
+				win := W
+				if ly.w.Full {
+					win = -1
+				}
+				o.cls(clsAttn)
+				o.launch(a.packedAttn[hd], LaunchConfig{
+					GridX: uint32(nH), GridY: uint32(td.nTiles), GridZ: 1,
+					BlockX: spec.BlockX, BlockY: 1, BlockZ: 1, SharedMemBytes: spec.SharedMem,
+				}, Arg(q), Arg(k), Arg(v),
+					Arg(td.segStart), Arg(td.segLen), Arg(td.qLocal0),
+					i32(int32(nH)), i32(int32(nKV)), i32(int32(win)),
+					f32v(1), i32(td.nTiles), Arg(ctx), Arg(overflowBuf))
 			} else {
-				o.launch(o.vit.AttentionSeg, grid, Arg(qkv), Arg(ctx), Arg(lo), Arg(hi),
-					i32(int32(T)), i32(int32(nH)), i32(int32(hd)), f32v(1))
+				pitch := (T + 31) &^ 31
+				// Gate on the longest individual input. A pair of short inputs keeps the packed kernel.
+				transposed := a.combinedAttention != (Pipeline{}) && maxT >= 128 && hd <= 512 && kvd*pitch <= qkv.Len()
+				if transposed {
+					o.launch(a.combinedTranspose, LaunchConfig{
+						GridX: uint32((kvd + 31) / 32), GridY: uint32((T + 31) / 32), GridZ: 1,
+						BlockX: 32, BlockY: 8, BlockZ: 1,
+					}, Arg(k), Arg(qkv), i32(int32(T)), i32(int32(kvd)), i32(int32(pitch)))
+				} else if e := a.pack(qkv, q, k, v, T, nH, hd, group); e != nil {
+					return e
+				}
+				lo, hi, maxSeg := slLoB, slHiB, min(maxT, 2*W+1)
+				if ly.w.Full {
+					lo, hi, maxSeg = fuLoB, fuHiB, maxT
+				}
+				o.cls(clsAttn)
+				grid := gpu.SegAttentionGrid(T, nH, maxSeg)
+				if transposed {
+					o.launch(a.combinedAttention, grid, Arg(q), Arg(qkv), Arg(v), Arg(ctx), Arg(lo), Arg(hi),
+						i32(int32(T)), i32(int32(nH)), i32(int32(nKV)), i32(int32(hd)), i32(int32(pitch)), f32v(1))
+				} else {
+					o.launch(o.vit.AttentionSeg, grid, Arg(qkv), Arg(ctx), Arg(lo), Arg(hi),
+						i32(int32(T)), i32(int32(nH)), i32(int32(hd)), f32v(1))
+				}
 			}
 			o.gemm(ctx, ly.o, ob, T, H, qd)
 			o.rms(ob, ly.postAttnNorm, ob, T, H, eps)
@@ -1117,6 +1322,16 @@ func (a *eg2Accel) forwardRows(x0 []float32, lens []int, keepLayers bool) ([]flo
 		o.gemm(xn, a.proj, res, T, E, H)
 		if e := o.finish(); e != nil {
 			return e
+		}
+		if a.packedAttnMode {
+			var flag [1]int32
+			if e := gpu.Download(overflowBuf, flag[:]); e != nil {
+				return e
+			}
+			if flag[0] != 0 {
+				done = true
+				return fmt.Errorf("%w: active Q/K/V activation exceeded FP16 staging range", ErrEG2NumericRange)
+			}
 		}
 		out = make([]float32, T*E)
 		if e := gpu.Download(res, out); e != nil {
