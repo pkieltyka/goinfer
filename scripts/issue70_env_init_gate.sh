@@ -53,13 +53,31 @@ check() {
 		GOWORK=off CGO_ENABLED=0 GOFLAGS=-mod=mod GOOS=linux GOARCH="$arch" \
 			go build -tags "$tags" -o probe .
 	)
-	local n
-	n=$(go tool objdump -s '^github.com/pkieltyka/goinfer/decoder\.init$' "$dir/probe" |
-		grep -cE 'CALL.*(os\.Getenv|os\.LookupEnv)' || true)
-	printf 'linux/%s %s: decoder.init environment calls = %s\n' "$arch" "$tags" "$n"
-	if [ "$n" != "0" ]; then
-		echo "FAIL: importing backend/cuda reads the environment at init on linux/$arch" >&2
+	# Disassemble once into a file: piping objdump into `grep -q` closes the pipe early, and objdump then
+	# reports a broken pipe, which would read as a failure.
+	if ! go tool objdump "$dir/probe" >"$dir/all.dis" 2>"$dir/objdump.err"; then
+		echo "FAIL: objdump failed on linux/$arch: $(head -1 "$dir/objdump.err")" >&2
 		return 1
+	fi
+	# The package must be linked and its symbols visible, or a zero count means the disassembly looked at
+	# nothing. readSettings is the snapshot the fix introduced, so it is the anchor.
+	if ! grep -q 'TEXT github.com/pkieltyka/goinfer/decoder\.Load(SB)' "$dir/all.dis"; then
+		echo "FAIL: decoder.Load is not in the linux/$arch binary; the scan would prove nothing" >&2
+		return 1
+	fi
+	# An absent decoder.init is the best outcome: the package has nothing to run at init. An existing one
+	# must contain no environment call.
+	if grep -q 'TEXT github.com/pkieltyka/goinfer/decoder\.init(SB)' "$dir/all.dis"; then
+		local n
+		n=$(sed -n '/TEXT github.com\/pkieltyka\/goinfer\/decoder\.init(SB)/,/^$/p' "$dir/all.dis" |
+			grep -cE 'CALL.*(os\.Getenv|os\.LookupEnv)' || true)
+		printf 'linux/%s %s: decoder.init environment calls = %s\n' "$arch" "$tags" "$n"
+		if [ "$n" != "0" ]; then
+			echo "FAIL: importing backend/cuda reads the environment at init on linux/$arch" >&2
+			return 1
+		fi
+	else
+		printf 'linux/%s %s: decoder.init absent (nothing runs at init)\n' "$arch" "$tags"
 	fi
 }
 
