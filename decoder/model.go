@@ -27,7 +27,8 @@ import (
 // decodeTiming env-gates per-component decode timing (GOINFER_DECODE_TIMING=1) so
 // the residency path's per-token cost can be decomposed without touching the hot
 // path otherwise.
-var decodeTiming = os.Getenv("GOINFER_DECODE_TIMING") != ""
+// decodeTiming is GOINFER_DECODE_TIMING, parsed once by ensureSettings on first decoder use.
+var decodeTiming bool
 
 // dt* are decodeTiming's fine split of forward (attention: q/k/v matmuls, the rope+KV+scores/softmax/AV core, o-proj; MLP:
 // gate+up matmuls, the activation, down; the LM head), accumulated in ns behind the same env gate (one bool check per site
@@ -454,6 +455,7 @@ func modelFromOptions(w *Weights, be Backend, opts Options) *Model {
 // into the binary falls back to cpu. A model that would not fit this machine's memory is refused with an
 // error wrapping ErrWontFitResident.
 func Load(dir string, opts Options) (*Model, error) {
+	ensureSettings() // the knobs are parsed on first use, never at package init
 	loadCalls.Add(1)
 	ensureCPUSelfTest() // once per process, before any kernel runs concurrently: a CPU kernel tier that disagrees with its reference is stepped down, not trusted
 	// The head resolves before the sidecar is chosen: its cache key carries the head.
@@ -963,6 +965,7 @@ func (m *Model) embedToken(id int, dst []float32) {
 // token-at-a-time prefill (CPU or resident), between tokens while decoding, and at a resident backend's own boundaries inside
 // its batched prefill (PrefillLast takes ctx). Generation.Err then reports the context's error.
 func (m *Model) Generate(ctx context.Context, prompt []int, maxTokens int, sp SamplingParams) (<-chan int, *Generation) {
+	ensureSettings() // the knobs are parsed on first use, never at package init
 	out := make(chan int)
 	g := &Generation{}
 	// The host KV cache is not allocated here: generateInto calls newCache only when it reaches the CPU path (never resident, or

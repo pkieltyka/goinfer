@@ -295,6 +295,7 @@ func (w *Weights) bodyMatmulWeights() []*linalg.WeightMat {
 // Use LoadWeightsFromFS for fs.FS-backed paths (MapFS, embed.FS); those stay heap-backed because fs.FS exposes no file
 // descriptor.
 func LoadWeights(dir string) (*Weights, error) {
+	ensureSettings() // the knobs are parsed on first use, never at package init
 	return loadWeights(dir, weightLoadOpts{needCanonical: true})
 }
 
@@ -511,6 +512,7 @@ func openCheckpointMmap(dir string) (*embed.SafetensorsFile, error) {
 // and returns the populated bundle. It is heap-backed (fs.ReadFile); use LoadWeights for the mmap path on a real
 // directory.
 func LoadWeightsFromFS(fsys fs.FS, dir string) (*Weights, error) {
+	ensureSettings() // the knobs are parsed on first use, never at package init
 	return loadWeightsFromFS(fsys, dir, quantNone)
 }
 

@@ -35,3 +35,8 @@ jobs:
         run: |
           python3 scripts/test_comment_census.py
           python3 scripts/comment_census.py tree
+      # goinfer#70: importing backend/cuda for text embeddings must perform no environment reads before
+      # main. Cross-builds a minimal consumer for both release targets — explicit GOOS/GOARCH, cgo off, no
+      # GPU, no model — and asserts decoder.init has no os.Getenv/os.LookupEnv call.
+      - name: issue70 env-init gate
+        run: scripts/issue70_env_init_gate.sh

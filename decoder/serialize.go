@@ -899,6 +899,7 @@ func (w *Weights) quantLabel() string {
 // into a runnable *Model: it attaches a compute backend and resolves the EOS
 // ids from the config. The weights are used as-is — their quantization is fixed.
 func NewModel(w *Weights, backend string) (*Model, error) {
+	ensureSettings() // the knobs are parsed on first use, never at package init
 	return NewModelWithOptions(w, Options{Backend: backend})
 }
 
@@ -909,6 +910,7 @@ func NewModel(w *Weights, backend string) (*Model, error) {
 // that disagrees) and LoRA has no base to merge into (refuse it before calling). StreamWeights is
 // refused, not ignored: paging reads a .giw's file mapping, and in-memory weights have none.
 func NewModelWithOptions(w *Weights, opts Options) (*Model, error) {
+	ensureSettings() // the knobs are parsed on first use, never at package init
 	opts = opts.withAutoBackend()
 	if opts.StreamWeights {
 		return nil, fmt.Errorf("decoder: StreamWeights pages weights out of a .giw file mapping, and prequantized weights held in memory have none — load the .giw file with Load to stream it")

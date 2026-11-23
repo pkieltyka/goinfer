@@ -137,6 +137,7 @@ func (m *Model) prefillLogitsGemma4VLBidirectionalSpans(ctx context.Context, ids
 // ids are content-independent, so two different images of the same size produce identical ids, and without a block
 // record the scan cannot tell them apart.
 func (m *Model) GenerateGemma4VL(ctx context.Context, ids []int, imgPos, imgLen int, imgHash uint64, features func() ([]float32, error), maxTokens int, sp SamplingParams) (<-chan int, *Generation) {
+	ensureSettings() // the knobs are parsed on first use, never at package init
 	return m.GenerateGemma4VLSpans(ctx, ids, []ImageSpan{{Pos: imgPos, Len: imgLen, Hash: imgHash}}, features, maxTokens, sp)
 }
 
@@ -144,6 +145,7 @@ func (m *Model) GenerateGemma4VL(ctx context.Context, ids []int, imgPos, imgLen 
 // concatenated in span order. A bidirectional checkpoint gives each span its own block; an E-model is causal, so its
 // resident prefill takes several images unchanged.
 func (m *Model) GenerateGemma4VLSpans(ctx context.Context, ids []int, spans []ImageSpan, features func() ([]float32, error), maxTokens int, sp SamplingParams) (<-chan int, *Generation) {
+	ensureSettings() // the knobs are parsed on first use, never at package init
 	out := make(chan int)
 	g := &Generation{}
 	m.runGen(ctx, out, g, nil, func(ctx context.Context) {
