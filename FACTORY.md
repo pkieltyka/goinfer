@@ -26,6 +26,8 @@ The operator assigns work and resolves architecture decisions after consulting t
 
 The operator delegates implementation to lead developers and uses architects for design when needed. The operator coordinates, reviews, and integrates the work. Direct implementation by the operator requires explicit direction from the maintainer.
 
+The local roster includes a third lead developer (`lead-dev-3`) for Go inference and accelerator work, with a separate worktree. The role uses OpenCode with OpenCode Go's DeepSeek V4.1 Flash 1017 at `high` reasoning effort. The launch settings live in `factory.toml`.
+
 Use the repository's verification rules in `CLAUDE.md`. For GPU work, record device tests and hardware used, or record that no device tests ran. The maintainer decides gates, defaults, guard thresholds, and tags.
 
 ## Review
