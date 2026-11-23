@@ -18,13 +18,13 @@ stamp() { echo "[$(date '+%H:%M:%S')] $*"; }
 export GOINFER_HEAVY_TESTS=1 GOINFER_MINISTRAL3="$MODEL" GOINFER_S10M_OUT="$OUT" GOINFER_PIXTRAL_REAL_ARTIFACTS="$OUT"
 
 stamp "1/4 ids"
-GOINFER_S10M_STEP=ids go test -tags realckpt ./decoder/ -run '^TestPixtralFull$' -count=1 -v -timeout 10m 2>&1 | tee "$OUT/step1-ids.log"
+GOWORK=off GOINFER_S10M_STEP=ids go test -tags realckpt ./decoder/ -run '^TestPixtralFull$' -count=1 -v -timeout 10m 2>&1 | tee "$OUT/step1-ids.log"
 stamp "2/4 transformers references"
 ~/.venv-vl/bin/python scripts/pin_pixtral_real.py --model "$MODEL" --images testdata --out "$OUT" 2>&1 | tee "$OUT/step2-hf.log"
 # a/b failing must not stop c: each grading step's status is kept, and the script exits non-zero if either failed.
 stamp "3/4 G-S10m-a and b"
-rc_ab=0; go test ./multimodal/ -run '^TestPixtralReal_' -count=1 -v -timeout 30m 2>&1 | tee "$OUT/step3-ab.log" || rc_ab=$?
+rc_ab=0; GOWORK=off go test ./multimodal/ -run '^TestPixtralReal_' -count=1 -v -timeout 30m 2>&1 | tee "$OUT/step3-ab.log" || rc_ab=$?
 stamp "4/4 G-S10m-c"
-rc_c=0; GOINFER_S10M_STEP=compare go test -tags realckpt ./decoder/ -run '^TestPixtralFull$' -count=1 -v -timeout 60m 2>&1 | tee "$OUT/step4-c.log" || rc_c=$?
+rc_c=0; GOWORK=off GOINFER_S10M_STEP=compare go test -tags realckpt ./decoder/ -run '^TestPixtralFull$' -count=1 -v -timeout 60m 2>&1 | tee "$OUT/step4-c.log" || rc_c=$?
 stamp "done: a/b rc=$rc_ab, c rc=$rc_c"
 [ "$rc_ab" -eq 0 ] && [ "$rc_c" -eq 0 ]
