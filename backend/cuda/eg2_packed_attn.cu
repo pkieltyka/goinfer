@@ -55,6 +55,7 @@ __device__ __forceinline__ void eg2_packed_attn_impl(
     float* __restrict__ out) {
     static_assert(HD % 16 == 0, "HD must be a multiple of 16");
     static_assert(DK_SUB % 16 == 0, "DK_SUB must be a multiple of 16");
+    static_assert((BN & (BN - 1)) == 0, "BN must be a power of two");
     constexpr int HD_WARP = HD / WARP_D;
     constexpr int OT_WARP = HD_WARP / 8;
     constexpr int NG = BN / 8;
@@ -147,9 +148,11 @@ __device__ __forceinline__ void eg2_packed_attn_impl(
     const int winLo1 = (window >= 0 && qLoc1 > window) ? (qLoc1 - window) : 0;
     const int winHi1 = (window >= 0 && qLoc1 + window < segLen - 1) ? (qLoc1 + window) : (segLen - 1);
 
-    // Segment-local tile key range [kTileStart, kTileEnd): fixed by (segLen, qLocal0, window, BM).
+    // Segment-local tile key range [kTileStart, kTileEnd): fixed by (segLen, qLocal0, window, BM, BN),
+    // with ascending key tiles anchored at multiples of BN relative to sequence start.
     const int tileLastQ = qLocal0 + nqTile - 1;
-    const int kTileStart = (window >= 0 && qLocal0 > window) ? (qLocal0 - window) : 0;
+    const int rawStart = (window >= 0 && qLocal0 > window) ? (qLocal0 - window) : 0;
+    const int kTileStart = rawStart & ~(BN - 1);
     const int kTileEnd = (window >= 0 && tileLastQ + window + 1 < segLen) ? (tileLastQ + window + 1) : segLen;
 
     float mRun0 = -1e30f, mRun1 = -1e30f;

@@ -9,6 +9,7 @@ import (
 	"runtime"
 	"strings"
 	"testing"
+	"time"
 
 	gc "github.com/eitamring/gocudrv/cuda"
 	gpu "github.com/pkieltyka/goinfer/backend/cuda/internal/gpudev"
@@ -304,6 +305,62 @@ func TestEG2PackedAttn_DeviceParityAndBitIdentity(t *testing.T) {
 		return q, k, v
 	}
 
+	makeHighRangeSeg := func(seed, n, nH, nKV, hd int) (q, k, v []float32) {
+		q = make([]float32, n*nH*hd)
+		k = make([]float32, n*nKV*hd)
+		v = make([]float32, n*nKV*hd)
+		// Construct high-score / high-dynamic-range logits at scale=1.0
+		// independent of hd: q[d] = +/- qAmp / sqrt(hd), k[d] = +/- kAmp / sqrt(hd),
+		// so dot(q, k) == qAmp * kAmp (~+50..+72 peak). The late-tile peak
+		// forces a multi-tile online-softmax max jump while runner-ups at
+		// peak-1.8, peak-12 (FP16 subnormal), peak-18 and peak-25 (FP16
+		// underflow to 0) exercise dynamic range after subtracting tile max.
+		group := nH / nKV
+		invSqrt := float32(1.0 / math.Sqrt(float64(hd)))
+		for pos := range n {
+			for kvh := range nKV {
+				kOff := pos*nKV*hd + kvh*hd
+				vOff := kOff
+				kAmp := float32(8.0) // ~peak - 12 across background keys (cumulative FP16 subnormal test)
+				switch {
+				case pos == n-1:
+					kAmp = 10.0 // late-tile peak (+60..+72)
+				case pos == max(0, n-2):
+					kAmp = 9.7 // close runner-up (~peak - 1.8)
+				case pos == max(0, n/2):
+					kAmp = 8.0 // mid-tile runner-up (~peak - 12, FP16 subnormal)
+				case pos == min(n-1, 17):
+					kAmp = 7.0 // early-tile runner-up (~peak - 18, FP16 underflow)
+				case pos == min(n-1, 3):
+					kAmp = 5.8 // very-early runner-up (~peak - 25, FP16 underflow)
+				case pos%3 == 0:
+					kAmp = float32(math.Sin(float64(seed*311+pos*29+kvh*13))) * 4.0
+				}
+				for d := range hd {
+					sign := float32(1.0)
+					if ((d + kvh + seed) & 1) == 1 {
+						sign = -1.0
+					}
+					k[kOff+d] = sign * invSqrt * kAmp
+					v[vOff+d] = float32(math.Cos(float64(seed*521+pos*73+kvh*37+d)*0.113)) * 0.8
+				}
+			}
+			for h := range nH {
+				kvh := h / group
+				qOff := pos*nH*hd + h*hd
+				qAmp := float32(6.0 + 0.4*float64(h))
+				for d := range hd {
+					sign := float32(1.0)
+					if ((d + kvh + seed) & 1) == 1 {
+						sign = -1.0
+					}
+					q[qOff+d] = sign * invSqrt * qAmp
+				}
+			}
+		}
+		return q, k, v
+	}
+
 	concatSegs := func(segs [][3][]float32, order []int) (q, k, v []float32) {
 		for _, idx := range order {
 			q = append(q, segs[idx][0]...)
@@ -314,20 +371,23 @@ func TestEG2PackedAttn_DeviceParityAndBitIdentity(t *testing.T) {
 	}
 
 	cases := []struct {
-		name   string
-		nH     int
-		nKV    int
-		hd     int
-		window int
-		scale  float32
-		lens   []int
+		name      string
+		nH        int
+		nKV       int
+		hd        int
+		window    int
+		scale     float32
+		lens      []int
+		highRange bool
 	}{
-		{"real-eg2-sliding-hd256-scale1", 4, 2, 256, 512, 1.0, []int{1, 17, 32, 33, 65, 513}},
-		{"real-eg2-full-hd512-scale1", 4, 1, 512, -1, 1.0, []int{1, 17, 32, 33, 65, 193}},
-		{"real-eg2-sliding-hd256-invsqrt", 4, 2, 256, 48, float32(1.0 / math.Sqrt(256)), []int{19, 64, 129, 7}},
-		{"real-eg2-full-hd512-scale025", 4, 1, 512, -1, 0.25, []int{5, 33, 70}},
-		{"tiny-eg2-sliding-hd16", 4, 2, 16, 3, 1.0, []int{1, 3, 4, 17, 33}},
-		{"tiny-eg2-full-hd32", 4, 1, 32, -1, 1.0, []int{1, 5, 32, 35}},
+		{"real-eg2-sliding-hd256-scale1", 4, 2, 256, 512, 1.0, []int{1, 17, 32, 33, 65, 513}, false},
+		{"real-eg2-full-hd512-scale1", 4, 1, 512, -1, 1.0, []int{1, 17, 32, 33, 65, 193}, false},
+		{"real-eg2-sliding-hd256-highrange", 4, 2, 256, 512, 1.0, []int{7, 33, 97, 193}, true},
+		{"real-eg2-full-hd512-highrange", 4, 1, 512, -1, 1.0, []int{7, 33, 97, 193}, true},
+		{"real-eg2-sliding-hd256-invsqrt", 4, 2, 256, 48, float32(1.0 / math.Sqrt(256)), []int{19, 64, 129, 7}, false},
+		{"real-eg2-full-hd512-scale025", 4, 1, 512, -1, 0.25, []int{5, 33, 70}, false},
+		{"tiny-eg2-sliding-hd16", 4, 2, 16, 3, 1.0, []int{1, 3, 4, 17, 33}, false},
+		{"tiny-eg2-full-hd32", 4, 1, 32, -1, 1.0, []int{1, 5, 32, 35}, false},
 	}
 
 	for _, tc := range cases {
@@ -340,7 +400,12 @@ func TestEG2PackedAttn_DeviceParityAndBitIdentity(t *testing.T) {
 			worstCPU := 1.0
 			worstLogic := 1.0
 			for i, n := range tc.lens {
-				q, k, v := makeSeg(i+1, n, tc.nH, tc.nKV, tc.hd)
+				var q, k, v []float32
+				if tc.highRange {
+					q, k, v = makeHighRangeSeg(i+1, n, tc.nH, tc.nKV, tc.hd)
+				} else {
+					q, k, v = makeSeg(i+1, n, tc.nH, tc.nKV, tc.hd)
+				}
 				segs[i] = [3][]float32{q, k, v}
 				out := runPacked(t, tc.hd, tc.nH, tc.nKV, tc.window, tc.scale, q, k, v, []int{n})
 				singleOuts[i] = out
@@ -509,7 +574,7 @@ func eg2AttnRefF16Tiles(q, k, v []float32, n, nH, nKV, hd, window int, scale flo
 		q1 := min(n, q0+bm)
 		kStart, kEnd := 0, n
 		if window >= 0 {
-			kStart = max(0, q0-window)
+			kStart = max(0, q0-window) &^ (bn - 1)
 			kEnd = min(n, (q1-1)+window+1)
 		}
 		for row := q0; row < q1; row++ {
@@ -603,4 +668,314 @@ func eg2AttnCosineF32(a, b []float32) float64 {
 		return 0
 	}
 	return dot / (math.Sqrt(na) * math.Sqrt(nb))
+}
+
+// TestEG2PackedAttn_VsCombinedBench compares the standalone eg2_packed_attn
+// kernels directly against the existing combined transposed-key attention
+// (eg2_transpose_keys + eg2_attention_transposed) across the 24-layer EG2 mix
+// (20 sliding HD=256 nH=4 nKV=2 W=512 + 4 full HD=512 nH=4 nKV=1 W=-1).
+// Opt-in via GOINFER_EG2_ATTN_BENCH=1 so normal test runs stay fast.
+func TestEG2PackedAttn_VsCombinedBench(t *testing.T) {
+	if os.Getenv("GOINFER_EG2_ATTN_BENCH") != "1" {
+		t.Skip("set GOINFER_EG2_ATTN_BENCH=1 to run the packed vs combined attention microbenchmark")
+	}
+	if err := gc.Init(); err != nil {
+		t.Skipf("cuInit: %v", err)
+	}
+	if _, err := gc.GetDevice(0); err != nil {
+		t.Skipf("no device: %v", err)
+	}
+	runtime.LockOSThread()
+	defer runtime.UnlockOSThread()
+	dev, err := CreateSystemDefaultDevice()
+	if err != nil {
+		t.Skipf("device: %v", err)
+	}
+	defer dev.ReleaseObjects()
+
+	packedMod, err := dev.CompileLibrary(readPTX("eg2_packed_attn"))
+	if err != nil {
+		t.Fatalf("CompileLibrary(eg2_packed_attn): %v", err)
+	}
+	combMod, err := dev.CompileLibrary(readPTX("eg2_transposed_experiment"))
+	if err != nil {
+		t.Fatalf("CompileLibrary(eg2_transposed_experiment): %v", err)
+	}
+	pHD256, err := dev.NewComputePipeline(packedMod, "eg2_packed_attn_hd256")
+	if err != nil {
+		t.Fatalf("NewComputePipeline(eg2_packed_attn_hd256): %v", err)
+	}
+	pHD512, err := dev.NewComputePipeline(packedMod, "eg2_packed_attn_hd512")
+	if err != nil {
+		t.Fatalf("NewComputePipeline(eg2_packed_attn_hd512): %v", err)
+	}
+	cTrans, err := dev.NewComputePipeline(combMod, "eg2_transpose_keys")
+	if err != nil {
+		t.Fatalf("NewComputePipeline(eg2_transpose_keys): %v", err)
+	}
+	cAttn, err := dev.NewComputePipeline(combMod, "eg2_attention_transposed")
+	if err != nil {
+		t.Fatalf("NewComputePipeline(eg2_attention_transposed): %v", err)
+	}
+	stream := dev.NewCommandQueue()
+
+	type shape struct {
+		name string
+		lens []int
+	}
+	shapes := []shape{
+		{"17-input-7924tok", []int{31, 819, 549, 392, 678, 362, 661, 374, 743, 36, 773, 522, 398, 581, 530, 441, 34}},
+		{"8x512", []int{512, 512, 512, 512, 512, 512, 512, 512}},
+		{"4x2048", []int{2048, 2048, 2048, 2048}},
+	}
+
+	buildSegBounds := func(lens []int, window int) (lo, hi []int32, total, maxT int) {
+		for _, n := range lens {
+			total += n
+			if n > maxT {
+				maxT = n
+			}
+		}
+		lo = make([]int32, total)
+		hi = make([]int32, total)
+		off := 0
+		for _, n := range lens {
+			for i := range n {
+				s0, s1 := 0, n
+				if window >= 0 {
+					s0 = max(0, i-window)
+					s1 = min(n, i+window+1)
+				}
+				lo[off+i] = int32(off + s0)
+				hi[off+i] = int32(off + s1)
+			}
+			off += n
+		}
+		return lo, hi, total, maxT
+	}
+
+	const (
+		nH      = 4
+		nKVSl   = 2
+		hdSl    = 256
+		winSl   = 512
+		nLayers = 20
+		nKVFu   = 1
+		hdFu    = 512
+		winFu   = -1
+		nFu     = 4
+		warmup  = 3
+		iters   = 10
+	)
+	specSl, _ := launchgeom.EG2PackedAttnSpecForHD(hdSl)
+	specFu, _ := launchgeom.EG2PackedAttnSpecForHD(hdFu)
+
+	for _, sh := range shapes {
+		t.Run(sh.name, func(t *testing.T) {
+			slLo, slHi, total, maxT := buildSegBounds(sh.lens, winSl)
+			fuLo, fuHi, _, _ := buildSegBounds(sh.lens, winFu)
+			pitch := (total + 31) &^ 31
+
+			tabSl, err := launchgeom.BuildEG2PackedTiles(sh.lens, specSl.BM)
+			if err != nil {
+				t.Fatal(err)
+			}
+			tabFu, err := launchgeom.BuildEG2PackedTiles(sh.lens, specFu.BM)
+			if err != nil {
+				t.Fatal(err)
+			}
+
+			// Allocate deterministic synthetic Q/K/V for both sliding and full geometries.
+			fill := func(n, seed int, amp float32) []float32 {
+				xs := make([]float32, n)
+				for i := range xs {
+					xs[i] = float32(math.Sin(float64(seed*1009+i)*0.137)) * amp
+				}
+				return xs
+			}
+			qSlHost := fill(total*nH*hdSl, 1, 0.85)
+			kSlHost := fill(total*nKVSl*hdSl, 2, 0.90)
+			vSlHost := fill(total*nKVSl*hdSl, 3, 0.75)
+			qFuHost := fill(total*nH*hdFu, 4, 0.85)
+			kFuHost := fill(total*nKVFu*hdFu, 5, 0.90)
+			vFuHost := fill(total*nKVFu*hdFu, 6, 0.75)
+
+			allocUploadF32 := func(src []float32) Buffer {
+				b := gpu.NewBufferLenOf[float32](dev, len(src))
+				if err := gpu.Upload(b, src); err != nil {
+					t.Fatal(err)
+				}
+				return b
+			}
+			allocUploadI32 := func(src []int32) Buffer {
+				b := gpu.NewBufferLenOf[int32](dev, len(src))
+				if err := gpu.Upload(b, src); err != nil {
+					t.Fatal(err)
+				}
+				return b
+			}
+
+			qSlB := allocUploadF32(qSlHost)
+			kSlB := allocUploadF32(kSlHost)
+			vSlB := allocUploadF32(vSlHost)
+			ktSlB := gpu.NewBufferLenOf[float32](dev, nKVSl*hdSl*pitch)
+			oSlPacked := gpu.NewBufferLenOf[float32](dev, total*nH*hdSl)
+			oSlComb := gpu.NewBufferLenOf[float32](dev, total*nH*hdSl)
+
+			qFuB := allocUploadF32(qFuHost)
+			kFuB := allocUploadF32(kFuHost)
+			vFuB := allocUploadF32(vFuHost)
+			ktFuB := gpu.NewBufferLenOf[float32](dev, nKVFu*hdFu*pitch)
+			oFuPacked := gpu.NewBufferLenOf[float32](dev, total*nH*hdFu)
+			oFuComb := gpu.NewBufferLenOf[float32](dev, total*nH*hdFu)
+
+			slLoB := allocUploadI32(slLo)
+			slHiB := allocUploadI32(slHi)
+			fuLoB := allocUploadI32(fuLo)
+			fuHiB := allocUploadI32(fuHi)
+
+			slSS := allocUploadI32(tabSl.SegStart)
+			slSL := allocUploadI32(tabSl.SegLen)
+			slQ0 := allocUploadI32(tabSl.QLocal0)
+			fuSS := allocUploadI32(tabFu.SegStart)
+			fuSL := allocUploadI32(tabFu.SegLen)
+			fuQ0 := allocUploadI32(tabFu.QLocal0)
+			defer func() {
+				for _, b := range []Buffer{
+					qSlB, kSlB, vSlB, ktSlB, oSlPacked, oSlComb,
+					qFuB, kFuB, vFuB, ktFuB, oFuPacked, oFuComb,
+					slLoB, slHiB, fuLoB, fuHiB,
+					slSS, slSL, slQ0, fuSS, fuSL, fuQ0,
+				} {
+					dev.ReleaseBuf(b)
+				}
+			}()
+
+			cfgPackedSl := LaunchConfig{
+				GridX: uint32(nH), GridY: uint32(len(tabSl.SegStart)), GridZ: 1,
+				BlockX: specSl.BlockX, BlockY: 1, BlockZ: 1, SharedMemBytes: specSl.SharedMem,
+			}
+			cfgPackedFu := LaunchConfig{
+				GridX: uint32(nH), GridY: uint32(len(tabFu.SegStart)), GridZ: 1,
+				BlockX: specFu.BlockX, BlockY: 1, BlockZ: 1, SharedMemBytes: specFu.SharedMem,
+			}
+			cfgTransSl := LaunchConfig{
+				GridX: uint32((nKVSl*hdSl + 31) / 32), GridY: uint32((total + 31) / 32), GridZ: 1,
+				BlockX: 32, BlockY: 8, BlockZ: 1,
+			}
+			cfgTransFu := LaunchConfig{
+				GridX: uint32((nKVFu*hdFu + 31) / 32), GridY: uint32((total + 31) / 32), GridZ: 1,
+				BlockX: 32, BlockY: 8, BlockZ: 1,
+			}
+			cfgCombSl := gpu.SegAttentionGrid(total, nH, min(maxT, 2*winSl+1))
+			cfgCombFu := gpu.SegAttentionGrid(total, nH, maxT)
+
+			launchPackedSl := func() {
+				if err := stream.Launch(pHD256, cfgPackedSl,
+					Arg(qSlB), Arg(kSlB), Arg(vSlB), Arg(slSS), Arg(slSL), Arg(slQ0),
+					gpu.ArgValue(int32(nH)), gpu.ArgValue(int32(nKVSl)), gpu.ArgValue(int32(winSl)),
+					gpu.ArgValue(float32(1)), gpu.ArgValue(int32(len(tabSl.SegStart))), Arg(oSlPacked)); err != nil {
+					t.Fatal(err)
+				}
+			}
+			launchPackedFu := func() {
+				if err := stream.Launch(pHD512, cfgPackedFu,
+					Arg(qFuB), Arg(kFuB), Arg(vFuB), Arg(fuSS), Arg(fuSL), Arg(fuQ0),
+					gpu.ArgValue(int32(nH)), gpu.ArgValue(int32(nKVFu)), gpu.ArgValue(int32(winFu)),
+					gpu.ArgValue(float32(1)), gpu.ArgValue(int32(len(tabFu.SegStart))), Arg(oFuPacked)); err != nil {
+					t.Fatal(err)
+				}
+			}
+			launchCombSl := func() {
+				if err := stream.Launch(cTrans, cfgTransSl,
+					Arg(kSlB), Arg(ktSlB), gpu.ArgValue(int32(total)), gpu.ArgValue(int32(nKVSl*hdSl)), gpu.ArgValue(int32(pitch))); err != nil {
+					t.Fatal(err)
+				}
+				if err := stream.Launch(cAttn, cfgCombSl,
+					Arg(qSlB), Arg(ktSlB), Arg(vSlB), Arg(oSlComb), Arg(slLoB), Arg(slHiB),
+					gpu.ArgValue(int32(total)), gpu.ArgValue(int32(nH)), gpu.ArgValue(int32(nKVSl)),
+					gpu.ArgValue(int32(hdSl)), gpu.ArgValue(int32(pitch)), gpu.ArgValue(float32(1))); err != nil {
+					t.Fatal(err)
+				}
+			}
+			launchCombFu := func() {
+				if err := stream.Launch(cTrans, cfgTransFu,
+					Arg(kFuB), Arg(ktFuB), gpu.ArgValue(int32(total)), gpu.ArgValue(int32(nKVFu*hdFu)), gpu.ArgValue(int32(pitch))); err != nil {
+					t.Fatal(err)
+				}
+				if err := stream.Launch(cAttn, cfgCombFu,
+					Arg(qFuB), Arg(ktFuB), Arg(vFuB), Arg(oFuComb), Arg(fuLoB), Arg(fuHiB),
+					gpu.ArgValue(int32(total)), gpu.ArgValue(int32(nH)), gpu.ArgValue(int32(nKVFu)),
+					gpu.ArgValue(int32(hdFu)), gpu.ArgValue(int32(pitch)), gpu.ArgValue(float32(1))); err != nil {
+					t.Fatal(err)
+				}
+			}
+
+			// Parity check between packed and combined on one sliding + one full layer.
+			launchPackedSl()
+			launchCombSl()
+			launchPackedFu()
+			launchCombFu()
+			if err := stream.Sync(); err != nil {
+				t.Fatal(err)
+			}
+			gotPSl := make([]float32, total*nH*hdSl)
+			gotCSl := make([]float32, total*nH*hdSl)
+			gotPFu := make([]float32, total*nH*hdFu)
+			gotCFu := make([]float32, total*nH*hdFu)
+			for b, dst := range map[Buffer][]float32{oSlPacked: gotPSl, oSlComb: gotCSl, oFuPacked: gotPFu, oFuComb: gotCFu} {
+				if err := gpu.Download(b, dst); err != nil {
+					t.Fatal(err)
+				}
+			}
+			worstCos := func(a, b []float32, hd int) float64 {
+				w := 1.0
+				for off := 0; off < len(a); off += hd {
+					c := eg2AttnCosineF32(a[off:off+hd], b[off:off+hd])
+					if !(c >= w) {
+						w = c
+					}
+				}
+				return w
+			}
+			cosSl := worstCos(gotPSl, gotCSl, hdSl)
+			cosFu := worstCos(gotPFu, gotCFu, hdFu)
+			if !(cosSl >= 0.999) || !(cosFu >= 0.999) {
+				t.Fatalf("%s parity vs combined failed: sliding=%.8f full=%.8f", sh.name, cosSl, cosFu)
+			}
+
+			measure := func(fn func(), reps int) float64 {
+				for range warmup {
+					for range reps {
+						fn()
+					}
+				}
+				if err := stream.Sync(); err != nil {
+					t.Fatal(err)
+				}
+				t0 := time.Now()
+				for range iters {
+					for range reps {
+						fn()
+					}
+				}
+				if err := stream.Sync(); err != nil {
+					t.Fatal(err)
+				}
+				return float64(time.Since(t0).Microseconds()) / (1000.0 * float64(iters))
+			}
+
+			combSlMs := measure(launchCombSl, nLayers)
+			combFuMs := measure(launchCombFu, nFu)
+			packSlMs := measure(launchPackedSl, nLayers)
+			packFuMs := measure(launchPackedFu, nFu)
+			combTot := combSlMs + combFuMs
+			packTot := packSlMs + packFuMs
+			t.Logf("%s (T=%d maxT=%d): cos(sl=%.8f fu=%.8f) | combined 20sl=%.2fms 4fu=%.2fms tot=%.2fms | packed 20sl=%.2fms 4fu=%.2fms tot=%.2fms | speedup sl=%.2fx fu=%.2fx tot=%.2fx",
+				sh.name, total, maxT, cosSl, cosFu,
+				combSlMs, combFuMs, combTot,
+				packSlMs, packFuMs, packTot,
+				combSlMs/packSlMs, combFuMs/packFuMs, combTot/packTot)
+		})
+	}
 }
