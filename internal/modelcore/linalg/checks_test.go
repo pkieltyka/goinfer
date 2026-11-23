@@ -1,4 +1,4 @@
-//go:build aikit_checks
+//go:build modelcore_checks
 
 package linalg
 
@@ -7,7 +7,7 @@ import (
 	"testing"
 )
 
-// These run only under `-tags aikit_checks` — they prove the contract checks fire
+// These run only under `-tags modelcore_checks` — they prove the contract checks fire
 // (and with a message naming the kernel) on misuse the production build trusts.
 func TestChecks_fire(t *testing.T) {
 	mustPanic(t, "MatmulBTW4A8", func() {

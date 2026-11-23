@@ -841,7 +841,7 @@ func MatmulBTW4A8(a []float32, w4 []byte, wScales []float32, dst []float32, M, K
 //
 // Output contract: overwrites dst; do not pre-zero. Covers dst[:M*N].
 func MatmulBTW4A8Into(ws *Workspace, a []float32, w4 []byte, wScales []float32, dst []float32, M, K, N, group int) {
-	// Always-on O(1) entry guard (M2): the aikit_checks contract below compiles
+	// Always-on O(1) entry guard (M2): the modelcore_checks contract below compiles
 	// to a no-op in production, so without this a bad shape would fault inside a
 	// worker goroutine (uncatchable). This panics recoverably, caller-side.
 	checkMatmulW4A8("MatmulBTW4A8", len(a), len(w4), len(wScales), len(dst), M, K, N, group)
@@ -1167,7 +1167,7 @@ func MatmulBTQ4(a []float32, bPacked []byte, bScales []float32, dst []float32, M
 // Output contract: overwrites dst; do not pre-zero. Covers dst[:M*N].
 func MatmulBTQ4Into(ws *Workspace, a []float32, bPacked []byte, bScales []float32, dst []float32, M, K, N, group int) {
 	// Always-on entry guard (M2); checkGroupMatmul below is a no-op without
-	// -tags aikit_checks. Same group-int4 shape contract as MatmulBTW4A8.
+	// -tags modelcore_checks. Same group-int4 shape contract as MatmulBTW4A8.
 	checkMatmulW4A8("MatmulBTQ4", len(a), len(bPacked), len(bScales), len(dst), M, K, N, group)
 	checkGroupMatmul("MatmulBTQ4", len(a), bPacked, bScales, len(dst), M, K, N, group)
 	nGroups, bpr := groupsFor(K, group)

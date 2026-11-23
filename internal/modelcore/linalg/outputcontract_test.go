@@ -23,7 +23,7 @@ import (
 //
 //	go test ./linalg/ -run TestOutputContract                       # the host's default kernels (AVX2/VNNI on amd64, NEON on arm64)
 //	GOARCH=386 go test ./linalg/ -run TestOutputContract            # the generic (!amd64 && !arm64) kernels, natively on an amd64 Linux box
-//	go test -tags aikit_noavx2 ./linalg/ -run TestOutputContract    # the narrower amd64 tiers; likewise aikit_noavx512, aikit_nodotprod (arm64)
+//	go test -tags modelcore_noavx2 ./linalg/ -run TestOutputContract    # the narrower amd64 tiers; likewise modelcore_noavx512, modelcore_nodotprod (arm64)
 const contractGuard = 16 // elements of guard after every output region
 
 type outBuf struct {

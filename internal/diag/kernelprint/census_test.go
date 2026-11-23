@@ -126,7 +126,7 @@ func TestCompute_reachesCensus(t *testing.T) {
 	cfg, k := CurrentConfig(), linalg.ActiveKernels()
 	for _, f := range cfg.Forced {
 		if !slices.Contains(k.Detected, forcedTier[f]) {
-			t.Skipf("VOID: tag aikit_%s forced nothing on this CPU (detected %v); run it where the CPU has %s", f, k.Detected, forcedTier[f])
+			t.Skipf("VOID: tag modelcore_%s forced nothing on this CPU (detected %v); run it where the CPU has %s", f, k.Detected, forcedTier[f])
 		}
 	}
 	if !slices.Contains(validated, cfg.String()) {
@@ -286,7 +286,7 @@ func censusPredicates(t *testing.T) []string {
 func forcedTags(cfg Config) []string {
 	var tags []string
 	for _, f := range cfg.Forced {
-		tags = append(tags, "aikit_"+f)
+		tags = append(tags, "modelcore_"+f)
 	}
 	return tags
 }

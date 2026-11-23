@@ -1,11 +1,11 @@
-//go:build !aikit_checks
+//go:build !modelcore_checks
 
 package linalg
 
 // Production build: the quant-kernel contract checks compile to empty functions.
 // They take concrete (non-interface) arguments, so the calls inline to nothing —
 // no argument boxing, no branch, zero hot-path cost. Build or test with
-// `-tags aikit_checks` to turn them into validating panics (see checks_on.go).
+// `-tags modelcore_checks` to turn them into validating panics (see checks_on.go).
 //
 // These guard caller contracts the hot kernels otherwise trust silently: a wrong
 // shape or group=0 would divide-by-zero or read out of bounds deep inside an asm
@@ -13,7 +13,7 @@ package linalg
 
 // checksEnabled reports the build mode. Deliberately kept in both
 // checks_off.go and checks_on.go as the symmetric introspection constant for
-// the aikit_checks tag, so a test or debug path can branch on the build
+// the modelcore_checks tag, so a test or debug path can branch on the build
 // without re-deriving the tag. Nothing references it today.
 //
 //nolint:unused // build-mode introspection constant; symmetric with checks_on.go

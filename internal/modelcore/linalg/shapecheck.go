@@ -12,7 +12,7 @@ import "fmt"
 // at the public entry, BEFORE any fan-out, so a violation panics on the caller's
 // goroutine with a clear "linalg:" message. The cost is a handful of comparisons
 // against the O(M·N·K) matmul — negligible, and always on (unlike the richer
-// -tags aikit_checks contract asserts, which stay compiled out in production).
+// -tags modelcore_checks contract asserts, which stay compiled out in production).
 //
 // The products (M·K, N·K, …) are overflow-checked: a hostile shape whose product
 // wraps int negative-and-small must not slip past a length compare.

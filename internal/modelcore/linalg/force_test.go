@@ -8,12 +8,12 @@ import (
 )
 
 // TestForcedFallbacks_expected is the guard against a CI job that passes -tags and forces nothing: a tag that matches no file compiles and runs green. A job
-// sets AIKIT_EXPECT_FORCED to the fallbacks it asked for ("noavx2", "noavx512,nopopcnt", ...) or to "none", and this fails unless ForcedFallbacks says the same.
+// sets GOINFER_EXPECT_FORCED_CPU to the fallbacks it asked for ("noavx2", "noavx512,nopopcnt", ...) or to "none", and this fails unless ForcedFallbacks says the same.
 // Unset, it checks nothing (an ordinary developer run), and says so.
 func TestForcedFallbacks_expected(t *testing.T) {
-	want, set := os.LookupEnv("AIKIT_EXPECT_FORCED")
+	want, set := os.LookupEnv("GOINFER_EXPECT_FORCED_CPU")
 	if !set {
-		t.Skip("AIKIT_EXPECT_FORCED unset: not asserting which fallbacks this build forces")
+		t.Skip("GOINFER_EXPECT_FORCED_CPU unset: not asserting which fallbacks this build forces")
 	}
 	var wantList []string
 	if want != "none" && want != "" {

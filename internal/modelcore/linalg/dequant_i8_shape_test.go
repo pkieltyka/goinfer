@@ -6,7 +6,7 @@ import (
 )
 
 // The dst-length guard of DequantizeRowInt8 and WeightMat.Row holds in the production build. The tag-gated TestChecks_fire
-// covers the same call only under -tags aikit_checks, which is the build that was never shipped.
+// covers the same call only under -tags modelcore_checks, which is the build that was never shipped.
 func TestDequantizeRowInt8_shortDstPanicsInEveryBuild(t *testing.T) {
 	for _, n := range []int{1, 7, 8, 16, 64, 100} {
 		q := make([]int8, n)

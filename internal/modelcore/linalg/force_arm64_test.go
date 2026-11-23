@@ -4,7 +4,7 @@ package linalg
 
 import "testing"
 
-// Under aikit_nodotprod the SDOT flag reads false; a normal build asserts nothing about the hardware.
+// Under modelcore_nodotprod the SDOT flag reads false; a normal build asserts nothing about the hardware.
 func TestForcedFallbacks_flagsFollowTheTags(t *testing.T) {
 	forced := ForcedFallbacks()
 	if len(forced) == 0 {

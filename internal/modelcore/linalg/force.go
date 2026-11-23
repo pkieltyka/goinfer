@@ -6,10 +6,10 @@ package linalg
 // feature the portable or narrower-ISA kernels never run. Building with one of these tags makes the flag report false, so the SAME suites execute the
 // fallback path on any machine:
 //
-//	aikit_noavx512   amd64: hasAVX512VNNI and hasAVX512VNNIVL false (the AVX2 kernels on an AVX-512 VNNI machine)
-//	aikit_noavx2     amd64: hasAVX2, hasQ4KAVX2 and (implied) both AVX-512 flags false (the pure-Go kernels)
-//	aikit_nopopcnt   amd64: hasPOPCNT false (the portable Hamming kernel)
-//	aikit_nodotprod  arm64: hasDotProd false (the base SMULL/SADALP kernels instead of SDOT)
+//	modelcore_noavx512   amd64: hasAVX512VNNI and hasAVX512VNNIVL false (the AVX2 kernels on an AVX-512 VNNI machine)
+//	modelcore_noavx2     amd64: hasAVX2, hasQ4KAVX2 and (implied) both AVX-512 flags false (the pure-Go kernels)
+//	modelcore_nopopcnt   amd64: hasPOPCNT false (the portable Hamming kernel)
+//	modelcore_nodotprod  arm64: hasDotProd false (the base SMULL/SADALP kernels instead of SDOT)
 //
 // None of these tags is for production: they only ever turn a fast path OFF. They exist so the narrower path is executed on every push rather than only on
 // hardware nobody here owns. ForcedFallbacks reports which tags are in effect, so a CI job that passes `-tags` can assert the tag was honoured instead of passing

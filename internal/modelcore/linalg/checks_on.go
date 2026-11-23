@@ -1,14 +1,14 @@
-//go:build aikit_checks
+//go:build modelcore_checks
 
 package linalg
 
 import "fmt"
 
-// Checked build (`-tags aikit_checks`): the quant-kernel contract checks validate
+// Checked build (`-tags modelcore_checks`): the quant-kernel contract checks validate
 // the caller's shapes/arguments and panic with a precise message on violation.
 // These contracts are otherwise trusted silently by the hot kernels — a bad shape
 // or group=0 surfaces as a divide-by-zero or out-of-bounds read deep in an asm
-// loop. Run the test suite with `-tags aikit_checks` (and the fuzzers) to exercise
+// loop. Run the test suite with `-tags modelcore_checks` (and the fuzzers) to exercise
 // them; production builds (checks_off.go) compile these to no-ops.
 
 const checksEnabled = true
