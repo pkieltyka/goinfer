@@ -45,7 +45,7 @@ func GGUFShards(path string) ([]string, error) {
 
 // OpenGGUFMmap maps a GGUF model, single-file or split: the split set a first shard names is opened as one file
 // (embed.OpenGGUFSplitMmap), so every reader of a model's tensors sees the whole model either way.
-func OpenGGUFMmap(path string) (*embed.GGUFFile, error) {
+func OpenGGUFMmap(path string) (*GGUFFile, error) {
 	shards, err := GGUFShards(path)
 	if err != nil {
 		return nil, err

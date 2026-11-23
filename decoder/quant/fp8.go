@@ -3,8 +3,6 @@ package quant
 import (
 	"fmt"
 	"math"
-
-	"github.com/pkieltyka/goinfer/internal/modelcore/embed"
 )
 
 const (
@@ -67,7 +65,7 @@ func FP8DequantBlocked(w []byte, scales []float32, rows, cols, blockR, blockC in
 
 // FP8Reconstruct reads one block-quantized fp8 linear from a safetensors checkpoint
 // and returns it as a [out, in] row-major float32 matrix.
-func FP8Reconstruct(st *embed.SafetensorsFile, name string, in, out, blockR, blockC int) ([]float32, error) {
+func FP8Reconstruct(st *SafetensorsFile, name string, in, out, blockR, blockC int) ([]float32, error) {
 	wT, err := st.Tensor(name)
 	if err != nil {
 		return nil, fmt.Errorf("fp8 %q: %w", name, err)
@@ -102,6 +100,6 @@ type FP8Reconstructor struct {
 
 func (FP8Reconstructor) Method() string { return "fp8" }
 
-func (r FP8Reconstructor) ReconstructMat2D(st *embed.SafetensorsFile, name string, out, in int) ([]float32, error) {
+func (r FP8Reconstructor) ReconstructMat2D(st *SafetensorsFile, name string, out, in int) ([]float32, error) {
 	return FP8Reconstruct(st, name, in, out, r.BlockR, r.BlockC)
 }

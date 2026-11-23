@@ -3,13 +3,11 @@ package quant
 import (
 	"fmt"
 	"strings"
-
-	"github.com/pkieltyka/goinfer/internal/modelcore/embed"
 )
 
 // GPTQReconstruct dequantizes one GPTQ linear (named base, e.g.
 // "model.layers.0.self_attn.q_proj") to a [out, in] row-major float32 matrix.
-func GPTQReconstruct(st *embed.SafetensorsFile, base string, in, out int) ([]float32, error) {
+func GPTQReconstruct(st *SafetensorsFile, base string, in, out int) ([]float32, error) {
 	if in <= 0 || out <= 0 || in%8 != 0 || out%8 != 0 {
 		return nil, fmt.Errorf("gptq %q: in=%d out=%d must be positive multiples of 8 (4-bit packing)", base, in, out)
 	}
@@ -62,6 +60,6 @@ type GPTQReconstructor struct{}
 
 func (GPTQReconstructor) Method() string { return "gptq" }
 
-func (GPTQReconstructor) ReconstructMat2D(st *embed.SafetensorsFile, name string, out, in int) ([]float32, error) {
+func (GPTQReconstructor) ReconstructMat2D(st *SafetensorsFile, name string, out, in int) ([]float32, error) {
 	return GPTQReconstruct(st, strings.TrimSuffix(name, ".weight"), in, out)
 }

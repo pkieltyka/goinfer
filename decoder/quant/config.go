@@ -10,8 +10,6 @@ import (
 	"encoding/json"
 	"fmt"
 	"strings"
-
-	"github.com/pkieltyka/goinfer/internal/modelcore/embed"
 )
 
 // Reconstructor dequantizes a named 2-D [out, in] weight tensor from a safetensors
@@ -21,7 +19,7 @@ type Reconstructor interface {
 	Method() string
 	// ReconstructMat2D reads and dequantizes name from st into a freshly allocated
 	// [out, in] row-major float32 slice.
-	ReconstructMat2D(st *embed.SafetensorsFile, name string, out, in int) ([]float32, error)
+	ReconstructMat2D(st *SafetensorsFile, name string, out, in int) ([]float32, error)
 }
 
 // RowStreamReconstructor is an optional extension of Reconstructor for formats
@@ -30,7 +28,7 @@ type Reconstructor interface {
 // embedding tables during transcode).
 type RowStreamReconstructor interface {
 	Reconstructor
-	RowReader2D(st *embed.SafetensorsFile, name string, out, in int) (func(r int, dst []float32) error, error)
+	RowReader2D(st *SafetensorsFile, name string, out, in int) (func(r int, dst []float32) error, error)
 }
 
 // Config is the resolved quantization_config (or MLX top-level quantization) for
@@ -78,7 +76,7 @@ const (
 // ClassifyTensor inspects name and its companion scale tensor in st to classify
 // whether the tensor is MLX (U32 + .scales), NVIDIA ModelOpt NVFP4 (U8 + .weight_scale),
 // or a plain floating-point tensor (FormatNone).
-func ClassifyTensor(st *embed.SafetensorsFile, name string) TensorFormat {
+func ClassifyTensor(st *SafetensorsFile, name string) TensorFormat {
 	prefix, ok := strings.CutSuffix(name, ".weight")
 	if !ok {
 		return FormatNone
@@ -103,7 +101,7 @@ func ClassifyTensor(st *embed.SafetensorsFile, name string) TensorFormat {
 // ForTensor returns the Reconstructor for name in st: the checkpoint-level
 // Reconstructor when qc is non-nil, else a per-tensor Reconstructor when
 // ClassifyTensor detects MLX or NVFP4 packing, else nil for unquantized tensors.
-func ForTensor(st *embed.SafetensorsFile, qc *Config, name string) Reconstructor {
+func ForTensor(st *SafetensorsFile, qc *Config, name string) Reconstructor {
 	if qc != nil {
 		return qc.Reconstructor()
 	}
@@ -122,7 +120,7 @@ func ForTensor(st *embed.SafetensorsFile, qc *Config, name string) Reconstructor
 // when unquantized. fresh reports whether the returned slice is freshly allocated
 // (true for every reconstructed tensor; false when st.TensorF32 may alias an
 // on-disk F32 mapping).
-func ReconstructMat2D(st *embed.SafetensorsFile, qc *Config, name string, out, in int) (data []float32, fresh bool, err error) {
+func ReconstructMat2D(st *SafetensorsFile, qc *Config, name string, out, in int) (data []float32, fresh bool, err error) {
 	if r := ForTensor(st, qc, name); r != nil {
 		data, err = r.ReconstructMat2D(st, name, out, in)
 		return data, true, err

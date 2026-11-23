@@ -776,7 +776,7 @@ func isW4A8(w *linalg.WeightMat) bool {
 // Int4F32 returns w's canonical int4 nibbles and its binary16 group scales widened, exactly, to f32 in a NEW
 // slice — for load-time consumers written against f32 scales (GPU uploads, the .giw writer). ok and group are
 // linalg.WeightMat.Int4F16's. It allocates, so it is not for a per-token path; decode reads Int4F16.
-func Int4F32(w *linalg.WeightMat) (q4 []byte, scales []float32, group int, ok bool) {
+func Int4F32(w *WeightMat) (q4 []byte, scales []float32, group int, ok bool) {
 	q4, s16, group, ok := w.Int4F16()
 	if s16 != nil {
 		scales = make([]float32, len(s16))

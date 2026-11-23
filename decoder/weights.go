@@ -28,15 +28,15 @@ import (
 // optional QK-norm weights.
 type LayerWeights struct {
 	// Attention projections (matmul'd → linalg.WeightMat, quantizable).
-	QProj linalg.WeightMat // [NumHeads*HeadDim, HiddenDim]
-	KProj linalg.WeightMat // [NumKVHeads*HeadDim, HiddenDim]
-	VProj linalg.WeightMat // [NumKVHeads*HeadDim, HiddenDim]
-	OProj linalg.WeightMat // [HiddenDim, NumHeads*HeadDim]
+	QProj WeightMat // [NumHeads*HeadDim, HiddenDim]
+	KProj WeightMat // [NumKVHeads*HeadDim, HiddenDim]
+	VProj WeightMat // [NumKVHeads*HeadDim, HiddenDim]
+	OProj WeightMat // [HiddenDim, NumHeads*HeadDim]
 	// GProj is Laguna's attention output gate (g_proj), applied to the attention
 	// context BEFORE OProj as ctx *= softplus(GProj·h). Rows are NumHeads for the
 	// "per-head" granularity or NumHeads*HeadDim for "per-element". Zero-valued
 	// (Rows()==0) for every other family. See applyGateRow.
-	GProj linalg.WeightMat // [NumHeads | NumHeads*HeadDim, HiddenDim]
+	GProj WeightMat // [NumHeads | NumHeads*HeadDim, HiddenDim]
 	// Projection biases ([out]; Qwen2 q/k/v only). Nil when the family/checkpoint
 	// has no bias.
 	QBias []float32 // [NumHeads*HeadDim]
@@ -53,21 +53,21 @@ type LayerWeights struct {
 
 	// MLP: projections quantizable, norms f32. UpBias/DownBias are set only for
 	// the non-gated MLP (GPT-2 c_fc/c_proj); gated families leave them nil.
-	GateProj       linalg.WeightMat // [IntermediateDim, HiddenDim] (unused for non-gated MLP)
-	UpProj         linalg.WeightMat // [IntermediateDim, HiddenDim]
-	UpBias         []float32        // [IntermediateDim] (GPT-2 c_fc bias)
-	DownProj       linalg.WeightMat // [HiddenDim, IntermediateDim]
-	DownBias       []float32        // [HiddenDim] (GPT-2 c_proj bias)
-	PreMLPNorm     []float32        // [HiddenDim]
-	PreMLPNormBias []float32        // [HiddenDim] LayerNorm bias (GPT-2 ln_2)
-	PostMLPNorm    []float32        // [HiddenDim]
+	GateProj       WeightMat // [IntermediateDim, HiddenDim] (unused for non-gated MLP)
+	UpProj         WeightMat // [IntermediateDim, HiddenDim]
+	UpBias         []float32 // [IntermediateDim] (GPT-2 c_fc bias)
+	DownProj       WeightMat // [HiddenDim, IntermediateDim]
+	DownBias       []float32 // [HiddenDim] (GPT-2 c_proj bias)
+	PreMLPNorm     []float32 // [HiddenDim]
+	PreMLPNormBias []float32 // [HiddenDim] LayerNorm bias (GPT-2 ln_2)
+	PostMLPNorm    []float32 // [HiddenDim]
 
 	// Mixture-of-experts FFN (Mixtral; set only when arch.MoE != nil). Router
 	// scores experts; each expert is a gated (SwiGLU) MLP. The dense GateProj/
 	// UpProj/DownProj above are unused in that case.
-	Router     linalg.WeightMat // [NumExperts, HiddenDim] router/gate logits
-	RouterBias []float32        // [NumExperts] DeepSeek/GLM e_score_correction_bias added to scores for top-k SELECTION (nil = none). gpt-oss reuses this as a plain router-LOGIT bias (added before top-k, its own forward).
-	Experts    []expertWeights  // [NumExperts] gated MLPs
+	Router     WeightMat       // [NumExperts, HiddenDim] router/gate logits
+	RouterBias []float32       // [NumExperts] DeepSeek/GLM e_score_correction_bias added to scores for top-k SELECTION (nil = none). gpt-oss reuses this as a plain router-LOGIT bias (added before top-k, its own forward).
+	Experts    []expertWeights // [NumExperts] gated MLPs
 
 	// AttnSinks is gpt-oss's per-head learned attention-sink logit ([NumHeads]):
 	// an extra term in each head's softmax denominator (exp(sink_h)) with no value,
@@ -76,17 +76,17 @@ type LayerWeights struct {
 
 	// Shared expert (Qwen-MoE / Qwen2-MoE; set when arch.MoE.SharedIntermediateDim
 	// > 0). An always-on gated MLP scaled by sigmoid(SharedGate·h).
-	SharedExpert expertWeights    // gated SwiGLU MLP at SharedIntermediateDim
-	SharedGate   linalg.WeightMat // [1, HiddenDim] → sigmoid scalar gate
+	SharedExpert expertWeights // gated SwiGLU MLP at SharedIntermediateDim
+	SharedGate   WeightMat     // [1, HiddenDim] → sigmoid scalar gate
 
 	// Gemma 4 per-layer extras (zero for every other family). The PLE branch runs
 	// after the MLP residual: gate→gelu→×per-layer-embedding→proj→norm→+residual.
-	PLEGate     linalg.WeightMat // [HiddenSizePerLayerInput, HiddenDim] (GGUF inp_gate)
-	PLEProj     linalg.WeightMat // [HiddenDim, HiddenSizePerLayerInput] (GGUF proj)
-	PostPLENorm []float32        // [HiddenDim] post_per_layer_input_norm (GGUF post_norm)
-	LayerScalar float32          // per-layer output scalar (GGUF layer_output_scale); 1 if absent
-	KVShared    bool             // carries no k/v and reuses an earlier layer's KV (Gemma 4 E-models)
-	VFromK      bool             // attention_k_eq_v: no v_proj — V is v_norm(k_proj output) (Gemma 4 12B global layers)
+	PLEGate     WeightMat // [HiddenSizePerLayerInput, HiddenDim] (GGUF inp_gate)
+	PLEProj     WeightMat // [HiddenDim, HiddenSizePerLayerInput] (GGUF proj)
+	PostPLENorm []float32 // [HiddenDim] post_per_layer_input_norm (GGUF post_norm)
+	LayerScalar float32   // per-layer output scalar (GGUF layer_output_scale); 1 if absent
+	KVShared    bool      // carries no k/v and reuses an earlier layer's KV (Gemma 4 E-models)
+	VFromK      bool      // attention_k_eq_v: no v_proj — V is v_norm(k_proj output) (Gemma 4 12B global layers)
 
 	// qwen3_5_moe per-layer attention. Exactly one is set on the hybrid's layers:
 	// delta on the Gated DeltaNet (linear) layers, qattn on the softmax layers.
@@ -161,9 +161,9 @@ type mlaWeights struct {
 // w1=gate, w3=up, w2=down and has no biases; gpt-oss adds a per-expert bias on
 // each projection (the *Bias slices, nil for every other family).
 type expertWeights struct {
-	Gate linalg.WeightMat // [IntermediateDim, HiddenDim] (w1)
-	Up   linalg.WeightMat // [IntermediateDim, HiddenDim] (w3)
-	Down linalg.WeightMat // [HiddenDim, IntermediateDim] (w2)
+	Gate WeightMat // [IntermediateDim, HiddenDim] (w1)
+	Up   WeightMat // [IntermediateDim, HiddenDim] (w3)
+	Down WeightMat // [HiddenDim, IntermediateDim] (w2)
 
 	// gpt-oss per-expert biases (nil elsewhere).
 	GateBias []float32 // [IntermediateDim]
@@ -186,19 +186,19 @@ type Weights struct {
 	// "native". Model.Quant() prefers it over re-inferring from tensor kinds. Empty for a direct GGUF/safetensors load
 	// and for a streamed bundle (which records ""); those fall back to quantLabel() inference.
 	bakedQuant    string
-	Embed         linalg.WeightMat // [VocabSize, HiddenDim] — input embedding (AND tied LM head when LMHead unset)
-	LMHead        linalg.WeightMat // [VocabSize, HiddenDim] — separate output head (untied families); zero value when tied
-	PosEmbed      linalg.WeightMat // [MaxPositions, HiddenDim] — learned position embedding (GPT-2); zero value otherwise
-	FinalNorm     []float32        // [HiddenDim] final norm before the LM head
-	FinalNormBias []float32        // [HiddenDim] final LayerNorm bias (GPT-2 ln_f)
+	Embed         WeightMat // [VocabSize, HiddenDim] — input embedding (AND tied LM head when LMHead unset)
+	LMHead        WeightMat // [VocabSize, HiddenDim] — separate output head (untied families); zero value when tied
+	PosEmbed      WeightMat // [MaxPositions, HiddenDim] — learned position embedding (GPT-2); zero value otherwise
+	FinalNorm     []float32 // [HiddenDim] final norm before the LM head
+	FinalNormBias []float32 // [HiddenDim] final LayerNorm bias (GPT-2 ln_f)
 	Layers        []LayerWeights
 
 	// Gemma 4 PLE inputs (zero for every other family). The per-layer input is
 	// (token_identity + context_aware)/√2: token_identity from PerLayerTokenEmbed,
 	// context_aware from PerLayerModelProj normed by PerLayerProjNorm.
-	PerLayerTokenEmbed linalg.WeightMat // [VocabSize, NumLayers*HiddenSizePerLayerInput] (per_layer_token_embd)
-	PerLayerModelProj  linalg.WeightMat // [NumLayers*HiddenSizePerLayerInput, HiddenDim] (per_layer_model_proj)
-	PerLayerProjNorm   []float32        // [HiddenSizePerLayerInput] (per_layer_proj_norm)
+	PerLayerTokenEmbed WeightMat // [VocabSize, NumLayers*HiddenSizePerLayerInput] (per_layer_token_embd)
+	PerLayerModelProj  WeightMat // [NumLayers*HiddenSizePerLayerInput, HiddenDim] (per_layer_model_proj)
+	PerLayerProjNorm   []float32 // [HiddenSizePerLayerInput] (per_layer_proj_norm)
 
 	st      *embed.SafetensorsFile // retained so alias-backed slices stay valid
 	backing []byte                 // serialized-weights blob aliased by q8/q4 arrays (LoadSerializedWeights); keeps it reachable

@@ -10,7 +10,7 @@ import (
 
 // TensorU32 reads a DType "U32" tensor from st as []uint32, optionally validating
 // its shape against want.
-func TensorU32(st *embed.SafetensorsFile, name string, want ...int) ([]uint32, error) {
+func TensorU32(st *SafetensorsFile, name string, want ...int) ([]uint32, error) {
 	t, err := st.Tensor(name)
 	if err != nil {
 		return nil, err
@@ -136,7 +136,7 @@ func MLXDequantMXFP4Row(words []uint32, scaleBytes []byte, in int, dst []float32
 // MLXRowReader2D validates a 2-D MLX quantized tensor (<prefix>.weight U32 [out, packedCols]
 // + <prefix>.scales + optional <prefix>.biases) and returns a closure that dequantizes
 // row r (0 <= r < out) into dst[:in] without materializing the full [out, in] matrix.
-func MLXRowReader2D(st *embed.SafetensorsFile, name string, out, in int) (func(r int, dst []float32) error, error) {
+func MLXRowReader2D(st *SafetensorsFile, name string, out, in int) (func(r int, dst []float32) error, error) {
 	wT, err := st.Tensor(name)
 	if err != nil {
 		return nil, fmt.Errorf("mlx %q: %w", name, err)
@@ -217,7 +217,7 @@ func MLXRowReader2D(st *embed.SafetensorsFile, name string, out, in int) (func(r
 // MLXReconstruct2D reads one 2-D MLX projection or embedding from st and returns
 // a row-major [out, in] []float32. Unquantized tensors (F32/BF16/F16) fall back
 // to st.TensorF32(name, out, in).
-func MLXReconstruct2D(st *embed.SafetensorsFile, name string, out, in int) ([]float32, error) {
+func MLXReconstruct2D(st *SafetensorsFile, name string, out, in int) ([]float32, error) {
 	wT, err := st.Tensor(name)
 	if err != nil {
 		return nil, fmt.Errorf("mlx %q: %w", name, err)
@@ -242,7 +242,7 @@ func MLXReconstruct2D(st *embed.SafetensorsFile, name string, out, in int) ([]fl
 // projection (<projPrefix>.weight of shape [nExpert, out, packedCols] when U32
 // quantized, or [nExpert, out, in] when F32/BF16/F16). Each call readExpert(e)
 // reconstructs only expert e's [out, in] matrix.
-func MLXExpertSlice3D(st *embed.SafetensorsFile, projPrefix string, nExpert, out, in int) (func(e int) ([]float32, error), error) {
+func MLXExpertSlice3D(st *SafetensorsFile, projPrefix string, nExpert, out, in int) (func(e int) ([]float32, error), error) {
 	wName := projPrefix + ".weight"
 	wT, err := st.Tensor(wName)
 	if err != nil {
@@ -347,10 +347,10 @@ type MLXReconstructor struct{}
 
 func (MLXReconstructor) Method() string { return "mlx" }
 
-func (MLXReconstructor) ReconstructMat2D(st *embed.SafetensorsFile, name string, out, in int) ([]float32, error) {
+func (MLXReconstructor) ReconstructMat2D(st *SafetensorsFile, name string, out, in int) ([]float32, error) {
 	return MLXReconstruct2D(st, name, out, in)
 }
 
-func (MLXReconstructor) RowReader2D(st *embed.SafetensorsFile, name string, out, in int) (func(r int, dst []float32) error, error) {
+func (MLXReconstructor) RowReader2D(st *SafetensorsFile, name string, out, in int) (func(r int, dst []float32) error, error) {
 	return MLXRowReader2D(st, name, out, in)
 }

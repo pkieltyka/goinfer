@@ -20,7 +20,7 @@ func (d *blockTrunk) DrafterGeometry() DrafterGeometry {
 // The weight accessors panic once the host weights are released (ErrDrafterReleased), and the matrix ones on a streamed
 // drafter too (ErrDrafterStreamed), rather than hand out zero matrices.
 
-func (d *blockTrunk) DrafterFC() *linalg.WeightMat {
+func (d *blockTrunk) DrafterFC() *WeightMat {
 	d.mustHoldWeights()
 	return &d.fc
 }

@@ -163,7 +163,7 @@ func (m *Model) kquantSavings(backend string) int64 {
 
 // KQuantNative is "q5k" or "q6k" when backend's q4k lane uploads wm as the file's blocks (kquantLane), else "". wm is
 // compared by address, so it must be the model's own weight (a pointer into Weights()).
-func (m *Model) KQuantNative(backend string, wm *linalg.WeightMat) string {
+func (m *Model) KQuantNative(backend string, wm *WeightMat) string {
 	for _, x := range m.kquantLane(backend) {
 		if x == wm {
 			s, _ := m.w.kquantOf(wm)
@@ -219,7 +219,7 @@ func (m *Model) releaseKQuantFile() {
 }
 
 // Kind is "q5k" or "q6k" when wm is an int8 copy of a tensor the file stores that way, else "". A nil reader reports "".
-func (k *KQuantReader) Kind(wm *linalg.WeightMat) string {
+func (k *KQuantReader) Kind(wm *WeightMat) string {
 	if k == nil {
 		return ""
 	}
@@ -229,7 +229,7 @@ func (k *KQuantReader) Kind(wm *linalg.WeightMat) string {
 
 // Rows calls each with every destination row of wm and that row's raw blocks in the file (176 bytes per 256 columns for
 // Q5_K, 210 for Q6_K), in row order.
-func (k *KQuantReader) Rows(wm *linalg.WeightMat, each func(r int, raw []byte) error) error {
+func (k *KQuantReader) Rows(wm *WeightMat, each func(r int, raw []byte) error) error {
 	row, err := k.RowSource(wm)
 	if err != nil {
 		return err
@@ -244,7 +244,7 @@ func (k *KQuantReader) Rows(wm *linalg.WeightMat, each func(r int, raw []byte) e
 
 // RowSource validates wm's source once and returns destination row r's raw blocks in the file, for r in [0, wm.Rows()).
 // The slices alias the mapping (valid until Close) and the function is safe for concurrent use.
-func (k *KQuantReader) RowSource(wm *linalg.WeightMat) (func(r int) []byte, error) {
+func (k *KQuantReader) RowSource(wm *WeightMat) (func(r int) []byte, error) {
 	src, ok := k.w.kquantOf(wm)
 	if !ok {
 		return nil, fmt.Errorf("decoder: KQuantReader: weight has no Q5_K/Q6_K source")
