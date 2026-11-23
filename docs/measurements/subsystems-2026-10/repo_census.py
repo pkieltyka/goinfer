@@ -25,7 +25,7 @@ import subprocess
 import tarfile
 import tempfile
 
-DECODER = '"github.com/townsendmerino/goinfer/decoder"'
+DECODER = '"github.com/pkieltyka/goinfer/decoder"'
 MEMORY_GROUPS = {
     "residency": ["decoder/residency.go"],
     "fit guard": ["decoder/fitguard.go"],
@@ -96,13 +96,20 @@ def main():
     for f, n in collections.Counter(names).most_common(25):
         print(f"  {n:4d}  {f}")
 
-    m = json.load(open("testdata/parity_manifest.json"))
-    uses = collections.Counter(u for v in m["families"].values() for u in v.get("uses", []))
-    print(f"\n## parity manifest: {len(m['families'])} families; sets used: {dict(uses)}")
-    for name, files in m["shared_sets"].items():
+    sets_path = "testdata/parity/shared_sets.json"
+    if not os.path.exists(sets_path):
+        sys.exit(f"repo_census: required input missing: {sets_path}")
+    shared = json.load(open(sets_path))
+    families = sorted(f[:-5] for f in os.listdir("testdata/parity")
+                      if f.endswith(".json") and f != "shared_sets.json")
+    if not families or not shared:
+        sys.exit("repo_census: testdata/parity held no family records or shared sets")
+    print(f"\n## parity: {len(families)} family records; {len(shared)} shared sets")
+    for name, files in shared.items():
         for f in files:
-            if os.path.exists(f):
-                print(f"  {name:10s} {f:32s} {lines([f]):5d} lines {count_commits(a.since, [f]):4d} commits")
+            if not os.path.exists(f):
+                sys.exit(f"repo_census: shared set {name} names a missing file: {f}")
+            print(f"  {name:10s} {f:32s} {lines([f]):5d} lines {count_commits(a.since, [f]):4d} commits")
     adapters = len(re.findall(r"^func \w+Architecture\(cfg \*Config\)", open("decoder/registry.go").read(), re.M))
     print(f"  decoder/registry.go holds {adapters} family adapters")
 
@@ -114,9 +121,13 @@ def main():
     print(f"\n## module requirement changes in go.mod: {len(subjects)}; by subject: {dict(cls)}")
 
     print("\n## files importing decoder")
-    for mod in ("cuda", "metal", "gpu", "internal/serveapp"):
+    for mod in ("backend/cuda", "backend/metal", "backend/vulkan", "internal/app/serveapp"):
+        if not os.path.isdir(mod):
+            sys.exit(f"repo_census: required module directory missing: {mod}")
         t = list(go_files(mod, True))
         n = list(go_files(mod, False))
+        if not n:
+            sys.exit(f"repo_census: no non-test Go files under {mod}")
         ti = sum(1 for f in t if DECODER in open(f, errors="replace").read())
         ni = [f for f in n if DECODER in open(f, errors="replace").read()]
         ids = set()
