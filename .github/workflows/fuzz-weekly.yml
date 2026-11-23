@@ -33,6 +33,10 @@ jobs:
           - { pkg: decoder, fn: FuzzGPTQReconstruct }
           - { pkg: decoder, fn: FuzzAWQReconstruct }
           - { pkg: decoder, fn: FuzzLoadConfig }
+          - { pkg: internal/modelcore/embed, fn: FuzzParseGGUF }
+          - { pkg: internal/modelcore/embed, fn: FuzzGGUFDequant }
+          - { pkg: internal/modelcore/embed, fn: FuzzParseSafetensors }
+          - { pkg: internal/modelcore/embed, fn: FuzzParseShardIndex }
           - { pkg: internal/runtime/giw, fn: FuzzGIWRead }
           - { pkg: internal/runtime/giw, fn: FuzzGIWRoundTrip }
           - { pkg: tokenizer, fn: FuzzParseTokenizerJSON }

@@ -1146,15 +1146,16 @@ Every import from one goinfer package to another, by repository-relative directo
 | `apps/examples/embeddinggemma2` | `embeddinggemma2` |  |
 | `apps/examples/invoice` | `chat`, `constrain`, `decoder`, `multimodal`, `tokenizer` |  |
 | `apps/examples/structured` | `chat`, `constrain`, `decoder`, `tokenizer` |  |
-| `backend/cuda` | `backend/cuda/internal/fitdecide`, `backend/cuda/internal/gpudev`, `backend/cuda/internal/launchgeom`, `backend/cuda/internal/wpack`, `decoder`, `decoder/fit`, `embeddinggemma2`, `internal/audio`, `internal/cost`, `internal/runtime/logs`, `internal/runtime/mem`, `internal/runtime/program`, `internal/runtime/sampling`, `internal/vision`, `multimodal` | `chat`, `internal/app/fitcmd`, `internal/app/loadflags`, `internal/clef`, `internal/diag/sb2census`, `internal/diag/towerid`, `internal/fidelity`, `internal/guard/memgate`, `internal/runtime/giw`, `internal/runtime/mem/probe`, `internal/runtime/modelload`, `internal/runtime/whisper`, `internal/testgate`, `internal/wrappedupload`, `tokenizer` |
+| `backend/cuda` | `backend/cuda/internal/fitdecide`, `backend/cuda/internal/gpudev`, `backend/cuda/internal/launchgeom`, `backend/cuda/internal/wpack`, `decoder`, `decoder/fit`, `embeddinggemma2`, `internal/audio`, `internal/cost`, `internal/modelcore/linalg`, `internal/runtime/logs`, `internal/runtime/mem`, `internal/runtime/program`, `internal/runtime/sampling`, `internal/vision`, `multimodal` | `chat`, `internal/app/fitcmd`, `internal/app/loadflags`, `internal/clef`, `internal/diag/sb2census`, `internal/diag/towerid`, `internal/fidelity`, `internal/guard/memgate`, `internal/runtime/giw`, `internal/runtime/mem/probe`, `internal/runtime/modelload`, `internal/runtime/whisper`, `internal/testgate`, `internal/wrappedupload`, `tokenizer` |
 | `backend/cuda/cmd/chat` | `backend/cuda`, `internal/app/chatapp` |  |
 | `backend/cuda/cmd/serve` | `backend/cuda`, `internal/app/serveapp` |  |
 | `backend/cuda/internal/fitdecide` | `internal/runtime/mem` |  |
-| `backend/cuda/kernels` |  | `backend/cuda/internal/gpudev`, `backend/cuda/internal/launchgeom`, `backend/cuda/internal/wpack`, `internal/runtime/hybridattn`, `internal/runtime/mamba2`, `internal/runtime/mem`, `internal/runtime/sampling` |
-| `backend/metal` | `backend/metal/internal/gpudev`, `backend/metal/kernels`, `decoder`, `embeddinggemma2`, `internal/audio`, `internal/cost`, `internal/runtime/f16`, `internal/runtime/logs`, `internal/runtime/mem`, `internal/runtime/mem/probe`, `internal/runtime/program`, `internal/vision`, `multimodal` | `chat`, `constrain`, `decoder/fit`, `internal/app/loadflags`, `internal/confidence`, `internal/diag/sb2census`, `internal/diag/towerid`, `internal/fidelity`, `internal/guard/memgate`, `internal/runtime/giw`, `internal/runtime/modelload`, `internal/runtime/prequant`, `internal/testgate`, `internal/wrappedupload`, `tokenizer` |
+| `backend/cuda/internal/wpack` | `internal/modelcore/linalg` |  |
+| `backend/cuda/kernels` |  | `backend/cuda/internal/gpudev`, `backend/cuda/internal/launchgeom`, `backend/cuda/internal/wpack`, `internal/modelcore/embed`, `internal/modelcore/linalg`, `internal/runtime/hybridattn`, `internal/runtime/mamba2`, `internal/runtime/mem`, `internal/runtime/sampling` |
+| `backend/metal` | `backend/metal/internal/gpudev`, `backend/metal/kernels`, `decoder`, `embeddinggemma2`, `internal/audio`, `internal/cost`, `internal/modelcore/linalg`, `internal/runtime/f16`, `internal/runtime/logs`, `internal/runtime/mem`, `internal/runtime/mem/probe`, `internal/runtime/program`, `internal/vision`, `multimodal` | `chat`, `constrain`, `decoder/fit`, `internal/app/loadflags`, `internal/confidence`, `internal/diag/sb2census`, `internal/diag/towerid`, `internal/fidelity`, `internal/guard/memgate`, `internal/modelcore/mmap`, `internal/runtime/giw`, `internal/runtime/modelload`, `internal/runtime/prequant`, `internal/testgate`, `internal/wrappedupload`, `tokenizer` |
 | `backend/metal/cmd/chat` | `backend/metal`, `internal/app/chatapp` |  |
 | `backend/metal/cmd/serve` | `backend/metal`, `internal/app/serveapp` |  |
-| `backend/metal/kernels` | `internal/runtime/f16` | `backend/metal/internal/gpudev`, `internal/runtime/hybridattn`, `internal/runtime/mamba2`, `internal/runtime/sampling` |
+| `backend/metal/kernels` | `internal/runtime/f16` | `backend/metal/internal/gpudev`, `internal/modelcore/linalg`, `internal/runtime/hybridattn`, `internal/runtime/mamba2`, `internal/runtime/sampling` |
 | `backend/vulkan` | `backend/vulkan/internal/vk`, `embeddinggemma2` |  |
 | `chat` | `constrain`, `tokenizer` | `internal/codec`, `multimodal` |
 | `cmd/gate` | `internal/guard/paritykey`, `internal/runtime/mem/probe`, `tokenizer` | `internal/testgate` |
@@ -1163,39 +1164,49 @@ Every import from one goinfer package to another, by repository-relative directo
 | `cmd/serve` | `internal/app/serveapp` |  |
 | `cmd/testcmdtags` | `internal/guard/testcmdtags` |  |
 | `constrain` |  | `tokenizer` |
-| `decoder` | `chat`, `constrain`, `decoder/config`, `decoder/fit`, `decoder/quant`, `decoder/resident`, `internal/cost`, `internal/runtime/adapter`, `internal/runtime/diskfree`, `internal/runtime/f16`, `internal/runtime/giw`, `internal/runtime/hybridattn`, `internal/runtime/kvmgr`, `internal/runtime/logs`, `internal/runtime/mamba2`, `internal/runtime/mem`, `internal/runtime/mem/probe`, `internal/runtime/program`, `internal/runtime/sampling`, `tokenizer` | `internal/audio`, `internal/diag/sb2census`, `internal/fidelity`, `internal/guard/paritykey`, `internal/testgate`, `internal/vision`, `multimodal` |
+| `decoder` | `chat`, `constrain`, `decoder/config`, `decoder/fit`, `decoder/quant`, `decoder/resident`, `internal/cost`, `internal/modelcore/embed`, `internal/modelcore/linalg`, `internal/modelcore/mmap`, `internal/runtime/adapter`, `internal/runtime/diskfree`, `internal/runtime/f16`, `internal/runtime/giw`, `internal/runtime/hybridattn`, `internal/runtime/kvmgr`, `internal/runtime/logs`, `internal/runtime/mamba2`, `internal/runtime/mem`, `internal/runtime/mem/probe`, `internal/runtime/program`, `internal/runtime/sampling`, `tokenizer` | `internal/audio`, `internal/diag/sb2census`, `internal/fidelity`, `internal/guard/paritykey`, `internal/testgate`, `internal/vision`, `multimodal` |
 | `decoder/fit` | `internal/runtime/mem` |  |
-| `decoder/resident` | `internal/cost`, `internal/runtime/adapter` |  |
+| `decoder/quant` | `internal/modelcore/embed` |  |
+| `decoder/resident` | `internal/cost`, `internal/modelcore/linalg`, `internal/runtime/adapter` |  |
 | `demo/chat` | `internal/app/chatapp` |  |
-| `embeddinggemma2` | `internal/audio`, `internal/gguf`, `internal/vision`, `multimodal`, `tokenizer` |  |
+| `embeddinggemma2` | `internal/audio`, `internal/gguf`, `internal/modelcore/embed`, `internal/modelcore/linalg`, `internal/vision`, `multimodal`, `tokenizer` |  |
 | `engine` | `constrain`, `decoder`, `internal/cost` |  |
 | `engine/enginetest` | `engine` |  |
 | `internal/app/chatapp` | `chat`, `constrain`, `decoder`, `internal/app/cliutil`, `internal/app/decidecmd`, `internal/app/fitcmd`, `internal/app/loadflags`, `internal/app/pullcmd`, `internal/batchio`, `internal/codec`, `internal/diag/hwreport`, `internal/runtime/giw`, `internal/runtime/modelload`, `internal/runtime/prequant`, `internal/vision`, `multimodal`, `pull`, `tokenizer` |  |
 | `internal/app/decidecmd` | `decoder`, `internal/app/loadflags`, `internal/decide`, `internal/runtime/modelload`, `internal/runtime/prequant` |  |
-| `internal/app/fitcmd` | `decoder`, `decoder/fit`, `internal/config`, `internal/runtime/mem`, `internal/runtime/modelload`, `internal/runtime/prequant` | `internal/runtime/giw` |
+| `internal/app/fitcmd` | `decoder`, `decoder/fit`, `internal/config`, `internal/runtime/mem`, `internal/runtime/modelload`, `internal/runtime/prequant` | `internal/modelcore/linalg`, `internal/runtime/giw` |
 | `internal/app/loadflags` | `decoder`, `internal/app/cliutil`, `internal/config` |  |
 | `internal/app/pullcmd` | `pull` |  |
-| `internal/app/serveapp` | `chat`, `constrain`, `decoder`, `decoder/fit`, `embeddinggemma2`, `engine`, `internal/app/cliutil`, `internal/app/connect`, `internal/app/loadflags`, `internal/app/pullcmd`, `internal/app/serveapp/jobs`, `internal/audio`, `internal/batchio`, `internal/clef`, `internal/codec`, `internal/cost`, `internal/decide`, `internal/guard/servecheck`, `internal/guard/swapguard`, `internal/runtime/mem`, `internal/runtime/modelload`, `internal/runtime/prequant`, `internal/runtime/sampling`, `internal/runtime/scheduler`, `internal/runtime/whisper`, `internal/vision`, `multimodal`, `pull`, `tokenizer` | `engine/enginetest`, `internal/app/chatapp`, `internal/app/inproc`, `internal/config`, `internal/runtime/giw`, `internal/runtime/kvmgr`, `internal/testgate`, `internal/testpath` |
+| `internal/app/serveapp` | `chat`, `constrain`, `decoder`, `decoder/fit`, `embeddinggemma2`, `engine`, `internal/app/cliutil`, `internal/app/connect`, `internal/app/loadflags`, `internal/app/pullcmd`, `internal/app/serveapp/jobs`, `internal/audio`, `internal/batchio`, `internal/clef`, `internal/codec`, `internal/cost`, `internal/decide`, `internal/guard/servecheck`, `internal/guard/swapguard`, `internal/modelcore/embed`, `internal/modelcore/encoder`, `internal/runtime/mem`, `internal/runtime/modelload`, `internal/runtime/prequant`, `internal/runtime/sampling`, `internal/runtime/scheduler`, `internal/runtime/whisper`, `internal/vision`, `multimodal`, `pull`, `tokenizer` | `engine/enginetest`, `internal/app/chatapp`, `internal/app/inproc`, `internal/config`, `internal/runtime/giw`, `internal/runtime/kvmgr`, `internal/testgate`, `internal/testpath` |
 | `internal/app/serveapp/jobs` | `internal/cost` |  |
-| `internal/audio` | `internal/vision` |  |
-| `internal/clef` | `decoder`, `tokenizer` | `internal/runtime/modelload` |
+| `internal/audio` | `internal/modelcore/embed`, `internal/modelcore/linalg`, `internal/vision` |  |
+| `internal/clef` | `decoder`, `internal/modelcore/embed`, `internal/modelcore/linalg`, `tokenizer` | `internal/runtime/modelload` |
 | `internal/codec` | `chat`, `multimodal`, `tokenizer` |  |
 | `internal/config` |  | `decoder`, `internal/app/loadflags` |
-| `internal/decide` | `chat`, `decoder`, `internal/codec`, `internal/confidence`, `tokenizer` |  |
-| `internal/diag/hwreport` | `decoder`, `internal/app/fitcmd` |  |
+| `internal/decide` | `chat`, `decoder`, `internal/codec`, `internal/confidence`, `internal/modelcore/embed`, `tokenizer` |  |
+| `internal/diag/hwreport` | `decoder`, `internal/app/fitcmd`, `internal/modelcore/linalg` |  |
+| `internal/diag/kernelprint` | `internal/modelcore/embed`, `internal/modelcore/linalg` |  |
 | `internal/diag/towerid` | `embeddinggemma2`, `internal/audio`, `internal/diag/kernelprint`, `internal/vision`, `multimodal` |  |
 | `internal/gguf` | `internal/runtime/f16` |  |
 | `internal/guard/memgate` | `decoder`, `decoder/fit`, `internal/runtime/mem` | `internal/diag/sb2census` |
 | `internal/guard/servecheck` | `decoder`, `internal/diag/hwreport` |  |
 | `internal/guard/swapguard` | `decoder`, `internal/runtime/logs`, `internal/runtime/mem/probe` |  |
+| `internal/modelcore/embed` | `internal/modelcore/cursor`, `internal/modelcore/mmap` | `internal/modelcore/linalg` |
+| `internal/modelcore/encoder` | `internal/modelcore/embed`, `internal/modelcore/linalg`, `internal/modelcore/sparse` |  |
+| `internal/modelcore/linalg` | `internal/modelcore/mmap` |  |
+| `internal/modelcore/mmap` | `internal/runtime/mem/probe` |  |
+| `internal/modelcore/sparse` | `internal/modelcore/accum`, `internal/modelcore/topk` |  |
+| `internal/runtime/hybridattn` | `internal/modelcore/linalg` |  |
 | `internal/runtime/mamba2` | `internal/runtime/hybridattn` |  |
 | `internal/runtime/modelload` | `decoder`, `decoder/fit`, `internal/guard/swapguard`, `internal/runtime/giw`, `internal/runtime/logs`, `internal/runtime/mem`, `internal/runtime/prequant`, `pull`, `tokenizer` | `internal/testpath` |
 | `internal/runtime/prequant` | `decoder` |  |
-| `internal/runtime/whisper` | `internal/audio`, `tokenizer` | `multimodal` |
+| `internal/runtime/whisper` | `internal/audio`, `internal/modelcore/embed`, `internal/modelcore/linalg`, `tokenizer` | `multimodal` |
+| `internal/vision` | `internal/modelcore/embed`, `internal/modelcore/linalg` |  |
 | `internal/wrappedupload` | `decoder` |  |
-| `multimodal` | `internal/audio`, `internal/vision`, `tokenizer` |  |
+| `multimodal` | `internal/audio`, `internal/modelcore/embed`, `internal/modelcore/linalg`, `internal/vision`, `tokenizer` |  |
 | `pull` | `internal/runtime/diskfree` | `decoder`, `tokenizer` |
 | `server` | `internal/app/inproc`, `internal/app/serveapp` |  |
+| `tokenizer` |  | `internal/modelcore/embed` |
 
 ### The protected separations
 
@@ -1204,14 +1215,14 @@ No import, made or recorded, may break one; they are edited by hand in `imports.
 | rule | packages | may not import | why |
 |---|---|---|---|
 | fit-leaf | `decoder/fit`, tests included | any goinfer package; (`decoder/fit` may import `internal/runtime/mem`) | decoder/fit (Tier 3, docs/layout.md) holds the fit guard's and the planner's exchange types so a caller can name them without importing the loader. It sits below decoder, which re-exports them: it imports internal/runtime/mem and no other goinfer package, decoder included. |
-| resident-leaf | `decoder/resident`, tests included | any goinfer package; (`decoder/resident` may import `internal/cost`, `internal/runtime/adapter`) | decoder/resident holds the contract a resident backend implements (the four subsystem interfaces, the provider, ResidentForward, the drafter host and the small data their signatures carry) so a reader can hold it without the loader (MZ5 option B, docs/sub1-resident-interfaces.md). It sits below decoder, which aliases every name in decoder/residentalias.go: it imports internal/cost and internal/runtime/adapter and no other goinfer package, decoder included. |
+| resident-leaf | `decoder/resident`, tests included | any goinfer package; (`decoder/resident` may import `internal/cost`, `internal/modelcore/linalg`, `internal/runtime/adapter`) | decoder/resident holds the contract a resident backend implements (the four subsystem interfaces, the provider, ResidentForward, the drafter host and the small data their signatures carry) so a reader can hold it without the loader (MZ5 option B, docs/sub1-resident-interfaces.md). It sits below decoder, which aliases every name in decoder/residentalias.go: it imports internal/cost, internal/modelcore/linalg and internal/runtime/adapter and no other goinfer package, decoder included. |
 | config-leaf | `decoder/config`, tests included | any goinfer package | decoder/config holds a checkpoint's Config, its validators and its loader, so they test in seconds without compiling decoder. It sits below decoder, which aliases Config: it imports no goinfer package, decoder included. |
-| quant-leaf | `decoder/quant`, tests included | any goinfer package | decoder/quant (Tier 3, docs/layout.md) parses safetensors checkpoint quantization configs and reconstructs FP8, GPTQ, AWQ, NVFP4 and MLX quantized weights behind Reconstructor/RowStreamReconstructor. It sits below decoder and imports no goinfer package, decoder included. |
-| towers-standalone | `internal/vision`, `internal/audio`, tests included | any goinfer package; (`internal/audio` may import `internal/vision`); anything outside the standard library but `github.com/pkieltyka/aikit/linalg`, `github.com/pkieltyka/aikit/embed` | The towers moved from aikit (AX) as model semantics over aikit's kernels: no goinfer package, and from outside the standard library only aikit's linalg and embed. One exception: internal/audio may import internal/vision, whose tower program type the audio towers walk (Francis, 2026-10-29). |
+| quant-leaf | `decoder/quant`, tests included | any goinfer package; (`decoder/quant` may import `internal/modelcore/embed`) | decoder/quant (Tier 3, docs/layout.md) parses safetensors checkpoint quantization configs and reconstructs FP8, GPTQ, AWQ, NVFP4 and MLX quantized weights behind Reconstructor/RowStreamReconstructor. It sits below decoder and imports only internal/modelcore/embed for the safetensors format. |
+| towers-standalone | `internal/vision`, `internal/audio`, tests included | any goinfer package; (`internal/audio` may import `internal/modelcore/embed`, `internal/modelcore/linalg`, `internal/vision`); (`internal/vision` may import `internal/modelcore/embed`, `internal/modelcore/linalg`) | The vision and audio towers use only the standard library and the local model core tensor and weight helpers. The audio towers also use the vision tower program type. |
 | gpudev-standalone | `backend/cuda/internal/gpudev`, `backend/metal/internal/gpudev`, tests included | any goinfer package | The device substrate (AX) sits under every backend package and imports none of them, nor anything else of goinfer's. |
 | kernels-free-of-decoder | `backend/cuda/kernels`, `backend/metal/kernels`, tests included | `decoder` | Backend kernel tests left the packages that import decoder (SB1 step 1) so a decoder edit stops re-running them. |
 | probe-standalone | `internal/runtime/mem/probe`, tests included | any goinfer package | The one reader of the OS's memory account (MM0) imports no goinfer package; that it is the only reader is TestOnlyProbeReadsOSMemory. |
-| root-free-of-backends | `module:root`, tests included | `backend/cuda`; `backend/metal`; `backend/vulkan`; `github.com/pkieltyka/aikit/gpu`; `github.com/ebitengine/purego`; `github.com/eitamring/gocudrv`; (the root go.mod requires none of them) | The root module builds without a GPU toolchain or binding: the backends are their own modules, which import the root, never the reverse. |
+| root-free-of-backends | `module:root`, tests included | `backend/cuda`; `backend/metal`; `backend/vulkan`; `github.com/ebitengine/purego`; `github.com/eitamring/gocudrv`; (the root go.mod requires none of them) | The root module builds without a GPU toolchain or binding: the backends are their own modules, which import the root, never the reverse. |
 | scheduler-standard-library | `internal/runtime/scheduler`, tests included | any goinfer package | The scheduling policy (SB6) is decisions over plain values: no goinfer package and nothing outside the standard library, so it can be tested on a virtual clock with nothing loaded. |
 | engine-below-the-shell | `engine`, `engine/enginetest`, tests included | `internal/app/serveapp`; `internal/app/chatapp`; `cmd` | The engine package (SB7) is what the serving shell asks of a model; the shell imports it and its fakes, never the reverse, so a fake engine needs no server. |
 | serveapp-fakes-test-only | `internal/app/serveapp` | `engine/enginetest` | The engine fakes are test code: the serving shell's production files do not link them. A test supplies its engine through loadedModel.fakeEngine. |

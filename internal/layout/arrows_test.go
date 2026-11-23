@@ -322,8 +322,8 @@ func flatten(m map[string]map[string]string) map[string][]string {
 	return out
 }
 
-// TestLayout_towersStandalone holds towers-standalone to its one exception: internal/audio may import internal/vision
-// (the tower program type; Francis, 2026-10-29), and every other goinfer import from either tower still breaks it.
+// TestLayout_towersStandalone holds the towers to the leaf packages they use.
+// Audio can also import the vision tower program type.
 func TestLayout_towersStandalone(t *testing.T) {
 	raw, err := os.ReadFile(importsPath)
 	if err != nil {
@@ -353,8 +353,9 @@ func TestLayout_towersStandalone(t *testing.T) {
 			{"internal/audio", g("multimodal"), true},
 			{"internal/vision", g("internal/audio"), true},
 			{"internal/vision", g("decoder"), true},
-			{"internal/audio", "github.com/pkieltyka/aikit/linalg", false},
-			{"internal/audio", "github.com/pkieltyka/aikit/gpu", true},
+			{"internal/audio", g("internal/modelcore/linalg"), false},
+			{"internal/vision", g("internal/modelcore/embed"), false},
+			{"internal/audio", g("internal/modelcore/encoder"), true},
 			{"internal/vision", "golang.org/x/sys/unix", true},
 		} {
 			if got := r.breaks(c.from, c.path, test, moduleOf); got != c.breaks {
