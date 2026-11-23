@@ -899,6 +899,7 @@ func (w *Weights) quantLabel() string {
 // into a runnable *Model: it attaches a compute backend and resolves the EOS
 // ids from the config. The weights are used as-is — their quantization is fixed.
 func NewModel(w *Weights, backend string) (*Model, error) {
+	ensureSettings() // the knobs are parsed on first use, never at package init
 	return NewModelWithOptions(w, Options{Backend: backend})
 }
 

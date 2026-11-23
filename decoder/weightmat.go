@@ -2,7 +2,6 @@ package decoder
 
 import (
 	"fmt"
-	"os"
 	"runtime"
 	"strings"
 	"sync"
@@ -481,13 +480,15 @@ var w4a8SplitHalfRepacked, w4a8SplitHalfSkipped, w4a8SplitHalfBytes atomic.Int64
 // (aikit declines on VNNI hosts). It is not defensible as a default. Re-open the decision if the kernel gets faster or
 // canonical can be dropped for a decode-only build. The A/B and the figures:
 // docs/measurements/w4a8-splithalf-decode-ab-PREREGISTERED.md and docs/code-notes/decoder.md#w4a8SplitHalfRepackEnabled.
-var w4a8SplitHalfRepackEnabled = os.Getenv("GOINFER_W4A8_SPLITHALF") != ""
+// w4a8SplitHalfRepackEnabled is GOINFER_W4A8_SPLITHALF, parsed once by ensureSettings on first use.
+var w4a8SplitHalfRepackEnabled bool
 
 // w4a8BatchEnabled runs a layer's q/k/v (and gate/up, where the fused gate+up does not take them) as one W4A8 fork/join
 // instead of one per projection (aikit MatmulBTW4A8Batch). Bit-identical: every output column is the same dot product
 // either way. The default is per architecture (w4a8BatchDefault, cpu_tuning_{arm64,other}.go); GOINFER_W4A8_BATCH=0
 // opts out and =1 forces it on. Why the defaults differ: docs/code-notes/decoder.md#w4a8BatchEnabled.
-var w4a8BatchEnabled = envBoolDefault("GOINFER_W4A8_BATCH", w4a8BatchDefault)
+// w4a8BatchEnabled is GOINFER_W4A8_BATCH, parsed once by ensureSettings on first decoder use.
+var w4a8BatchEnabled bool
 
 // repackW4A8IfEligible applies whichever ISA-specific W4A8 layout THIS build
 // has a kernel for: row4 on arm64, split-half on amd64. Each is a no-op off its

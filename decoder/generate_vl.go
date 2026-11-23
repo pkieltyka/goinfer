@@ -68,6 +68,7 @@ func (m *Model) vlDecodeLoop(ctx context.Context, out chan<- int, g *Generation,
 // with no re-tower, re-prefill or re-upload. Any other outcome (no resident, a different image, busy) takes the
 // full-prefill path. The caller ranges over the returned channel, then checks Generation.Err for a terminal error.
 func (m *Model) GenerateVL(ctx context.Context, ids []int, imgPos, imgLen int, imgHash uint64, features func() ([]float32, error), maxTokens int, sp SamplingParams) (<-chan int, *Generation) {
+	ensureSettings() // the knobs are parsed on first use, never at package init
 	return m.GenerateVLSpans(ctx, ids, []ImageSpan{{Pos: imgPos, Len: imgLen, Hash: imgHash}}, features, maxTokens, sp)
 }
 
@@ -77,6 +78,7 @@ func (m *Model) GenerateVL(ctx context.Context, ids []int, imgPos, imgLen int, i
 // ImageBlocksPrefillAvailable (one span needs only ImagePrefillAvailable), and otherwise the turn takes the CPU-prefill +
 // UploadKV bridge with the reason in Generation.ImgPrefillDecline.
 func (m *Model) GenerateVLSpans(ctx context.Context, ids []int, spans []ImageSpan, features func() ([]float32, error), maxTokens int, sp SamplingParams) (<-chan int, *Generation) {
+	ensureSettings() // the knobs are parsed on first use, never at package init
 	return m.generateVLSpans(ctx, ids, spans, features, maxTokens, sp, false)
 }
 
@@ -85,6 +87,7 @@ func (m *Model) GenerateVLSpans(ctx context.Context, ids []int, spans []ImageSpa
 // between them ordinary text. No bidirectional block and no window check; the resident prefill is the backend's plain
 // batched pass (Prefiller) over the spliced rows.
 func (m *Model) GenerateVLCausalSpans(ctx context.Context, ids []int, spans []ImageSpan, features func() ([]float32, error), maxTokens int, sp SamplingParams) (<-chan int, *Generation) {
+	ensureSettings() // the knobs are parsed on first use, never at package init
 	return m.generateVLSpans(ctx, ids, spans, features, maxTokens, sp, true)
 }
 
@@ -270,6 +273,7 @@ func (m *Model) generateVLSpans(ctx context.Context, ids []int, spans []ImageSpa
 // only ForwardMRoPE can express. A resident backend without it falls back to the CPU decode loop as if no resident were
 // configured, including for image reuse: that fast path is gated on MRoPEDecodeAvailable too, for the same reason.
 func (m *Model) GenerateQwenVL(ctx context.Context, ids []int, imgPos, imgLen int, imgHash uint64, features func() ([]float32, error), gridTHW [][3]int, merge, imageToken, maxTokens int, sp SamplingParams) (<-chan int, *Generation) {
+	ensureSettings() // the knobs are parsed on first use, never at package init
 	return m.GenerateQwenVLDeepstack(ctx, ids, imgPos, imgLen, imgHash, func() ([]float32, [][]float32, error) {
 		f, err := features()
 		return f, nil, err
@@ -281,6 +285,7 @@ func (m *Model) GenerateQwenVL(ctx context.Context, ids []int, imgPos, imgLen in
 // state after that layer. nil sets are GenerateQwenVL. The sets touch only the prefill: a resident whose m-RoPE prefill
 // cannot inject them is not offered it, and the CPU prefill carries them before the usual upload.
 func (m *Model) GenerateQwenVLDeepstack(ctx context.Context, ids []int, imgPos, imgLen int, imgHash uint64, features func() ([]float32, [][]float32, error), gridTHW [][3]int, merge, imageToken, maxTokens int, sp SamplingParams) (<-chan int, *Generation) {
+	ensureSettings() // the knobs are parsed on first use, never at package init
 	return m.GenerateQwenVLDeepstackSpans(ctx, ids, []ImageSpan{{Pos: imgPos, Len: imgLen, Hash: imgHash}}, features, gridTHW, merge, imageToken, maxTokens, sp)
 }
 
@@ -289,6 +294,7 @@ func (m *Model) GenerateQwenVLDeepstack(ctx context.Context, ids []int, imgPos, 
 // merged into one (docs/multimodal.md, "Do not pair images"). features returns every span's merged rows concatenated in
 // span order and, per DeepStack layer, a set laid out the same way.
 func (m *Model) GenerateQwenVLDeepstackSpans(ctx context.Context, ids []int, spans []ImageSpan, features func() ([]float32, [][]float32, error), gridTHW [][3]int, merge, imageToken, maxTokens int, sp SamplingParams) (<-chan int, *Generation) {
+	ensureSettings() // the knobs are parsed on first use, never at package init
 	out := make(chan int)
 	g := &Generation{}
 	m.runGen(ctx, out, g, nil, func(ctx context.Context) {

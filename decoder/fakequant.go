@@ -2,7 +2,6 @@ package decoder
 
 import (
 	"math"
-	"os"
 
 	"github.com/pkieltyka/aikit/linalg"
 )
@@ -12,12 +11,14 @@ import (
 // stores the result at int8 (W8A8). That isolates the 4-bit weight-scheme quality without any packed-nibble format,
 // dequant routine, W4A8 kernel or .giw change: the int8 path is nearly transparent (0.99995 reconstruction), so the
 // fake-int4 error survives to the forward. "sym" is the control: it must reproduce the real-int4 output, or the
-// harness is lying (asserted bit-for-bit by TestFakeQuantSymMatchesRuntimeInt4). The env is read once at package load;
-// unset is a strict no-op, so every int4 consumer stays bit-identical (TestFakeQuantOffBitIdentical).
+// harness is lying (asserted bit-for-bit by TestFakeQuantSymMatchesRuntimeInt4). The knobs are parsed once, on first
+// decoder use rather than at package load; unset is a strict no-op, so every int4 consumer stays bit-identical
+// (TestFakeQuantOffBitIdentical).
 var (
-	fakeQuantScheme      = os.Getenv("GOINFER_FAKEQUANT")
-	fakeQuantF32Act      = os.Getenv("GOINFER_FAKEQUANT_ACT") == "f32"
-	fakeQuantExpertsOnly = os.Getenv("GOINFER_FAKEQUANT_EXPERTS") == "1"
+	// The three FAKEQUANT knobs, parsed once by ensureSettings on first decoder use.
+	fakeQuantScheme      string
+	fakeQuantF32Act      bool
+	fakeQuantExpertsOnly bool
 	fakeQuantPerRow      bool // §7 Phase 0b: one scale per row; a test seam (tests set it; env read retired 2026-09-24)
 )
 

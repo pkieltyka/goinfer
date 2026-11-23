@@ -28,7 +28,8 @@ import (
 // Default per architecture (fusedGateUpDefault, cpu_tuning_{arm64,other}.go): on where it was measured (amd64), off where
 // it was not (arm64). GOINFER_CPU_FUSED_GATEUP=0 forces the unfused path (an A/B handle and an escape hatch), =1 forces
 // it on.
-var cpuFusedGateUp = envBoolDefault("GOINFER_CPU_FUSED_GATEUP", fusedGateUpDefault)
+// cpuFusedGateUp is GOINFER_CPU_FUSED_GATEUP, parsed once by ensureSettings on first decoder use.
+var cpuFusedGateUp bool
 
 func envBoolDefault(name string, def bool) bool {
 	switch os.Getenv(name) {

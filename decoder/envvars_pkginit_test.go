@@ -13,19 +13,14 @@ import (
 	"testing"
 )
 
-// pkgInitEnvReadsKnown is every production package-level variable initialised from the environment. Such a read happens
-// before any test runs, so t.Setenv cannot reach it: a test that sets the variable silently gets the default. Each is
-// listed in testdata/env_reads.txt. The list only shrinks: a new setting is a decoder.Options
-// field or a load-time knob (docs/env-vars.md, "Policy — where a new setting goes"), and a new diagnostic a test hook.
+// pkgInitEnvReadsKnown is the set of production package-level variables still allowed to read the environment at
+// initialisation. It is EMPTY and stays empty: goinfer#70 requires that importing this package — or any backend whose
+// init links it, as backend/cuda does for text embeddings — performs no environment reads before main. The decoder's
+// eight knobs are parsed once on first decoder use instead (env_snapshot.go), and a new setting is a decoder.Options
+// field, a load-time knob or a test hook (docs/env-vars.md, "Policy — where a new setting goes").
 var pkgInitEnvReadsKnown = map[string]bool{
-	"decoder/cpu_gateup_fused.go:cpuFusedGateUp":      true,
-	"decoder/deltanet.go:deltaNetTiming":              true,
-	"decoder/fakequant.go:fakeQuantExpertsOnly":       true,
-	"decoder/fakequant.go:fakeQuantF32Act":            true,
-	"decoder/fakequant.go:fakeQuantScheme":            true,
-	"decoder/model.go:decodeTiming":                   true,
-	"decoder/weightmat.go:w4a8BatchEnabled":           true,
-	"decoder/weightmat.go:w4a8SplitHalfRepackEnabled": true,
+	// Out of goinfer#70's scope: this is the server application, not a library that an embedding consumer
+	// imports. A decoder/ entry, however, may never appear here again.
 	"internal/app/serveapp/tools.go:toolUnionEnabled": true,
 }
 
@@ -121,20 +116,36 @@ func TestEnvVars_noNewPackageInitRead(t *testing.T) {
 	}
 
 	found := pkgInitEnvReads(t, "..")
+	for _, r := range found {
+		if !pkgInitEnvReadsKnown[r] {
+			t.Errorf("%s reads the environment at package initialisation, where t.Setenv cannot reach it and where an "+
+				"importer like backend/cuda reads it before main: parse it on first decoder use (env_snapshot.go) or make "+
+				"it a decoder.Options field or a test hook (docs/env-vars.md, \"Policy — where a new setting goes\")", r)
+		}
+	}
 	seen := map[string]bool{}
 	for _, r := range found {
 		seen[r] = true
-		if !pkgInitEnvReadsKnown[r] {
-			t.Errorf("%s reads the environment at package initialisation, where t.Setenv cannot reach it: make it a "+
-				"decoder.Options field or a load-time knob, or a test hook (docs/env-vars.md, \"Policy — where a new setting goes\")", r)
-		}
 	}
 	for k := range pkgInitEnvReadsKnown {
 		if !seen[k] {
 			t.Errorf("%s no longer reads the environment at initialisation: delete it from pkgInitEnvReadsKnown", k)
 		}
+		if strings.HasPrefix(k, "decoder/") {
+			t.Errorf("%s is a decoder package initialiser: goinfer#70 forbids it outright, so the entry may not be allowlisted", k)
+		}
 	}
-	if len(found) == 0 {
-		t.Fatal("VOID: the scan found no package-level environment read at all")
+	// The scan must still be able to find something, or a green run proves nothing: the plant above is the canary,
+	// and a second one here covers the helper-called form the decoder used (envBoolDefault).
+	helper := filepath.Join(t.TempDir(), "helper")
+	if err := os.MkdirAll(helper, 0o755); err != nil {
+		t.Fatal(err)
+	}
+	srcHelper := "package p\n\nfunc flag(string, bool) bool { return false }\n\nvar viaHelper = flag(\"GOINFER_Q\", true)\n"
+	if err := os.WriteFile(filepath.Join(helper, "p.go"), []byte(srcHelper), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	if got := strings.Join(pkgInitEnvReads(t, helper), ","); got != "p.go:viaHelper" {
+		t.Fatalf("VOID: the scan misses a helper-called GOINFER_ literal: found %q", got)
 	}
 }
