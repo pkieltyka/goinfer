@@ -5,6 +5,8 @@ package cuda
 import (
 	"crypto/sha256"
 	"encoding/json"
+	"encoding/binary"
+	"encoding/json"
 	"errors"
 	"flag"
 	"fmt"
@@ -3446,15 +3448,153 @@ func TestEG2FP16FailedAttach(t *testing.T) {
 	}
 }
 
+// eg2Synthetic256_512Model builds a minimal 2-layer EmbeddingGemma 2 model
+// with real head dimensions (layer 0: HD=256 nKV=2 sliding BM=32; layer 1:
+// HD=512 nKV=1 full BM=16) so tests exercise both distinct BM descriptor plans
+// and actual tracked device allocations.
+func eg2Synthetic256_512Model(t *testing.T) *embeddinggemma2.Model {
+	t.Helper()
+	const (
+		vocab = 8
+		H     = 32
+		I     = 32
+		P     = 16
+		E     = 16
+		L     = 2
+	)
+	cfg := embeddinggemma2.Config{
+		VocabSize:     vocab,
+		Hidden:        H,
+		Intermediate:  I,
+		Layers:        L,
+		Heads:         4,
+		KVHeads:       2,
+		HeadDim:       256,
+		SlidingWindow: 512,
+		PLEDim:        P,
+		EmbeddingDim:  E,
+		RMSNormEps:    1e-6,
+		HiddenAct:     "gelu_pytorch_tanh",
+		LayerTypes:    []string{"sliding_attention", "full_attention"},
+		MaxPositions:  2048,
+		PerLayerConfig: map[string]struct {
+			HeadDim int `json:"head_dim"`
+			KVHeads int `json:"num_key_value_heads"`
+		}{
+			"1": {HeadDim: 512, KVHeads: 1},
+		},
+		RopeParameters: map[string]struct {
+			Theta float64 `json:"rope_theta"`
+			Type  string  `json:"rope_type"`
+		}{
+			"sliding_attention": {Theta: 10000, Type: "default"},
+			"full_attention":    {Theta: 1000000, Type: "default"},
+		},
+	}
+	type spec struct {
+		name  string
+		shape []int
+		fill  float32
+	}
+	specs := []spec{
+		{"ple.per_layer_model_projection.weight", []int{L * P, H}, 0.02},
+		{"ple.per_layer_projection_norm.weight", []int{P}, 1.0},
+		{"norm.weight", []int{H}, 1.0},
+		{"embedding_projection.weight", []int{E, H}, 0.05},
+	}
+	for li, geom := range [][2]int{{256, 2}, {512, 1}} {
+		hd, kvh := geom[0], geom[1]
+		qd, kvd := 4*hd, kvh*hd
+		p := fmt.Sprintf("layers.%d.", li)
+		specs = append(specs,
+			spec{p + "input_layernorm.weight", []int{H}, 1.0},
+			spec{p + "self_attn.q_proj.weight", []int{qd, H}, 0.01},
+			spec{p + "self_attn.k_proj.weight", []int{kvd, H}, 0.01},
+			spec{p + "self_attn.v_proj.weight", []int{kvd, H}, 0.01},
+			spec{p + "self_attn.o_proj.weight", []int{H, qd}, 0.01},
+			spec{p + "self_attn.q_norm.weight", []int{hd}, 1.0},
+			spec{p + "self_attn.k_norm.weight", []int{hd}, 1.0},
+			spec{p + "post_attention_layernorm.weight", []int{H}, 1.0},
+			spec{p + "pre_feedforward_layernorm.weight", []int{H}, 1.0},
+			spec{p + "mlp.gate_proj.weight", []int{I, H}, 0.02},
+			spec{p + "mlp.up_proj.weight", []int{I, H}, 0.02},
+			spec{p + "mlp.down_proj.weight", []int{H, I}, 0.02},
+			spec{p + "post_feedforward_layernorm.weight", []int{H}, 1.0},
+			spec{p + "ple_block.per_layer_input_gate.weight", []int{P, H}, 0.02},
+			spec{p + "ple_block.per_layer_projection.weight", []int{H, P}, 0.02},
+			spec{p + "ple_block.post_per_layer_input_norm.weight", []int{H}, 1.0},
+			spec{p + "layer_scalar", []int{1}, 1.0},
+		)
+	}
+	header := make(map[string]map[string]any, len(specs))
+	var rawData []byte
+	for idx, sp := range specs {
+		n := 1
+		for _, d := range sp.shape {
+			n *= d
+		}
+		start := len(rawData)
+		buf := make([]byte, n*4)
+		for i := range n {
+			val := sp.fill
+			if sp.fill < 0.5 && (i+idx)%2 == 1 {
+				val = -sp.fill
+			}
+			binary.LittleEndian.PutUint32(buf[i*4:], math.Float32bits(val))
+		}
+		rawData = append(rawData, buf...)
+		header[sp.name] = map[string]any{
+			"dtype":        "F32",
+			"shape":        sp.shape,
+			"data_offsets": []int{start, len(rawData)},
+		}
+	}
+	hdrJSON, err := json.Marshal(header)
+	if err != nil {
+		t.Fatal(err)
+	}
+	st := make([]byte, 8+len(hdrJSON)+len(rawData))
+	binary.LittleEndian.PutUint64(st[:8], uint64(len(hdrJSON)))
+	copy(st[8:], hdrJSON)
+	copy(st[8+len(hdrJSON):], rawData)
+	tokens := make([]byte, vocab*H*4)
+	for i := range vocab * H {
+		val := float32(0.1) * float32(1+(i%7))
+		if i%2 == 1 {
+			val = -val
+		}
+		binary.LittleEndian.PutUint32(tokens[i*4:], math.Float32bits(val))
+	}
+	m, err := embeddinggemma2.NewModel(cfg, tokens, st)
+	if err != nil {
+		t.Fatalf("NewModel(256/512): %v", err)
+	}
+	return m
+}
+
 // TestEG2FP16PackedAttnContract verifies that cuda-eg2-fp16 runs packed
 // split-f16 attention alongside FP16 FFN on the shared per-forward status word,
-// omits qkv/bounds scratch vs cuda-eg2-combined, fails closed with
-// errEG2FP16InputRange on attention-side finite K half-overflow (with clean
-// valid reuse and native error priority), and preserves an internal
-// attention-only comparison seam.
+// meets BatchMemory vs actual tracked lease peaks across ragged lengths and
+// both BM=32 and BM=16, preserves raw FP32 bits across the M=36/37 shortTiled
+// boundary, clamps sliding_window >= 2^32 before int32 narrowing, and keeps
+// native cleanup/execution errors strictly ahead of errEG2FP16InputRange.
 func TestEG2FP16PackedAttnContract(t *testing.T) {
 	adapter := eg2FP16TestAdapter(t)
 	m := eg2TinyModel(t)
+	rec := &eg2RecordingLeaser{}
+	origHook := leaseSeenForTest
+	t.Cleanup(func() { leaseSeenForTest = origHook })
+	leaseSeenForTest = func(onDevice bool, line string, requested int64, release func()) func() {
+		if origHook != nil {
+			release = origHook(onDevice, line, requested, release)
+		}
+		recordRelease := rec.Lease(onDevice, line, requested, gpu.ChargedBytes(requested))
+		return func() {
+			release()
+			recordRelease()
+		}
+	}
+
 	acc, err := m.NewAccelerator(eg2FP16TestSelector + ":" + adapter.UUID)
 	if err != nil {
 		t.Fatal(err)
@@ -3469,6 +3609,9 @@ func TestEG2FP16PackedAttnContract(t *testing.T) {
 		t.Fatalf("cuda-eg2-fp16 did not enable both packedAttn (%v, %d pipes) and ffnFP16", a.packedAttnMode, len(a.packedAttn))
 	}
 
+	// 1. Actual tracked lease peak vs BatchMemory on ragged many-short-segment
+	// lengths (BM=32), plus strict savings vs cuda-eg2-combined and ragged vs
+	// single-segment descriptor charging at equal total rows.
 	comb, err := m.NewAccelerator("cuda-eg2-combined:" + adapter.UUID)
 	if err != nil {
 		t.Fatal(err)
@@ -3478,11 +3621,12 @@ func TestEG2FP16PackedAttnContract(t *testing.T) {
 			t.Error(err)
 		}
 	})
-	pEst, err := a.BatchMemory([]int{17, 33, 65})
+	raggedLens := []int{1, 1, 1, 1, 1, 1, 1, 1, 3, 17, 33} // total 61, 11 ragged segments
+	pEst, err := a.BatchMemory(raggedLens)
 	if err != nil {
 		t.Fatal(err)
 	}
-	cEst, err := comb.(*eg2Accel).BatchMemory([]int{17, 33, 65})
+	cEst, err := comb.(*eg2Accel).BatchMemory(raggedLens)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -3490,68 +3634,227 @@ func TestEG2FP16PackedAttnContract(t *testing.T) {
 		t.Fatalf("cuda-eg2-fp16 AdditionalPeakBytes=%d >= combined %d (expected qkv/bounds savings)",
 			pEst.AdditionalPeakBytes, cEst.AdditionalPeakBytes)
 	}
+	raggedBatch := make([][]int, len(raggedLens))
+	for i, n := range raggedLens {
+		row := make([]int, n)
+		for j := range n {
+			row[j] = (i*7 + j) % m.Config().VocabSize
+		}
+		raggedBatch[i] = row
+	}
+	base, allocs := rec.resetWindow()
+	if _, err := a.ForwardBatch(raggedBatch); err != nil {
+		t.Fatalf("ragged ForwardBatch: %v", err)
+	}
+	peak, end, _ := rec.windowDelta(base, allocs)
+	if peak > pEst.AdditionalPeakBytes || end != 0 {
+		t.Fatalf("tiny BM=32 ragged scratch peak=%d, estimate=%d, end=%d", peak, pEst.AdditionalPeakBytes, end)
+	}
 
-	// Attention-side finite K overflow (>= 65520) shares errEG2FP16InputRange
-	// via the same status word on res, returns nil outputs, allows clean reuse,
-	// and keeps native execution errors ahead of range failure.
-	inputs := eg2TinyInputs(t, m.Config().VocabSize)
-	ovModel := eg2TinyModel(t)
-	for i := range ovModel.Weights().Layers[0].KNorm {
-		ovModel.Weights().Layers[0].KNorm[i] = 1e5
-	}
-	ovAcc, err := ovModel.NewAccelerator(eg2FP16TestSelector + ":" + adapter.UUID)
+	// 2. Both BM=32 (HD=256) and BM=16 (HD=512) actual lease peak vs BatchMemory
+	// on ragged many-short-segment lengths.
+	mRealGeom := eg2Synthetic256_512Model(t)
+	accReal, err := mRealGeom.NewAccelerator(eg2FP16TestSelector + ":" + adapter.UUID)
 	if err != nil {
-		t.Fatalf("overflow attach: %v", err)
+		t.Fatalf("256/512 attach: %v", err)
 	}
+	aReal := accReal.(*eg2Accel)
 	t.Cleanup(func() {
-		if err := ovAcc.Close(); err != nil {
+		if err := aReal.Close(); err != nil {
 			t.Error(err)
 		}
 	})
-	ovOut, ovLays, err := ovAcc.Forward(inputs[0], false)
-	if !errors.Is(err, errEG2FP16InputRange) || ovOut != nil || ovLays != nil {
-		t.Fatalf("attention KNorm=1e5 returned len(out)=%d len(layers)=%d err=%v, want nil and errEG2FP16InputRange",
-			len(ovOut), len(ovLays), err)
+	if bms := aReal.distinctPackedBMs(); !slices.Equal(bms, []int{32, 16}) {
+		t.Fatalf("distinctPackedBMs = %v, want [32 16]", bms)
 	}
-	if ovAcc.(*eg2Accel).broken != nil {
-		t.Fatalf("errEG2FP16InputRange poisoned accelerator: %v", ovAcc.(*eg2Accel).broken)
+	estReal, err := aReal.BatchMemory(raggedLens)
+	if err != nil {
+		t.Fatal(err)
 	}
-	zeros := make([]float32, 4*ovModel.Config().Hidden)
-	reuseOut, _, err := ovAcc.ForwardEmbeds(zeros, 4, false)
-	if err != nil || len(reuseOut) != 4*ovModel.Config().EmbeddingDim || !eg2Finite(reuseOut) {
-		t.Fatalf("clean reuse after attention range error failed: len=%d err=%v", len(reuseOut), err)
+	realRagged := make([][]int, len(raggedLens))
+	for i, n := range raggedLens {
+		row := make([]int, n)
+		for j := range n {
+			row[j] = (i + j) % mRealGeom.Config().VocabSize
+		}
+		realRagged[i] = row
 	}
-	planted := errors.New("cuda: planted native forward fault")
-	ovAcc.(*eg2Accel).defect.failForward, ovAcc.(*eg2Accel).defect.failForwardErr = true, planted
-	if _, _, err = ovAcc.Forward(inputs[0], false); !errors.Is(err, planted) || errors.Is(err, errEG2FP16InputRange) {
-		t.Fatalf("expected planted native fault ahead of errEG2FP16InputRange, got %v", err)
+	base, allocs = rec.resetWindow()
+	if _, err := aReal.ForwardBatch(realRagged); err != nil {
+		t.Fatalf("256/512 ragged ForwardBatch: %v", err)
+	}
+	peak, end, _ = rec.windowDelta(base, allocs)
+	if peak > estReal.AdditionalPeakBytes || end != 0 {
+		t.Fatalf("BM=32+16 ragged scratch peak=%d, estimate=%d, end=%d", peak, estReal.AdditionalPeakBytes, end)
 	}
 
-	// Internal attention-only comparison seam (packed attention without FP16 FFN).
+	// 3. M=36/37 shortTiled crossing: compare every raw projected FP32 bit of a
+	// 36-token member alone vs paired with a 1-token member in both orders.
+	id36 := make([]int, 36)
+	for i := range id36 {
+		id36[i] = (i*5 + 1) % m.Config().VocabSize
+	}
+	id1 := []int{2 % m.Config().VocabSize}
+	single36, _, err := a.Forward(id36, false)
+	if err != nil {
+		t.Fatalf("Forward(36): %v", err)
+	}
+	for _, tc := range []struct {
+		label string
+		batch [][]int
+		idx   int
+	}{
+		{"[36,1]", [][]int{id36, id1}, 0},
+		{"[1,36]", [][]int{id1, id36}, 1},
+	} {
+		got, err := a.ForwardBatch(tc.batch)
+		if err != nil {
+			t.Fatalf("%s ForwardBatch: %v", tc.label, err)
+		}
+		if d := eg2FirstDiff(got[tc.idx], single36, m.Dim()); d != "" {
+			t.Fatalf("M=36/37 crossing %s raw bit mismatch: %s", tc.label, d)
+		}
+	}
+
+	// 4. Sliding window >= 2^32 clamp before int32 narrowing on >= 2 distinct rows:
+	// radius 4294967296 must preserve full-segment visibility rather than wrapping to 0.
+	cfgBytes, err := os.ReadFile(filepath.Join(eg2TinyDir, "config.json"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	wideDir := t.TempDir()
+	wideCfg := strings.Replace(string(cfgBytes), `"sliding_window": 3`, `"sliding_window": 4294967296`, 1)
+	if !strings.Contains(wideCfg, `"sliding_window": 4294967296`) {
+		t.Fatal("failed to patch sliding_window in tiny config.json")
+	}
+	if err := os.WriteFile(filepath.Join(wideDir, "config.json"), []byte(wideCfg), 0o600); err != nil {
+		t.Fatal(err)
+	}
+	stAbs, err := filepath.Abs(filepath.Join(eg2TinyDir, "model.safetensors"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err := os.Symlink(stAbs, filepath.Join(wideDir, "model.safetensors")); err != nil {
+		t.Fatal(err)
+	}
+	wideModel, err := embeddinggemma2.Load(wideDir)
+	if err != nil {
+		t.Fatal(err)
+	}
+	wideAcc, err := wideModel.NewAccelerator(eg2FP16TestSelector + ":" + adapter.UUID)
+	if err != nil {
+		t.Fatal(err)
+	}
+	t.Cleanup(func() {
+		if err := wideAcc.Close(); err != nil {
+			t.Error(err)
+		}
+	})
+	wideIDs := eg2TinyInputs(t, wideModel.Config().VocabSize)[2]
+	wantWide, _, err := wideModel.ForwardCPU(wideIDs, false)
+	if err != nil {
+		t.Fatal(err)
+	}
+	gotWide, _, err := wideAcc.Forward(wideIDs, false)
+	if err != nil || len(gotWide) != len(wantWide) || !eg2Finite(gotWide) || eg2Cos(gotWide, wantWide) < 0.999 {
+		t.Fatalf("sliding_window=2^32 parity: cos=%.8f err=%v", eg2Cos(gotWide, wantWide), err)
+	}
+
+	// 5. Simultaneously armed FP16 status + planted failing ReleaseBufChecked
+	// in both cuda-eg2-fp16 (FFN+packed) and attention-only modes: cleanup error
+	// must win without joining errEG2FP16InputRange or ErrBatchOutOfMemory, next
+	// call must be sticky with zero GPU work, and Close must release ownership.
+	inputs := eg2TinyInputs(t, m.Config().VocabSize)
 	packedPTX, err := os.ReadFile("testdata/eg2_packed_attn.ptx")
 	if err != nil {
 		t.Fatal(err)
 	}
-	attnOnly, err := newEG2AccelWithFP16(m, true, nil, packedPTX, func() (*Device, error) {
-		return gpu.CreateSelectedDevice(adapter)
-	})
+	ffnPTX, err := os.ReadFile("testdata/eg2_ffn_fp16.ptx")
 	if err != nil {
 		t.Fatal(err)
 	}
-	t.Cleanup(func() {
-		if err := attnOnly.Close(); err != nil {
-			t.Error(err)
-		}
-	})
-	if !attnOnly.packedAttnMode || attnOnly.ffnFP16 != (Pipeline{}) {
-		t.Fatalf("attention-only seam state mismatch: packed=%v ffnFP16=%v", attnOnly.packedAttnMode, attnOnly.ffnFP16 != (Pipeline{}))
-	}
-	want, _, err := m.ForwardCPU(inputs[0], false)
-	if err != nil {
-		t.Fatal(err)
-	}
-	got, _, err := attnOnly.Forward(inputs[0], false)
-	if err != nil || len(got) != len(want) || !eg2Finite(got) || eg2Cos(got, want) < 0.9999 {
-		t.Fatalf("attention-only seam parity: cos=%.8f err=%v", eg2Cos(got, want), err)
+	for _, mode := range []struct {
+		name      string
+		ffnPTX    []byte
+		packedPTX []byte
+		ffnOnly   bool
+	}{
+		{"fp16-ffn+packed", ffnPTX, packedPTX, false},
+		{"packed-attn-only", nil, packedPTX, false},
+		{"fp16-ffn-only", ffnPTX, nil, true},
+	} {
+		t.Run(mode.name, func(t *testing.T) {
+			ovModel := eg2TinyModel(t)
+			if !mode.ffnOnly {
+				for i := range ovModel.Weights().Layers[0].KNorm {
+					ovModel.Weights().Layers[0].KNorm[i] = 1e5
+				}
+			}
+			ovA, err := newEG2AccelWithFP16(ovModel, true, mode.ffnPTX, mode.packedPTX, func() (*Device, error) {
+				return gpu.CreateSelectedDevice(adapter)
+			})
+			if err != nil {
+				t.Fatalf("attach: %v", err)
+			}
+			runOverflow := func(keepLayers bool) ([]float32, [][]float32, error) {
+				if mode.ffnOnly {
+					x, err := ovModel.EmbedTokens(inputs[0])
+					if err != nil {
+						t.Fatal(err)
+					}
+					x[len(x)-1] = float32(math.Inf(1))
+					return ovA.forwardRows(x, []int{len(inputs[0])}, keepLayers)
+				}
+				return ovA.Forward(inputs[0], keepLayers)
+			}
+			// Healthy numeric rejection first: nil outputs + errEG2FP16InputRange + valid reuse.
+			ovOut, ovLays, err := runOverflow(true)
+			if !errors.Is(err, errEG2FP16InputRange) || ovOut != nil || ovLays != nil || ovA.broken != nil {
+				t.Fatalf("healthy range reject: len(out)=%d len(layers)=%d broken=%v err=%v", len(ovOut), len(ovLays), ovA.broken, err)
+			}
+			zeros := make([]float32, 4*ovModel.Config().Hidden)
+			reuseOut, _, err := ovA.ForwardEmbeds(zeros, 4, false)
+			if err != nil || len(reuseOut) != 4*ovModel.Config().EmbeddingDim || !eg2Finite(reuseOut) {
+				t.Fatalf("clean reuse after range reject failed: len=%d err=%v", len(reuseOut), err)
+			}
+
+			// Now arm BOTH overflow status AND failing ReleaseBufChecked: cleanup
+			// error must take precedence with nil kept layers, no range/retry sentinel,
+			// sticky next call with zero GPU launches, and clean Close recovery.
+			plantedFree := errors.New("cuda: planted scratch free failure")
+			ovA.ops.dev.SetCloseBufHookForTest(func(func() error) error { return plantedFree })
+			ovOut, ovLays, err = runOverflow(true)
+			if ovOut != nil || ovLays != nil || !errors.Is(err, plantedFree) ||
+				errors.Is(err, errEG2FP16InputRange) || errors.Is(err, embeddinggemma2.ErrBatchOutOfMemory) {
+				t.Fatalf("armed status + failed free: len(out)=%d len(layers)=%d err=%v", len(ovOut), len(ovLays), err)
+			}
+			if ovA.broken == nil {
+				t.Fatal("failed free did not poison accelerator")
+			}
+			launches := 0
+			origTrace := gpu.TraceForTest
+			gpu.TraceForTest = func(ev gpu.TraceEvent) {
+				if origTrace != nil {
+					origTrace(ev)
+				}
+				if ev.Op == gpu.TraceLaunch {
+					launches++
+				}
+			}
+			_, _, stickyErr := ovA.Forward(inputs[0], false)
+			gpu.TraceForTest = origTrace
+			if !errors.Is(stickyErr, plantedFree) || errors.Is(stickyErr, errEG2FP16InputRange) || launches != 0 {
+				t.Fatalf("sticky follow-up: err=%v launches=%d, want plantedFree and 0 launches", stickyErr, launches)
+			}
+			// Clear free hook and prove Close releases all remaining ownership cleanly.
+			ovA.ops.dev.SetCloseBufHookForTest(nil)
+			dev := ovA.ops.dev
+			if err := ovA.Close(); err != nil {
+				t.Fatalf("Close retry after cleared free hook failed: %v", err)
+			}
+			if allocsLeft, objsLeft := dev.LedgerLen(); allocsLeft != 0 || objsLeft != 0 {
+				t.Fatalf("Close left %d allocs and %d objects", allocsLeft, objsLeft)
+			}
+		})
 	}
 }

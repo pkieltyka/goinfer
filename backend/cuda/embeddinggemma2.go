@@ -338,12 +338,6 @@ func eg2CUDAAttach(combined bool, fp16PTX []byte) eg2Attacher {
 	}
 }
 
-func eg2CUDAAttachFP16(fp16PTX, packedAttnPTX []byte) eg2Attacher {
-	return func(m *embeddinggemma2.Model, open func() (*Device, error)) (*eg2Accel, error) {
-		return newEG2AccelWithFP16(m, true, fp16PTX, packedAttnPTX, open)
-	}
-}
-
 func newEG2AccelWithFFN(m *embeddinggemma2.Model, combined bool, fp16PTX []byte, open func() (*Device, error)) (*eg2Accel, error) {
 	return newEG2AccelWithFP16(m, combined, fp16PTX, nil, open)
 }
@@ -1113,6 +1107,7 @@ func (a *eg2Accel) forwardRows(x0 []float32, lens []int, keepLayers bool) ([]flo
 		drainErr       error
 		releaseErr     error
 		ropeReleaseErr error
+		rangeFailed    bool
 	)
 	err = a.ops.do(func() error {
 		o := a.ops
@@ -1246,6 +1241,10 @@ func (a *eg2Accel) forwardRows(x0 []float32, lens []int, keepLayers bool) ([]flo
 				win := W
 				if ly.w.Full {
 					win = -1
+				} else if win > maxT {
+					// Clamp nonnegative Go int radius before int32 narrowing so huge
+					// radii such as 2^32 preserve full-segment visibility instead of wrapping.
+					win = maxT
 				}
 				o.cls(clsAttn)
 				o.launch(a.packedAttn[hd], LaunchConfig{
@@ -1335,7 +1334,10 @@ func (a *eg2Accel) forwardRows(x0 []float32, lens []int, keepLayers bool) ([]flo
 		if invalidInput != (Buffer{}) {
 			last := len(out) - 1
 			if math.Float32bits(out[last]) != 0 {
-				return errEG2FP16InputRange
+				rangeFailed = true
+				out = nil
+				layers = nil
+				return nil
 			}
 			out = out[:last:last]
 		}
@@ -1360,6 +1362,9 @@ func (a *eg2Accel) forwardRows(x0 []float32, lens []int, keepLayers bool) ([]flo
 	}
 	if classified := classifyEG2ForwardErr(err, latchedErr, drainErr, releaseErr, a.broken, a.closed); classified != nil {
 		return nil, nil, classified
+	}
+	if rangeFailed {
+		return nil, nil, fmt.Errorf("cuda: EmbeddingGemma 2 forward: %w", errEG2FP16InputRange)
 	}
 	return out, layers, nil
 }
