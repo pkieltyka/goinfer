@@ -3641,13 +3641,26 @@ func TestEG2FP16PackedAttnContract(t *testing.T) {
 		}
 		raggedBatch[i] = row
 	}
+	// Cold call grows a.ropes cache to maxT=33; warm call proves zero scratch leak (end == 0).
 	base, allocs := rec.resetWindow()
 	if _, err := a.ForwardBatch(raggedBatch); err != nil {
-		t.Fatalf("ragged ForwardBatch: %v", err)
+		t.Fatalf("ragged ForwardBatch (cold): %v", err)
+	}
+	peak, _, _ := rec.windowDelta(base, allocs)
+	if peak > pEst.AdditionalPeakBytes {
+		t.Fatalf("tiny BM=32 ragged cold scratch peak=%d > estimate=%d", peak, pEst.AdditionalPeakBytes)
+	}
+	pEstWarm, err := a.BatchMemory(raggedLens)
+	if err != nil {
+		t.Fatal(err)
+	}
+	base, allocs = rec.resetWindow()
+	if _, err := a.ForwardBatch(raggedBatch); err != nil {
+		t.Fatalf("ragged ForwardBatch (warm): %v", err)
 	}
 	peak, end, _ := rec.windowDelta(base, allocs)
-	if peak > pEst.AdditionalPeakBytes || end != 0 {
-		t.Fatalf("tiny BM=32 ragged scratch peak=%d, estimate=%d, end=%d", peak, pEst.AdditionalPeakBytes, end)
+	if peak > pEstWarm.AdditionalPeakBytes || end != 0 {
+		t.Fatalf("tiny BM=32 ragged warm scratch peak=%d, estimate=%d, end=%d", peak, pEstWarm.AdditionalPeakBytes, end)
 	}
 
 	// 2. Both BM=32 (HD=256) and BM=16 (HD=512) actual lease peak vs BatchMemory
@@ -3680,11 +3693,23 @@ func TestEG2FP16PackedAttnContract(t *testing.T) {
 	}
 	base, allocs = rec.resetWindow()
 	if _, err := aReal.ForwardBatch(realRagged); err != nil {
-		t.Fatalf("256/512 ragged ForwardBatch: %v", err)
+		t.Fatalf("256/512 ragged ForwardBatch (cold): %v", err)
+	}
+	peak, _, _ = rec.windowDelta(base, allocs)
+	if peak > estReal.AdditionalPeakBytes {
+		t.Fatalf("BM=32+16 ragged cold scratch peak=%d > estimate=%d", peak, estReal.AdditionalPeakBytes)
+	}
+	estRealWarm, err := aReal.BatchMemory(raggedLens)
+	if err != nil {
+		t.Fatal(err)
+	}
+	base, allocs = rec.resetWindow()
+	if _, err := aReal.ForwardBatch(realRagged); err != nil {
+		t.Fatalf("256/512 ragged ForwardBatch (warm): %v", err)
 	}
 	peak, end, _ = rec.windowDelta(base, allocs)
-	if peak > estReal.AdditionalPeakBytes || end != 0 {
-		t.Fatalf("BM=32+16 ragged scratch peak=%d, estimate=%d, end=%d", peak, estReal.AdditionalPeakBytes, end)
+	if peak > estRealWarm.AdditionalPeakBytes || end != 0 {
+		t.Fatalf("BM=32+16 ragged warm scratch peak=%d, estimate=%d, end=%d", peak, estRealWarm.AdditionalPeakBytes, end)
 	}
 
 	// 3. M=36/37 shortTiled crossing: compare every raw projected FP32 bit of a
