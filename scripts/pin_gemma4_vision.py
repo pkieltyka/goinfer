@@ -1,6 +1,6 @@
 #!/usr/bin/env python
 """Pin a tiny-random Gemma 4 vision tower forward as a goinfer parity golden —
-the P7 Phase A fixture for aikit/vision's Gemma4Encoder.
+the P7 Phase A fixture for the Go Gemma4Encoder.
 
 Builds a SMALL random Gemma4VisionModel + Gemma4MultimodalEmbedder (the same
 classes the real "gemma4" family — E2B/E4B/26B-A4B/31B — uses; NOT the separate
@@ -26,7 +26,7 @@ import torch
 from transformers.models.gemma4.configuration_gemma4 import Gemma4VisionConfig
 from transformers.models.gemma4.modeling_gemma4 import Gemma4VisionModel, Gemma4MultimodalEmbedder
 
-OUT = os.path.join(os.path.dirname(__file__), "..", "testdata", "gemma4_vision_golden.json")
+OUT = os.path.join(os.path.dirname(__file__), "..", "internal", "vision", "testdata", "gemma4_vision_golden.json")
 
 # Tiny config exercising every component: patch_size=4, pooling_kernel_size=3 ->
 # 12px effective patch; a 6x6=36-patch grid pools to 2x2=4 soft tokens.

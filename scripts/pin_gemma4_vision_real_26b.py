@@ -1,5 +1,5 @@
 #!/usr/bin/env python
-"""Real-checkpoint gate for aikit/vision's Gemma4Encoder on the STANDARDIZE=TRUE geometry
+"""Real-checkpoint gate for the Go Gemma4Encoder on the STANDARDIZE=TRUE geometry
 (P7 real-validation pass) — the real google/gemma-4-26b-a4b-it vision tower + embed_vision
 weights (hidden 1152, 27 layers, head_dim 72, use_clipped_linears=False), the twin of
 pin_gemma4_vision_real.py (which pins the standardize=False E2B geometry; that one must stay
@@ -27,7 +27,7 @@ from transformers.models.gemma4.configuration_gemma4 import Gemma4Config
 from transformers.models.gemma4.modeling_gemma4 import Gemma4MultimodalEmbedder, Gemma4VisionModel
 
 CKPT_DIR = os.path.expanduser("~/models/gemma-4-26b-a4b-it")
-OUT = os.path.join(os.path.dirname(__file__), "..", "testdata", "gemma4_vision_real_26b_golden.json.gz")
+OUT = os.path.join(os.path.dirname(__file__), "..", "internal", "vision", "testdata", "gemma4_vision_real_26b_golden.json.gz")
 
 PATCH_SIZE = 16
 POOLING_KERNEL_SIZE = 3

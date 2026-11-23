@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
-"""Pin the GLM-OCR VISION TOWER (transformers' GlmOcrVisionModel, f32, CPU) as an aikit parity golden.
+"""Pin the GLM-OCR VISION TOWER (transformers' GlmOcrVisionModel, f32, CPU) as a parity golden.
 
-Gate O2 of docs/completed/task-glm-ocr-2026-10.md. The Go side is aikit/vision/glm_ocr_encoder.go
+Gate O2 of docs/completed/task-glm-ocr-2026-10.md. The Go side is internal/vision/glm_ocr_encoder.go
 (GlmOcrVisionEncoder). Tower-only: pixel_values + grid_thw in, merged features (HF pooler_output) out.
 No decoder is involved.
 
@@ -17,8 +17,8 @@ Two modes (run with ~/.venv-vl/bin/python — transformers 5.12.0, torch CPU, PI
       The weights are rounded to bf16 first (so the committed checkpoint is bf16, like the real one,
       and f32 HF math sees exactly what the Go loader reads).
           python scripts/pin_glm_ocr_vision.py
-          -> <aikit>/testdata/glm_ocr_vision_golden.json
-          -> <aikit>/testdata/glm-ocr-vision-tiny/   (config.json + model.safetensors, "model.visual." keys)
+          -> internal/vision/testdata/glm_ocr_vision_golden.json
+          -> internal/vision/testdata/glm-ocr-vision-tiny/   (config.json + model.safetensors, "model.visual." keys)
 
   real   (the pre-registered O2 gate; NOT committed — the files are tens of MB)
       The REAL checkpoint's tower weights (~/models/glm-ocr), fed the output of the REAL
@@ -53,7 +53,7 @@ TINY = dict(depth=2, hidden_size=128, intermediate_size=256, num_heads=2, in_cha
             patch_size=4, spatial_merge_size=2, temporal_patch_size=2, out_hidden_size=192,
             rms_norm_eps=1e-5, attention_bias=True, hidden_act="silu")
 TINY_GRIDS = [[1, 4, 6], [1, 2, 8]]  # two images, non-square, one packed call
-DEFAULT_AIKIT = os.path.expanduser("~/mycode/aikit/aikit")
+DEFAULT_TESTDATA = os.path.join(os.path.dirname(__file__), "..", "internal", "vision", "testdata")
 
 
 def tiny_config():
@@ -111,13 +111,12 @@ def check_rotary(model):
     assert torch.isfinite(inv).all() and torch.allclose(inv, exp, rtol=1e-6), "rotary inv_freq is not the expected table"
 
 
-def tiny_mode(aikit):
+def tiny_mode(testdata):
     torch.manual_seed(0)
     cfg = tiny_config()
     v = GlmOcrVisionModel(cfg).eval().to(torch.float32)
     randomise(v, 7)
     check_rotary(v)
-    testdata = os.path.join(aikit, "testdata")
     ckpt = os.path.join(testdata, "glm-ocr-vision-tiny")
     os.makedirs(ckpt, exist_ok=True)
     sd = {"model.visual." + k: t.detach().to(torch.bfloat16).contiguous().clone() for k, t in v.state_dict().items()}
@@ -228,13 +227,13 @@ def real_mode(ckpt, out, seed):
 def main():
     ap = argparse.ArgumentParser()
     ap.add_argument("mode", nargs="?", default="tiny", choices=["tiny", "real"])
-    ap.add_argument("--aikit", default=DEFAULT_AIKIT, help="aikit checkout (tiny mode writes its testdata/)")
+    ap.add_argument("--testdata", default=DEFAULT_TESTDATA, help="fixture output directory for tiny mode")
     ap.add_argument("--ckpt", default="~/models/glm-ocr")
     ap.add_argument("--out", default="~/models/glm-ocr-tower-golden")
     ap.add_argument("--seed", type=int, default=3)
     a = ap.parse_args()
     if a.mode == "tiny":
-        tiny_mode(a.aikit)
+        tiny_mode(a.testdata)
     else:
         real_mode(a.ckpt, a.out, a.seed)
 

@@ -299,7 +299,7 @@ def _git_commit_all(repo, msg):
 class TestHookGitDirDoesNotRedirectSiblingLookups(unittest.TestCase):
     """A git hook exports GIT_DIR for the repository being pushed (absolute, from a worktree). subject_of names the repo
        it searches by cwd, so an inherited GIT_DIR made it search the PUSHING repo for another repo's SHA and report it
-       as not resolving: the pre-push hook refused a push from a goinfer worktree on two aikit SHAs (2026-10-07)."""
+       as not resolving: the pre-push hook refused a push from a goinfer worktree on two external commit citations (2026-10-07)."""
 
     def test_sha_in_sibling_resolves_under_a_foreign_git_dir(self):
         with tempfile.TemporaryDirectory() as td:

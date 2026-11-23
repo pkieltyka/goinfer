@@ -14,7 +14,7 @@ naive one, so the size of the problem is on the page.
 
 What it does. For each unpinned live doc (every tracked markdown doc the lint reads, minus the dated records below, minus any doc that
 already carries a `citations-at` marker) it finds each `path:line` (and `path:line-end`), resolves the file through the lint's own roots
-(the module cache at go.mod's version for aikit, then the checkouts), asks the lint's own scanner which declaration encloses that line, and
+(the current checkout and any explicitly named checkouts), asks the lint's own scanner which declaration encloses that line, and
 rewrites the citation to `path:Name` (`path:Type.Method` for a method). The scanner is the lint's (queue_citation_lint.go_decls), so what
 this writes is exactly what the lint will check; the two cannot disagree about what a declaration is.
 

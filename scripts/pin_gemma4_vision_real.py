@@ -1,5 +1,5 @@
 #!/usr/bin/env python
-"""Real-checkpoint gate for aikit/vision's Gemma4Encoder (P7 Phase A) — loads
+"""Real-checkpoint gate for the Go Gemma4Encoder (P7 Phase A) — loads
 the REAL google/gemma-4-E2B-it vision tower + embed_vision weights (not a tiny
 random model) and runs a forward pass on fixed synthetic pre-patchified input,
 dumping the projected soft-token output. The Go Gemma4Encoder loads the SAME
@@ -24,7 +24,7 @@ from transformers.models.gemma4.configuration_gemma4 import Gemma4Config
 from transformers.models.gemma4.modeling_gemma4 import Gemma4MultimodalEmbedder, Gemma4VisionModel
 
 CKPT_DIR = os.path.expanduser("~/models/gemma-4-E2B-unq")
-OUT = os.path.join(os.path.dirname(__file__), "..", "testdata", "gemma4_vision_real_golden.json.gz")
+OUT = os.path.join(os.path.dirname(__file__), "..", "internal", "vision", "testdata", "gemma4_vision_real_golden.json.gz")
 
 PATCH_SIZE = 16
 POOLING_KERNEL_SIZE = 3
