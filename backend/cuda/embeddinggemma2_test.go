@@ -3,7 +3,9 @@
 package cuda
 
 import (
+	"bufio"
 	"crypto/sha256"
+	"encoding/binary"
 	"encoding/json"
 	"errors"
 	"flag"
@@ -3144,7 +3146,7 @@ func TestCUDAProbeRetainsFailedCloseOwnership(t *testing.T) {
 
 const eg2FP16TestSelector = "cuda-eg2-fp16"
 
-func eg2FP16TaggedBinary(t *testing.T) bool {
+func eg2TaggedBinary(t *testing.T, required ...string) bool {
 	t.Helper()
 	info, ok := debug.ReadBuildInfo()
 	if !ok {
@@ -3153,14 +3155,19 @@ func eg2FP16TaggedBinary(t *testing.T) bool {
 	for _, setting := range info.Settings {
 		if setting.Key == "-tags" {
 			tags := strings.Fields(strings.ReplaceAll(setting.Value, ",", " "))
-			return slices.Contains(tags, "eg2_combined") && slices.Contains(tags, "eg2_fp16")
+			for _, tag := range required {
+				if !slices.Contains(tags, tag) {
+					return false
+				}
+			}
+			return true
 		}
 	}
 	return false
 }
 
 func TestEG2FP16Geometry(t *testing.T) {
-	tagsLinked := eg2FP16TaggedBinary(t)
+	tagsLinked := eg2TaggedBinary(t, "eg2_combined", "eg2_fp16")
 	selectors := embeddinggemma2.DeviceSelectors("cuda")
 	registered := slices.Contains(selectors, eg2FP16TestSelector)
 	if registered != tagsLinked {
@@ -3181,6 +3188,17 @@ func TestEG2FP16Geometry(t *testing.T) {
 	if acc != nil || !errors.Is(err, embeddinggemma2.ErrDeviceUnavailable) {
 		t.Fatalf("invalid explicit device = %v, %v", acc, err)
 	}
+	// Verify the synthetic 256/512 safetensors fixture builds and runs on CPU without a GPU.
+	m256 := eg2Synthetic256_512Model(t)
+	w256 := m256.TransformerWeights()
+	if len(w256.Layers) != 2 || w256.Layers[0].HeadDim != 256 || w256.Layers[0].KVHeads != 2 ||
+		w256.Layers[1].HeadDim != 512 || w256.Layers[1].KVHeads != 1 {
+		t.Fatalf("eg2Synthetic256_512Model layers = %+v", w256.Layers)
+	}
+	out256, _, err := m256.ForwardCPU([]int{0, 1, 2}, false)
+	if err != nil || len(out256) != 3*m256.Dim() || !eg2Finite(out256) {
+		t.Fatalf("eg2Synthetic256_512Model ForwardCPU = (%d, %v)", len(out256), err)
+	}
 }
 
 func TestEG2FP16Weights(t *testing.T) {
@@ -3198,7 +3216,7 @@ func TestEG2FP16Weights(t *testing.T) {
 
 func eg2FP16TestAdapter(t *testing.T) gpu.Adapter {
 	t.Helper()
-	if !eg2FP16TaggedBinary(t) {
+	if !eg2TaggedBinary(t, "eg2_combined", "eg2_fp16") {
 		t.Skip("build with cuda,eg2_combined,eg2_fp16 to run FP16 encoder tests")
 	}
 	if !slices.Contains(embeddinggemma2.DeviceSelectors("cuda"), eg2FP16TestSelector) {
@@ -3443,5 +3461,811 @@ func TestEG2FP16FailedAttach(t *testing.T) {
 	}
 	if allocs, objects := dev.LedgerLen(); allocs != 0 || objects != 0 {
 		t.Fatalf("invalid-weight attach retains %d allocations and %d objects", allocs, objects)
+	}
+}
+
+// eg2Synthetic256_512Model builds a minimal 2-layer EmbeddingGemma 2 model
+// with real head dimensions (layer 0: HD=256 nKV=2 sliding BM=32; layer 1:
+// HD=512 nKV=1 full BM=16) so tests exercise both distinct BM descriptor plans
+// and actual tracked device allocations.
+func eg2Synthetic256_512Model(t *testing.T) *embeddinggemma2.Model {
+	t.Helper()
+	const (
+		vocab = 8
+		H     = 32
+		I     = 32
+		P     = 16
+		E     = 16
+		L     = 2
+	)
+	cfg := embeddinggemma2.Config{
+		VocabSize:     vocab,
+		Hidden:        H,
+		Intermediate:  I,
+		Layers:        L,
+		Heads:         4,
+		KVHeads:       2,
+		HeadDim:       256,
+		SlidingWindow: 512,
+		PLEDim:        P,
+		EmbeddingDim:  E,
+		RMSNormEps:    1e-6,
+		HiddenAct:     "gelu_pytorch_tanh",
+		LayerTypes:    []string{"sliding_attention", "full_attention"},
+		MaxPositions:  2048,
+		PerLayerConfig: map[string]struct {
+			HeadDim int `json:"head_dim"`
+			KVHeads int `json:"num_key_value_heads"`
+		}{
+			"1": {HeadDim: 512, KVHeads: 1},
+		},
+		RopeParameters: map[string]struct {
+			Theta float64 `json:"rope_theta"`
+			Type  string  `json:"rope_type"`
+		}{
+			"sliding_attention": {Theta: 10000, Type: "default"},
+			"full_attention":    {Theta: 1000000, Type: "default"},
+		},
+	}
+	type spec struct {
+		name  string
+		shape []int
+		fill  float32
+	}
+	specs := []spec{
+		{"ple.per_layer_model_projection.weight", []int{L * P, H}, 0.02},
+		{"ple.per_layer_projection_norm.weight", []int{P}, 1.0},
+		{"norm.weight", []int{H}, 1.0},
+		{"embedding_projection.weight", []int{E, H}, 0.05},
+	}
+	for li, geom := range [][2]int{{256, 2}, {512, 1}} {
+		hd, kvh := geom[0], geom[1]
+		qd, kvd := 4*hd, kvh*hd
+		p := fmt.Sprintf("layers.%d.", li)
+		specs = append(specs,
+			spec{p + "input_layernorm.weight", []int{H}, 1.0},
+			spec{p + "self_attn.q_proj.weight", []int{qd, H}, 0.01},
+			spec{p + "self_attn.k_proj.weight", []int{kvd, H}, 0.01},
+			spec{p + "self_attn.v_proj.weight", []int{kvd, H}, 0.01},
+			spec{p + "self_attn.o_proj.weight", []int{H, qd}, 0.01},
+			spec{p + "self_attn.q_norm.weight", []int{hd}, 1.0},
+			spec{p + "self_attn.k_norm.weight", []int{hd}, 1.0},
+			spec{p + "post_attention_layernorm.weight", []int{H}, 1.0},
+			spec{p + "pre_feedforward_layernorm.weight", []int{H}, 1.0},
+			spec{p + "mlp.gate_proj.weight", []int{I, H}, 0.02},
+			spec{p + "mlp.up_proj.weight", []int{I, H}, 0.02},
+			spec{p + "mlp.down_proj.weight", []int{H, I}, 0.02},
+			spec{p + "post_feedforward_layernorm.weight", []int{H}, 1.0},
+			spec{p + "ple_block.per_layer_input_gate.weight", []int{P, H}, 0.02},
+			spec{p + "ple_block.per_layer_projection.weight", []int{H, P}, 0.02},
+			spec{p + "ple_block.post_per_layer_input_norm.weight", []int{H}, 1.0},
+			spec{p + "layer_scalar", []int{1}, 1.0},
+		)
+	}
+	header := make(map[string]map[string]any, len(specs))
+	var rawData []byte
+	for idx, sp := range specs {
+		n := 1
+		for _, d := range sp.shape {
+			n *= d
+		}
+		start := len(rawData)
+		buf := make([]byte, n*4)
+		for i := range n {
+			val := sp.fill
+			if sp.fill < 0.5 && (i+idx)%2 == 1 {
+				val = -sp.fill
+			}
+			binary.LittleEndian.PutUint32(buf[i*4:], math.Float32bits(val))
+		}
+		rawData = append(rawData, buf...)
+		header["language_model."+sp.name] = map[string]any{
+			"dtype":        "F32",
+			"shape":        sp.shape,
+			"data_offsets": []int{start, len(rawData)},
+		}
+	}
+	hdrJSON, err := json.Marshal(header)
+	if err != nil {
+		t.Fatal(err)
+	}
+	st := make([]byte, 8+len(hdrJSON)+len(rawData))
+	binary.LittleEndian.PutUint64(st[:8], uint64(len(hdrJSON)))
+	copy(st[8:], hdrJSON)
+	copy(st[8+len(hdrJSON):], rawData)
+	tokens := make([]byte, vocab*H*4)
+	for i := range vocab * H {
+		val := float32(0.1) * float32(1+(i%7))
+		if i%2 == 1 {
+			val = -val
+		}
+		binary.LittleEndian.PutUint32(tokens[i*4:], math.Float32bits(val))
+	}
+	m, err := embeddinggemma2.NewModel(cfg, tokens, st)
+	if err != nil {
+		t.Fatalf("NewModel(256/512): %v", err)
+	}
+	return m
+}
+
+// TestEG2FP16PackedAttnContract verifies that cuda-eg2-fp16 enables FP16 FFN,
+// packed split-f16 attention, and both GELU/PLE fusions on the shared
+// per-forward status word, matches BatchMemory vs actual tracked lease peaks
+// across ragged lengths and both BM=32 and BM=16, preserves raw FP32 bits
+// across the M=36/37 shortTiled boundary, clamps sliding_window >= 2^32 before
+// int32 narrowing, and keeps native cleanup/execution errors strictly ahead of
+// errEG2FP16InputRange.
+func TestEG2FP16PackedAttnContract(t *testing.T) {
+	adapter := eg2FP16TestAdapter(t)
+	m := eg2TinyModel(t)
+	rec := &eg2RecordingLeaser{}
+	origHook := leaseSeenForTest
+	t.Cleanup(func() { leaseSeenForTest = origHook })
+	leaseSeenForTest = func(onDevice bool, line string, requested int64, release func()) func() {
+		if origHook != nil {
+			release = origHook(onDevice, line, requested, release)
+		}
+		recordRelease := rec.Lease(onDevice, line, requested, gpu.ChargedBytes(requested))
+		return func() {
+			release()
+			recordRelease()
+		}
+	}
+
+	acc, err := m.NewAccelerator(eg2FP16TestSelector + ":" + adapter.UUID)
+	if err != nil {
+		t.Fatal(err)
+	}
+	a := acc.(*eg2Accel)
+	t.Cleanup(func() {
+		if err := a.Close(); err != nil {
+			t.Error(err)
+		}
+	})
+	if !a.packedAttnMode || len(a.packedAttn) == 0 || a.ffnFP16 == (Pipeline{}) ||
+		a.fusions == nil || a.fusions.geluMul == (Pipeline{}) || a.fusions.geluPLE == (Pipeline{}) {
+		t.Fatalf("cuda-eg2-fp16 did not enable packedAttn (%v, %d pipes), ffnFP16 (%v), and fusions (%v)",
+			a.packedAttnMode, len(a.packedAttn), a.ffnFP16 != (Pipeline{}), a.fusions != nil)
+	}
+
+	expectedColdRope := func(acc *eg2Accel, maxT int) int64 {
+		var total int64
+		for _, k := range acc.distinctRopeKeys() {
+			total += 2 * gpu.ChargedBytes(int64(maxT*k.hd)*4)
+		}
+		return total
+	}
+
+	// 1. Actual tracked lease peak vs BatchMemory on ragged many-short-segment
+	// lengths (BM=32), plus strict savings vs cuda-eg2-combined and exact
+	// cold/warm no-eviction peaks and RoPE cache retention.
+	comb, err := m.NewAccelerator("cuda-eg2-combined:" + adapter.UUID)
+	if err != nil {
+		t.Fatal(err)
+	}
+	t.Cleanup(func() {
+		if err := comb.Close(); err != nil {
+			t.Error(err)
+		}
+	})
+	raggedLens := []int{1, 1, 1, 1, 1, 1, 1, 1, 3, 17, 33} // total 61, 11 ragged segments, maxT=33
+	pEst, err := a.BatchMemory(raggedLens)
+	if err != nil {
+		t.Fatal(err)
+	}
+	cEst, err := comb.(*eg2Accel).BatchMemory(raggedLens)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if pEst.AdditionalPeakBytes >= cEst.AdditionalPeakBytes {
+		t.Fatalf("cuda-eg2-fp16 AdditionalPeakBytes=%d >= combined %d (expected qkv/bounds/pleL savings)",
+			pEst.AdditionalPeakBytes, cEst.AdditionalPeakBytes)
+	}
+	raggedBatch := make([][]int, len(raggedLens))
+	for i, n := range raggedLens {
+		row := make([]int, n)
+		for j := range n {
+			row[j] = (i*7 + j) % m.Config().VocabSize
+		}
+		raggedBatch[i] = row
+	}
+	wantTinyColdEnd := expectedColdRope(a, 33)
+	base, allocs := rec.resetWindow()
+	if _, err := a.ForwardBatch(raggedBatch); err != nil {
+		t.Fatalf("ragged ForwardBatch (cold): %v", err)
+	}
+	peak, end, _ := rec.windowDelta(base, allocs)
+	if peak != pEst.AdditionalPeakBytes || end != wantTinyColdEnd {
+		t.Fatalf("tiny BM=32 ragged cold peak=%d (want %d), end=%d (want %d)",
+			peak, pEst.AdditionalPeakBytes, end, wantTinyColdEnd)
+	}
+	pEstWarm, err := a.BatchMemory(raggedLens)
+	if err != nil {
+		t.Fatal(err)
+	}
+	base, allocs = rec.resetWindow()
+	if _, err := a.ForwardBatch(raggedBatch); err != nil {
+		t.Fatalf("ragged ForwardBatch (warm): %v", err)
+	}
+	peak, end, _ = rec.windowDelta(base, allocs)
+	if peak != pEstWarm.AdditionalPeakBytes || end != 0 {
+		t.Fatalf("tiny BM=32 ragged warm peak=%d (want %d), end=%d (want 0)",
+			peak, pEstWarm.AdditionalPeakBytes, end)
+	}
+
+	// 2. Both BM=32 (HD=256) and BM=16 (HD=512) actual lease peak vs BatchMemory
+	// on ragged many-short-segment lengths.
+	mRealGeom := eg2Synthetic256_512Model(t)
+	accReal, err := mRealGeom.NewAccelerator(eg2FP16TestSelector + ":" + adapter.UUID)
+	if err != nil {
+		t.Fatalf("256/512 attach: %v", err)
+	}
+	aReal := accReal.(*eg2Accel)
+	t.Cleanup(func() {
+		if err := aReal.Close(); err != nil {
+			t.Error(err)
+		}
+	})
+	if bms := aReal.distinctPackedBMs(); !slices.Equal(bms, []int{32, 16}) {
+		t.Fatalf("distinctPackedBMs = %v, want [32 16]", bms)
+	}
+	estReal, err := aReal.BatchMemory(raggedLens)
+	if err != nil {
+		t.Fatal(err)
+	}
+	realRagged := make([][]int, len(raggedLens))
+	for i, n := range raggedLens {
+		row := make([]int, n)
+		for j := range n {
+			row[j] = (i + j) % mRealGeom.Config().VocabSize
+		}
+		realRagged[i] = row
+	}
+	wantRealColdEnd := expectedColdRope(aReal, 33)
+	base, allocs = rec.resetWindow()
+	if _, err := aReal.ForwardBatch(realRagged); err != nil {
+		t.Fatalf("256/512 ragged ForwardBatch (cold): %v", err)
+	}
+	peak, end, _ = rec.windowDelta(base, allocs)
+	if peak != estReal.AdditionalPeakBytes || end != wantRealColdEnd {
+		t.Fatalf("BM=32+16 ragged cold peak=%d (want %d), end=%d (want %d)",
+			peak, estReal.AdditionalPeakBytes, end, wantRealColdEnd)
+	}
+	estRealWarm, err := aReal.BatchMemory(raggedLens)
+	if err != nil {
+		t.Fatal(err)
+	}
+	base, allocs = rec.resetWindow()
+	if _, err := aReal.ForwardBatch(realRagged); err != nil {
+		t.Fatalf("256/512 ragged ForwardBatch (warm): %v", err)
+	}
+	peak, end, _ = rec.windowDelta(base, allocs)
+	if peak != estRealWarm.AdditionalPeakBytes || end != 0 {
+		t.Fatalf("BM=32+16 ragged warm peak=%d (want %d), end=%d (want 0)",
+			peak, estRealWarm.AdditionalPeakBytes, end)
+	}
+
+	// 3. M=36/37 shortTiled crossing: compare every raw projected FP32 bit of a
+	// 36-token member alone vs paired with a 1-token member in both orders.
+	id36 := make([]int, 36)
+	for i := range id36 {
+		id36[i] = (i*5 + 1) % m.Config().VocabSize
+	}
+	id1 := []int{2 % m.Config().VocabSize}
+	single36, _, err := a.Forward(id36, false)
+	if err != nil {
+		t.Fatalf("Forward(36): %v", err)
+	}
+	for _, tc := range []struct {
+		label string
+		batch [][]int
+		idx   int
+	}{
+		{"[36,1]", [][]int{id36, id1}, 0},
+		{"[1,36]", [][]int{id1, id36}, 1},
+	} {
+		got, err := a.ForwardBatch(tc.batch)
+		if err != nil {
+			t.Fatalf("%s ForwardBatch: %v", tc.label, err)
+		}
+		if d := eg2FirstDiff(got[tc.idx], single36, m.Dim()); d != "" {
+			t.Fatalf("M=36/37 crossing %s raw bit mismatch: %s", tc.label, d)
+		}
+	}
+
+	// 4. Sliding window >= 2^32 clamp before int32 narrowing on >= 2 distinct rows:
+	// radius 4294967296 must preserve full-segment visibility rather than wrapping to 0.
+	cfgBytes, err := os.ReadFile(filepath.Join(eg2TinyDir, "config.json"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	wideDir := t.TempDir()
+	wideCfg := strings.Replace(string(cfgBytes), `"sliding_window": 3`, `"sliding_window": 4294967296`, 1)
+	if !strings.Contains(wideCfg, `"sliding_window": 4294967296`) {
+		t.Fatal("failed to patch sliding_window in tiny config.json")
+	}
+	if err := os.WriteFile(filepath.Join(wideDir, "config.json"), []byte(wideCfg), 0o600); err != nil {
+		t.Fatal(err)
+	}
+	stAbs, err := filepath.Abs(filepath.Join(eg2TinyDir, "model.safetensors"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err := os.Symlink(stAbs, filepath.Join(wideDir, "model.safetensors")); err != nil {
+		t.Fatal(err)
+	}
+	wideModel, err := embeddinggemma2.Load(wideDir)
+	if err != nil {
+		t.Fatal(err)
+	}
+	wideAcc, err := wideModel.NewAccelerator(eg2FP16TestSelector + ":" + adapter.UUID)
+	if err != nil {
+		t.Fatal(err)
+	}
+	t.Cleanup(func() {
+		if err := wideAcc.Close(); err != nil {
+			t.Error(err)
+		}
+	})
+	wideIDs := eg2TinyInputs(t, wideModel.Config().VocabSize)[2]
+	wantWide, _, err := wideModel.ForwardCPU(wideIDs, false)
+	if err != nil {
+		t.Fatal(err)
+	}
+	gotWide, _, err := wideAcc.Forward(wideIDs, false)
+	if err != nil || len(gotWide) != len(wantWide) || !eg2Finite(gotWide) || eg2Cos(gotWide, wantWide) < 0.999 {
+		t.Fatalf("sliding_window=2^32 parity: cos=%.8f err=%v", eg2Cos(gotWide, wantWide), err)
+	}
+
+	// 5. Simultaneously armed FP16 status + planted failing ReleaseBufChecked
+	// in composed (FFN+packed+fusions), packed-attention-only, and FFN-only modes:
+	// cleanup error must win without joining errEG2FP16InputRange or
+	// ErrBatchOutOfMemory, next call must be sticky with zero GPU work, and
+	// Close must release ownership.
+	inputs := eg2TinyInputs(t, m.Config().VocabSize)
+	packedPTX, err := os.ReadFile("testdata/eg2_packed_attn.ptx")
+	if err != nil {
+		t.Fatal(err)
+	}
+	ffnPTX, err := os.ReadFile("testdata/eg2_ffn_fp16.ptx")
+	if err != nil {
+		t.Fatal(err)
+	}
+	for _, mode := range []struct {
+		name      string
+		ffnPTX    []byte
+		packedPTX []byte
+		fusionPTX []byte
+		ffnOnly   bool
+	}{
+		{"fp16-ffn+packed+fusions", ffnPTX, packedPTX, eg2FusionsPTX, false},
+		{"packed-attn-only", nil, packedPTX, nil, false},
+		{"fp16-ffn-only", ffnPTX, nil, nil, true},
+	} {
+		t.Run(mode.name, func(t *testing.T) {
+			ovModel := eg2TinyModel(t)
+			if !mode.ffnOnly {
+				for i := range ovModel.Weights().Layers[0].KNorm {
+					ovModel.Weights().Layers[0].KNorm[i] = 1e5
+				}
+			}
+			ovA, err := newEG2AccelConfigured(ovModel, true, mode.ffnPTX, mode.packedPTX, mode.fusionPTX, func() (*Device, error) {
+				return gpu.CreateSelectedDevice(adapter)
+			})
+			if err != nil {
+				t.Fatalf("attach: %v", err)
+			}
+			runOverflow := func(keepLayers bool) ([]float32, [][]float32, error) {
+				if mode.ffnOnly {
+					x, err := ovModel.EmbedTokens(inputs[0])
+					if err != nil {
+						t.Fatal(err)
+					}
+					x[len(x)-1] = float32(math.Inf(1))
+					return ovA.forwardRows(x, []int{len(inputs[0])}, keepLayers)
+				}
+				return ovA.Forward(inputs[0], keepLayers)
+			}
+			// Healthy numeric rejection first: nil outputs + errEG2FP16InputRange + valid reuse.
+			ovOut, ovLays, err := runOverflow(true)
+			if !errors.Is(err, errEG2FP16InputRange) || ovOut != nil || ovLays != nil || ovA.broken != nil {
+				t.Fatalf("healthy range reject: len(out)=%d len(layers)=%d broken=%v err=%v", len(ovOut), len(ovLays), ovA.broken, err)
+			}
+			zeros := make([]float32, 4*ovModel.Config().Hidden)
+			reuseOut, _, err := ovA.ForwardEmbeds(zeros, 4, false)
+			if err != nil || len(reuseOut) != 4*ovModel.Config().EmbeddingDim || !eg2Finite(reuseOut) {
+				t.Fatalf("clean reuse after range reject failed: len=%d err=%v", len(reuseOut), err)
+			}
+
+			// Now arm BOTH overflow status AND failing ReleaseBufChecked: cleanup
+			// error must take precedence with nil kept layers, no range/retry sentinel,
+			// sticky next call with zero GPU launches, and clean Close recovery.
+			plantedFree := errors.New("cuda: planted scratch free failure")
+			ovA.ops.dev.SetCloseBufHookForTest(func(func() error) error { return plantedFree })
+			ovOut, ovLays, err = runOverflow(true)
+			if ovOut != nil || ovLays != nil || !errors.Is(err, plantedFree) ||
+				errors.Is(err, errEG2FP16InputRange) || errors.Is(err, embeddinggemma2.ErrBatchOutOfMemory) {
+				t.Fatalf("armed status + failed free: len(out)=%d len(layers)=%d err=%v", len(ovOut), len(ovLays), err)
+			}
+			if ovA.broken == nil {
+				t.Fatal("failed free did not poison accelerator")
+			}
+			launches := 0
+			origTrace := gpu.TraceForTest
+			gpu.TraceForTest = func(ev gpu.TraceEvent) {
+				if origTrace != nil {
+					origTrace(ev)
+				}
+				if ev.Op == gpu.TraceLaunch {
+					launches++
+				}
+			}
+			_, _, stickyErr := ovA.Forward(inputs[0], false)
+			gpu.TraceForTest = origTrace
+			if !errors.Is(stickyErr, plantedFree) || errors.Is(stickyErr, errEG2FP16InputRange) || launches != 0 {
+				t.Fatalf("sticky follow-up: err=%v launches=%d, want plantedFree and 0 launches", stickyErr, launches)
+			}
+			// Clear free hook and prove Close releases all remaining ownership cleanly.
+			ovA.ops.dev.SetCloseBufHookForTest(nil)
+			dev := ovA.ops.dev
+			if err := ovA.Close(); err != nil {
+				t.Fatalf("Close retry after cleared free hook failed: %v", err)
+			}
+			if allocsLeft, objsLeft := dev.LedgerLen(); allocsLeft != 0 || objsLeft != 0 {
+				t.Fatalf("Close left %d allocs and %d objects", allocsLeft, objsLeft)
+			}
+		})
+	}
+}
+
+var eg2FusionPack = flag.String("eg2-fusion-pack", "", "EmbeddingGemma 2 pack for the fusion test")
+var eg2FusionIDs = flag.String("eg2-fusion-ids", "", "pinned prepared IDs for the fusion test")
+
+func TestEG2FusionsLinked(t *testing.T) {
+	tagged := eg2TaggedBinary(t, "eg2_fusions") || eg2TaggedBinary(t, "eg2_combined", "eg2_fp16")
+	if linked := len(eg2FusionsPTX) != 0; linked != tagged {
+		t.Fatalf("fusion PTX linked = %t, fusion build tags = %t", linked, tagged)
+	}
+}
+
+func TestEG2FusionsAdmission(t *testing.T) {
+	for _, tc := range []struct {
+		name string
+		i, p int
+	}{
+		{"FFN", 262144, 256},
+		{"PLE", 2048, 262144},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			a := &eg2Accel{
+				cfg: embeddinggemma2.Config{
+					Hidden: 768, Intermediate: tc.i, PLEDim: tc.p,
+					Layers: 1, Heads: 8, EmbeddingDim: 768, MaxPositions: 8192,
+				},
+			}
+			if _, err := a.BatchMemory([]int{8192}); err != nil {
+				t.Fatalf("baseline singleton estimate rejected: %v", err)
+			}
+			a.fusions = &eg2Fusions{}
+			if _, err := a.BatchMemory([]int{8191}); err != nil {
+				t.Fatalf("in-range fused singleton estimate rejected: %v", err)
+			}
+			if _, err := a.BatchMemory([]int{8192}); !errors.Is(err, embeddinggemma2.ErrUnsupportedBatchShape) {
+				t.Fatalf("out-of-range fused singleton estimate: %v", err)
+			}
+			rows, layers, err := a.forwardRows(nil, []int{8192}, true)
+			if rows != nil || layers != nil || !errors.Is(err, embeddinggemma2.ErrUnsupportedBatchShape) {
+				t.Fatalf("out-of-range fused forward returned rows = %v, layers = %v, err = %v", rows, layers, err)
+			}
+		})
+	}
+}
+
+func TestEG2FusionsTiny(t *testing.T) {
+	m := eg2TinyModel(t)
+	inputs := make([][]int, 3)
+	for i, n := range []int{17, 129, 36} {
+		inputs[i] = eg2SeqIDs(n, i+1, m.Config().VocabSize)
+	}
+	checkEG2Fusions(t, m, inputs, true)
+}
+
+func TestEG2FusionsReal(t *testing.T) {
+	if *eg2FusionPack == "" || *eg2FusionIDs == "" {
+		t.Skip("set eg2-fusion-pack and eg2-fusion-ids for the fixed real batch")
+	}
+	data, err := os.ReadFile(*eg2FusionIDs)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if digest := fmt.Sprintf("%x", sha256.Sum256(data)); digest != "97c426da8c155b04bf0b34e270dcfa5e8cf18bfc1343e926f63e638fea6bcd22" {
+		t.Fatalf("unexpected prepared-ID digest: %s", digest)
+	}
+	scanner := bufio.NewScanner(strings.NewReader(string(data)))
+	scanner.Buffer(nil, 1<<17)
+	if !scanner.Scan() || scanner.Text() != "batch\tids" {
+		t.Fatal("missing prepared-ID TSV header")
+	}
+	var inputs [][]int
+	positions := 0
+	for scanner.Scan() {
+		f := strings.Fields(scanner.Text())
+		if len(f) < 2 {
+			t.Fatal("empty input row")
+		}
+		if f[0] != "1" {
+			break
+		}
+		ids := make([]int, len(f)-1)
+		for i, field := range f[1:] {
+			id, err := strconv.Atoi(field)
+			if err != nil || id < 0 {
+				t.Fatalf("bad token %q", field)
+			}
+			ids[i] = id
+		}
+		inputs = append(inputs, ids)
+		positions += len(ids)
+	}
+	if err := scanner.Err(); err != nil {
+		t.Fatal(err)
+	}
+	if len(inputs) != 17 || positions != 7924 {
+		t.Fatalf("wanted the first frozen group, got %d inputs and %d positions", len(inputs), positions)
+	}
+
+	read := func(name string) []byte {
+		t.Helper()
+		buf, err := os.ReadFile(filepath.Join(*eg2FusionPack, name))
+		if err != nil {
+			t.Fatal(err)
+		}
+		return buf
+	}
+	var packed struct {
+		Config json.RawMessage
+	}
+	if err := json.Unmarshal(read("config.json"), &packed); err != nil {
+		t.Fatal(err)
+	}
+	cfg, err := embeddinggemma2.LoadConfigBytes(packed.Config)
+	if err != nil {
+		t.Fatal(err)
+	}
+	m, err := embeddinggemma2.NewModel(cfg, read("tokens.bf16"), read("layers.safetensors"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	checkEG2Fusions(t, m, inputs, false)
+}
+
+func checkEG2Fusions(t *testing.T, m *embeddinggemma2.Model, inputs [][]int, keepLayers bool) {
+	t.Helper()
+	hasFP16 := eg2TaggedBinary(t, "eg2_combined", "eg2_fp16")
+	if !eg2TaggedBinary(t, "eg2_fusions") && !hasFP16 {
+		t.Skip("build with cuda,eg2_fusions or cuda,eg2_combined,eg2_fp16 for the fused encoder check")
+	}
+	if len(eg2FusionsPTX) == 0 {
+		t.Fatal("tagged build is missing the fusion PTX")
+	}
+	id := os.Getenv("GOINFER_TEST_CUDA_UUID")
+	if id == "" {
+		t.Skip("set GOINFER_TEST_CUDA_UUID for the fusion encoder check")
+	}
+	all, err := gpu.Adapters()
+	if err != nil {
+		t.Fatal(err)
+	}
+	device, err := resolveCUDADevice(id, all)
+	if err != nil {
+		t.Fatal(err)
+	}
+	lengths := make([]int, len(inputs))
+	rows := 0
+	for i, in := range inputs {
+		lengths[i] = len(in)
+		rows += len(in)
+	}
+
+	type fusionArm struct {
+		name              string
+		fp16PTX           []byte
+		packedPTX         []byte
+		checkPublicSelect bool
+	}
+	arms := []fusionArm{{name: "combined-fp32"}}
+	if hasFP16 && device.Major >= 8 {
+		ffnPTX, err := os.ReadFile("testdata/eg2_ffn_fp16.ptx")
+		if err != nil {
+			t.Fatal(err)
+		}
+		packedPTX, err := os.ReadFile("testdata/eg2_packed_attn.ptx")
+		if err != nil {
+			t.Fatal(err)
+		}
+		arms = append(arms, fusionArm{
+			name:              "composed-fp16-packed",
+			fp16PTX:           ffnPTX,
+			packedPTX:         packedPTX,
+			checkPublicSelect: true,
+		})
+	}
+
+	for _, arm := range arms {
+		t.Run(arm.name, func(t *testing.T) {
+			type evidence struct {
+				output, snapshots        [][]float32
+				estimate, peak           int64
+				launches, copies, allocs int
+			}
+			run := func(ptx []byte) evidence {
+				t.Helper()
+				rec := &eg2RecordingLeaser{}
+				old := leaseSeenForTest
+				leaseSeenForTest = func(onDevice bool, line string, requested int64, release func()) func() {
+					if old != nil {
+						release = old(onDevice, line, requested, release)
+					}
+					recordRelease := rec.Lease(onDevice, line, requested, gpu.ChargedBytes(requested))
+					return func() { release(); recordRelease() }
+				}
+				defer func() { leaseSeenForTest = old }()
+				a, err := newEG2AccelConfigured(m, true, arm.fp16PTX, arm.packedPTX, ptx, func() (*Device, error) {
+					return gpu.CreateSelectedDevice(device)
+				})
+				if err != nil {
+					t.Fatal(err)
+				}
+				defer func() {
+					if err := a.Close(); err != nil {
+						t.Error(err)
+					}
+				}()
+				if a.AttachedDevice().ID != "cuda:"+device.UUID || (a.fusions != nil) != (len(ptx) != 0) {
+					t.Fatal("wrong device or fusion mode")
+				}
+				fit, err := a.BatchMemory(lengths)
+				if err != nil || fit.Quality != embeddinggemma2.BatchMemoryUpperBound {
+					t.Fatalf("batch fit = %v, %v", fit, err)
+				}
+				mem, err := a.DeviceMemory()
+				const GiB = 1 << 30
+				if err != nil || mem.AvailableBytes < fit.AdditionalPeakBytes+GiB ||
+					mem.TotalBytes-mem.AvailableBytes+fit.AdditionalPeakBytes+GiB > 6*GiB {
+					t.Fatalf("device fit refused: memory=%v estimate=%v error=%v", mem, fit, err)
+				}
+
+				stats := evidence{estimate: fit.AdditionalPeakBytes}
+				base, beforeAllocs := rec.resetWindow()
+				lo, _ := a.ops.dev.Activity()
+				oldTrace := gpu.TraceForTest
+				func() {
+					defer func() { gpu.TraceForTest = oldTrace }()
+					gpu.TraceForTest = func(event gpu.TraceEvent) {
+						if oldTrace != nil {
+							oldTrace(event)
+						}
+						if event.Op == gpu.TraceCopy2D {
+							stats.copies++
+						}
+					}
+					stats.output, err = a.ForwardBatch(inputs)
+				}()
+				if err != nil {
+					t.Fatal(err)
+				}
+				hi, _ := a.ops.dev.Activity()
+				stats.launches = int(hi - lo)
+				stats.peak, _, stats.allocs = rec.windowDelta(base, beforeAllocs)
+				if stats.peak > stats.estimate {
+					t.Fatalf("observed peak %d exceeds fit estimate %d", stats.peak, stats.estimate)
+				}
+
+				if keepLayers {
+					single, snapshots, err := a.Forward(inputs[0], true)
+					if err != nil {
+						t.Fatal(err)
+					}
+					if len(snapshots) != m.Config().Layers+1 {
+						t.Fatalf("got %d retained layer snapshots", len(snapshots))
+					}
+					if diff := eg2FirstDiff(single, stats.output[0], m.Dim()); diff != "" {
+						t.Fatalf("kept singleton differs from packed: %s", diff)
+					}
+					stats.snapshots = snapshots
+				}
+				if len(ptx) == 0 {
+					return stats
+				}
+				for i, ids := range inputs {
+					single, _, err := a.Forward(ids, false)
+					if err != nil {
+						t.Fatal(err)
+					}
+					if diff := eg2FirstDiff(single, stats.output[i], m.Dim()); diff != "" {
+						t.Fatalf("singleton input %d: %s", i, diff)
+					}
+				}
+				mid := len(inputs) / 2
+				for _, span := range [][2]int{{0, mid}, {mid, len(inputs)}} {
+					part, err := a.ForwardBatch(inputs[span[0]:span[1]])
+					if err != nil {
+						t.Fatal(err)
+					}
+					for i, got := range part {
+						if diff := eg2FirstDiff(got, stats.output[span[0]+i], m.Dim()); diff != "" {
+							t.Fatalf("split input %d: %s", span[0]+i, diff)
+						}
+					}
+				}
+				reverse := slices.Clone(inputs)
+				slices.Reverse(reverse)
+				got, err := a.ForwardBatch(reverse)
+				if err != nil {
+					t.Fatal(err)
+				}
+				for i, out := range got {
+					if diff := eg2FirstDiff(out, stats.output[len(inputs)-1-i], m.Dim()); diff != "" {
+						t.Fatalf("reversed input %d: %s", i, diff)
+					}
+				}
+				return stats
+			}
+			ref, fused := run(nil), run(eg2FusionsPTX)
+			for i, out := range fused.output {
+				if diff := eg2FirstDiff(out, ref.output[i], m.Dim()); diff != "" {
+					t.Fatalf("packed input %d: %s", i, diff)
+				}
+				if !eg2Finite(out) {
+					t.Fatalf("input %d produced nonfinite output", i)
+				}
+				// Pooling is shared by the two paths and receives identical rows.
+				got := eg2PoolNorm(out, lengths[i], m.Dim(), m.Dim())
+				want := eg2PoolNorm(ref.output[i], lengths[i], m.Dim(), m.Dim())
+				if diff := eg2FirstDiff(got, want, m.Dim()); diff != "" {
+					t.Fatalf("pooled input %d: %s", i, diff)
+				}
+			}
+			for i := range fused.snapshots {
+				if diff := eg2FirstDiff(fused.snapshots[i], ref.snapshots[i], m.Config().Hidden); diff != "" {
+					t.Fatalf("layer state %d: %s", i, diff)
+				}
+			}
+			wantBytes := gpu.ChargedBytes(int64(rows) * int64(m.Config().PLEDim) * 4)
+			layers := m.Config().Layers
+			if ref.launches-fused.launches != 2*layers || ref.copies-fused.copies != layers ||
+				ref.allocs-fused.allocs != 1 || ref.estimate-fused.estimate != wantBytes || ref.peak-fused.peak != wantBytes {
+				t.Fatalf("unexpected fusion savings: launches %d, copies %d, allocations %d, estimated bytes %d, peak bytes %d",
+					ref.launches-fused.launches, ref.copies-fused.copies, ref.allocs-fused.allocs,
+					ref.estimate-fused.estimate, ref.peak-fused.peak)
+			}
+			if arm.checkPublicSelect {
+				pub, err := m.NewAccelerator(eg2FP16TestSelector + ":" + device.UUID)
+				if err != nil {
+					t.Fatalf("public %s attach: %v", eg2FP16TestSelector, err)
+				}
+				defer func() {
+					if err := pub.Close(); err != nil {
+						t.Error(err)
+					}
+				}()
+				pubA := pub.(*eg2Accel)
+				if pubA.fusions == nil || !pubA.packedAttnMode || pubA.ffnFP16 == (Pipeline{}) {
+					t.Fatalf("public %s missing composed pipelines: ffn=%v packed=%v fusions=%v",
+						eg2FP16TestSelector, pubA.ffnFP16 != (Pipeline{}), pubA.packedAttnMode, pubA.fusions != nil)
+				}
+				pubOut, err := pubA.ForwardBatch(inputs)
+				if err != nil {
+					t.Fatalf("public %s ForwardBatch: %v", eg2FP16TestSelector, err)
+				}
+				for i, got := range pubOut {
+					if diff := eg2FirstDiff(got, fused.output[i], m.Dim()); diff != "" {
+						t.Fatalf("public %s input %d differs from composed fused arm: %s", eg2FP16TestSelector, i, diff)
+					}
+				}
+			}
+			t.Logf("[%s] %d inputs, %d rows: raw and pooled bits match, kernel launches %d -> %d, D2D copies %d -> %d, allocations %d -> %d, tracked peak bytes %d -> %d",
+				arm.name, len(inputs), rows, ref.launches, fused.launches, ref.copies, fused.copies, ref.allocs, fused.allocs, ref.peak, fused.peak)
+		})
 	}
 }

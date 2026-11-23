@@ -90,10 +90,12 @@ for k in "${targets[@]}"; do
 		target_arch=compute_80
 	fi
 	nvrtc "$src" "out/${k%.cu}.ptx" "$target_arch" "$CUDA_INC"
-	if [[ "${k%.cu}" = eg2_transposed_experiment || "${k%.cu}" = eg2_ffn_fp16 ]]; then
+	case "${k%.cu}" in
+	eg2_transposed_experiment | eg2_ffn_fp16 | eg2_packed_attn | eg2_fusions)
 		# Strip NVRTC's trailing horizontal spaces and blank lines from this artifact.
 		sed -z -i -e 's/[ \t]*\n/\n/g' -e 's/\n\+$/\n/' "$STAGE/out/${k%.cu}.ptx"
-	fi
+		;;
+	esac
 	# A source that includes kvtype.cuh is also built with the KV cache as f16: <name>_kv16.ptx, the twin module the resident loads
 	# for an f16 KV build (docs/completed/task-cuda-f16-kv-2026-10.md). The module above is built WITHOUT the define and must not change.
 	if grep -q 'kvtype.cuh' "$src"; then

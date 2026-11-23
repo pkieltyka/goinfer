@@ -13,6 +13,7 @@ import (
 	"github.com/eitamring/gocudrv/cudaresult"
 	"github.com/eitamring/gocudrv/cudasys"
 	gpu "github.com/pkieltyka/goinfer/backend/cuda/internal/gpudev"
+	"github.com/pkieltyka/goinfer/backend/cuda/internal/launchgeom"
 	"github.com/pkieltyka/goinfer/embeddinggemma2"
 	"github.com/pkieltyka/goinfer/internal/runtime/mem"
 )
@@ -93,6 +94,9 @@ type eg2Accel struct {
 	teardownStarted                         bool  // set once Close has drained (if needed) and entered closeChecked; retries skip q.Sync on destroyed streams
 	combinedTranspose, combinedAttention    Pipeline
 	ffnFP16                                 Pipeline
+	packedAttnMode                          bool
+	packedAttn                              map[int]Pipeline
+	fusions                                 *eg2Fusions
 	defect                                  eg2Defect
 }
 
@@ -335,7 +339,11 @@ func eg2CUDAAttach(combined bool, fp16PTX []byte) eg2Attacher {
 	}
 }
 
-func newEG2AccelWithFFN(m *embeddinggemma2.Model, combined bool, fp16PTX []byte, open func() (*Device, error)) (_ *eg2Accel, err error) {
+func newEG2AccelWithFFN(m *embeddinggemma2.Model, combined bool, fp16PTX []byte, open func() (*Device, error)) (*eg2Accel, error) {
+	return newEG2AccelConfigured(m, combined, fp16PTX, nil, nil, open)
+}
+
+func newEG2AccelConfigured(m *embeddinggemma2.Model, combined bool, fp16PTX, packedAttnPTX, fusionPTX []byte, open func() (*Device, error)) (_ *eg2Accel, err error) {
 	defer func() { err = classifyCUDAAttach(err) }()
 	if open == nil {
 		return nil, errors.New("cuda: EmbeddingGemma 2 nil device opener")
@@ -350,6 +358,11 @@ func newEG2AccelWithFFN(m *embeddinggemma2.Model, combined bool, fp16PTX []byte,
 	for i, ly := range w.Layers {
 		if ly.HeadDim%2 != 0 || ly.KVHeads <= 0 || c.Heads%ly.KVHeads != 0 {
 			return nil, fmt.Errorf("cuda: EmbeddingGemma 2 layer %d: %d heads over %d KV heads, head dim %d", i, c.Heads, ly.KVHeads, ly.HeadDim)
+		}
+		if len(packedAttnPTX) != 0 {
+			if _, ok := launchgeom.EG2PackedAttnSpecForHD(ly.HeadDim); !ok {
+				return nil, fmt.Errorf("%w: CUDA packed attention cannot run layer %d head dim %d", embeddinggemma2.ErrDeviceUnavailable, i, ly.HeadDim)
+			}
 		}
 		maxN = max(maxN, c.Heads*ly.HeadDim)
 		maxHD = max(maxHD, ly.HeadDim)
@@ -369,12 +382,39 @@ func newEG2AccelWithFFN(m *embeddinggemma2.Model, combined bool, fp16PTX []byte,
 	a := &eg2Accel{ops: ops, cfg: c, model: m}
 	a.identity = cudaDeviceInfo(ops.dev.Adapter())
 	if err := ops.do(func() error {
+		if len(fusionPTX) != 0 {
+			fusions, err := loadEG2Fusions(ops.dev, fusionPTX)
+			if err != nil {
+				return err
+			}
+			a.fusions = fusions
+		}
 		if len(fp16PTX) != 0 {
 			p, err := eg2FP16Pipeline(ops.dev, fp16PTX)
 			if err != nil {
 				return err
 			}
 			a.ffnFP16 = p
+		}
+		if len(packedAttnPTX) != 0 {
+			lib, err := ops.dev.CompileLibrary(packedAttnPTX)
+			if err != nil {
+				return fmt.Errorf("cuda: load EmbeddingGemma 2 packed attention: %w", err)
+			}
+			pipes := make(map[int]Pipeline)
+			for _, ly := range w.Layers {
+				if _, ok := pipes[ly.HeadDim]; ok {
+					continue
+				}
+				spec, _ := launchgeom.EG2PackedAttnSpecForHD(ly.HeadDim)
+				p, err := ops.dev.NewComputePipeline(lib, spec.Entry)
+				if err != nil {
+					return fmt.Errorf("cuda: load EmbeddingGemma 2 packed attention %s: %w", spec.Entry, err)
+				}
+				pipes[ly.HeadDim] = p
+			}
+			a.packedAttn = pipes
+			a.packedAttnMode = true
 		}
 		var weightBytes int64
 		upWeight := func(v []float32) Buffer {
@@ -415,7 +455,9 @@ func newEG2AccelWithFFN(m *embeddinggemma2.Model, combined bool, fp16PTX []byte,
 		return nil, fmt.Errorf("cuda: EmbeddingGemma 2 upload: %w", err)
 	}
 	if combined {
-		if err := a.enableCombined(); err != nil {
+		if a.packedAttnMode {
+			a.ops.shortTiled = true
+		} else if err := a.enableCombined(); err != nil {
 			if cerr := retireEG2AttachLocked(a.ops); cerr != nil {
 				return nil, errors.Join(err, cerr)
 			}
@@ -469,7 +511,7 @@ func (a *eg2Accel) Close() error {
 		}
 		return fmt.Errorf("cuda: EmbeddingGemma 2 Close could not release device memory: %w", err)
 	}
-	a.closed, a.layers, a.ropes, a.model = true, nil, nil, nil
+	a.closed, a.layers, a.ropes, a.packedAttn, a.fusions, a.model = true, nil, nil, nil, nil, nil
 	return nil
 }
 
@@ -559,14 +601,47 @@ func addCharged(sum, delta int64) (int64, error) {
 
 type eg2ScratchPlan struct {
 	x, xn, q, k, v, qkv, ctx, ob, g, u, f, ple, pleL, gg, pr, res, bounds int
+	packedBMs                                                             []int
+	packedTabs                                                            map[int]launchgeom.EG2PackedTileTable
 	chargedBytes                                                          int64
 }
 
-// scratchPlan computes the element counts and total charged device bytes for
-// the 20 base per-forward scratch buffers (16 float32 and 4 int32 bounds).
-// Shared by forwardRows and BatchMemory so buffer dimensions stay aligned.
+func (a *eg2Accel) distinctPackedBMs() []int {
+	var bms []int
+	seen := make(map[int]bool, 2)
+	for _, ly := range a.layers {
+		spec, ok := launchgeom.EG2PackedAttnSpecForHD(ly.w.HeadDim)
+		if !ok || seen[spec.BM] {
+			continue
+		}
+		seen[spec.BM] = true
+		bms = append(bms, spec.BM)
+	}
+	return bms
+}
+
+// scratchPlan is the single-length shorthand for scratchPlanForLens.
 func (a *eg2Accel) scratchPlan(T int) (eg2ScratchPlan, error) {
+	return a.scratchPlanForLens([]int{T})
+}
+
+// scratchPlanForLens computes the element counts and total charged device bytes
+// for per-forward scratch buffers (including PLE gather on the unfused path,
+// omitting qkv/bounds in favor of per-distinct-BM descriptor tables when packed
+// attention is active, and adding 1 shared FP16 status word on res when FP16
+// FFN or packed attention is active). Shared by forwardRows and BatchMemory.
+func (a *eg2Accel) scratchPlanForLens(lens []int) (eg2ScratchPlan, error) {
+	T := 0
+	for _, n := range lens {
+		T += n
+	}
 	c := a.cfg
+	if a.fusions != nil {
+		// Both fused kernels take a signed 32-bit element count.
+		if width := max(c.Intermediate, c.PLEDim); width > 0 && T > math.MaxInt32/width {
+			return eg2ScratchPlan{}, fmt.Errorf("cuda: %w: fused activations exceed their launch element count", embeddinggemma2.ErrUnsupportedBatchShape)
+		}
+	}
 	if a.ffnFP16 != (Pipeline{}) && (T > math.MaxInt32/max(c.Hidden, c.Intermediate) || T > 65535*32) {
 		return eg2ScratchPlan{}, fmt.Errorf("%w: CUDA FP16 FFN exceeds its launch dimensions", embeddinggemma2.ErrUnsupportedBatchShape)
 	}
@@ -596,7 +671,7 @@ func (a *eg2Accel) scratchPlan(T int) (eg2ScratchPlan, error) {
 		}
 		return nil
 	}
-	for _, spec := range []struct {
+	specs := []struct {
 		dst   *int
 		cols  int
 		count int
@@ -607,24 +682,65 @@ func (a *eg2Accel) scratchPlan(T int) (eg2ScratchPlan, error) {
 		{&p.q, maxQD, 1, 4},
 		{&p.k, maxKVD, 1, 4},
 		{&p.v, maxKVD, 1, 4},
-		{&p.qkv, 3 * maxQD, 1, 4},
 		{&p.ctx, maxQD, 1, 4},
 		{&p.ob, c.Hidden, 1, 4},
 		{&p.g, c.Intermediate, 1, 4},
 		{&p.u, c.Intermediate, 1, 4},
 		{&p.f, c.Hidden, 1, 4},
 		{&p.ple, c.Layers * c.PLEDim, 1, 4},
-		{&p.pleL, c.PLEDim, 1, 4},
 		{&p.gg, c.PLEDim, 1, 4},
 		{&p.pr, c.Hidden, 1, 4},
 		{&p.res, c.EmbeddingDim, 1, 4},
-		{&p.bounds, 1, 4, 4}, // slLoB, slHiB, fuLoB, fuHiB
-	} {
+	}
+	if !a.packedAttnMode {
+		specs = append(specs,
+			struct {
+				dst   *int
+				cols  int
+				count int
+				bytes int
+			}{&p.qkv, 3 * maxQD, 1, 4},
+			struct {
+				dst   *int
+				cols  int
+				count int
+				bytes int
+			}{&p.bounds, 1, 4, 4}, // slLoB, slHiB, fuLoB, fuHiB
+		)
+	}
+	for _, spec := range specs {
 		if err := add(spec.dst, spec.cols, spec.count, spec.bytes); err != nil {
 			return eg2ScratchPlan{}, err
 		}
 	}
-	if a.ffnFP16 != (Pipeline{}) {
+	if a.fusions == nil {
+		if err := add(&p.pleL, c.PLEDim, 1, 4); err != nil {
+			return eg2ScratchPlan{}, err
+		}
+	}
+	if a.packedAttnMode {
+		bms := a.distinctPackedBMs()
+		p.packedBMs = bms
+		p.packedTabs = make(map[int]launchgeom.EG2PackedTileTable, len(bms))
+		for _, bm := range bms {
+			tab, err := launchgeom.BuildEG2PackedTiles(lens, bm)
+			if err != nil {
+				return eg2ScratchPlan{}, fmt.Errorf("cuda: %w: %v", embeddinggemma2.ErrUnsupportedBatchShape, err)
+			}
+			p.packedTabs[bm] = tab
+			_, charged, err := checkedBufCharged(len(tab.SegStart), 1, 4)
+			if err != nil {
+				return eg2ScratchPlan{}, err
+			}
+			for range 3 {
+				p.chargedBytes, err = addCharged(p.chargedBytes, charged)
+				if err != nil {
+					return eg2ScratchPlan{}, err
+				}
+			}
+		}
+	}
+	if a.ffnFP16 != (Pipeline{}) || a.packedAttnMode {
 		// The final projected rows share their readback with one FP16 conversion status word.
 		oldCharge := gpu.ChargedBytes(int64(p.res) * 4)
 		res, charge, err := checkedBufCharged(1, p.res+1, 4)
@@ -700,7 +816,7 @@ func (a *eg2Accel) BatchMemory(preparedLengths []int) (embeddinggemma2.BatchMemo
 			return embeddinggemma2.BatchMemoryEstimate{}, err
 		}
 	}
-	plan, err := a.scratchPlan(total)
+	plan, err := a.scratchPlanForLens(preparedLengths)
 	if err != nil {
 		return embeddinggemma2.BatchMemoryEstimate{}, err
 	}
@@ -983,6 +1099,10 @@ func (a *eg2Accel) forwardRows(x0 []float32, lens []int, keepLayers bool) ([]flo
 	for _, n := range lens {
 		T, maxT = T+n, max(maxT, n)
 	}
+	plan, err := a.scratchPlanForLens(lens)
+	if err != nil {
+		return nil, nil, err
+	}
 	W := c.SlidingWindow
 	if a.defect.windowWide {
 		W++
@@ -990,11 +1110,10 @@ func (a *eg2Accel) forwardRows(x0 []float32, lens []int, keepLayers bool) ([]flo
 	if a.defect.windowNarrow {
 		W--
 	}
-	slLo, slHi := eg2BatchBounds(lens, W)
-	fuLo, fuHi := eg2BatchBounds(lens, -1)
-	plan, err := a.scratchPlan(T)
-	if err != nil {
-		return nil, nil, err
+	var slLo, slHi, fuLo, fuHi []int32
+	if !a.packedAttnMode {
+		slLo, slHi = eg2BatchBounds(lens, W)
+		fuLo, fuHi = eg2BatchBounds(lens, -1)
 	}
 	var out []float32
 	var layers [][]float32
@@ -1006,6 +1125,7 @@ func (a *eg2Accel) forwardRows(x0 []float32, lens []int, keepLayers bool) ([]flo
 		drainErr       error
 		releaseErr     error
 		ropeReleaseErr error
+		rangeFailed    bool
 	)
 	err = a.ops.do(func() error {
 		o := a.ops
@@ -1045,21 +1165,50 @@ func (a *eg2Accel) forwardRows(x0 []float32, lens []int, keepLayers bool) ([]flo
 		af := o.af
 		x, xn := af(plan.x), af(plan.xn)
 		q, k, v := af(plan.q), af(plan.k), af(plan.v)
-		qkv, ctx := af(plan.qkv), af(plan.ctx)
+		ctx := af(plan.ctx)
 		ob, g, u, f := af(plan.ob), af(plan.g), af(plan.u), af(plan.f)
-		ple, pleL, gg, pr := af(plan.ple), af(plan.pleL), af(plan.gg), af(plan.pr)
+		ple := af(plan.ple)
+		var pleL Buffer
+		if a.fusions == nil {
+			pleL = af(plan.pleL)
+		}
+		gg, pr := af(plan.gg), af(plan.pr)
 		res := af(plan.res)
-		slLoB, slHiB, fuLoB, fuHiB := o.ai(plan.bounds), o.ai(plan.bounds), o.ai(plan.bounds), o.ai(plan.bounds)
+		var qkv, slLoB, slHiB, fuLoB, fuHiB Buffer
+		type packedTileBufs struct {
+			segStart, segLen, qLocal0 Buffer
+			nTiles                    int32
+		}
+		var packedBufs map[int]packedTileBufs
+		if a.packedAttnMode {
+			packedBufs = make(map[int]packedTileBufs, len(plan.packedBMs))
+			for _, bm := range plan.packedBMs {
+				tab := plan.packedTabs[bm]
+				ssb, slb, q0b := o.ai(len(tab.SegStart)), o.ai(len(tab.SegLen)), o.ai(len(tab.QLocal0))
+				for _, up := range []struct {
+					dst Buffer
+					src []int32
+				}{{ssb, tab.SegStart}, {slb, tab.SegLen}, {q0b, tab.QLocal0}} {
+					if e := gpu.Upload(up.dst, up.src); e != nil {
+						return e
+					}
+				}
+				packedBufs[bm] = packedTileBufs{segStart: ssb, segLen: slb, qLocal0: q0b, nTiles: int32(len(tab.SegStart))}
+			}
+		} else {
+			qkv = af(plan.qkv)
+			slLoB, slHiB, fuLoB, fuHiB = o.ai(plan.bounds), o.ai(plan.bounds), o.ai(plan.bounds), o.ai(plan.bounds)
+			for _, b := range []struct {
+				dst Buffer
+				v   []int32
+			}{{slLoB, slLo}, {slHiB, slHi}, {fuLoB, fuLo}, {fuHiB, fuHi}} {
+				if e := gpu.Upload(b.dst, b.v); e != nil {
+					return e
+				}
+			}
+		}
 		if e := gpu.Upload(x, x0); e != nil {
 			return e
-		}
-		for _, b := range []struct {
-			dst Buffer
-			v   []int32
-		}{{slLoB, slLo}, {slHiB, slHi}, {fuLoB, fuLo}, {fuHiB, fuHi}} {
-			if e := gpu.Upload(b.dst, b.v); e != nil {
-				return e
-			}
 		}
 		var batchRope map[eg2RopeKey][2]Buffer
 		if len(lens) > 1 {
@@ -1070,7 +1219,7 @@ func (a *eg2Accel) forwardRows(x0 []float32, lens []int, keepLayers bool) ([]flo
 			}
 		}
 		var invalidInput Buffer
-		if a.ffnFP16 != (Pipeline{}) {
+		if a.ffnFP16 != (Pipeline{}) || a.packedAttnMode {
 			invalidInput = res.At((plan.res - 1) * 4)
 			if err := o.q.ZeroAsync(invalidInput, 4); err != nil {
 				return err
@@ -1109,29 +1258,50 @@ func (a *eg2Accel) forwardRows(x0 []float32, lens []int, keepLayers bool) ([]flo
 			}
 			o.ropeHalfTo(q, cs, sn, T, nH, hd)
 			o.ropeHalfTo(k, cs, sn, T, nKV, hd)
-			pitch := (T + 31) &^ 31
-			// Gate on the longest individual input. A pair of short inputs keeps the packed kernel.
-			transposed := a.combinedAttention != (Pipeline{}) && maxT >= 128 && hd <= 512 && kvd*pitch <= qkv.Len()
-			if transposed {
-				o.launch(a.combinedTranspose, LaunchConfig{
-					GridX: uint32((kvd + 31) / 32), GridY: uint32((T + 31) / 32), GridZ: 1,
-					BlockX: 32, BlockY: 8, BlockZ: 1,
-				}, Arg(k), Arg(qkv), i32(int32(T)), i32(int32(kvd)), i32(int32(pitch)))
-			} else if e := a.pack(qkv, q, k, v, T, nH, hd, group); e != nil {
-				return e
-			}
-			lo, hi, maxSeg := slLoB, slHiB, min(maxT, 2*W+1)
-			if ly.w.Full {
-				lo, hi, maxSeg = fuLoB, fuHiB, maxT
-			}
-			o.cls(clsAttn)
-			grid := gpu.SegAttentionGrid(T, nH, maxSeg)
-			if transposed {
-				o.launch(a.combinedAttention, grid, Arg(q), Arg(qkv), Arg(v), Arg(ctx), Arg(lo), Arg(hi),
-					i32(int32(T)), i32(int32(nH)), i32(int32(nKV)), i32(int32(hd)), i32(int32(pitch)), f32v(1))
+			if a.packedAttnMode {
+				spec, _ := launchgeom.EG2PackedAttnSpecForHD(hd)
+				td := packedBufs[spec.BM]
+				win := W
+				if ly.w.Full {
+					win = -1
+				} else if win > maxT {
+					// Clamp nonnegative Go int radius before int32 narrowing so huge
+					// radii such as 2^32 preserve full-segment visibility instead of wrapping.
+					win = maxT
+				}
+				o.cls(clsAttn)
+				o.launch(a.packedAttn[hd], LaunchConfig{
+					GridX: uint32(nH), GridY: uint32(td.nTiles), GridZ: 1,
+					BlockX: spec.BlockX, BlockY: 1, BlockZ: 1, SharedMemBytes: spec.SharedMem,
+				}, Arg(q), Arg(k), Arg(v),
+					Arg(td.segStart), Arg(td.segLen), Arg(td.qLocal0),
+					i32(int32(nH)), i32(int32(nKV)), i32(int32(win)),
+					f32v(1), i32(td.nTiles), Arg(ctx), Arg(invalidInput))
 			} else {
-				o.launch(o.vit.AttentionSeg, grid, Arg(qkv), Arg(ctx), Arg(lo), Arg(hi),
-					i32(int32(T)), i32(int32(nH)), i32(int32(hd)), f32v(1))
+				pitch := (T + 31) &^ 31
+				// Gate on the longest individual input. A pair of short inputs keeps the packed kernel.
+				transposed := a.combinedAttention != (Pipeline{}) && maxT >= 128 && hd <= 512 && kvd*pitch <= qkv.Len()
+				if transposed {
+					o.launch(a.combinedTranspose, LaunchConfig{
+						GridX: uint32((kvd + 31) / 32), GridY: uint32((T + 31) / 32), GridZ: 1,
+						BlockX: 32, BlockY: 8, BlockZ: 1,
+					}, Arg(k), Arg(qkv), i32(int32(T)), i32(int32(kvd)), i32(int32(pitch)))
+				} else if e := a.pack(qkv, q, k, v, T, nH, hd, group); e != nil {
+					return e
+				}
+				lo, hi, maxSeg := slLoB, slHiB, min(maxT, 2*W+1)
+				if ly.w.Full {
+					lo, hi, maxSeg = fuLoB, fuHiB, maxT
+				}
+				o.cls(clsAttn)
+				grid := gpu.SegAttentionGrid(T, nH, maxSeg)
+				if transposed {
+					o.launch(a.combinedAttention, grid, Arg(q), Arg(qkv), Arg(v), Arg(ctx), Arg(lo), Arg(hi),
+						i32(int32(T)), i32(int32(nH)), i32(int32(nKV)), i32(int32(hd)), i32(int32(pitch)), f32v(1))
+				} else {
+					o.launch(o.vit.AttentionSeg, grid, Arg(qkv), Arg(ctx), Arg(lo), Arg(hi),
+						i32(int32(T)), i32(int32(nH)), i32(int32(hd)), f32v(1))
+				}
 			}
 			o.gemm(ctx, ly.o, ob, T, H, qd)
 			o.rms(ob, ly.postAttnNorm, ob, T, H, eps)
@@ -1140,18 +1310,13 @@ func (a *eg2Accel) forwardRows(x0 []float32, lens []int, keepLayers bool) ([]flo
 			o.rms(x, ly.preFFNorm, xn, T, H, eps)
 			a.ffnGEMM(xn, ly.gate, g, invalidInput, T, I, H)
 			a.ffnGEMM(xn, ly.up, u, invalidInput, T, I, H)
-			o.geluTanh(g, T*I)
-			o.mulVec(g, u, T*I)
+			a.ffnActivation(g, u, T*I)
 			a.ffnGEMM(g, ly.down, f, invalidInput, T, H, I)
 			o.rms(f, ly.postFFNorm, f, T, H, eps)
 			o.addVec(x, f, T*H)
 			// PLE block, then the layer scalar over the whole residual sum
 			o.gemm(x, ly.pleGate, gg, T, P, H)
-			o.geluTanh(gg, T*P)
-			if o.err == nil {
-				o.err = o.q.Copy2DAsync(pleL, P*4, ple.At(li*P*4), L*P*4, P*4, T)
-			}
-			o.mulVec(gg, pleL, T*P)
+			a.pleActivation(gg, ple, pleL, T, li)
 			o.gemm(gg, ly.pleProj, pr, T, H, P)
 			o.rms(pr, ly.plePostNorm, pr, T, H, eps)
 			o.addVec(x, pr, T*H)
@@ -1187,7 +1352,10 @@ func (a *eg2Accel) forwardRows(x0 []float32, lens []int, keepLayers bool) ([]flo
 		if invalidInput != (Buffer{}) {
 			last := len(out) - 1
 			if math.Float32bits(out[last]) != 0 {
-				return errEG2FP16InputRange
+				rangeFailed = true
+				out = nil
+				layers = nil
+				return nil
 			}
 			out = out[:last:last]
 		}
@@ -1212,6 +1380,9 @@ func (a *eg2Accel) forwardRows(x0 []float32, lens []int, keepLayers bool) ([]flo
 	}
 	if classified := classifyEG2ForwardErr(err, latchedErr, drainErr, releaseErr, a.broken, a.closed); classified != nil {
 		return nil, nil, classified
+	}
+	if rangeFailed {
+		return nil, nil, fmt.Errorf("cuda: EmbeddingGemma 2 forward: %w", errEG2FP16InputRange)
 	}
 	return out, layers, nil
 }

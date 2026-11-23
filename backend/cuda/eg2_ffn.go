@@ -11,7 +11,7 @@ import (
 	"github.com/pkieltyka/goinfer/embeddinggemma2"
 )
 
-var errEG2FP16InputRange = errors.New("cuda: EmbeddingGemma 2 FFN input is outside the finite FP16 range")
+var errEG2FP16InputRange = errors.New("cuda: EmbeddingGemma 2 FP16 input is outside the finite FP16 range")
 
 const eg2FP16MinMajor = 8
 

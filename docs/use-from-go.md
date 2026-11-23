@@ -292,20 +292,25 @@ unchanged. A selector being listed does not guarantee the device can load a give
 Read the actual attached device through the accelerator's
 `embeddinggemma2.AttachedDeviceReporter` interface.
 
-For opt-in FP16 feed-forward projections, link the CUDA package, build with
+For the opt-in FP16 CUDA path, link the CUDA package, build with
 `CGO_ENABLED=0` and `-tags 'cuda eg2_combined eg2_fp16'`, and call
 `encoder.UseDevice(device.ID, "cuda-eg2-fp16")`. The selector requires CUDA
-compute capability 8.0 or later. Its gate, up, and down projections use
-round-to-nearest-even FP16 operands and FP32 accumulation. The rest of the
-encoder uses the combined CUDA path. An out-of-range weight or activation
-returns an error.
+compute capability 8.0 or later. Its feed-forward gate, up, and down
+projections use round-to-nearest-even FP16 operands with FP32 accumulation,
+attention runs packed variable-length three-term split-FP16 tiles over Q/K/V
+with FP32 accumulation, and the FFN and PLE GELU multiplications run in fused
+elementwise kernels. An out-of-range weight or activation returns an error.
 
-Keep the selector fixed for embeddings that will share an index. On the RTX
-PRO 6000 Blackwell Max-Q, the Google pack and Q8_0 checkpoint both cleared
-0.999 cosine against their own CPU results at 768 and 512 dimensions.
-Within the FP16 mode, singleton, packed, split, and reordered calls produced
-identical per-input vector bits across the 81-case reference set and the
-fixed 200-passage slice. [FP16 FFN qualification](measurements/eg2-fp16-ffn-2026-11-22.md)
+Keep both the build revision and the `cuda-eg2-fp16` selector fixed for
+embeddings that share an index. Earlier FFN-only builds used the same
+selector name with different attention arithmetic and produced different
+vector digests. On the RTX PRO 6000 Blackwell Max-Q, the composed path
+cleared 0.999 cosine against CPU on both the Google pack and Q8_0 checkpoint
+at 768 and 512 dimensions, with identical per-input vector bits across
+singleton, packed, split, and reordered calls on the 81-case reference set
+and fixed 200-passage slice.
+[Composed FP16 qualification](measurements/eg2-fp16-composed-2026-11-22.md)
+and [FP16 FFN qualification](measurements/eg2-fp16-ffn-2026-11-22.md)
 
 | Backend | Device ID and alias | Bare selector |
 | --- | --- | --- |
