@@ -30,6 +30,15 @@ thinking = "high"
 worktree = true
 notes = "Leads implementation and verification for assigned accelerator and model support work."
 
+[members.lead-dev-3]
+role = "lead-dev"
+harness = "opencode"
+# OpenCode Go displays this model ID as DeepSeek V4.1 Flash 1017.
+model = "opencode-go/deepseek-v4.1-flash"
+thinking = "high"
+worktree = true
+notes = "Leads implementation and verification for assigned Go inference and accelerator work."
+
 [members.pm]
 harness = "codex"
 model = "gpt-6-luna"
