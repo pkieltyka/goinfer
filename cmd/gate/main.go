@@ -42,7 +42,7 @@ usage:
   gate ptx [-keep DIR]                             every cuda/testdata/*.ptx rebuilt from its .cu at the NVRTC it records, compared
                                                    byte for byte; needs NVRTC, no GPU (GOINFER_NVRTC_DIRS names the installs)
   gate release [-offline] vX.Y.Z                   the pre-flight as rows: done / OWED / UNKNOWN each, with its record; exit 0 only when all are done
-  gate changelog [-base TAG] [-section S]          new routes, flags, families and the aikit pin since TAG that the CHANGELOG section does not name
+  gate changelog [-base TAG] [-section S]          new routes, flags and families since TAG that the CHANGELOG section does not name
   gate gpu-records [-head REV] [-dir DIR]          which backends have a record that still qualifies at REV (exit 1 if one does not)
   gate mutation <name> <file> <sed-expr> <cmd...>  prove a gate can FAIL: green -> mutate -> red -> restore -> green
   gate quick [-base REF] [-files a,b] [-count1] [-j N] [-select] [-v]
@@ -61,7 +61,7 @@ usage:
                                                    CC2): token streams equal, directives and Example comments byte-identical,
                                                    the moved-text report, then gofmt, go vet and the citation lint
   gate shadow [-json FILE] <before> <after>       VK5: every parity family judged by today's key and by the shadow key
-                                                   (kernel fingerprints in place of the aikit pin) across one push
+                                                   (using kernel fingerprints) across one push
   gate ledger promote --gate G --value V --by YOU  record a person's confirmation of a gate's value (B14)
   gate ledger classify --gate G                    CONFIRMED | FIRST-RUN | SOURCE-CHANGED | UNKNOWN-GATE
   gate ledger reconcile [--gates a,b]              the ledger's three checks, as the parity sweep prints them

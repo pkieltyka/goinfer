@@ -14,10 +14,9 @@
 #                                             # first tag under github.com/pkieltyka/goinfer; the
 #                                             # original's v0.13.0 freeze point is a tag of the old
 #                                             # module path)
-#   scripts/apidiff_check.sh v0.14.0         # baseline an explicit tag
 #
-# Needs: apidiff (auto-installed to a temp GOBIN if absent) and the baseline TAG present locally
-# (CI must not shallow-clone away the tags: actions/checkout with fetch-depth: 0).
+# The baseline tag must be present locally; its API exports are stored and checked
+# here so the gate can run without building the historical module graph.
 set -u
 
 ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
@@ -100,6 +99,10 @@ if [ "${1:-}" = "--classify" ]; then
 fi
 
 BASE="${1:-v0.1.0}"
+if [ "$#" -gt 1 ] || [ "$BASE" != v0.1.0 ]; then
+	echo "apidiff_check: no sealed API export for $BASE. The available baseline is v0.1.0." >&2
+	exit 1
+fi
 
 if ! git rev-parse -q --verify "refs/tags/$BASE" >/dev/null; then
 	echo "apidiff_check: baseline tag $BASE not present locally (shallow clone?). Cannot compare." >&2
@@ -116,33 +119,19 @@ if [ -z "$APIDIFF" ]; then
 	APIDIFF="$TMPBIN/apidiff"
 fi
 
-if [ "$BASE" = v0.1.0 ]; then
-	# The fixed CI baseline is a type export instead of a build of the old module graph.
-	if [ "$(git rev-parse "$BASE^{commit}")" != bdf9daf95cae55e3ea79df61ba056f2ddf607947 ]; then
-		echo "apidiff_check: $BASE differs from the frozen API source revision" >&2
-		exit 1
-	fi
-	EXPORTS="$ROOT/testdata/apidiff/v0.1.0"
-	(
-		cd "$EXPORTS" || exit 1
-		if command -v sha256sum >/dev/null; then
-			sha256sum -c SHA256SUMS
-		else
-			shasum -a 256 -c SHA256SUMS
-		fi
-	) || exit 1
-else
-	WORK="$(mktemp -d)"
-	BASEDIR="$WORK/base"
-	EXPORTS="$WORK"
-	cleanup() { git worktree remove --force "$BASEDIR" >/dev/null 2>&1 || true; rm -rf "$WORK"; }
-	trap cleanup EXIT
-	git worktree add -q --detach "$BASEDIR" "$BASE" || { echo "apidiff_check: worktree at $BASE failed" >&2; exit 1; }
-	for p in $PKGS; do
-		( cd "$BASEDIR" && "$APIDIFF" -w "$EXPORTS/$p.api" "$MOD/$p" ) || {
-			echo "  $p: could not export baseline API" >&2; exit 1; }
-	done
+if [ "$(git rev-parse "$BASE^{commit}")" != bdf9daf95cae55e3ea79df61ba056f2ddf607947 ]; then
+	echo "apidiff_check: $BASE differs from the frozen API source revision" >&2
+	exit 1
 fi
+EXPORTS="$ROOT/testdata/apidiff/v0.1.0"
+(
+	cd "$EXPORTS" || exit 1
+	if command -v sha256sum >/dev/null; then
+		sha256sum -c SHA256SUMS
+	else
+		shasum -a 256 -c SHA256SUMS
+	fi
+) || exit 1
 
 echo "== apidiff: $BASE -> $(git rev-parse --short HEAD) =="
 fatal=0
