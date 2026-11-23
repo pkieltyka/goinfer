@@ -4,7 +4,7 @@ go 1.27.0
 
 require (
 	github.com/ebitengine/purego v0.10.1
-	github.com/pkieltyka/goinfer v0.6.3
+	github.com/pkieltyka/goinfer v0.6.4
 )
 
 require (
