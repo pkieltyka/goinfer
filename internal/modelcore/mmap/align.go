@@ -2,9 +2,9 @@ package mmap
 
 import (
 	"os"
-	"strconv"
-	"strings"
 	"unsafe"
+
+	"github.com/pkieltyka/goinfer/internal/runtime/mem/probe"
 )
 
 // PageAlignedInterior returns the page-aligned interior of raw: the sub-slice that
@@ -47,21 +47,4 @@ func AutoBudget() int64 {
 // bytes; it returns 0 where that can't be read (non-Linux, or the field is absent).
 // A missing /proc/meminfo is not an error — callers treat 0 as "unknown" and fall
 // back to a fixed budget (see AutoBudget).
-func AvailableRAM() int64 {
-	data, err := os.ReadFile("/proc/meminfo")
-	if err != nil {
-		return 0
-	}
-	for line := range strings.SplitSeq(string(data), "\n") {
-		if !strings.HasPrefix(line, "MemAvailable:") {
-			continue
-		}
-		f := strings.Fields(line) // "MemAvailable:  12345678 kB"
-		if len(f) >= 2 {
-			if kb, err := strconv.ParseInt(f[1], 10, 64); err == nil {
-				return kb * 1024
-			}
-		}
-	}
-	return 0
-}
+func AvailableRAM() int64 { return probe.LinuxAvailableRAM() }

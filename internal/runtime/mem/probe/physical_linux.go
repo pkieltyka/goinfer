@@ -54,3 +54,22 @@ func meminfoField(meminfo, key string) int64 {
 	}
 	return 0
 }
+
+// LinuxAvailableRAM returns the Linux pager's MemAvailable in bytes. Missing
+// or unreadable meminfo returns zero so the caller can use its fallback budget.
+func LinuxAvailableRAM() int64 { return linuxAvailableRAM(readMeminfo()) }
+
+func linuxAvailableRAM(meminfo string) int64 {
+	for line := range strings.SplitSeq(meminfo, "\n") {
+		if !strings.HasPrefix(line, "MemAvailable:") {
+			continue
+		}
+		f := strings.Fields(line) // "MemAvailable:  12345678 kB"
+		if len(f) >= 2 {
+			if kb, err := strconv.ParseInt(f[1], 10, 64); err == nil {
+				return kb * 1024
+			}
+		}
+	}
+	return 0
+}
