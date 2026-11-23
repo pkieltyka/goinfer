@@ -47,8 +47,17 @@ func readsEnvAtInitDepth(e ast.Node, helpers map[string]*ast.BlockStmt, seen map
 		}
 		switch n := n.(type) {
 		case *ast.FuncLit:
+			// A literal that is merely stored runs later, so its body is not init work. An immediately
+			// invoked one is handled from its CallExpr below, where the body does run synchronously.
 			return false
 		case *ast.CallExpr:
+			if lit, ok := n.Fun.(*ast.FuncLit); ok {
+				// `func(){ os.Getenv(...) }()` runs during the initialiser, so follow its body.
+				if readsEnvAtInitDepth(lit.Body, helpers, seen, depth+1) {
+					found = true
+					return false
+				}
+			}
 			if sel, ok := n.Fun.(*ast.SelectorExpr); ok {
 				if x, ok := sel.X.(*ast.Ident); ok && x.Name == "os" && (sel.Sel.Name == "Getenv" || sel.Sel.Name == "LookupEnv") {
 					found = true
@@ -309,6 +318,29 @@ func TestIssue70_hiddenHelperInitRead(t *testing.T) {
 	}
 	if got := strings.Join(pkgInitEnvReads(t, initPlant), ","); got != "p.go:init" {
 		t.Fatalf("VOID: the scan misses an environment read in a package init function: found %q", got)
+	}
+	// An immediately invoked function literal runs inside the initialiser; a stored one does not.
+	iife := filepath.Join(t.TempDir(), "iife")
+	if err := os.MkdirAll(iife, 0o755); err != nil {
+		t.Fatal(err)
+	}
+	srcIIFE := "package p\n\nimport \"os\"\n\nvar viaIIFE = func() string { return os.Getenv(\"GOINFER_IIFE\") }()\n"
+	if err := os.WriteFile(filepath.Join(iife, "p.go"), []byte(srcIIFE), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	if got := strings.Join(pkgInitEnvReads(t, iife), ","); got != "p.go:viaIIFE" {
+		t.Fatalf("VOID: the scan misses an environment read inside an immediately invoked literal: found %q", got)
+	}
+	stored := filepath.Join(t.TempDir(), "stored")
+	if err := os.MkdirAll(stored, 0o755); err != nil {
+		t.Fatal(err)
+	}
+	srcStored := "package p\n\nimport \"os\"\n\nvar later = func() string { return os.Getenv(\"GOINFER_LATER\") }\n"
+	if err := os.WriteFile(filepath.Join(stored, "p.go"), []byte(srcStored), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	if got := pkgInitEnvReads(t, stored); len(got) != 0 {
+		t.Fatalf("a stored literal runs later, not at init, but the scan reported %q", got)
 	}
 	// And a long helper chain: the cycle guard bounds recursion, so no depth cap may hide the ninth hop.
 	chain := filepath.Join(t.TempDir(), "chain")
