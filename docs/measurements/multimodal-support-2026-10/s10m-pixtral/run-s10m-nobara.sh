@@ -1,13 +1,14 @@
 #!/usr/bin/env bash
 # S10, Ministral 3 (Pixtral): G-S10m-a/b/c on nobara (docs/completed/task-multimodal-support-2026-10.md, "S10, Ministral 3
-# (Pixtral)"). From a goinfer worktree whose go.work uses the aikit branch carrying the Pixtral tower:
+# (Pixtral)"). From this checkout (REPO overrides it); the Pixtral tower is internal/vision/pixtral_encoder.go here, so the
+# run needs no go.work and no external branch:
 #   1. goinfer writes its ids for the full-model prompt (decoder/pixtral_real_test.go, step ids);
 #   2. transformers writes every reference (scripts/pin_pixtral_real.py, ~/.venv-vl, float32, one load, ~17 GB);
 #   3. goinfer grades a and b (multimodal/pixtral_real_test.go) and c (step compare).
 # Each step's log goes to $OUT. Correctness gates, not timed: no timing lock.
 set -euo pipefail
 export PATH=$PATH:/usr/local/go/bin
-REPO=${REPO:-$HOME/wt/goinfer-s10px}
+REPO=${REPO:-$(cd "$(dirname "${BASH_SOURCE[0]}")/../../../.." && pwd)}
 MODEL=${MODEL:-$HOME/models/ministral3-3b-bf16}
 OUT=${OUT:-$HOME/goinfer-logs/pixtral-real}
 case "$MODEL" in /Volumes/*|/srv/models*) echo "$MODEL is the archive (CLAUDE.md)"; exit 2;; esac

@@ -1,13 +1,14 @@
 #!/usr/bin/env bash
-# S10, LFM2.5-VL: G-S10l-a/b/c on nobara (docs/completed/task-multimodal-support-2026-10.md, "S10, LFM2.5-VL"). From a goinfer
-# worktree whose go.work uses the aikit branch carrying the SigLIP2 NaFlex tower:
+# S10, LFM2.5-VL: G-S10l-a/b/c on nobara (docs/completed/task-multimodal-support-2026-10.md, "S10, LFM2.5-VL"). From this
+# checkout (REPO overrides it); the SigLIP2 NaFlex tower is internal/vision/siglip2_naflex.go here, so the run needs no
+# go.work and no external branch:
 #   1. goinfer writes its ids for the full-model prompt (decoder/lfm2vl_real_test.go, step ids);
 #   2. transformers writes every reference (scripts/pin_lfm2vl_real.py, ~/.venv-vl, float32, one load, ~8 GB);
 #   3. goinfer grades a and b (multimodal/lfm2vl_real_test.go) and c (step compare).
 # Each step's log goes to $OUT. Correctness gates, not timed: no timing lock.
 set -euo pipefail
 export PATH=$PATH:/usr/local/go/bin
-REPO=${REPO:-$HOME/wt/goinfer-s10l}
+REPO=${REPO:-$(cd "$(dirname "${BASH_SOURCE[0]}")/../../../.." && pwd)}
 MODEL=${MODEL:-$HOME/models/lfm25-vl-1.6b}
 OUT=${OUT:-$HOME/goinfer-logs/lfm2vl-real}
 case "$MODEL" in /Volumes/*|/srv/models*) echo "$MODEL is the archive (CLAUDE.md)"; exit 2;; esac
