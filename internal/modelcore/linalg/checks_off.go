@@ -11,14 +11,6 @@ package linalg
 // shape or group=0 would divide-by-zero or read out of bounds deep inside an asm
 // kernel; the checked build fails loudly at the entry instead.
 
-// checksEnabled reports the build mode. Deliberately kept in both
-// checks_off.go and checks_on.go as the symmetric introspection constant for
-// the modelcore_checks tag, so a test or debug path can branch on the build
-// without re-deriving the tag. Nothing references it today.
-//
-//nolint:unused // build-mode introspection constant; symmetric with checks_on.go
-const checksEnabled = false
-
 func checkDequantInt4(packed []byte, scales []float32, group, cols int, dst []float32) {}
 func checkGroupMatmul(name string, aLen int, packed []byte, scales []float32, dstLen, M, K, N, group int) {
 }

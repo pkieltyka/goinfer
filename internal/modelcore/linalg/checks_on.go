@@ -11,8 +11,6 @@ import "fmt"
 // loop. Run the test suite with `-tags modelcore_checks` (and the fuzzers) to exercise
 // them; production builds (checks_off.go) compile these to no-ops.
 
-const checksEnabled = true
-
 func assertf(cond bool, format string, a ...any) {
 	if !cond {
 		panic("linalg/checks: " + fmt.Sprintf(format, a...))
