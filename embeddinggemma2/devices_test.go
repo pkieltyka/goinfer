@@ -170,7 +170,7 @@ func TestDeviceRunnableSelectors(t *testing.T) {
 	if linked := DeviceSelectors(backend); !slices.Equal(linked, []string{first, denied, legacy, last}) {
 		t.Fatalf("linked selectors = %v", linked)
 	}
-	for _, id := range []string{"", "abc", "cuda:", "cuda::0", "metal:abc", d.Alias} {
+	for _, id := range []string{"", "abc", "cuda:", "cuda::0", "cuda:12", "cuda:bad token", "metal:abc", d.Alias} {
 		invalid := d
 		invalid.ID = id
 		before := calls

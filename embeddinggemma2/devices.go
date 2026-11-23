@@ -104,14 +104,15 @@ func RegisterDeviceAcceleratorWithSupport(selector, backend string, factory func
 
 // RunnableSelectors returns a sorted, caller-owned list of linked selectors
 // whose hardware requirements this CUDA row satisfies for UseDevice(d.ID, name).
-// It returns nil for other backends and rows without verified eligibility.
+// It returns nil for other backends and rows without a usable persistent ID
+// or verified hardware eligibility.
 // Attachment still checks device identity, model compatibility and memory fit.
 func (d DeviceInfo) RunnableSelectors() []string {
 	if d.Backend != "cuda" {
 		return nil
 	}
 	token, qualified := strings.CutPrefix(d.ID, "cuda:")
-	if !qualified || token == "" || strings.ContainsAny(token, ": \t\r\n") || d.ID == d.Alias {
+	if !qualified || strings.Trim(token, "0123456789") == "" || strings.ContainsAny(token, ": \t\r\n") || d.ID == d.Alias {
 		return nil
 	}
 	accelMu.Lock()
