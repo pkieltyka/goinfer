@@ -6,8 +6,8 @@ meaningful. Weights are random: throughput does not depend on weight VALUES, and
 benchmark gates parity as GPU-vs-CPU on the SAME tower (not against a Python golden), so a
 random tower is exactly right and needs no download.
 
-    ~/tmcode/aikit/.venv/bin/python scripts/oracle/gen_siglip_bench.py
-    -> testdata/siglip-bench/   (HF safetensors checkpoint; gitignored)
+    python3 internal/vision/testdata/oracle/gen_siglip_bench.py
+    -> internal/vision/testdata/siglip-bench/   (HF safetensors checkpoint; gitignored)
 """
 import os
 import torch
