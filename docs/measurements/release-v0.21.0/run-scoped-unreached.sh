@@ -15,9 +15,15 @@
 # (not skips), SmolLM3 and Spark25 pass or are NOT-FOUND-skips named in the log, and Qwen3Next is the only permitted skip. Any FAIL, or a timeout,
 # is a blocker: stop and report, no tag. About 30 min (Qwen3MoE load+oracle ~15-20 min, the rest minutes), TIMEOUT=90m so a hang fails loudly.
 #
-#   python3 scripts/timing_lock.py run --label release-v021-scoped-unreached -- bash docs/measurements/release-v0.21.0/run-scoped-unreached.sh
+#   REV=<candidate> python3 scripts/timing_lock.py run --label release-scoped-unreached -- bash docs/measurements/release-v0.21.0/run-scoped-unreached.sh
+#
+# Current-tree template. This file is the template RELEASING.md §C1 names for a GATE_RUN re-run; the v0.21.0 run above is
+# its record. It has no historical default: set REV to the candidate commit. It saves whichever parity artifact that
+# revision writes (testdata/parity/ now, testdata/parity_manifest.json before that directory existed), and it returns the
+# gate's own exit status even when the copy succeeds. To reproduce v0.21.0 itself, set REV=7b50947a: that is the only case
+# that resolves the donor-era module, and it is a historical reproduction, not a candidate gate.
 set -euo pipefail
-REV=${REV:-7b50947a}
+REV=${REV:?set REV to the candidate commit to gate}
 SRC=${SRC:-$(cd "$(dirname "${BASH_SOURCE[0]}")/../../.." && pwd)}
 BASE=${BASE:-$HOME/goinfer-bench/release-v0.21.0}
 WT=$BASE/scoped-wt
@@ -51,8 +57,18 @@ for d in testdata decoder/testdata; do
 done
 
 cd "$WT"
+if [ -d testdata/parity ]; then
+  ARTIFACT=testdata/parity
+elif [ -f testdata/parity_manifest.json ]; then
+  ARTIFACT=testdata/parity_manifest.json
+else
+  echo "FATAL: $REV writes neither testdata/parity/ nor testdata/parity_manifest.json" >&2
+  exit 2
+fi
 {
+  echo "requested:  $REV"
   echo "rev:        $(git rev-parse HEAD) ($(grep -E '^[[:space:]]*github\.com/[^[:space:]]+/aikit v' go.mod | head -1 | xargs))"
+  echo "artifact:   $ARTIFACT"
   echo "started:    $(date '+%F %T %Z')"
   echo "fixtures:   $n gitignored entries symlinked from $SRC"
   echo "tree:       $(git status --porcelain | wc -l) entries in git status (0 = clean)"
@@ -62,6 +78,18 @@ cd "$WT"
 } | tee "$LOG/provenance.txt"
 [ "${DRY:-0}" = 1 ] && { echo "DRY=1: stopping before the sweep"; exit 0; }
 
-GOWORK=off GATE_RUN="$RE" EMIT_MANIFEST=1 go run ./cmd/gate parity 2>&1 | tee "$LOG/scoped.log" || true
-cp -r testdata/parity "$LOG/parity.after"
-echo "finished:   $(date '+%F %T %Z')" | tee -a "$LOG/provenance.txt"
+rc=0
+GOWORK=off GATE_RUN="$RE" EMIT_MANIFEST=1 go run ./cmd/gate parity 2>&1 | tee "$LOG/scoped.log" || rc=$?
+# Save the evidence even on a failing gate, then return the gate's own status: a copy that succeeds must
+# not turn a FAIL into an exit zero.
+rm -rf "$LOG/parity.after"
+if [ -d testdata/parity ]; then
+  cp -r testdata/parity "$LOG/parity.after"
+elif [ -f testdata/parity_manifest.json ]; then
+  cp testdata/parity_manifest.json "$LOG/parity_manifest.after.json"
+else
+  echo "FATAL: the gate wrote neither parity artifact" >&2
+  [ "$rc" -ne 0 ] || rc=1
+fi
+echo "finished:   $(date '+%F %T %Z') rc=$rc" | tee -a "$LOG/provenance.txt"
+exit "$rc"
