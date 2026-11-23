@@ -11,6 +11,8 @@ REV=${REV:?the commit to pin}
 B=${B:?the pinned directory}
 REPO=${REPO:-$(cd "$(dirname "${BASH_SOURCE[0]}")/../../../.." && pwd)}
 HERE=docs/measurements/integration-harness-2026-10
+mkdir -p "$B"
+B=$(cd "$B" && pwd -P)
 mkdir -p "$B/bin"
 WT="$B/wt"
 if [ ! -d "$WT" ]; then
