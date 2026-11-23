@@ -83,8 +83,7 @@ func goDirective(root string) (string, error) {
 }
 
 // workspaceEnv returns the GOWORK setting for t: off for a target CI runs without a workspace, else a scratch go.work
-// under dir that uses the root and t's modules, as CI's `go work init` does. The developer's own go.work is never
-// read: it may lack a module (the Mac's has no ./cuda) or point at a local aikit CI does not use.
+// under dir that uses the root and t's modules, as CI's `go work init` does. The generated file selects the same module set independently of the developer's local workspace.
 func workspaceEnv(root, dir string, t target) (string, error) {
 	if t.workspace == nil {
 		return "GOWORK=off", nil

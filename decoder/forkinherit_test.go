@@ -6,7 +6,7 @@ import (
 	"testing"
 	"unsafe"
 
-	"github.com/pkieltyka/aikit/mmap"
+	"github.com/pkieltyka/goinfer/internal/modelcore/mmap"
 	"github.com/pkieltyka/goinfer/internal/runtime/giw"
 )
 

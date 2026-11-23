@@ -5,7 +5,7 @@ import (
 	"sync"
 	"unsafe"
 
-	"github.com/pkieltyka/aikit/linalg"
+	"github.com/pkieltyka/goinfer/internal/modelcore/linalg"
 )
 
 // Gemma 4 26B-A4B parallel dense-MLP + MoE FFN sub-block (enable_moe_block). The two branches run on the same post-attention

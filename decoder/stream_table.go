@@ -5,7 +5,7 @@ import (
 	"math"
 	"unsafe"
 
-	"github.com/pkieltyka/aikit/linalg"
+	"github.com/pkieltyka/goinfer/internal/modelcore/linalg"
 )
 
 // streamedTable is an embedding-shaped table (the token embedding, the LM head, Gemma 4's per-layer token table) that a

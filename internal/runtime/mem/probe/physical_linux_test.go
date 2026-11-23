@@ -56,3 +56,27 @@ func TestAvailable_readsRealMeminfo(t *testing.T) {
 		t.Errorf("available (%d) > total (%d) — impossible", got, total)
 	}
 }
+
+func TestLinuxAvailableRAM_parser(t *testing.T) {
+	tests := []struct {
+		name    string
+		meminfo string
+		want    int64
+	}{
+		{"real", sampleMeminfo, 5766224 * 1024},
+		{"unreadable", "", 0},
+		{"missing", "MemTotal: 42 kB\n", 0},
+		{"malformed", "MemAvailable: nope kB\n", 0},
+		{"after malformed", "MemAvailable: nope kB\nMemAvailable: 3 kB\n", 3 * 1024},
+		{"first parseable", "MemAvailable: 4 kB\nMemAvailable: 5 kB\n", 4 * 1024},
+		{"unit agnostic", "MemAvailable: 4\n", 4 * 1024},
+		{"first parsed zero", "MemAvailable: 0 kB\nMemAvailable: 2 kB\n", 0},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			if got := linuxAvailableRAM(tt.meminfo); got != tt.want {
+				t.Errorf("got %d bytes, want %d", got, tt.want)
+			}
+		})
+	}
+}

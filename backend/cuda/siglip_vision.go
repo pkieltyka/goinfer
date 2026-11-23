@@ -10,7 +10,7 @@ import (
 )
 
 // Gemma 3's SigLIP tower in float32 on the CUDA tower base: the port of
-// metal's siglipVResident (metal/vl_towers.go). aikit's GridPatches (im2col) rows arrive on the host; the patch embed
+// metal's siglipVResident (metal/vl_towers.go). vision.GridPatches (im2col) rows arrive on the host; the patch embed
 // plus the fixed position table, every block over ONE segment of all the patches with no RoPE, then FinishHidden (the
 // post-layernorm) on the host. Blocks: LayerNorm with bias, biased separate q, k and v, attention at scale
 // 1/sqrt(head_dim) over every patch, biased o and residual, LayerNorm, biased fc1, GELU-tanh, biased fc2, residual.
@@ -22,7 +22,7 @@ type siglipTower struct {
 	g   *gridTower
 	enc *vision.Encoder
 	np  int
-	pos []float32 // aikit's fixed position table, [np, hidden]
+	pos []float32 // the vision encoder's fixed position table, [np, hidden]
 }
 
 func newSiglipTower(enc *vision.Encoder) (*siglipTower, error) {

@@ -20,7 +20,7 @@ import (
 
 // EmbeddingGemma 2's text encoder on CUDA: the CPU forward of embeddinggemma2/model.go in float32 with every weight
 // resident on the device, on the tower base (tower_base.go). The token-row gather is the host's, as Metal's is; every
-// layer runs here. Attention is aikit's attention_seg, which takes each query row's own key range: [i-W, i+W] clipped
+// layer runs here. Attention uses the in-tree attention_seg kernel, which takes each query row's own key range: [i-W, i+W] clipped
 // to the input on a sliding layer, the whole input on a full one. It reads one fused [T, 3, nH, hd] buffer, so q, k and
 // v are normed and rotated in their own buffers and gathered into it by strided device copies (Queue.Copy2DAsync), each
 // query head taking its KV head's columns. Registered as the "cuda" accelerator; nothing selects it by default.

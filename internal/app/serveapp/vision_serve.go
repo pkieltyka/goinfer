@@ -149,14 +149,14 @@ func (lm *loadedModel) glmOcr() *glmVision {
 	return g
 }
 
-// residentTower is the part of aikit's Qwen2.5-VL encoder the fallback uses: whether its device tower is attached, and detaching it.
+// residentTower is the part of the Qwen2.5-VL vision encoder the fallback uses: whether its device tower is attached, and detaching it.
 type residentTower interface {
 	ResidentEnabled() bool
 	Close()
 }
 
 // qwenDeviceForward runs forward on the Qwen2.5-VL encoder t, a panic becoming an error. On a device allocation failure with the device tower attached it detaches the
-// tower (the encoder then runs aikit's CPU path) and runs the image again there; under require (-require-backend) it fails the request instead and keeps the tower.
+// tower (the encoder then runs the CPU path) and runs the image again there; under require (-require-backend) it fails the request instead and keeps the tower.
 func qwenDeviceForward(t residentTower, require bool, forward func() ([]float32, error)) ([]float32, error) {
 	out, err := recoverDeviceTower("Qwen2.5-VL", forward)
 	if !t.ResidentEnabled() || !mem.DeviceOutOfMemory(err) {

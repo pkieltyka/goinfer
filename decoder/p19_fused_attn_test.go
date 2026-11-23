@@ -10,7 +10,7 @@ import (
 	"testing"
 	"time"
 
-	"github.com/pkieltyka/aikit/linalg"
+	"github.com/pkieltyka/goinfer/internal/modelcore/linalg"
 )
 
 // TestP19FusedAttention measures whether the FUSED (FlashAttention-style) schedule beats the materialized

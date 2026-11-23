@@ -6,7 +6,7 @@ import (
 	"runtime"
 	"sync"
 
-	"github.com/pkieltyka/aikit/linalg"
+	"github.com/pkieltyka/goinfer/internal/modelcore/linalg"
 )
 
 // cpuFusedGateUp is the fused gate+up+SwiGLU decode path for W4A8 SiLU-gated MLPs: ONE fork/join per
@@ -28,7 +28,8 @@ import (
 // Default per architecture (fusedGateUpDefault, cpu_tuning_{arm64,other}.go): on where it was measured (amd64), off where
 // it was not (arm64). GOINFER_CPU_FUSED_GATEUP=0 forces the unfused path (an A/B handle and an escape hatch), =1 forces
 // it on.
-var cpuFusedGateUp = envBoolDefault("GOINFER_CPU_FUSED_GATEUP", fusedGateUpDefault)
+// cpuFusedGateUp is GOINFER_CPU_FUSED_GATEUP, parsed once by ensureSettings on first decoder use.
+var cpuFusedGateUp bool
 
 func envBoolDefault(name string, def bool) bool {
 	switch os.Getenv(name) {
@@ -88,7 +89,7 @@ func gatedMLPFusedGateUpAct(h []float32, lw *LayerWeights, act ActKind, scr *dec
 		return false
 	}
 	if lw.GateProj.Int4Layout() != "canonical" || lw.UpProj.Int4Layout() != "canonical" {
-		return false // repacked layouts (arm64 row4, amd64 split-half) need aikit's own per-arch dispatch
+		return false // repacked layouts (arm64 row4, amd64 split-half) need the model core's per-architecture dispatch
 	}
 	q4g, sg, group, _ := lw.GateProj.Int4F16()
 	q4u, su, groupU, _ := lw.UpProj.Int4F16()
@@ -103,7 +104,7 @@ func gatedMLPFusedGateUpAct(h []float32, lw *LayerWeights, act ActKind, scr *dec
 	w := fusedWorkers(N)
 	wss := scr.fusedPair.workspaces(w)
 	// h is quantized once for every worker's gate and up chunk: each MatmulBTW4A8F16Into would otherwise re-quantize all of
-	// h, 2w times a layer. The workers' workspaces carry the weight's activation group, or none (then aikit's process
+	// h, 2w times a layer. The workers' workspaces carry the weight's activation group, or none (then the model core's process
 	// default applies), so the block is quantized with the group they resolve to; the kernels only read it. w4a8PreOff
 	// (tests only) restores a quantization per call.
 	pre := !w4a8PreOff

@@ -15,7 +15,7 @@ Decoders already at parity: `qwen3`, `qwen3_moe`, `qwen3_vl` (text), `llama`, `m
 Qwen3-Omni all use transformers' `WhisperFeatureExtractor` (128 bins, hop 160, `n_fft` 400). That extractor differs from
 aikit's at every stage:
 
-| stage | Whisper extractor | aikit's Gemma front end |
+| stage | Whisper extractor | the module's Gemma front end |
 |---|---|---|
 | FFT | 400 points, not a power of two (needs mixed radix or Bluestein) | radix-2, 512 points |
 | spectrum | power (`power=2.0`) | magnitude |

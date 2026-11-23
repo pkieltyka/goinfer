@@ -14,13 +14,12 @@ init-scale attention hid 5 of its 7 defects):
     rather than refused (G-S10e's planted defect).
 Writes:
 
-  <aikit>/testdata/qwen3vl-vision-tiny/config.json, model.safetensors (committed in aikit, which tests it:
-      vision/qwen3_deepstack_test.go): the tower under the real checkpoint's names (model.visual.*), so
+  internal/vision/testdata/qwen3vl-vision-tiny/config.json, model.safetensors (used by internal/vision/qwen3_deepstack_test.go): the tower under the real checkpoint's names (model.visual.*), so
       LoadQwen3VisionEncoder reads it as it reads Qwen3-VL-2B;
-  <aikit>/testdata/qwen3vl-vision-tiny/golden.json.gz: the pixel values, the grids, the main merged rows and each
+  internal/vision/testdata/qwen3vl-vision-tiny/golden.json.gz: the pixel values, the grids, the main merged rows and each
       DeepStack set.
 
-Run: python3 scripts/pin_qwen3vl_vision_tiny.py [--out <dir>]   (default: the sibling aikit checkout)
+Run: python3 scripts/pin_qwen3vl_vision_tiny.py [--out <dir>]   (default: internal/vision/testdata/qwen3vl-vision-tiny)
 """
 import gzip
 import json
@@ -33,7 +32,7 @@ from transformers.models.qwen3_vl.configuration_qwen3_vl import Qwen3VLVisionCon
 from transformers.models.qwen3_vl.modeling_qwen3_vl import Qwen3VLVisionModel
 
 HERE = os.path.dirname(os.path.abspath(__file__))
-OUT = os.path.join(HERE, "..", "..", "aikit", "testdata", "qwen3vl-vision-tiny")
+OUT = os.path.join(HERE, "..", "internal", "vision", "testdata", "qwen3vl-vision-tiny")
 VC = {"depth": 3, "hidden_size": 32, "intermediate_size": 64, "num_heads": 2, "in_channels": 3, "patch_size": 14,
       "spatial_merge_size": 2, "temporal_patch_size": 2, "out_hidden_size": 64, "num_position_embeddings": 16,
       "hidden_act": "gelu_pytorch_tanh", "deepstack_visual_indexes": [0, 1]}

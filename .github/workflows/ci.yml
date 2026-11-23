@@ -105,7 +105,7 @@ jobs:
         run: python3 -B scripts/ci_pr_covered.py --repo "$GITHUB_REPOSITORY" --sha "$GITHUB_SHA" || echo "pr_covered=false" >> "$GITHUB_OUTPUT"
 
   # Root module: the pure-Go runtime (decoder / tokenizer / constrain / demo).
-  # Resolves the published aikit from the proxy — no workspace needed.
+  # Builds the root module without a workspace.
   #
   # C1 (docs/completed/task-ci-speed-2026-09.md): split from one `root` job into `lint` (gofmt,
   # build, both vets, staticcheck, apidiff, citation lint, book link lint, cleanliness guard --
@@ -190,22 +190,7 @@ jobs:
       - name: apidiff_check.sh's classification (the alias list's two licensed lines, and plants that stay fatal)
         run: python3 -B scripts/test_apidiff_check.py
 
-      # The lint resolves a cross-repo citation at the version a go.mod requires today. No goinfer module
-      # requires aikit/gpu since Track AX moved the device package in; cuda's own dependencies are downloaded
-      # here into the shared GOMODCACHE, and a pinned record's older aikit/gpu comes through the next step.
-      - name: populate module cache for cross-repo citations (cuda's requires)
-        run: cd backend/cuda && go mod download
-
-      # A PINNED record's aikit citations are checked at the aikit version the pinned commit required, read from
-      # the module cache, and the steps above download only the versions go.mod requires today. The lint lists
-      # what its pinned records need, so a new pinned record needs no edit here. Two commands, not a pipe: this
-      # shell has no pipefail, and a lint that could not list anything must fail this step.
-      - name: populate module cache for pinned records (the aikit versions their commits required)
-        run: |
-          mods=$(python3 scripts/queue_citation_lint.py --pinned-modules)
-          echo "$mods"
-          [ -z "$mods" ] || go mod download $mods
-
+      # Pinned external citations are checked against the committed source evidence.
       # Content keys make a stale citation DETECTABLE on the next sweep; they do not prevent one.
       # Here it goes red in the commit that makes the entry stale — while someone is already in that
       # code — which is the difference between the F group happening again and not. Citations whose
@@ -341,7 +326,7 @@ jobs:
       # binding it exists to keep out. Any WebGPU binding in the root is a leak, whoever wrote it.
       - name: cleanliness guard (no GPU backend modules in root)
         run: |
-          leak='webgpu|eitamring/gocudrv|ebitengine/purego|pkieltyka/aikit/gpu|pkieltyka/goinfer/(backend/(webgpu|cuda|metal|vulkan)|gpu|cuda|metal)'
+          leak='webgpu|eitamring/gocudrv|ebitengine/purego|pkieltyka/aikit|townsendmerino/aikit|pkieltyka/goinfer/(backend/(webgpu|cuda|metal|vulkan)|gpu|cuda|metal)'
           if go list -deps ./... | grep -Eiq "$leak"; then
             echo "::error::an opt-in backend dep leaked into the compiled root package set"
             go list -deps ./... | grep -Ei "$leak"
@@ -352,7 +337,7 @@ jobs:
             go list -m all | grep -Ei "$leak"
             exit 1
           fi
-          echo "clean: no webgpu/gocudrv/purego/aikit-gpu/submodules in the goinfer root (packages or module graph)"
+          echo "clean: no webgpu/gocudrv/purego/retired modules/submodules in the goinfer root (packages or module graph)"
 
   linux:
     needs: changes
@@ -1011,7 +996,7 @@ jobs:
           retention-days: 14
 
   # H1.1's missing half (docs/completed/task-hardware-coverage-2026-10.md): the release ships windows-arm64 binaries, and until this job nothing had built or run one. GitHub's windows-11-arm runner is free and unlimited
-  # for public repositories (Azure Cobalt 100, 4 CPUs, 16 GB). aikit cannot detect DotProd on a non-Linux, non-Darwin arm64 OS (dotprod_arm64_other.go assumes none), so this job runs the base SMULL/SADALP kernels
+  # for public repositories (Azure Cobalt 100, 4 CPUs, 16 GB). Modelcore cannot detect DotProd on a non-Linux, non-Darwin arm64 OS (dotprod_arm64_other.go assumes none), so this job runs the base SMULL/SADALP kernels
   # the way a Windows ARM user does. Same build and test as root-windows. The census records which CPU the run landed on.
   root-windows-arm64:
     if: github.event_name == 'schedule' || github.event_name == 'workflow_dispatch'
@@ -1039,7 +1024,7 @@ jobs:
         run: |
           Get-CimInstance Win32_Processor | Select-Object Name, NumberOfCores, NumberOfLogicalProcessors | Format-List
           go version; go env GOOS GOARCH
-      - name: kernels in use (aikit probes DotProd here since v1.56.0), and check --hardware on Windows ARM
+      - name: kernels in use and check --hardware on Windows ARM
         run: go run ./cmd/serve check --hardware
       - name: build
         run: go build ./...
@@ -1092,7 +1077,7 @@ jobs:
             go-test-${{ runner.os }}-arm64-${{ hashFiles('go.sum') }}-
             go-test-${{ runner.os }}-arm64-
       - name: cpu (for the hardware census)
-        # asimddp in the flags is DotProd: it says which side of aikit's hasDotProd branches ran.
+        # asimddp in the flags is DotProd: it says which side of the modelcore hasDotProd branches ran.
         run: |
           lscpu | grep -E 'Model name|Vendor ID|^CPU\(s\)|Flags' || true
           if grep -qw asimddp /proc/cpuinfo; then echo "DotProd: yes"; else echo "DotProd: NO"; fi
@@ -1128,12 +1113,12 @@ jobs:
           path: census-out/
           if-no-files-found: ignore
 
-  # H1.3 (docs/completed/task-hardware-coverage-2026-10.md): the narrower CPU kernels, forced on whatever CPU the runner has. aikit v1.54.0's aikit_noavx512 / aikit_noavx2 / aikit_nopopcnt tags make the
+  # H1.3 (docs/completed/task-hardware-coverage-2026-10.md): the narrower CPU kernels, forced on whatever CPU the runner has. The modelcore_noavx512 / modelcore_noavx2 / modelcore_nopopcnt tags make the
   # dispatchers take the AVX2 kernels on an AVX-512 VNNI machine (the ubuntu pool mixes CPU models), or the pure-Go kernels, so the extended suite exercises those fallback paths.
-  # AIKIT_EXPECT_FORCED makes a tag that forced nothing FAIL (TestForcedFallbacks_expected) instead of passing silently. Under a tag, the three goldens that pin ONE path's numerics take a closeness
+  # GOINFER_EXPECT_FORCED_CPU makes a tag that forced nothing FAIL (TestForcedFallbacks_expected) instead of passing silently. Under a tag, the three goldens that pin ONE path's numerics take a closeness
   # bound instead (decoder/forced_fallbacks_test.go has the measurements, and each is shown red by a mutation). What runs here is the forward and parity tests on the committed tiny fixtures: the
   # real-checkpoint goldens (TestLongPromptFast_forwardParity, TestDecodeParityInt4) skip without their assets on a runner, and a skip is not a pass, so their forced branches were run by hand
-  # (docs/completed/task-hardware-coverage-2026-10.md). aikit's own CI forces the arm64 DotProd fallback, and goinfer's does in root-forced-fallbacks-arm64 below.
+  # (docs/completed/task-hardware-coverage-2026-10.md). The arm64 job below forces the DotProd fallback.
   root-forced-fallbacks:
     if: github.event_name == 'schedule' || github.event_name == 'workflow_dispatch'
     runs-on: ubuntu-latest
@@ -1150,30 +1135,30 @@ jobs:
         run: |
           lscpu | grep -E 'Model name|Vendor ID|^CPU\(s\)' || true
           for f in avx2 avx512_vnni avx512vl popcnt; do if grep -qw "$f" /proc/cpuinfo; then echo "$f: yes"; else echo "$f: no"; fi; done
-      - name: "noavx512: test (aikit_noavx512), and the expectation test passed"
+      - name: "noavx512: test (modelcore_noavx512), and the expectation test passed"
         if: ${{ !cancelled() }}
         run: |
           set -o pipefail
-          AIKIT_EXPECT_FORCED=noavx512 go test -v -timeout 45m -tags 'goinfer_testhooks aikit_noavx512' -run 'Parity|Forward|ForcedFallbacks' ./decoder/ 2>&1 | tee forced-noavx512.log | grep -E '^(--- |ok|FAIL|PASS)'
+          GOINFER_EXPECT_FORCED_CPU=noavx512 go test -v -timeout 45m -tags 'goinfer_testhooks modelcore_noavx512' -run 'Parity|Forward|ForcedFallbacks' ./decoder/ 2>&1 | tee forced-noavx512.log | grep -E '^(--- |ok|FAIL|PASS)'
           grep -q -- '--- PASS: TestForcedFallbacks_expected' forced-noavx512.log || { echo "::error::noavx512: TestForcedFallbacks_expected did not pass (a skip is not a pass)"; exit 1; }
-      - name: "noavx2: test (aikit_noavx2), and the expectation test passed"
+      - name: "noavx2: test (modelcore_noavx2), and the expectation test passed"
         if: ${{ !cancelled() }}
         run: |
           set -o pipefail
-          AIKIT_EXPECT_FORCED=noavx2 go test -v -timeout 45m -tags 'goinfer_testhooks aikit_noavx2' -run 'Parity|Forward|ForcedFallbacks' ./decoder/ 2>&1 | tee forced-noavx2.log | grep -E '^(--- |ok|FAIL|PASS)'
+          GOINFER_EXPECT_FORCED_CPU=noavx2 go test -v -timeout 45m -tags 'goinfer_testhooks modelcore_noavx2' -run 'Parity|Forward|ForcedFallbacks' ./decoder/ 2>&1 | tee forced-noavx2.log | grep -E '^(--- |ok|FAIL|PASS)'
           grep -q -- '--- PASS: TestForcedFallbacks_expected' forced-noavx2.log || { echo "::error::noavx2: TestForcedFallbacks_expected did not pass (a skip is not a pass)"; exit 1; }
-      - name: "nopopcnt: test (aikit_nopopcnt), and the expectation test passed"
+      - name: "nopopcnt: test (modelcore_nopopcnt), and the expectation test passed"
         if: ${{ !cancelled() }}
         run: |
           set -o pipefail
-          AIKIT_EXPECT_FORCED=nopopcnt go test -v -timeout 45m -tags 'goinfer_testhooks aikit_nopopcnt' -run 'Parity|Forward|ForcedFallbacks' ./decoder/ 2>&1 | tee forced-nopopcnt.log | grep -E '^(--- |ok|FAIL|PASS)'
+          GOINFER_EXPECT_FORCED_CPU=nopopcnt go test -v -timeout 45m -tags 'goinfer_testhooks modelcore_nopopcnt' -run 'Parity|Forward|ForcedFallbacks' ./decoder/ 2>&1 | tee forced-nopopcnt.log | grep -E '^(--- |ok|FAIL|PASS)'
           grep -q -- '--- PASS: TestForcedFallbacks_expected' forced-nopopcnt.log || { echo "::error::nopopcnt: TestForcedFallbacks_expected did not pass (a skip is not a pass)"; exit 1; }
 
   # H1.4 (docs/completed/task-hardware-coverage-2026-10.md): the arm64 kernels a core WITHOUT DotProd runs (Cortex-A72, a Raspberry Pi 4; the base SMULL/SADALP path). The runner's Neoverse has DotProd, so without the
-  # tag that path never executes in CI. aikit's aikit_nodotprod tag makes the dispatchers take it, and AIKIT_EXPECT_FORCED makes a tag that forced nothing FAIL instead of passing silently. Same test selection as
+  # tag that path never executes in CI. The modelcore_nodotprod tag makes the dispatchers take it, and GOINFER_EXPECT_FORCED_CPU makes a tag that forced nothing FAIL instead of passing silently. Same test selection as
   # the amd64 legs above: the forward and parity tests on the committed tiny fixtures, with the three goldens that pin one path's numerics taking their closeness bound under a tag. What this does NOT show: that
   # no instruction OUTSIDE the dispatched kernels needs DotProd (an unguarded one raises SIGILL on a real A72). QEMU's -cpu cortex-a72 finds those; goinfer's own decoder suite is far too slow under it (10 minutes
-  # passed 6 tests, 2026-10-04), so that was run by hand for aikit's linalg suite only.
+  # passed 6 tests, 2026-10-04), so that was run by hand for the upstream linear algebra suite only.
   root-forced-fallbacks-arm64:
     if: github.event_name == 'schedule' || github.event_name == 'workflow_dispatch'
     runs-on: ubuntu-24.04-arm
@@ -1189,10 +1174,10 @@ jobs:
         run: |
           lscpu | grep -E 'Model name|Vendor ID|^CPU\(s\)' || true
           if grep -qw asimddp /proc/cpuinfo; then echo "DotProd: yes (forced off by the tag)"; else echo "DotProd: NO (the tag forces nothing here, which is fine)"; fi
-      - name: test (aikit_nodotprod)
+      - name: test (modelcore_nodotprod)
         run: |
           set -o pipefail
-          AIKIT_EXPECT_FORCED=nodotprod go test -v -timeout 45m -tags 'goinfer_testhooks aikit_nodotprod' -run 'Parity|Forward|ForcedFallbacks|GIWTarget|GIWAligned' ./decoder/ 2>&1 | tee forced.log | grep -E '^(--- |ok|FAIL|PASS)'
+          GOINFER_EXPECT_FORCED_CPU=nodotprod go test -v -timeout 45m -tags 'goinfer_testhooks modelcore_nodotprod' -run 'Parity|Forward|ForcedFallbacks|GIWTarget|GIWAligned' ./decoder/ 2>&1 | tee forced.log | grep -E '^(--- |ok|FAIL|PASS)'
       - name: the expectation test ran and passed (a skip is not a pass)
         run: |
           grep -q -- '--- PASS: TestForcedFallbacks_expected' forced.log

@@ -189,7 +189,7 @@ func (c HostCheck) Warning() string {
 }
 
 // QuantPages reports whether weight paging can read a bundle's weights at this quant: only int8 and int4 storage has a span
-// to page (aikit's WeightMat.MappedSpan), so a retry or a remedy with -stream-weights is sound only there.
+// to page (the model core's WeightMat.MappedSpan), so a retry or a remedy with -stream-weights is sound only there.
 func QuantPages(quant string) bool {
 	switch quant {
 	case "int8", "int8int8", "int4", "int4mix":

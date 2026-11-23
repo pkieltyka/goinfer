@@ -8,7 +8,7 @@ import (
 	"testing"
 	"time"
 
-	"github.com/pkieltyka/aikit/linalg"
+	"github.com/pkieltyka/goinfer/internal/modelcore/linalg"
 )
 
 // BenchmarkDecodeSerialVsParallel is S-09.1, the corrected A/B. The serial arm must be genuinely serial. BenchmarkDecode sets

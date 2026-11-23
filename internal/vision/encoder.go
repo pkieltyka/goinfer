@@ -9,8 +9,8 @@ import (
 	"runtime"
 	"sync"
 
-	"github.com/pkieltyka/aikit/embed"
-	"github.com/pkieltyka/aikit/linalg"
+	"github.com/pkieltyka/goinfer/internal/modelcore/embed"
+	"github.com/pkieltyka/goinfer/internal/modelcore/linalg"
 )
 
 // SigLIP / ViT vision encoder (the Gemma 3 vision tower) as a pure-Go forward —
@@ -497,7 +497,7 @@ func newEncScratch(np, hidden, inter, hd, nH int) *encScratch {
 }
 
 // attentionInto runs bidirectional multi-head self-attention (no causal mask) at scale over the np
-// patches' projections q, k and v, via linalg's fused (FlashAttention-style) schedule (aikit/linalg/fusedattn.go),
+// patches' projections q, k and v, via linalg's fused (FlashAttention-style) schedule (internal/modelcore/linalg/fusedattn.go),
 // the SAME primitive goinfer's own text-decoder prefill already uses, fanned out across heads
 // with a private Workspace per worker (mirroring goinfer's decoder/forwardn.go
 // attendBatchedHeads exactly, down to the contiguous-head-run split and the serial-Workspace

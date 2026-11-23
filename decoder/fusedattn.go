@@ -1,7 +1,7 @@
 package decoder
 
 import (
-	"github.com/pkieltyka/aikit/linalg"
+	"github.com/pkieltyka/goinfer/internal/modelcore/linalg"
 )
 
 // Fused (FlashAttention-style) prefill attention. The materialized schedule writes a kt x nKeys score block, reads and

@@ -31,7 +31,7 @@ type qwen3Tower struct {
 	plan   gridTowerPlan // where the tower runs: the device it is built on at first use
 	once   sync.Once
 	enc    *vision.Qwen3VisionEncoder
-	acc    multimodal.GridTowerAccelerator // nil: aikit's CPU tower
+	acc    multimodal.GridTowerAccelerator // nil: the CPU tower
 	fb     deviceFallback                  // serializes the accelerator and falls back to the CPU on a device memory failure
 	err    error
 	deep   int // Qwen3-VL's DeepStack sets; 0 for Qwen3.5+ (see encoder for where a DeepStack tower runs)
@@ -65,7 +65,7 @@ func (q *qwen3Tower) encoder() (*vision.Qwen3VisionEncoder, error) {
 	return q.enc, q.err
 }
 
-// features runs the tower (on its device when the plan put it there) and aikit's merger: the merged image embeddings.
+// features runs the tower (on its device when the plan put it there) and the vision tower's merger: the merged image embeddings.
 func (q *qwen3Tower) features(pv []float32, grid [3]int) ([]float32, error) {
 	enc, err := q.encoder()
 	if err != nil {
@@ -180,7 +180,7 @@ func (s *server) loadQwen35VisionTower(dir string, int8Tower bool, backend strin
 }
 
 // setupQwen35MMProj is setupQwen35Vision for a GGUF mmproj (docs/multimodal.md): the projector must be a Qwen3.5+ one
-// (qwen3vl_merger, aikit's refusals), its output width the text model's hidden width, and the text model a Qwen3.5+
+// (qwen3vl_merger, the in-tree encoder's refusals), its output width the text model's hidden width, and the text model a Qwen3.5+
 // one; the preprocessing is the family's own config (an mmproj carries none), under the same serve cap.
 func setupQwen35MMProj(path, modelType string, textHidden int, int8Tower bool) (*qwen3Tower, multimodal.QwenPreprocessConfig, error) {
 	if modelType != "qwen3_5" && modelType != "qwen3_5_moe" {

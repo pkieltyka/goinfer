@@ -1,0 +1,161 @@
+{
+  "7b50947a931353f18db3cdcab8e31f6b1fab7736": {
+    "linalg/quant.go": {
+      "lines": 1152,
+      "module": "github.com/townsendmerino/aikit",
+      "origin": {
+        "Hash": "d17fb7c147e7f9fde6cd449f39253b8a77db0e35",
+        "Ref": "refs/tags/v1.57.0",
+        "URL": "https://github.com/townsendmerino/aikit",
+        "VCS": "git"
+      },
+      "sha256": "e740f115cffdc38226227b6a956609b2e7b333f1f1deffba7f50f6f6e3e1060c",
+      "sum": "h1:9bVyYcNf3assIy6hff/Gwg6cLCYQLAnSvhn0rdJ/w/k=",
+      "version": "v1.57.0"
+    }
+  },
+  "8c159d85f7a7850ac93f2debb0b2f0ab916f0a3b": {
+    "metal.go": {
+      "lines": 1043,
+      "module": "github.com/townsendmerino/aikit/gpu",
+      "origin": {
+        "Hash": "93d337b9aa84313c09d05180ed621abcc8eb0905",
+        "Ref": "refs/tags/gpu/v0.33.5",
+        "Subdir": "gpu",
+        "URL": "https://github.com/townsendmerino/aikit",
+        "VCS": "git"
+      },
+      "sha256": "fa1acf08ab23ef4050c24f4da10341e8a18fda4a6cbfbb8aa949eebce16353cd",
+      "sum": "h1:25cPfdw0nGjtSwEV/iaRZMYrKd0o/ShsYXMrg01CCS0=",
+      "version": "v0.33.5"
+    },
+    "metal_vit.go": {
+      "lines": 1399,
+      "module": "github.com/townsendmerino/aikit/gpu",
+      "origin": {
+        "Hash": "93d337b9aa84313c09d05180ed621abcc8eb0905",
+        "Ref": "refs/tags/gpu/v0.33.5",
+        "Subdir": "gpu",
+        "URL": "https://github.com/townsendmerino/aikit",
+        "VCS": "git"
+      },
+      "sha256": "3fec0dc11b068967cab0ce5770c90d3b31e5b2d295f4838af8a20937e9e4a77a",
+      "sum": "h1:25cPfdw0nGjtSwEV/iaRZMYrKd0o/ShsYXMrg01CCS0=",
+      "version": "v0.33.5"
+    },
+    "residencyset.go": {
+      "lines": 125,
+      "module": "github.com/townsendmerino/aikit/gpu",
+      "origin": {
+        "Hash": "93d337b9aa84313c09d05180ed621abcc8eb0905",
+        "Ref": "refs/tags/gpu/v0.33.5",
+        "Subdir": "gpu",
+        "URL": "https://github.com/townsendmerino/aikit",
+        "VCS": "git"
+      },
+      "sha256": "162be9cdc4136a663b081f40489976484bb1f208ed4fcb63babd2483f73731fd",
+      "sum": "h1:25cPfdw0nGjtSwEV/iaRZMYrKd0o/ShsYXMrg01CCS0=",
+      "version": "v0.33.5"
+    },
+    "vision/qwen_resident.go": {
+      "lines": 260,
+      "module": "github.com/townsendmerino/aikit",
+      "origin": {
+        "Hash": "23480a3eb0a6708e9e98505077ffda09df913e01",
+        "Ref": "refs/tags/v1.63.0",
+        "URL": "https://github.com/townsendmerino/aikit",
+        "VCS": "git"
+      },
+      "sha256": "5286db224651cf57deaa0ba59d182fac63352b6106d9799e416dc915f838c4e4",
+      "sum": "h1:hY8z/Ma7deQIiyzAaP/aj1UwWNCYfOOfONoejOqANUY=",
+      "version": "v1.63.0"
+    }
+  },
+  "be41cc509e6426701af8c1dca0f596ccc1927213": {
+    "linalg/quant.go": {
+      "lines": 1152,
+      "module": "github.com/townsendmerino/aikit",
+      "origin": {
+        "Hash": "1b8b848594423f32192e4319034b12b0a406a43a",
+        "Ref": "refs/tags/v1.61.0",
+        "URL": "https://github.com/townsendmerino/aikit",
+        "VCS": "git"
+      },
+      "sha256": "e740f115cffdc38226227b6a956609b2e7b333f1f1deffba7f50f6f6e3e1060c",
+      "sum": "h1:7wHHNJS5cxVXoXg3fbtEdZ3FP8ldV6RTJNYrbSdqYnI=",
+      "version": "v1.61.0"
+    },
+    "metal.go": {
+      "lines": 1043,
+      "module": "github.com/townsendmerino/aikit/gpu",
+      "origin": {
+        "Hash": "93d337b9aa84313c09d05180ed621abcc8eb0905",
+        "Ref": "refs/tags/gpu/v0.33.5",
+        "Subdir": "gpu",
+        "URL": "https://github.com/townsendmerino/aikit",
+        "VCS": "git"
+      },
+      "sha256": "fa1acf08ab23ef4050c24f4da10341e8a18fda4a6cbfbb8aa949eebce16353cd",
+      "sum": "h1:25cPfdw0nGjtSwEV/iaRZMYrKd0o/ShsYXMrg01CCS0=",
+      "version": "v0.33.5"
+    },
+    "metal_vit.go": {
+      "lines": 1399,
+      "module": "github.com/townsendmerino/aikit/gpu",
+      "origin": {
+        "Hash": "93d337b9aa84313c09d05180ed621abcc8eb0905",
+        "Ref": "refs/tags/gpu/v0.33.5",
+        "Subdir": "gpu",
+        "URL": "https://github.com/townsendmerino/aikit",
+        "VCS": "git"
+      },
+      "sha256": "3fec0dc11b068967cab0ce5770c90d3b31e5b2d295f4838af8a20937e9e4a77a",
+      "sum": "h1:25cPfdw0nGjtSwEV/iaRZMYrKd0o/ShsYXMrg01CCS0=",
+      "version": "v0.33.5"
+    },
+    "residencyset.go": {
+      "lines": 125,
+      "module": "github.com/townsendmerino/aikit/gpu",
+      "origin": {
+        "Hash": "93d337b9aa84313c09d05180ed621abcc8eb0905",
+        "Ref": "refs/tags/gpu/v0.33.5",
+        "Subdir": "gpu",
+        "URL": "https://github.com/townsendmerino/aikit",
+        "VCS": "git"
+      },
+      "sha256": "162be9cdc4136a663b081f40489976484bb1f208ed4fcb63babd2483f73731fd",
+      "sum": "h1:25cPfdw0nGjtSwEV/iaRZMYrKd0o/ShsYXMrg01CCS0=",
+      "version": "v0.33.5"
+    }
+  },
+  "cbaecc0cebd2f6166f11b109cfbe9f9f5b1a24a7": {
+    "mmap/mmap_unix.go": {
+      "lines": 59,
+      "module": "github.com/townsendmerino/aikit",
+      "origin": {
+        "Hash": "3fbbf05baa690114ecd20d057ae1333b57b80e43",
+        "Ref": "refs/tags/v1.51.1",
+        "URL": "https://github.com/townsendmerino/aikit",
+        "VCS": "git"
+      },
+      "sha256": "8c4e47b8aaa024a385bb8de137014b6e5de1e742760a7087494a5baed7cb1182",
+      "sum": "h1:ofBJGgS8lXXCJwf0hk3onSEd3Fx+xhI9htqFbezBtoc=",
+      "version": "v1.51.1"
+    }
+  },
+  "e781faf490ec2d6243833769b5cea740f7027b73": {
+    "linalg/quant.go": {
+      "lines": 1148,
+      "module": "github.com/townsendmerino/aikit",
+      "origin": {
+        "Hash": "4b99b0a52fdaf2187d9e8480a1042aa3cc8860fb",
+        "Ref": "refs/tags/v1.56.1",
+        "URL": "https://github.com/townsendmerino/aikit",
+        "VCS": "git"
+      },
+      "sha256": "e861c8e9f2152acea1772c5a5b549dba2fad97ce2d4c35c4543a2d3ed98dbc07",
+      "sum": "h1:Cj7T7KekVAgAQ9B+02tVYFEfTSTVIUFtnmhu0OAiG3U=",
+      "version": "v1.56.1"
+    }
+  }
+}

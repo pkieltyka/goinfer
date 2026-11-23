@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# build_ptx.sh — regenerate the PTX embedded by aikit's CUDA path from the .cu sources.
+# build_ptx.sh — regenerate the PTX embedded by the CUDA device layer from the .cu sources.
 #
 # WHY THIS EXISTS
 # ---------------

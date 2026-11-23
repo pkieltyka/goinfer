@@ -3,8 +3,8 @@ package decoder
 import (
 	"fmt"
 
-	"github.com/pkieltyka/aikit/embed"
-	"github.com/pkieltyka/aikit/linalg"
+	"github.com/pkieltyka/goinfer/internal/modelcore/embed"
+	"github.com/pkieltyka/goinfer/internal/modelcore/linalg"
 )
 
 // buildInternLM2Weights loads InternLM2 (model_type internlm2), which is a llama in every

@@ -10,8 +10,8 @@ that overran its timeout, finishes later in a `<task-notification>` naming its t
 Read-only. It runs nothing and times nothing.
 
   usage: transcript_miner.py [--since YYYY-MM-DD] [--projects GLOB ...] [--day HH-HH] [--top N]
-         defaults: ~/.claude/projects/*tmcode-goinfer* and *tmcode-aikit* (subagent transcripts included),
-                   the last 30 days, day = 07-22 local
+         defaults: ~/.claude/projects/*tmcode-goinfer* (subagent transcripts included), the last 30 days,
+                   day = 07-22 local; pass --projects to add another glob
 
 DURATION of a call = its result's timestamp − its call's timestamp; for a backgrounded command, the matching
 task-notification's timestamp − the call's. LIMITS, so nobody reads more into the tables than is there:
@@ -169,8 +169,7 @@ def hm(secs):
 def main():
     ap = argparse.ArgumentParser()
     ap.add_argument("--since", default=(dt.date.today() - dt.timedelta(days=30)).isoformat())
-    ap.add_argument("--projects", nargs="*", default=[os.path.expanduser("~/.claude/projects/*tmcode-goinfer*"),
-                                                       os.path.expanduser("~/.claude/projects/*tmcode-aikit*")])
+    ap.add_argument("--projects", nargs="*", default=[os.path.expanduser("~/.claude/projects/*tmcode-goinfer*")])
     ap.add_argument("--day", default="07-22", help="local hours counted as day, HH-HH")
     ap.add_argument("--top", type=int, default=20)
     a = ap.parse_args()

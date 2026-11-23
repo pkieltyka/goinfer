@@ -5,7 +5,7 @@ package decoder
 // Architecture-conditional CPU decode defaults. Each is a var so a test can A/B it in-process;
 // the value is the measured default for this architecture, not a heuristic.
 
-// attnGroupedKernels: aikit's grouped acc64 attention kernels are NEON assembly
+// attnGroupedKernels: the model core's grouped acc64 attention kernels are NEON assembly
 // (linalg/attn_acc64_group_arm64.s); on arm64 the grouped path runs them.
 var attnGroupedKernels = true
 

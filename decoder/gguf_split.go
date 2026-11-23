@@ -7,7 +7,7 @@ import (
 	"regexp"
 	"strconv"
 
-	"github.com/pkieltyka/aikit/embed"
+	"github.com/pkieltyka/goinfer/internal/modelcore/embed"
 )
 
 // ggufShardName matches llama-gguf-split's shard naming, "<prefix>-00001-of-00003.gguf": the prefix, the shard number
@@ -45,7 +45,7 @@ func GGUFShards(path string) ([]string, error) {
 
 // OpenGGUFMmap maps a GGUF model, single-file or split: the split set a first shard names is opened as one file
 // (embed.OpenGGUFSplitMmap), so every reader of a model's tensors sees the whole model either way.
-func OpenGGUFMmap(path string) (*embed.GGUFFile, error) {
+func OpenGGUFMmap(path string) (*GGUFFile, error) {
 	shards, err := GGUFShards(path)
 	if err != nil {
 		return nil, err

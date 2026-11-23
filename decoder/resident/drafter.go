@@ -1,6 +1,9 @@
 package resident
 
-import "github.com/pkieltyka/aikit/linalg"
+import "github.com/pkieltyka/goinfer/internal/modelcore/linalg"
+
+// WeightMat is the read-only weight matrix used by resident backends.
+type WeightMat = linalg.WeightMat
 
 // BlockDrafterWeights is the read-only view a backend needs to make a block drafter GPU-resident.
 //
@@ -19,7 +22,7 @@ type BlockDrafterWeights interface {
 	DrafterGeometry() DrafterGeometry
 	// DrafterFC is the [hidden, nTaps*hidden] fusion projection over the concatenated tap
 	// hidden states — the one projection with no counterpart in a normal decoder layer.
-	DrafterFC() *linalg.WeightMat
+	DrafterFC() *WeightMat
 	// DrafterHiddenNorm normalizes the fused context; DrafterFinalNorm ends the trunk.
 	DrafterHiddenNorm() []float32
 	DrafterFinalNorm() []float32
@@ -54,8 +57,8 @@ type DrafterGeometry struct {
 // which is why a resident backend can reuse its existing per-layer kernels for everything except
 // the attention MASK — the drafter's block is bidirectional (see attn_block_full).
 type DrafterLayerWeights struct {
-	Q, K, V, O     *linalg.WeightMat
-	Gate, Up, Down *linalg.WeightMat
+	Q, K, V, O     *WeightMat
+	Gate, Up, Down *WeightMat
 	// QNorm/KNorm are the per-head RMSNorm weights (Qwen3 qk-norm); nil when the family has none.
 	QNorm, KNorm []float32
 	// InputNorm normalizes the BLOCK only — never the context, whose K/V are projected from the

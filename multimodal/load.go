@@ -4,7 +4,7 @@ import (
 	"os"
 	"path/filepath"
 
-	"github.com/pkieltyka/aikit/embed"
+	"github.com/pkieltyka/goinfer/internal/modelcore/embed"
 )
 
 // openWeights mmaps a Gemma 3 VL checkpoint's safetensors: the multi-shard set
@@ -12,7 +12,7 @@ import (
 // gemma-3-4b-it ships the projector inside the model shards), else the single
 // model.safetensors (the tiny pinned checkpoint under testdata/). Both yield the
 // same SafetensorsFile, read via embed.SafetensorsFile.TensorF32. The encoder half
-// lives in aikit/vision now; the projector keeps this thin local opener since it
+// lives in internal/vision now; the projector keeps this thin local opener since it
 // reads the multi_modal_projector.* tensors from the same checkpoint.
 func openWeights(dir string) (*embed.SafetensorsFile, error) {
 	idx := filepath.Join(dir, "model.safetensors.index.json")

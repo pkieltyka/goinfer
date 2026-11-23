@@ -165,8 +165,9 @@ a VERDICT line, so never read its exit code through a pipe. A backtick-quoted pa
 forbidden destination, in any repo: describe the record in prose. **Cite code by declaration, never by line**
 (`chat/chat.go:Template.Render`); a dated record (audit, review, measurement write-up) is instead pinned with
 `<!-- citations-at: <commit> -->` (the commit its numbers were true at) and its `path:line` citations are checked there;
-`path:line` in an unpinned doc is red. `CANNOT SEARCH — no module cache` is a missing download (after an aikit bump, or in
-a fresh worktree): `python3 scripts/queue_citation_lint.py --pinned-modules | xargs go mod download`, never `--update`.
+`path:line` in an unpinned doc is red. The checker resolves pinned paths from local Git history or
+checksum-verified source in `testdata/citation-history`. A missing Git object or corrupt sealed file
+is a citation error to investigate at that revision.
 
 <!-- citation-lint: allow-path file.go the placeholder in this repo's own descriptions of the citation forms (file.go:NNN, file.go:NN), not a citation -->
 <!-- citation-lint: allow-path path.go the placeholder in the symbol-citation examples (path.go:Name, path.go:Type.Method), not a citation -->

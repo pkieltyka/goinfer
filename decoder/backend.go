@@ -7,7 +7,7 @@ import (
 	"strings"
 	"sync"
 
-	"github.com/pkieltyka/aikit/linalg"
+	"github.com/pkieltyka/goinfer/internal/modelcore/linalg"
 )
 
 // Backend abstracts the one hot primitive the decoder forward pass is
@@ -53,7 +53,7 @@ type QuantBackend4 interface {
 // backend keeps each op's weight resident keyed by &op.BQ[0]. Returns false to
 // decline (the caller uses the CPU batch kernel).
 type QuantBatchBackend interface {
-	MatmulW8A8Batch(a []float32, M, K int, ops []linalg.W8A8Op) bool
+	MatmulW8A8Batch(a []float32, M, K int, ops []W8A8Op) bool
 }
 
 // matmulW8A8Batch routes a shared-activation W8A8 batch through a
@@ -71,7 +71,7 @@ func matmulW8A8Batch(be Backend, ws *linalg.Workspace, a []float32, M, K int, op
 // QuantBatchBackend4 is QuantBatchBackend's int4 (W4A8) counterpart, with the same decline contract: false falls back
 // to the CPU batch kernel.
 type QuantBatchBackend4 interface {
-	MatmulW4A8Batch(a []float32, M, K, group int, ops []linalg.W4A8Op) bool
+	MatmulW4A8Batch(a []float32, M, K, group int, ops []W4A8Op) bool
 }
 
 // matmulW4A8Batch routes a shared-activation W4A8 batch through a QuantBatchBackend4 (one GPU

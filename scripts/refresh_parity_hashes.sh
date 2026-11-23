@@ -45,15 +45,8 @@ fi
 
 # PRE-FLIGHT: the manifest must be CLEAN before the refresh runs.
 #
-# This exists because of a real mistake, not a hypothetical one. An aikit bump edited
-# aikit_version by hand and then ran this script. The abort below fired correctly — the diff was
-# no longer deps_hash-only — but it fired on a file that already held an edit worth keeping, so
-# "revert and investigate" was advice the operator did not take, and the mixed edit got committed
-# anyway. The guard detected the problem and still did not prevent it.
-#
-# Requiring a clean start fixes both halves. It catches that case BEFORE the 4-minute goldens run
-# rather than after, and it makes the abort's automatic revert safe: with nothing uncommitted at
-# entry, `git checkout` can only discard what this script itself wrote.
+# A clean start lets the script reject and revert an unexpected non-hash change
+# without discarding work that was already present.
 if ! git diff --quiet -- testdata/parity || ! git diff --cached --quiet -- testdata/parity; then
 	echo "ABORT: the parity records (testdata/parity/) already have uncommitted changes."
 	git diff HEAD -- testdata/parity | grep -E '^[+-]' | grep -vE '^(\+\+\+|---)' | sed 's/^/    /'
@@ -254,10 +247,8 @@ if [ -n "$nonhash" ]; then
 	echo "The file has been REVERTED automatically — nothing is left on disk to commit by accident."
 	git checkout -- testdata/parity
 	echo
-	echo "If the extra change is an intentional aikit_version bump, commit THAT alone first (it"
-	echo "re-stales the matrix), then re-run this script so it sees only deps_hash. That is the"
-	echo "shape of 278637f followed by 9624dd9."
-	exit 1
+	echo "Commit any deliberate manifest edits separately, then run the refresh again."
+exit 1
 fi
 changed=$(git diff --numstat -- testdata/parity | awk '{s += $1} END {print s + 0}')
 echo "    staleness gate green; ${changed:-0} deps_hash line(s) refreshed, nothing else."

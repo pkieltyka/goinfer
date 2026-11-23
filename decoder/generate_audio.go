@@ -35,6 +35,7 @@ func (m *Model) prefillLogitsAudio(ctx context.Context, ids []int, feats []float
 // GenerateAudio streams a continuation for a prompt whose ids hold a run of audioLen placeholders at audioPos, replaced by the embeddings features returns. features is invoked once.
 // The prompt is prefilled causally (prefillLogitsAudio) and decoded on the CPU like Generate, with the same Sampler, LogitProcessor and stop rule.
 func (m *Model) GenerateAudio(ctx context.Context, ids []int, audioPos, audioLen int, features func() ([]float32, error), maxTokens int, sp SamplingParams) (<-chan int, *Generation) {
+	ensureSettings() // the knobs are parsed on first use, never at package init
 	out := make(chan int)
 	g := &Generation{}
 	m.runGen(ctx, out, g, nil, func(ctx context.Context) {

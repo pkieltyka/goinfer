@@ -9,8 +9,8 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/pkieltyka/aikit/linalg"
 	gpu "github.com/pkieltyka/goinfer/backend/cuda/internal/gpudev"
+	"github.com/pkieltyka/goinfer/internal/modelcore/linalg"
 	"github.com/pkieltyka/goinfer/internal/runtime/mem"
 
 	"github.com/pkieltyka/goinfer/decoder"

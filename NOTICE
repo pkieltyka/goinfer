@@ -48,32 +48,23 @@ Third-party Go dependencies
     golang.org/x/sys
     Copyright (c) The Go Authors.
     Licensed under the BSD 3-Clause License.
-    Required by all four modules (root, gpu, cuda, metal); imported directly by
-    the Metal backend (metal/gemma4_moe.go).
+    Required by root, CUDA, Vulkan and Metal; imported directly by
+    the Metal backend (backend/metal/gemma4_moe.go).
 
-    github.com/pkieltyka/aikit   (embedding + tensor primitives; a fork of
-    github.com/townsendmerino/aikit)
+Copied source
+
     Copyright (c) 2026 Francis Townsend-Merino
     Licensed under the MIT License.
 
-    github.com/pkieltyka/aikit/gpu   (shared GPU tensor primitives; used by
-    the optional cuda and metal backends)
-    Copyright (c) 2026 Francis Townsend-Merino
-    Licensed under the MIT License.
+    The CPU code in internal/modelcore was imported from the v1.79.0
+    source of github.com/pkieltyka/aikit (3c0896c0c7f83825a7d71ca80edd586583197ddc).
+    See internal/modelcore/NOTICE and internal/modelcore/LICENSE.
+    The vision and audio towers came from github.com/townsendmerino/aikit
+    v1.75.0. The CUDA and Metal internal/gpudev packages came from its
+    gpu/v0.35.0 device module. The archived citation source in
+    testdata/citation-history retains its own MIT grant and provenance.
 
-    Code copied from github.com/townsendmerino/aikit into this repository
-    (Copyright (c) 2026 Francis Townsend-Merino, MIT License, as above):
-    internal/vision and internal/audio from aikit v1.75.0; cuda/internal/gpudev
-    and metal/internal/gpudev (aikit's gpu device module, split by backend)
-    from aikit gpu/v0.35.0.
-
-The optional WebGPU backend (./gpu submodule, built only under `-tags gpu`)
-additionally links:
-
-    github.com/oliverbestmann/webgpu
-    Licensed under the Apache License, Version 2.0.
-
-The optional cgo-free CUDA backend (./cuda module, built only under `-tags cuda`)
+The optional cgo-free CUDA backend (./backend/cuda module, built only under `-tags cuda`)
 additionally links:
 
     github.com/eitamring/gocudrv   (cgo-free CUDA driver API binding)
@@ -86,20 +77,16 @@ additionally links:
     Copyright (c) The Ebitengine Authors.
     Licensed under the Apache License, Version 2.0.
 
-The optional cgo-free Metal backend (./metal module, built only under
+The optional cgo-free Metal backend (./backend/metal module, built only under
 `-tags metal` on darwin) additionally links:
 
     github.com/ebitengine/purego   (Objective-C runtime / Metal FFI without cgo)
     Copyright (c) The Ebitengine Authors.
     Licensed under the Apache License, Version 2.0.
 
-    golang.org/x/sys   (syscall bindings; imported at metal/gemma4_moe.go)
+    golang.org/x/sys   (syscall bindings; imported at backend/metal/gemma4_moe.go)
     Copyright (c) The Go Authors.
     Licensed under the BSD 3-Clause License.
-
-    github.com/pkieltyka/aikit/gpu   (shared GPU tensor primitives)
-    Copyright (c) 2026 Francis Townsend-Merino
-    Licensed under the MIT License.
 
 ──────────────────────────────────────────────────────────────────────────────
 

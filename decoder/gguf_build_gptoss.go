@@ -7,7 +7,7 @@ import (
 
 // gpt-oss: sparse MoE on every layer with per-head attention sinks, per-expert biases and a router-logit bias. q/k/v/o all
 // carry biases; no QK-norm. Attention/embeddings/router quantize per policy; the (F32) sinks and biases load raw. The
-// expert weights are MXFP4 (ggml type 39) in the real checkpoint; stackedExperts routes them through aikit's
+// expert weights are MXFP4 (ggml type 39) in the real checkpoint; stackedExperts routes them through the model core's
 // RowDequantizer.
 func (b *ggufBuild) loadGptOss() (*Weights, error) {
 	arch, g, w, sink, abort, hidden, hd, streamMat, mat, vec, vnorm, stackedExperts := b.arch, b.g, b.w, b.sink, b.abort, b.hidden, b.hd, b.streamMat, b.mat, b.vec, b.vnorm, b.stackedExperts

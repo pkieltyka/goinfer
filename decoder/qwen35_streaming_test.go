@@ -7,7 +7,7 @@ import (
 	"os"
 	"testing"
 
-	"github.com/pkieltyka/aikit/embed"
+	"github.com/pkieltyka/goinfer/internal/modelcore/embed"
 )
 
 // TestQwen35StreamingTranscode_matchesResident is the correctness gate

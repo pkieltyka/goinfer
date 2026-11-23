@@ -12,8 +12,8 @@ import (
 	"sync"
 	"sync/atomic"
 
-	"github.com/pkieltyka/aikit/embed"
-	"github.com/pkieltyka/aikit/linalg"
+	"github.com/pkieltyka/goinfer/internal/modelcore/embed"
+	"github.com/pkieltyka/goinfer/internal/modelcore/linalg"
 )
 
 // LoRA adapter loading (PEFT safetensors), merged into the base weights at load:
@@ -117,7 +117,7 @@ func loraBaseName(key, suffix string) string {
 }
 
 // loraTensor reads a rank-2 adapter tensor as f32 (the dtype dispatch delegated to
-// the aikit embed.SafetensorsFile.TensorF32 typed read) and returns its shape — the
+// embed.SafetensorsFile.TensorF32 typed read) and returns its shape — the
 // shape is why this keeps a thin wrapper rather than calling TensorF32 directly.
 func loraTensor(st *embed.SafetensorsFile, name string) ([]float32, []int, error) {
 	t, err := st.Tensor(name)

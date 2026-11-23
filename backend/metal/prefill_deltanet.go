@@ -32,7 +32,7 @@ type prefillDelta struct {
 
 func (r *resident) newPrefillDelta(M, Mpad int) *prefillDelta {
 	d, dp := r.d, r.dnet
-	// mixedF, zF and gatedH rely on Metal's zero-fill of a new buffer for their pad rows M..Mpad (aikit gpu.NewBufferLen*
+	// mixedF, zF and gatedH rely on Metal's zero-fill of a new buffer for their pad rows M..Mpad (gpudev.NewBufferLen*
 	// contract: Metal only; CUDA's is uninitialized); see prefillScratchU16.
 	s := &prefillDelta{
 		mixedF: prefillScratchU16(d, Mpad*dp.convDim),

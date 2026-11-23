@@ -4,7 +4,7 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/pkieltyka/aikit/linalg"
+	"github.com/pkieltyka/goinfer/internal/modelcore/linalg"
 )
 
 // mat builds a zeroed [rows, cols] f32 weight — WrapF32 requires the exact backing length.

@@ -37,7 +37,6 @@ func baseFiles() map[string]string {
 		"internal/app/serveapp/routes_test.go": `package serveapp; func x(m *mux) { m.HandleFunc("GET /v1/only-in-a-test", nil) }`,
 		"docs/flags.meta.json":                 `{"flags":[{"name":"model"},{"name":"old-flag"}]}`,
 		"docs/capability-matrix.json":          `[{"name":"llama","display_name":"Llama","model_types":["llama"]}]`,
-		"go.mod":                               "module x\n\nrequire (\n\tgithub.com/pkieltyka/aikit v1.60.0\n)\n",
 	}
 }
 
@@ -95,7 +94,6 @@ func (s *server) more(mux *mux) {
 `
 	h2["docs/flags.meta.json"] = `{"flags":[{"name":"model"},{"name":"windowed-kv"}]}`
 	h2["docs/capability-matrix.json"] = `[{"name":"llama","display_name":"Llama","model_types":["llama"]},{"name":"qwen3_asr","display_name":"Qwen3-ASR","model_types":["qwen3_asr"]}]`
-	h2["go.mod"] = "module x\n\nrequire (\n\tgithub.com/pkieltyka/aikit v1.69.0\n)\n"
 	root2 := t.TempDir()
 	writeTree(t, root2, h2)
 	h, err := readClState(dirSource{root2})
@@ -117,7 +115,7 @@ func owedSet(o []owedItem) string {
 func TestChangelogOwed_eachKindAndEachLineClearsOnlyItsItem(t *testing.T) {
 	base, head := states(t)
 	all := owedSet(changelogOwed(base, head, "", noWaive))
-	for _, want := range []string{"route:POST /v1/audio/transcriptions", "route:POST /v1/batches", "flag:windowed-kv", "flag:old-flag", "family:qwen3_asr", "pin:aikit v1.69.0"} {
+	for _, want := range []string{"route:POST /v1/audio/transcriptions", "route:POST /v1/batches", "flag:windowed-kv", "flag:old-flag", "family:qwen3_asr"} {
 		if !strings.Contains(all, want) {
 			t.Errorf("owed set %q lacks %q", all, want)
 		}
@@ -127,7 +125,6 @@ func TestChangelogOwed_eachKindAndEachLineClearsOnlyItsItem(t *testing.T) {
 		"flag:windowed-kv":                    "`--windowed-kv` is on",
 		"flag:old-flag":                       "removed `--old-flag`",
 		"family:qwen3_asr":                    "Qwen3-ASR is served",
-		"pin:aikit v1.69.0":                   "aikit v1.69.0 pin",
 		"route:POST /v1/batches":              "the /v1/batches routes",
 	}
 	for item, line := range lines {
@@ -139,7 +136,7 @@ func TestChangelogOwed_eachKindAndEachLineClearsOnlyItsItem(t *testing.T) {
 			t.Errorf("the line %q for %s changed the owed set from %q to %q", line, item, all, got)
 		}
 	}
-	full := strings.Join([]string{"/v1/audio/transcriptions", "--windowed-kv", "--old-flag", "Qwen3-ASR", "v1.69.0", "/v1/batches"}, "\n")
+	full := strings.Join([]string{"/v1/audio/transcriptions", "--windowed-kv", "--old-flag", "Qwen3-ASR", "/v1/batches"}, "\n")
 	if got := changelogOwed(base, head, full, noWaive); len(got) != 0 {
 		t.Errorf("a section naming every change still owes %v", got)
 	}
@@ -163,9 +160,9 @@ func TestChangelogOwed_routePrefixAndPlaceholders(t *testing.T) {
 
 func TestChangelogOwed_waiversClearAndAreNeeded(t *testing.T) {
 	base, head := states(t)
-	w := func(kind, name string) bool { return kind == "pin" }
-	if got := owedSet(changelogOwed(base, head, "", w)); strings.Contains(got, "pin:") {
-		t.Errorf("a waived pin is still owed: %s", got)
+	w := func(kind, name string) bool { return kind == "flag" && name == "old-flag" }
+	if got := owedSet(changelogOwed(base, head, "", w)); strings.Contains(got, "flag:old-flag") {
+		t.Errorf("a waived flag is still owed: %s", got)
 	}
 	dir := t.TempDir()
 	p := filepath.Join(dir, "w.txt")

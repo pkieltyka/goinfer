@@ -7,7 +7,7 @@ import (
 	"os"
 	"path/filepath"
 
-	"github.com/pkieltyka/aikit/linalg"
+	"github.com/pkieltyka/goinfer/internal/modelcore/linalg"
 )
 
 // Voxtral's audio path, float32 on the CPU (transformers 5.15.0 VoxtralModel.get_audio_features): the Whisper encoder (WhisperEncoder: Voxtral's tower is the same module), whose

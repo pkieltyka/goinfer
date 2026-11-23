@@ -7,9 +7,9 @@ import (
 )
 
 // The log-mel front end of transformers' WhisperFeatureExtractor as long-form generate calls it (truncation=False, padding="longest"): no padding to 30 s, the log-mel of the whole clip, so the centre
-// padding reflects at the clip's true ends and the clamp's maximum is the whole clip's; the last STFT frame dropped, so T = floor(n / 160) frames. aikit's audio.WhisperFeatures pads the waveform to 30 s and
-// audio.WhisperFeaturesWindows to a multiple of 30 s (Voxtral's processor), so neither is this one; the arithmetic below is aikit's, ported (the NumPy path of the extractor, float64 with the float32
-// roundings the reference makes), and held to the extractor by G-S14g1. If aikit ever exports the unpadded form this file should go.
+// padding reflects at the clip's true ends and the clamp's maximum is the whole clip's; the last STFT frame dropped, so T = floor(n / 160) frames. audio.WhisperFeatures pads the waveform to 30 s and
+// audio.WhisperFeaturesWindows to a multiple of 30 s (Voxtral's processor), so neither is this one; the arithmetic below is ported from the reference (the NumPy path of the extractor, float64 with the float32
+// roundings the reference makes), and held to the extractor by G-S14g1. If the audio package exposes the unpadded form this file should go.
 const (
 	// SampleRate is Whisper's 16 kHz.
 	SampleRate = 16000
@@ -24,8 +24,8 @@ const (
 // planted defects of features_test.go: the zero value is the correct extractor.
 const (
 	featNone          = iota
-	featPadTo30s      // the waveform zero-padded to 30 s first (aikit's WhisperFeatures)
-	featPadToMultiple // zero-padded to a multiple of 30 s (aikit's WhisperFeaturesWindows)
+	featPadTo30s      // the waveform zero-padded to 30 s first (audio.WhisperFeatures)
+	featPadToMultiple // zero-padded to a multiple of 30 s (audio.WhisperFeaturesWindows)
 	featKeepLast      // the last STFT frame kept
 	featNoClamp       // no clamp at the maximum minus 8
 	featWindowMax     // the clamp's maximum taken per 30 s window, not over the clip

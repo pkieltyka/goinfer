@@ -4,7 +4,7 @@ import (
 	"os"
 	"testing"
 
-	"github.com/pkieltyka/aikit/linalg"
+	"github.com/pkieltyka/goinfer/internal/modelcore/linalg"
 )
 
 // TestW4A8SplitHalfFires_onBenchModel reports how many of the bench model's

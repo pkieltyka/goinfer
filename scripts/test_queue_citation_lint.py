@@ -6,6 +6,8 @@ no side effect on the real tree. Run directly:
     python3 scripts/test_queue_citation_lint.py
 """
 import contextlib
+import hashlib
+import json
 import importlib.util
 import io
 import os
@@ -297,7 +299,7 @@ def _git_commit_all(repo, msg):
 class TestHookGitDirDoesNotRedirectSiblingLookups(unittest.TestCase):
     """A git hook exports GIT_DIR for the repository being pushed (absolute, from a worktree). subject_of names the repo
        it searches by cwd, so an inherited GIT_DIR made it search the PUSHING repo for another repo's SHA and report it
-       as not resolving: the pre-push hook refused a push from a goinfer worktree on two aikit SHAs (2026-10-07)."""
+       as not resolving: the pre-push hook refused a push from a goinfer worktree on two external commit citations (2026-10-07)."""
 
     def test_sha_in_sibling_resolves_under_a_foreign_git_dir(self):
         with tempfile.TemporaryDirectory() as td:
@@ -510,11 +512,10 @@ class _LintRepo(unittest.TestCase):
         self.write("docs/QUEUE.md", f"# QUEUE\n\ncommit {self.base} — init\n")
         _git(self.repo, "add", "docs/QUEUE.md")
         _git(self.repo, "commit", "-q", "-m", "queue")
-        self._orig = (qcl.ROOT, qcl.QUEUE, getattr(qcl, "CLOSE_THE_DOOR", False), qcl._MODCACHE)
+        self._orig = (qcl.ROOT, qcl.QUEUE, getattr(qcl, "CLOSE_THE_DOOR", False))
         qcl.ROOT = pathlib.Path(self.repo)
         qcl.QUEUE = qcl.ROOT / "docs" / "QUEUE.md"
         qcl._tracked_cache = qcl._TRACKED_SENTINEL
-        qcl._MODCACHE = pathlib.Path(self.repo) / "no-module-cache-here"   # never the developer's real cache
         qcl.PINNED_FILE_CACHE.clear()
         code, out = self.run_lint(["--update"])
         assert code == 0, out
@@ -522,7 +523,7 @@ class _LintRepo(unittest.TestCase):
         _git(self.repo, "commit", "-q", "-m", "index")
 
     def tearDown(self):
-        qcl.ROOT, qcl.QUEUE, qcl.CLOSE_THE_DOOR, qcl._MODCACHE = self._orig
+        qcl.ROOT, qcl.QUEUE, qcl.CLOSE_THE_DOOR = self._orig
         qcl._tracked_cache = qcl._TRACKED_SENTINEL
         qcl.PINNED_FILE_CACHE.clear()
         self.tmp.cleanup()
@@ -821,105 +822,41 @@ class TestPinnedDocs(_LintRepo):
         self.doc("see `pkg/svc.go:60`\n", name="live-x.md")
         self.assertRed("pin this doc")
 
-    def test_aikit_path_in_a_pinned_doc_resolves_in_the_module_cache_at_the_commits_version(self):
-        # go.mod at the pinned commit requires aikit v9.9.9; the cache holds that version only
-        self.write("go.mod", "module example.com/goinfer\n\ngo 1.22\n\nrequire github.com/pkieltyka/aikit v9.9.9\n")
-        c = _git_commit_all(self.repo, "go.mod pins aikit v9.9.9")
-        cache = pathlib.Path(self.repo) / "mc"
-        mod = cache / "github.com" / "pkieltyka" / "aikit@v9.9.9" / "linalg"
-        mod.mkdir(parents=True)
-        (mod / "quant.go").write_text("package linalg\n\nfunc Quant() {}\n")
-        qcl._MODCACHE = cache
+    def seal(self, commit, path, text):
+        digest = hashlib.sha256(text.encode()).hexdigest()
+        base = "testdata/citation-history/"
+        self.write(base + digest + ".txt", text)
+        self.write(base + "manifest.json", json.dumps({commit: {path: {
+            "sha256": digest, "lines": len(text.splitlines()),
+        }}}))
         qcl.PINNED_FILE_CACHE.clear()
-        self.doc(self.pinned("see `linalg/quant.go:3`\n", commit=c))
+        return base + digest + ".txt"
+
+    def test_sealed_cross_repo_path_is_commit_scoped(self):
+        self.write("anchor.txt", "historical source anchor\n")
+        c = _git_commit_all(self.repo, "historical source anchor")
+        self.seal(c, "linalg/quant.go", "package linalg\n\nfunc Quant() {}\n")
+        self.doc(self.pinned("see `linalg/quant.go:3` and `linalg/quant.go:Quant`\n", commit=c))
         self.assertGreen()
-        # past the end of THAT version's file: red
         self.doc(self.pinned("see `linalg/quant.go:40`\n", commit=c))
-        qcl.PINNED_FILE_CACHE.clear()
         self.assertRed("past the end")
+        self.doc(self.pinned("see `linalg/quant.go:WrongSymbol`\n", commit=c))
+        self.assertRed("WrongSymbol")
+        self.doc(self.pinned("see `linalg/quant.go:3`\n", commit=self.base))
+        self.assertRed("PINNED PATH ABSENT")
 
-    def test_missing_module_is_a_missing_download_not_a_skip(self):
-        self.write("go.mod", "module example.com/goinfer\n\ngo 1.22\n\nrequire github.com/pkieltyka/aikit v9.9.9\n")
-        c = _git_commit_all(self.repo, "go.mod pins aikit v9.9.9")
-        self.doc(self.pinned("see `linalg/quant.go:3`\n", commit=c))
-        self.assertRed("CANNOT SEARCH", "go mod download")
-
-    def test_historical_upstream_root_and_metal_gpu_pins_resolve_at_record_commit(self):
-        self.write("go.mod", "module github.com/townsendmerino/goinfer\nrequire github.com/townsendmerino/aikit v1.63.0\n")
-        self.write("metal/go.mod", "module github.com/townsendmerino/goinfer/metal\n"
-                   "require (\n\tgithub.com/townsendmerino/aikit/gpu v0.33.5\n)\n")
-        commit = _git_commit_all(self.repo, "pin historical aikit modules")
-        self.write("go.mod", "module github.com/pkieltyka/goinfer\nrequire github.com/pkieltyka/aikit v1.79.0\n")
-        cache = pathlib.Path(self.repo) / "mc"
-        (cache / "github.com/pkieltyka/aikit@v1.79.0").mkdir(parents=True)
-        for versioned, rel in (("aikit@v1.63.0", "linalg/quant.go"), ("aikit/gpu@v0.33.5", "metal.go")):
-            path = cache / "github.com/townsendmerino" / versioned / rel
-            path.parent.mkdir(parents=True)
-            path.write_text("package fixture\n\nfunc Present() {}\n")
-        qcl._MODCACHE = cache
-        self.doc(self.pinned("see `linalg/quant.go:3` and `metal.go:Present`\n", commit=commit))
-        code, out = self.run_lint(["--pinned-modules"])
-        self.assertEqual((code, out.split()), (0, ["github.com/townsendmerino/aikit/gpu@v0.33.5",
-                                                   "github.com/townsendmerino/aikit@v1.63.0"]))
+    def test_corrupt_or_missing_sealed_content_is_red(self):
+        self.write("anchor.txt", "historical source anchor\n")
+        c = _git_commit_all(self.repo, "historical source anchor")
+        sealed = self.seal(c, "lib/ref.go", "package lib\nfunc Reference() {}\n")
+        self.doc(self.pinned("see `lib/ref.go:2`\n", commit=c))
         self.assertGreen()
-
-    def test_aikit_path_in_a_pinned_doc_resolves_from_sibling_git_repo_when_modcache_cold(self):
-        self.write("go.mod", "module example.com/goinfer\n\ngo 1.22\n\nrequire github.com/pkieltyka/aikit v9.9.9\n")
-        c = _git_commit_all(self.repo, "go.mod pins aikit v9.9.9")
-        with tempfile.TemporaryDirectory() as sib_td:
-            sib = os.path.join(sib_td, "aikit")
-            os.makedirs(os.path.join(sib, "linalg"))
-            _git(sib, "init", "-q")
-            _git(sib, "config", "user.email", "test@example.com")
-            _git(sib, "config", "user.name", "Test")
-            pathlib.Path(sib, "go.mod").write_text("module github.com/pkieltyka/aikit\n")
-            with open(os.path.join(sib, "linalg", "quant.go"), "w") as f:
-                f.write("package linalg\n\nfunc Quant() {}\n")
-            _git(sib, "add", "go.mod", "linalg/quant.go")
-            _git(sib, "commit", "-q", "-m", "add quant")
-            _git(sib, "tag", "v9.9.9")
-            orig_sib = qcl.sibling_repos
-            qcl.sibling_repos = lambda: [self.repo, sib]
-            qcl.PINNED_FILE_CACHE.clear()
-            try:
-                self.doc(self.pinned("see `linalg/quant.go:3`\n", commit=c))
-                self.assertGreen()
-                self.write("go.mod", "module example.com/goinfer\nrequire github.com/townsendmerino/aikit v9.9.9\n")
-                upstream = _git_commit_all(self.repo, "pin upstream aikit")
-                self.doc(self.pinned("see `linalg/quant.go:3`\n", commit=upstream))
-                self.assertRed("CANNOT SEARCH", "github.com/townsendmerino/aikit@v9.9.9")
-            finally:
-                qcl.sibling_repos = orig_sib
-                qcl.PINNED_FILE_CACHE.clear()
-
-    def test_pinned_modules_lists_what_the_pinned_records_need_and_nothing_else(self):
-        # Two records pinned to commits that required different aikit versions; neither version is downloaded.
-        self.write("go.mod", "module example.com/goinfer\n\ngo 1.22\n\nrequire github.com/pkieltyka/aikit v9.9.9\n")
-        c1 = _git_commit_all(self.repo, "go.mod pins aikit v9.9.9")
-        self.write("go.mod", "module example.com/goinfer\n\ngo 1.22\n\nrequire github.com/pkieltyka/aikit v9.9.10\n")
-        c2 = _git_commit_all(self.repo, "go.mod pins aikit v9.9.10")
-        self.doc(self.pinned("see `linalg/quant.go:3` and `linalg/quant.go:Quant`\n", commit=c1), name="rec-a.md")
-        self.doc(self.pinned("see `mmap/mmap_unix.go:46`\n", commit=c2), name="rec-b.md")
-        # A record whose citation is in THIS repository at its commit needs no module, whatever go.mod said there.
-        self.doc(self.pinned("see `pkg/svc.go:3`\n", commit=c2), name="rec-c.md")
-        code, out = self.run_lint(["--pinned-modules"])
-        self.assertEqual(code, 0, out)
-        self.assertEqual(out.split(), ["github.com/pkieltyka/aikit@v9.9.10", "github.com/pkieltyka/aikit@v9.9.9"])
-        # The list is what the lint then needs: with both in the cache it is green.
-        cache = pathlib.Path(self.repo) / "mc"
-        for ver, rel, body in (("v9.9.9", "linalg/quant.go", "package linalg\n\nfunc Quant() {}\n"),
-                               ("v9.9.10", "mmap/mmap_unix.go", "package mmap\n" + "// line\n" * 60)):
-            f = cache / "github.com" / "pkieltyka" / f"aikit@{ver}" / rel
-            f.parent.mkdir(parents=True)
-            f.write_text(body)
-        qcl._MODCACHE = cache
+        self.write(sealed, "package lib\nfunc Altered() {}\n")
         qcl.PINNED_FILE_CACHE.clear()
-        self.assertGreen()
-
-    def test_pinned_modules_prints_nothing_when_no_record_needs_one(self):
-        self.doc(self.pinned("see `pkg/svc.go:3`\n"))
-        code, out = self.run_lint(["--pinned-modules"])
-        self.assertEqual((code, out.strip()), (0, ""))
+        self.assertRed("CANNOT SEARCH", "SHA-256 mismatch")
+        (pathlib.Path(self.repo) / sealed).unlink()
+        qcl.PINNED_FILE_CACHE.clear()
+        self.assertRed("CANNOT SEARCH", "sealed source")
 
 
 class TestCloseTheDoor(_LintRepo):
@@ -948,7 +885,7 @@ class TestCloseTheDoor(_LintRepo):
 
 
 class TestVerdictLine(_LintRepo):
-    """The last line is a VERDICT, so `lint | tail` shows the outcome; --pinned-modules, read by xargs, prints none."""
+    """The last line is a VERDICT, so `lint | tail` shows the outcome."""
 
     def last_line(self, argv=()):
         code, out = self.run_lint(argv)
@@ -966,10 +903,6 @@ class TestVerdictLine(_LintRepo):
         self.assertNotEqual(code, 0)
         self.assertTrue(last.startswith("VERDICT: FAIL — citation lint"), last)
         self.assertIn(f"exit {code}", last)
-
-    def test_pinned_modules_prints_no_verdict(self):
-        _, out = self.run_lint(["--pinned-modules"])
-        self.assertNotIn("VERDICT", out)
 
 
 if __name__ == "__main__":

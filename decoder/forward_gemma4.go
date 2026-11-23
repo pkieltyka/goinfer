@@ -4,7 +4,7 @@ import (
 	"fmt"
 	"math"
 
-	"github.com/pkieltyka/aikit/linalg"
+	"github.com/pkieltyka/goinfer/internal/modelcore/linalg"
 )
 
 // g4traceHidden, when non-nil, receives the residual stream after each layer

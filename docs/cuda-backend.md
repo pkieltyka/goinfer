@@ -121,7 +121,7 @@ the resident config asked for. Measured on `nobara` (Ryzen 7 3700X — AVX2 only
 D7 (Qwen2.5-7B-Instruct) staged decode at `int4` is slow but normal, ~4-5 tok/s across depth
 512-4096 (numbers above). The SAME staged path at `int8int8` did not finish a single depth-512
 measurement (prefill + 40 decode tokens) in over 7 minutes before being killed. Not chased to a
-root cause, but consistent with `aikit/linalg`'s own int8 dispatch preferring AVX-512 VNNI over
+root cause, but consistent with the model core's int8 dispatch preferring AVX-512 VNNI over
 AVX2 (`quant_i8_tile_amd64.go`, `dot_i8_avx512vnni_amd64.go`) while int4's split-half kernel is
 AVX2-native — this box has the latter tier, not the former. An operator who picked `int8int8` for
 the resident config's own accuracy/VRAM tradeoff (a real, plausible choice — it is

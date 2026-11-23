@@ -26,7 +26,7 @@ import (
 //go:embed testdata/eg2_transposed_experiment.ptx
 var eg2CombinedAttentionPTX []byte
 
-// gemvFwdPTX: the LLM-specific forward kernels, kv_store / rope_kv. The generic quantized GEMVs live in aikit/gpu
+// gemvFwdPTX: the LLM-specific forward kernels, kv_store / rope_kv. The generic quantized GEMVs live in gpudev
 // (gpu.QuantGEMVPTX, Device.NewQuantGEMV; see backend.go); the name is kept for continuity with the .cu it is built
 // from.
 //
@@ -34,7 +34,7 @@ var eg2CombinedAttentionPTX []byte
 var gemvFwdPTX []byte
 
 // gemvW8BatchedPTX: gemv_w8a8_batched, the weight-stationary batched GEMV for M=len prefill on int8 bundles.
-// Bit-identical to aikit's gemv_w8a8_fwd per output element by construction: int8 is per-row symmetric, so the dot is an
+// Bit-identical to the device layer's gemv_w8a8_fwd per output element by construction: int8 is per-row symmetric, so the dot is an
 // exact int32 __dp4a sum (reorder-independent) and the scales apply once at the end in the same explicit
 // __fmul_rn/__fmaf_rn form.
 //
@@ -115,7 +115,7 @@ var moeFoldPTX []byte
 //go:embed testdata/moe_rows.ptx
 var moeRowsPTX []byte
 
-// audioEncoderPTX: audio_gelu_erf (the exact GELU, aikit's contract kernel on the device) and audio_im2col_k3 (the Whisper-style encoder's two Conv1d stems as
+// audioEncoderPTX: audio_gelu_erf (the exact GELU, the device contract kernel) and audio_im2col_k3 (the Whisper-style encoder's two Conv1d stems as
 // GEMMs). See cuda/audio_encoder.cu.
 //
 //go:embed testdata/audio_encoder.ptx
@@ -239,7 +239,7 @@ var attnFusedBMPTX []byte
 var attnFusedVitPTX []byte
 
 // towerBasePTX: tower_pos_add / tower_clamp / tower_clamp_copy / tower_rope_axial / tower_mul / tower_scale, the CUDA
-// vision-tower base's own kernels, added to aikit's gpu.ViT module.
+// vision-tower base's own kernels, used alongside the device layer's ViT kernels.
 // Built at NVRTC 12.9.86.
 //
 //go:embed testdata/tower_base.ptx

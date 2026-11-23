@@ -12,8 +12,8 @@ import (
 	"strings"
 	"testing/fstest"
 
-	"github.com/pkieltyka/aikit/embed"
-	"github.com/pkieltyka/aikit/linalg"
+	"github.com/pkieltyka/goinfer/internal/modelcore/embed"
+	"github.com/pkieltyka/goinfer/internal/modelcore/linalg"
 )
 
 // Config is the dispatch configuration a fingerprint holds for: two builds that agree on it run the same kernels.
@@ -136,7 +136,7 @@ type kernel struct {
 	run  func(s *sink, g *gen)
 }
 
-// Shapes. M=1 is decode; M>1 crosses aikit's 2-row, 4-row and 32-row tiles with remainders; K and N cross the SIMD
+// Shapes. M=1 is decode; M>1 crosses the model core's 2-row, 4-row and 32-row tiles with remainders; K and N cross the SIMD
 // widths with tails, the f32 kernel's 768 k-tile and its 2048 packing threshold.
 var (
 	mList = []int{1, 2, 3, 4, 5, 8, 9, 16, 17, 33}
@@ -148,7 +148,7 @@ var (
 	kG32   = []int{16, 32, 48, 64, 96, 100, 128, 256, 768, 2048}
 	mLarge = []int{1, 2, 5, 17}
 	nLarge = []int{1, 4, 9, 33}
-	// thresholds are the Workspace fan-out thresholds: -1 leaves the zero Workspace at aikit's default, 1 always fans out,
+	// thresholds are the Workspace fan-out thresholds: -1 leaves the zero Workspace at the model core's default, 1 always fans out,
 	// and the other two are goinfer's decode values (DefaultDecodeParallelThreshold and int4ParThreshold).
 	thresholds = []int{-1, 1, 300_000, 1 << 20}
 	// groups are the activation-quantization groups goinfer runs: per row and per 32.

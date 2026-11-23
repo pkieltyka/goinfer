@@ -239,8 +239,7 @@ stores them at lower precision: instead of 32 bits per number, use 8 bits or eve
 4 bits. A 4-bit model is ~8× smaller, at a small accuracy cost. This is what lets
 a big model fit on a normal machine.
 
-In this repo the abstraction is `linalg.WeightMat` (from the sibling `aikit`
-library), which holds weights as full floats, int8, or int4 behind a uniform
+In this repo the abstraction is `linalg.WeightMat` in the private model core, which holds weights as full floats, int8, or int4 behind a uniform
 interface; goinfer's policy for *which* precision a given model uses lives in
 [weightmat.go](../decoder/weightmat.go). When the math needs them, they're
 reconstructed ("dequantized") on the fly. int4 unpacking is currently the live performance lever because single-stream
@@ -267,10 +266,8 @@ This is the path GLM, DeepSeek, and the other MoE families travel.
 
 Almost every other inference engine (llama.cpp, vLLM, PyTorch) leans on
 C/C++/CUDA for the heavy math. **goinfer's default build is written entirely in
-Go with no CGO** (the optional WebGPU backend is the lone exception) — the
-matrix-multiply kernels are hand-written Go using CPU SIMD instructions
-(AVX2/FMA on x86-64, NEON on ARM) selected at runtime, via the sibling
-`aikit/linalg` library. The payoff is a single self-contained static binary with
+Go with no CGO.** The matrix-multiply kernels use CPU SIMD instructions
+(AVX2/FMA on x86-64, NEON on ARM), selected at runtime in `internal/modelcore/linalg`. The payoff is a single self-contained static binary with
 no dependency hell — "runs every modern attention variant in one pure-Go binary"
 is precisely the positioning claim in the families roadmap.
 

@@ -14,8 +14,8 @@ import (
 	"sync/atomic"
 	"time"
 
-	"github.com/pkieltyka/aikit/linalg"
 	"github.com/pkieltyka/goinfer/chat"
+	"github.com/pkieltyka/goinfer/internal/modelcore/linalg"
 	"github.com/pkieltyka/goinfer/internal/runtime/hybridattn"
 	"github.com/pkieltyka/goinfer/internal/runtime/kvmgr"
 	"github.com/pkieltyka/goinfer/internal/runtime/mamba2"
@@ -185,7 +185,7 @@ func ApplyMRoPEForTest(vec []float32, heads, headDim int, pos [3]int, section []
 // same xe: the gelu-tanh epilogue × indexed-expert GEMV is a combination no other family ships (Gemma-3 is dense, Mixtral and
 // GLM are indexed but SiLU), so it is verified directly, not argued by composition. ok=false for a non-gemma4 model, a dense
 // layer, an e out of range, or len(xe) != hidden.
-func (m *Model) Gemma4MoEExpertForTest(layer, e int, xe []float32) (edown []float32, gateUp, down *linalg.WeightMat, moeInter, hidden int, ok bool) {
+func (m *Model) Gemma4MoEExpertForTest(layer, e int, xe []float32) (edown []float32, gateUp, down *WeightMat, moeInter, hidden int, ok bool) {
 	if m.w.arch.gemma4 == nil || layer < 0 || layer >= len(m.w.Layers) {
 		return nil, nil, nil, 0, 0, false
 	}

@@ -11,7 +11,7 @@ import (
 	"testing"
 	"time"
 
-	"github.com/pkieltyka/aikit/linalg"
+	"github.com/pkieltyka/goinfer/internal/modelcore/linalg"
 )
 
 // TestCPUBatchS0_matmulScaling is an EXPLORATORY probe for MC3c step 2's follow-on (a tuned small-M amd64 kernel for

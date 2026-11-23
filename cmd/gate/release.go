@@ -75,7 +75,7 @@ func runRelease(args []string, w io.Writer) int {
 		fmt.Fprintln(w, err)
 		return 2
 	}
-	e := liveRelEnv(relEnv{root: root, tag: fs.Arg(0), offline: *offline})
+	e := liveRelEnv(relEnv{root: root, tag: fs.Arg(0), offline: *offline, retiredModulePolicy: true})
 	if why := relRefusal(e); why != "" {
 		fmt.Fprintf(w, "gate release: refused: %s\n", why)
 		return 2
@@ -92,7 +92,7 @@ func runRelease(args []string, w io.Writer) int {
 			fmt.Fprintf(w, "gate: the run record was not written: %v\n", err)
 		} else {
 			writeRunRecord(w, *logDir, &gateConfig{Name: "release", Decision: "rows"}, nil, gatherProvenance(nil), false,
-				runRecordExtra{Release: &releaseInputs{Tag: e.tag, Prev: e.prev, Offline: e.offline, Looks: e.looks, Modules: e.releaseModules()}})
+				runRecordExtra{Release: &releaseInputs{RetiredModulePolicy: e.retiredModulePolicy, Tag: e.tag, Prev: e.prev, Offline: e.offline, Looks: e.looks, Modules: e.releaseModules()}})
 		}
 	}
 	return code
@@ -147,6 +147,12 @@ func relLiveRead(e *relEnv, kind string, args []string) (string, error) {
 		return strings.Join(files, "\n"), nil
 	case "git":
 		return gitOut(e.root, args...)
+	case "standalone-modules":
+		cmd := exec.Command("go", "list", "-mod=readonly", "-m", "all")
+		cmd.Dir = filepath.Join(e.root, args[0])
+		cmd.Env = append(os.Environ(), "GOWORK=off", "GOPROXY=off")
+		out, err := cmd.CombinedOutput()
+		return strings.TrimSpace(string(out)), err
 	case "run":
 		return e.run(filepath.Join(e.root, args[0]), args[1], args[2:]...)
 	case "records":
@@ -206,7 +212,7 @@ func replayRelease(w io.Writer, path string) int {
 		modules = []string{".", "backend/webgpu", "backend/cuda", "backend/metal", "demo/agent"}
 	}
 	var missing []string
-	e := &relEnv{tag: in.Tag, prev: in.Prev, offline: in.Offline, modules: modules, look: relReplayLook(in.Looks, &missing)}
+	e := &relEnv{tag: in.Tag, prev: in.Prev, offline: in.Offline, retiredModulePolicy: in.RetiredModulePolicy, modules: modules, look: relReplayLook(in.Looks, &missing)}
 	var buf bytes.Buffer
 	code := reportRelease(&buf, e, releaseRows)
 	if len(missing) > 0 {

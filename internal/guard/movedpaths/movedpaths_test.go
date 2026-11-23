@@ -1,5 +1,4 @@
-// Package movedpaths holds the test that keeps the aikit paths Track AX moved into goinfer out of goinfer's imports and
-// module files. It has no non-test code.
+// Package movedpaths guards against reintroducing retired module paths.
 package movedpaths
 
 import (
@@ -7,25 +6,58 @@ import (
 	"go/token"
 	"os"
 	"path/filepath"
-	"regexp"
 	"strconv"
 	"strings"
 	"testing"
 )
 
-const aikit = "github.com/pkieltyka/aikit/"
+var retiredModules = []string{"github.com/pkieltyka/aikit", "github.com/townsendmerino/aikit"}
 
-// moved reports whether an import path is one Track AX moved: aikit's vision and audio packages, and its gpu module
-// with everything under it. The goinfer copies are internal/vision, internal/audio and the backends' internal/gpudev.
-func moved(path string) bool {
-	rest, ok := strings.CutPrefix(path, aikit)
-	return ok && (rest == "vision" || rest == "audio" || rest == "gpu" || strings.HasPrefix(rest, "gpu/"))
+func retired(path string) bool {
+	for _, name := range retiredModules {
+		if path == name || strings.HasPrefix(path, name+"/") {
+			return true
+		}
+	}
+	return false
 }
 
-// movedModule matches a go.mod or go.sum line naming aikit's gpu module or one of its sub-modules.
-var movedModule = regexp.MustCompile(`github\.com/pkieltyka/aikit/gpu(/[^\s@]+)?[\s@]`)
+func retiredMetadataLine(line string) bool {
+	line, _, _ = strings.Cut(line, "//")
+	for _, field := range strings.Fields(line) {
+		if retired(strings.Trim(field, "\"`")) {
+			return true
+		}
+	}
+	return false
+}
 
-func TestNoMovedAikitPath(t *testing.T) {
+func TestRetiredModuleMatchesPaths(t *testing.T) {
+	for _, path := range []string{retiredModules[0], retiredModules[1] + "/gpu", retiredModules[0] + "/linalg"} {
+		if !retired(path) {
+			t.Errorf("missed import %s", path)
+		}
+	}
+	for _, line := range []string{
+		"require " + retiredModules[0] + " v1.2.3 // indirect",
+		"replace old.example/pkg => " + retiredModules[1] + "/gpu v1.2.3",
+		"replace \"" + retiredModules[0] + "\" => ./local",
+		retiredModules[0] + " v1.2.3/go.mod h1:abc",
+	} {
+		if !retiredMetadataLine(line) {
+			t.Errorf("missed metadata %q", line)
+		}
+	}
+	for _, line := range []string{"// require " + retiredModules[0], "require " + retiredModules[0] + "-other v1.2.3"} {
+		if retiredMetadataLine(line) {
+			t.Errorf("unrelated metadata matched %q", line)
+		}
+	}
+}
+
+// TestNoRetiredModule scans imports in test files and under inactive build tags.
+// It also checks require, replace, and checksum paths in every module.
+func TestNoRetiredModule(t *testing.T) {
 	var goFiles, modFiles int
 	err := filepath.WalkDir("../../..", func(path string, d os.DirEntry, err error) error {
 		if err != nil {
@@ -46,19 +78,19 @@ func TestNoMovedAikitPath(t *testing.T) {
 				return err
 			}
 			for _, im := range f.Imports {
-				if p, _ := strconv.Unquote(im.Path.Value); moved(p) {
-					t.Errorf("%s imports %s: use goinfer's copy (internal/vision, internal/audio, or the backend's internal/gpudev)", path, p)
+				if p, _ := strconv.Unquote(im.Path.Value); retired(p) {
+					t.Errorf("%s imports retired module path %s", path, p)
 				}
 			}
-		case name == "go.mod" || name == "go.sum":
+		case name == "go.mod" || name == "go.sum" || name == "go.work.example":
 			modFiles++
 			b, err := os.ReadFile(path)
 			if err != nil {
 				return err
 			}
 			for i, line := range strings.Split(string(b), "\n") {
-				if movedModule.MatchString(line + " ") {
-					t.Errorf("%s:%d names aikit's gpu module, which goinfer no longer requires: %s", path, i+1, strings.TrimSpace(line))
+				if retiredMetadataLine(line) {
+					t.Errorf("%s:%d contains a retired module path: %s", path, i+1, strings.TrimSpace(line))
 				}
 			}
 		}
@@ -68,7 +100,7 @@ func TestNoMovedAikitPath(t *testing.T) {
 		t.Fatal(err)
 	}
 	if goFiles < 1000 || modFiles < 10 {
-		t.Fatalf("scanned %d .go files and %d go.mod/go.sum files: the walk read too little to mean anything", goFiles, modFiles)
+		t.Fatalf("scanned %d Go files and %d module files", goFiles, modFiles)
 	}
-	t.Logf("scanned %d .go files and %d module files", goFiles, modFiles)
+	t.Logf("scanned %d Go files and %d module files", goFiles, modFiles)
 }

@@ -19,8 +19,8 @@ import (
 	"github.com/pkieltyka/goinfer/internal/runtime/mem"
 	"github.com/pkieltyka/goinfer/internal/runtime/program"
 
-	"github.com/pkieltyka/aikit/linalg"
 	"github.com/pkieltyka/goinfer/decoder"
+	"github.com/pkieltyka/goinfer/internal/modelcore/linalg"
 )
 
 // moeLayer holds one MoE layer's device weights: the f32 router (+bias), the stacked all-E

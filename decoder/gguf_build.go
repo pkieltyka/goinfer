@@ -4,8 +4,8 @@ import (
 	"errors"
 	"fmt"
 
-	"github.com/pkieltyka/aikit/embed"
-	"github.com/pkieltyka/aikit/linalg"
+	"github.com/pkieltyka/goinfer/internal/modelcore/embed"
+	"github.com/pkieltyka/goinfer/internal/modelcore/linalg"
 )
 
 // ggufBuild is the state buildWeightsFromGGUF hands a family builder: the load's inputs, the weight bundle it fills, and the

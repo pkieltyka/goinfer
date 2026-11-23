@@ -10,8 +10,7 @@ Input: one doc: a task, scoping or plan doc in the private notes checkout beside
 Six task docs the website cites as evidence still live in goinfer's `docs/tasks/` (the notes README lists them). Output: a verdict, the disk changes made, the remaining unblocked work, and an
 opinion on whether that work is worth doing for goinfer. Francis commits; you do not.
 
-Repo: `~/tmcode/goinfer` on the Mac (`aikit` is the sibling). In Cowork it is mounted at
-`$HOME/mnt/goinfer` — use `device_bash`, never the cloud shell. In Claude Code it is the cwd.
+Use the current goinfer checkout.
 
 ## 0. Rules that override the doc's own words
 
@@ -41,7 +40,7 @@ it FRESH, nothing the doc cites has moved since it was last checked — skip it 
 a doc the script flags STALE or with NO FOOTER instead. A FRESH result is not proof the doc is
 correct, only that nothing it points at has changed; still ground and verify normally on anything
 the script can't cover (a claim with no `path:line` citation behind it, a verdict about hardware or
-a decision, an aikit-side citation — see the script's own docstring for why those aren't checked).
+a decision, or a citation to a sealed historical source).
 
 Then, per claim in the doc:
 - **"X shipped / is open"** → grep the code for the symbol, kernel file, flag or env var; check
@@ -49,8 +48,8 @@ Then, per claim in the doc:
   `docs/queue-engineering.md` are still in goinfer) for the item's G/P/E/Q entry and whether it was
   archived; check the archive (goinfer's `docs/completed/` until it moves to the notes' `completed/`)
   for a sibling that already closed it.
-- **"X is blocked on Y"** → confirm Y still holds (hardware, upstream binding, a decision, an
-  aikit version — `grep aikit go.mod`).
+- **"X is blocked on Y"** → confirm Y still holds (hardware, upstream binding, a decision, a
+  module version or a checked-in source revision).
 - **"X is impossible / not our fight"** → grep for a later doc that says "corrects", "supersedes",
   "withdrawn", "reversed" and names this doc. Verdicts get overturned within days here.
 - **Numbers** → find the current row in `docs/benchmarks.md` (TL;DR table at the top) or
@@ -128,11 +127,8 @@ doc is not already at the right location for its verdict:
      convention: `docs/completed/*.md`, `docs/measurements/*.md`, anything under `testdata/`,
      `CHANGELOG.md`. Editing a frozen record to match a live move defeats the point of freezing it.
 3. `python3 scripts/queue_citation_lint.py`, exit code read directly. `--update` if the move
-   drifted a citation's index key. **A `--update` run from inside a fresh git worktree can
-   mis-resolve aikit SHA citations** it can't find via the default sibling-checkout lookup, flipping
-   SHAs that were fine before your edit to UNRESOLVED — that is a worktree-location artifact, not a
-   real regression; set `GOINFER_SHA_LINT_REPOS=<path to the aikit checkout>` before `--update`, or
-   revert just those rows, rather than letting the artifact get written into the file.
+   drifted a live citation's index key. Pinned citation paths use local Git objects and the
+   checked-in historical source seal. Keep the recorded revisions when a source path moves.
 4. `docs/README.md` stores no counts (PW3, #324), so a sweep that moves several docs edits only their map rows.
 
 ## 3b. Every pass, regardless of verdict — the doc-reviewed footer

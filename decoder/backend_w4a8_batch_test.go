@@ -3,7 +3,7 @@ package decoder
 import (
 	"testing"
 
-	"github.com/pkieltyka/aikit/linalg"
+	"github.com/pkieltyka/goinfer/internal/modelcore/linalg"
 )
 
 // fakeBatchBackend4 is a minimal Backend that also implements QuantBatchBackend4, recording

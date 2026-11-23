@@ -8,7 +8,7 @@ import (
 	"github.com/pkieltyka/goinfer/internal/audio"
 )
 
-// The Whisper-style audio encoder on a device. Whisper's transcriber and Voxtral's tower both run aikit's audio.WhisperEncoder, so one registration moves both: a
+// The Whisper-style audio encoder on a device. Whisper's transcriber and Voxtral's tower both run audio.WhisperEncoder, so one registration moves both: a
 // backend module registers a factory from its init, and a caller that loaded an encoder asks for the named device and hands it to WhisperEncoder.SetDevice.
 
 var (

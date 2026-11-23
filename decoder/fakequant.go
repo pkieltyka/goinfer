@@ -2,9 +2,8 @@ package decoder
 
 import (
 	"math"
-	"os"
 
-	"github.com/pkieltyka/aikit/linalg"
+	"github.com/pkieltyka/goinfer/internal/modelcore/linalg"
 )
 
 // fakeQuantScheme (GOINFER_FAKEQUANT=affine|sym|symmse) is a diagnostic, not for production: when set, the int4
@@ -12,12 +11,14 @@ import (
 // stores the result at int8 (W8A8). That isolates the 4-bit weight-scheme quality without any packed-nibble format,
 // dequant routine, W4A8 kernel or .giw change: the int8 path is nearly transparent (0.99995 reconstruction), so the
 // fake-int4 error survives to the forward. "sym" is the control: it must reproduce the real-int4 output, or the
-// harness is lying (asserted bit-for-bit by TestFakeQuantSymMatchesRuntimeInt4). The env is read once at package load;
-// unset is a strict no-op, so every int4 consumer stays bit-identical (TestFakeQuantOffBitIdentical).
+// harness is lying (asserted bit-for-bit by TestFakeQuantSymMatchesRuntimeInt4). The knobs are parsed once, on first
+// decoder use rather than at package load; unset is a strict no-op, so every int4 consumer stays bit-identical
+// (TestFakeQuantOffBitIdentical).
 var (
-	fakeQuantScheme      = os.Getenv("GOINFER_FAKEQUANT")
-	fakeQuantF32Act      = os.Getenv("GOINFER_FAKEQUANT_ACT") == "f32"
-	fakeQuantExpertsOnly = os.Getenv("GOINFER_FAKEQUANT_EXPERTS") == "1"
+	// The three FAKEQUANT knobs, parsed once by ensureSettings on first decoder use.
+	fakeQuantScheme      string
+	fakeQuantF32Act      bool
+	fakeQuantExpertsOnly bool
 	fakeQuantPerRow      bool // §7 Phase 0b: one scale per row; a test seam (tests set it; env read retired 2026-09-24)
 )
 
@@ -29,7 +30,7 @@ var (
 // experts alone tolerate 4-bit when the router's input hidden state is kept accurate.
 
 // fakeInt4WM fake-quantizes an f32 WeightMat with a 4-bit scheme (grouped along cols at
-// int4GroupSize, matching aikit's int4 + scripts/gemma4_quant_recon.py) then stores the
+// int4GroupSize, matching the model core's int4 + scripts/gemma4_quant_recon.py) then stores the
 // reconstruction at int8 — W8A8 (int8 activations) by default, or Q8 (f32 activations) under
 // GOINFER_FAKEQUANT_ACT=f32. The int8 re-quant is transparent (0.99995), so the 4-bit error
 // survives; the activation precision is the only other variable.
@@ -49,7 +50,7 @@ func fakeInt4WM(f32 []float32, rows, cols int, scheme string) linalg.WeightMat {
 // fakeQuantInt4 quantize→dequantizes a [rows, cols] f32 matrix with a 4-bit scheme,
 // grouped along cols (input features) at `group`. Returns the reconstructed f32.
 //
-//	sym    — symmetric maxabs/7, codes [-7,7] (aikit's runtime int4; the control)
+//	sym    — symmetric maxabs/7, codes [-7,7] (the model core's runtime int4; the control)
 //	symmse — symmetric with an MSE-optimal per-group scale (grid over maxabs·[0.55,1])
 //	affine — per-group zero-point over [min,max]/15, codes [0,15] (MLX's scheme)
 func fakeQuantInt4(scheme string, w []float32, rows, cols, group int) []float32 {
@@ -101,7 +102,7 @@ func fakeQuantGroup(scheme string, g, dst []float32) {
 			}
 		}
 		symDequant(g, dst, bestS)
-	default: // "sym" — aikit's runtime int4 (the control)
+	default: // "sym" — the model core's runtime int4 (the control)
 		mx := maxAbs(g)
 		s := float32(1)
 		if mx > 0 {

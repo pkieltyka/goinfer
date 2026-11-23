@@ -16,7 +16,7 @@ import (
 	"testing"
 	"time"
 
-	"github.com/pkieltyka/aikit/linalg"
+	"github.com/pkieltyka/goinfer/internal/modelcore/linalg"
 	"github.com/pkieltyka/goinfer/internal/runtime/diskfree"
 	"github.com/pkieltyka/goinfer/internal/runtime/giw"
 	"github.com/pkieltyka/goinfer/internal/runtime/logs"
@@ -48,7 +48,7 @@ var freeDiskBytes = diskfree.Free
 // other target, including GIWTargetNone, writes kind 3 for every int4 tensor.
 // GIWTargetForBackend derives a target from a backend name (EnsureCachedGIW);
 // ParseGIWTarget parses cmd/prequant's own -target flag. A cpu-arm64 target needs an arm64
-// box (the repack functions are NEON-only in aikit); a shape the repack rejects, or a non-arm64
+// box (the repack functions are NEON-only in the model core); a shape the repack rejects, or a non-arm64
 // build, falls back to kind 3 for that tensor, so any target is always safe to pass.
 func TranscodeGIW(ctx context.Context, in, out, quant string, embedInt4 bool, target GIWTarget) error {
 	_, err := TranscodeGIWTimed(ctx, in, out, quant, embedInt4, target)

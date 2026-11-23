@@ -12,11 +12,11 @@ import (
 	"github.com/pkieltyka/goinfer/multimodal"
 )
 
-// The Gemma 4 vision tower on Metal: aikit's Gemma4Encoder.Forward up
-// to its pool, in float32, from aikit's export (Gemma4Encoder.Weights). The patch embed and the 16 layers run here,
+// The Gemma 4 vision tower on Metal runs vision.Gemma4Encoder.Forward up
+// to its pool, in float32, from the encoder's exported weights (Gemma4Encoder.Weights). The patch embed and the 16 layers run here,
 // with the text encoder's GEMMs, RMSNorm and attention blocks (eg2Ops, embeddinggemma2.go: full attention, scale 1.0,
 // one head per KV head), plus the position-table add, the ClippableLinear clamps and the axial 2-D RoPE below. The
-// pool and the projection after them stay aikit's (FinishHidden), on the host. Registered as multimodal's "metal" Gemma 4
+// pool and the projection after them stay on the host (FinishHidden). Registered as multimodal's "metal" Gemma 4
 // tower, so Gemma 4's own image input (serve, --backend metal) and an EmbeddingGemma 2 encoder on Metal both run it.
 
 func init() {

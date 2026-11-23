@@ -8,7 +8,7 @@ import (
 	"testing"
 	"time"
 
-	"github.com/pkieltyka/aikit/linalg"
+	"github.com/pkieltyka/goinfer/internal/modelcore/linalg"
 )
 
 func sqrt(f float64) float64 { return math.Sqrt(f) }

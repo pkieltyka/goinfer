@@ -7,7 +7,7 @@ import (
 	"testing"
 	"time"
 
-	"github.com/pkieltyka/aikit/linalg"
+	"github.com/pkieltyka/goinfer/internal/modelcore/linalg"
 )
 
 // A3 fan-out: is the f32 prefill attention path single-threaded? attendBatchedHeads's f32 branch is serial

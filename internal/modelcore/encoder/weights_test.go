@@ -1,0 +1,344 @@
+package encoder
+
+import (
+	"encoding/binary"
+	"errors"
+	"fmt"
+	"io/fs"
+	"os"
+	"path/filepath"
+	"sort"
+	"strconv"
+	"strings"
+	"testing"
+	"testing/fstest"
+)
+
+// modelDir is the per-machine snapshot of nomic-ai/CodeRankEmbed.
+// Symlink testdata/encoder-model -> ~/.cache/huggingface/hub/models--nomic-ai--CodeRankEmbed/snapshots/<rev>.
+// Not committed; tests that need the real weights skip if it is missing
+// (mirrors internal/embed/golden_test.go).
+const modelDir = "../testdata/encoder-model"
+
+func TestLoadWeights_realCheckpoint(t *testing.T) {
+	if _, err := os.Stat(filepath.Join(modelDir, "model.safetensors")); errors.Is(err, fs.ErrNotExist) {
+		t.Skipf("no model at %s — symlink the HF snapshot to enable (see testdata/README.md)", modelDir)
+	}
+
+	w, err := LoadWeights(modelDir)
+	if err != nil {
+		t.Fatalf("LoadWeights: %v", err)
+	}
+
+	// Config — the architecture constants this loader was written against.
+	if w.Cfg.VocabSize != 30528 {
+		t.Errorf("VocabSize: got %d want 30528", w.Cfg.VocabSize)
+	}
+	if w.Cfg.HiddenDim != 768 {
+		t.Errorf("HiddenDim: got %d want 768", w.Cfg.HiddenDim)
+	}
+	if w.Cfg.NumHeads != 12 {
+		t.Errorf("NumHeads: got %d want 12", w.Cfg.NumHeads)
+	}
+	if got := w.Cfg.HeadDim(); got != 64 {
+		t.Errorf("HeadDim: got %d want 64", got)
+	}
+	if w.Cfg.NumLayers != 12 {
+		t.Errorf("NumLayers: got %d want 12", w.Cfg.NumLayers)
+	}
+	if w.Cfg.IntermediateDim != 3072 {
+		t.Errorf("IntermediateDim: got %d want 3072", w.Cfg.IntermediateDim)
+	}
+	if w.Cfg.RoPEBase != 1000 {
+		// plan §1: explicitly NOT the usual 10000 — sanity-pin so a future
+		// checkpoint change doesn't silently break the eventual rope.go.
+		t.Errorf("RoPEBase: got %v want 1000", w.Cfg.RoPEBase)
+	}
+	if w.Cfg.LayerNormEpsilon != 1e-12 {
+		t.Errorf("LayerNormEpsilon: got %v want 1e-12", w.Cfg.LayerNormEpsilon)
+	}
+
+	// Embedding shapes.
+	if got, want := len(w.WordEmb), w.Cfg.VocabSize*w.Cfg.HiddenDim; got != want {
+		t.Errorf("WordEmb length: got %d want %d", got, want)
+	}
+	if got, want := len(w.TokenTypeEmb), w.Cfg.TypeVocabSize*w.Cfg.HiddenDim; got != want {
+		t.Errorf("TokenTypeEmb length: got %d want %d", got, want)
+	}
+	if got := len(w.EmbLN_W); got != w.Cfg.HiddenDim {
+		t.Errorf("EmbLN_W length: got %d want %d", got, w.Cfg.HiddenDim)
+	}
+	if got := len(w.EmbLN_B); got != w.Cfg.HiddenDim {
+		t.Errorf("EmbLN_B length: got %d want %d", got, w.Cfg.HiddenDim)
+	}
+
+	// All 12 layers populated with the right per-tensor sizes.
+	if got := len(w.Layers); got != w.Cfg.NumLayers {
+		t.Fatalf("Layers count: got %d want %d", got, w.Cfg.NumLayers)
+	}
+	hd, in, vd := w.Cfg.HiddenDim, w.Cfg.IntermediateDim, w.Cfg.HiddenDim
+	for i, l := range w.Layers {
+		check := []struct {
+			name string
+			got  int
+			want int
+		}{
+			{"Wqkv", len(l.Wqkv), 3 * hd * vd},
+			{"OutProj", len(l.OutProj), hd * vd},
+			{"Norm1W", len(l.Norm1W), hd},
+			{"Norm1B", len(l.Norm1B), hd},
+			{"Fc11", len(l.Fc11), in * vd},
+			{"Fc12", len(l.Fc12), in * vd},
+			{"Fc2", len(l.Fc2), hd * in},
+			{"Norm2W", len(l.Norm2W), hd},
+			{"Norm2B", len(l.Norm2B), hd},
+		}
+		for _, c := range check {
+			if c.got != c.want {
+				t.Errorf("layer %d %s length: got %d want %d", i, c.name, c.got, c.want)
+			}
+		}
+	}
+}
+
+// TestValidateAssumptions_rejects locks in every unsupported-feature
+// error path so a future config-field oversight throws a clear runtime
+// error instead of producing junk activations.
+func TestValidateAssumptions_rejects(t *testing.T) {
+	good := Config{
+		VocabSize: 30528, HiddenDim: 768, NumLayers: 12, NumHeads: 12,
+		IntermediateDim: 3072, MaxPositions: 8192, TypeVocabSize: 2,
+		RoPEBase: 1000, RoPEFraction: 1.0, RoPEInterleaved: false,
+		LayerNormEpsilon: 1e-12, ActivationFunction: "swiglu",
+		Prenorm: false, UseRMSNorm: false,
+		QKVProjBias: false, MLPFc1Bias: false, MLPFc2Bias: false,
+		ScaleAttnWeights: true, Causal: false, ParallelBlock: false,
+	}
+	if err := good.ValidateAssumptions(); err != nil {
+		t.Fatalf("good config rejected: %v", err)
+	}
+
+	mutate := func(name string, f func(*Config)) {
+		t.Run(name, func(t *testing.T) {
+			c := good
+			f(&c)
+			if err := c.ValidateAssumptions(); err == nil {
+				t.Errorf("expected error for %s, got nil", name)
+			}
+		})
+	}
+	mutate("prenorm", func(c *Config) { c.Prenorm = true })
+	mutate("rms_norm", func(c *Config) { c.UseRMSNorm = true })
+	mutate("activation_relu", func(c *Config) { c.ActivationFunction = "relu" })
+	// qkv_proj_bias is now SUPPORTED (nomic-embed-text-v2-moe sets it), so it is
+	// deliberately absent here — see TestValidateAssumptions_acceptsMoE.
+	// fc1/fc2 bias stay rejected on the GATED path: swigluMLP has no bias terms.
+	// (The dense-GELU MLP does carry them, which the MoE config test covers.)
+	mutate("fc1_bias_gated", func(c *Config) { c.MLPFc1Bias = true })
+	mutate("fc2_bias_gated", func(c *Config) { c.MLPFc2Bias = true })
+	mutate("shared_experts", func(c *Config) { c.NumSharedExperts = 1 })
+	mutate("expert_choice", func(c *Config) { c.ExpertChoice = true })
+	mutate("moe_without_experts", func(c *Config) { c.MoEEveryNLayers = 2 })
+	mutate("moe_topk_too_big", func(c *Config) {
+		c.MoEEveryNLayers, c.NumExperts, c.MoETopK = 2, 8, 9
+	})
+	mutate("causal", func(c *Config) { c.Causal = true })
+	mutate("parallel_block", func(c *Config) { c.ParallelBlock = true })
+	mutate("rope_interleaved", func(c *Config) { c.RoPEInterleaved = true })
+	mutate("rope_partial", func(c *Config) { c.RoPEFraction = 0.5 })
+	mutate("hidden_not_divisible_by_heads", func(c *Config) { c.HiddenDim = 769 })
+	// 768/256 = 3, odd — RoPE rotates head-dim pairs, so rope.go panics on this
+	// at the first Encode; ValidateAssumptions must catch it at load instead.
+	mutate("head_dim_odd", func(c *Config) { c.NumHeads = 256 })
+	mutate("zero_dims", func(c *Config) { c.HiddenDim = 0 })
+	mutate("type_vocab_zero", func(c *Config) { c.TypeVocabSize = 0 })
+	mutate("eps_zero", func(c *Config) { c.LayerNormEpsilon = 0 })
+	mutate("rope_base_zero", func(c *Config) { c.RoPEBase = 0 })
+}
+
+// TestLoadWeightsFromFS_missingTensor exercises the "loader complains
+// about the FIRST missing tensor by name" UX without needing the real
+// checkpoint, so this case runs on every `go test`.
+func TestLoadWeightsFromFS_missingTensor(t *testing.T) {
+	cfg := `{
+"vocab_size":4, "n_embd":4, "n_layer":1, "n_head":2, "n_inner":8,
+"n_positions":16, "type_vocab_size":2,
+"rotary_emb_base":1000, "rotary_emb_fraction":1.0, "rotary_emb_interleaved":false,
+"layer_norm_epsilon":1e-12, "activation_function":"swiglu",
+"prenorm":false, "use_rms_norm":false,
+"qkv_proj_bias":false, "mlp_fc1_bias":false, "mlp_fc2_bias":false,
+"scale_attn_weights":true, "causal":false, "parallel_block":false
+}`
+	// Minimal valid safetensors file with no tensors: header = `{}` (2 bytes)
+	// preceded by u64 little-endian header-size 2.
+	st := []byte{0x02, 0, 0, 0, 0, 0, 0, 0, '{', '}'}
+	fsys := fstest.MapFS{
+		"config.json":       {Data: []byte(cfg)},
+		"model.safetensors": {Data: st},
+	}
+	_, err := LoadWeightsFromFS(fsys, ".")
+	if err == nil {
+		t.Fatal("expected error for empty-tensors safetensors, got nil")
+	}
+	// First tensor the loader looks for is the word embedding — the error
+	// should mention it by name (the UX contract from internal/embed).
+	if !contains(err.Error(), "embeddings.word_embeddings.weight") {
+		t.Errorf("error should name the first missing tensor; got: %v", err)
+	}
+}
+
+func contains(s, sub string) bool {
+	for i := 0; i+len(sub) <= len(s); i++ {
+		if s[i:i+len(sub)] == sub {
+			return true
+		}
+	}
+	return false
+}
+
+// (shapeEqual moved to embed.SafetensorsFile's TensorF32/I32 shape check; its
+// behavior is covered by embed's TestSafetensorsFile_typedAccessors.)
+
+// TestValidateAssumptions_acceptsMoE pins the config shape of
+// nomic-embed-text-v2-moe (Bucket C): a gelu, MoE, bias-carrying nomic-bert must
+// now load, and the MoE layer-selection rule must match the reference
+// (NomicBertEncoder: layer i is MoE iff i%moe_every_n_layers == 1).
+func TestValidateAssumptions_acceptsMoE(t *testing.T) {
+	c := &Config{
+		VocabSize: 250048, HiddenDim: 768, NumLayers: 12, NumHeads: 12,
+		IntermediateDim: 3072, MaxPositions: 2048, TypeVocabSize: 1,
+		RoPEBase: 10000, RoPEFraction: 1.0, LayerNormEpsilon: 1e-5,
+		ActivationFunction: "gelu", ScaleAttnWeights: true,
+		QKVProjBias: true, MLPFc1Bias: true, MLPFc2Bias: true,
+		NumExperts: 8, MoETopK: 2, MoEEveryNLayers: 2,
+	}
+	if err := c.ValidateAssumptions(); err != nil {
+		t.Fatalf("v2-moe config rejected: %v", err)
+	}
+	if c.gatedMLP() {
+		t.Error("activation_function=gelu should select the dense MLP, not the gated one")
+	}
+	// Reference rule: odd layers are MoE, even layers dense.
+	for i := range 12 {
+		want := i%2 == 1
+		if got := c.isMoELayer(i); got != want {
+			t.Errorf("isMoELayer(%d) = %v, want %v", i, got, want)
+		}
+	}
+	// A checkpoint with no MoE config must never report MoE layers.
+	plain := &Config{NumLayers: 12}
+	for i := range 12 {
+		if plain.isMoELayer(i) {
+			t.Fatalf("non-MoE config reported layer %d as MoE", i)
+		}
+	}
+}
+
+// safetensorsBlob builds a minimal safetensors file containing the named f32
+// tensors, zero-filled. Written for TestBuildWeights_moeMissingExpertTensor
+// below, which needs a checkpoint where the EARLY tensors load and a later one
+// does not — a state the empty-header fixture above cannot express, because it
+// fails on the very first tensor.
+func safetensorsBlob(t *testing.T, tensors map[string][]int) []byte {
+	t.Helper()
+	names := make([]string, 0, len(tensors))
+	for n := range tensors {
+		names = append(names, n)
+	}
+	sort.Strings(names) // deterministic offsets
+	var hdr strings.Builder
+	hdr.WriteByte('{')
+	off := 0
+	for i, n := range names {
+		elems := 1
+		for _, d := range tensors[n] {
+			elems *= d
+		}
+		shape := make([]string, len(tensors[n]))
+		for j, d := range tensors[n] {
+			shape[j] = strconv.Itoa(d)
+		}
+		if i > 0 {
+			hdr.WriteByte(',')
+		}
+		fmt.Fprintf(&hdr, `%q:{"dtype":"F32","shape":[%s],"data_offsets":[%d,%d]}`,
+			n, strings.Join(shape, ","), off, off+elems*4)
+		off += elems * 4
+	}
+	hdr.WriteByte('}')
+	h := []byte(hdr.String())
+	out := make([]byte, 8+len(h)+off)
+	binary.LittleEndian.PutUint64(out[:8], uint64(len(h)))
+	copy(out[8:], h)
+	return out
+}
+
+// TestBuildWeights_moeMissingExpertTensor covers the ONE failure mode the
+// tensorLoader accumulator introduces, and it had no coverage at all before:
+// f32 returns nil once an earlier load has failed, and nil is harmless only
+// while nobody reads it. transposeExpertsW2 READS it —
+//
+//	src := w2[e*I*D : (e+1)*I*D]
+//
+// — so a MoE layer whose expert weights are missing would slice a nil and PANIC
+// rather than return an error, if the accumulator were not drained immediately
+// before the transpose. This test is what makes that guard load-bearing instead
+// of decorative: delete it and this fails with a panic, not an error.
+//
+// It also fills a real gap. testdata/moe-model carries a config and a tokenizer
+// but no weights, so nothing else in the package exercises the MoE branch of
+// buildWeightsFromSafetensors at all.
+func TestBuildWeights_moeMissingExpertTensor(t *testing.T) {
+	const D, I, V, E = 4, 8, 4, 2
+	cfg := fmt.Sprintf(`{
+"vocab_size":%d, "n_embd":%d, "n_layer":2, "n_head":2, "n_inner":%d,
+"n_positions":16, "type_vocab_size":2,
+"rotary_emb_base":1000, "rotary_emb_fraction":1.0, "rotary_emb_interleaved":false,
+"layer_norm_epsilon":1e-12, "activation_function":"gelu",
+"prenorm":false, "use_rms_norm":false,
+"qkv_proj_bias":false, "mlp_fc1_bias":false, "mlp_fc2_bias":false,
+"scale_attn_weights":true, "causal":false, "parallel_block":false,
+"num_experts":%d, "moe_top_k":1, "moe_every_n_layers":2
+}`, V, D, I, E)
+
+	// Everything layer 1 (the MoE layer) needs EXCEPT mlp.experts.mlp.w2 — the
+	// tensor transposeExpertsW2 consumes. Layer 0 is dense and complete, so the
+	// loader gets well past the start before it fails.
+	tensors := map[string][]int{
+		"embeddings.word_embeddings.weight":       {V, D},
+		"embeddings.token_type_embeddings.weight": {2, D},
+		"emb_ln.weight": {D},
+		"emb_ln.bias":   {D},
+	}
+	for _, l := range []int{0, 1} {
+		p := fmt.Sprintf("encoder.layers.%d.", l)
+		tensors[p+"attn.Wqkv.weight"] = []int{3 * D, D}
+		tensors[p+"attn.out_proj.weight"] = []int{D, D}
+		tensors[p+"norm1.weight"] = []int{D}
+		tensors[p+"norm1.bias"] = []int{D}
+		tensors[p+"norm2.weight"] = []int{D}
+		tensors[p+"norm2.bias"] = []int{D}
+	}
+	tensors["encoder.layers.0.mlp.fc1.weight"] = []int{I, D}
+	tensors["encoder.layers.0.mlp.fc2.weight"] = []int{D, I}
+	tensors["encoder.layers.1.mlp.router.layer.weight"] = []int{E, D}
+	tensors["encoder.layers.1.mlp.experts.mlp.w1"] = []int{E * I, D}
+	// mlp.experts.mlp.w2 deliberately ABSENT.
+	tensors["encoder.layers.1.mlp.experts.bias"] = []int{D}
+
+	fsys := fstest.MapFS{
+		"config.json":       {Data: []byte(cfg)},
+		"model.safetensors": {Data: safetensorsBlob(t, tensors)},
+	}
+
+	// The assertion is as much "does not panic" as "returns an error": a panic
+	// here escapes as a test failure with a stack through transposeExpertsW2,
+	// which is exactly the regression this guards.
+	_, err := LoadWeightsFromFS(fsys, ".")
+	if err == nil {
+		t.Fatal("expected an error for the missing expert w2, got nil")
+	}
+	if !contains(err.Error(), "mlp.experts.mlp.w2") {
+		t.Errorf("error should name the missing tensor; got: %v", err)
+	}
+}

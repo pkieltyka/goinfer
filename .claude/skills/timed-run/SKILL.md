@@ -228,13 +228,12 @@ This repo's measurements are the product, so the standards are load-bearing. `CL
 the full text, with the evidence behind each:
 
 - **Difference matched observations; do not pool them.** When variants can be interleaved on the
-  same input, pooled means carry between-input variance that swamps the effect. Measured here:
-  the same data read pooled gave sd 10–35 tok/s against an ~8% effect, and read paired gave sd
-  5.5–8.7 with 11/12 pairs. They disagreed about whether an effect existed. Recorded as rule 7
-  of aikit's internal measuring-performance notes (described, not cited as a path — a cross-repo
-  path does not resolve from any other clone, which is the trap two bullets down. Note the file is
-  TRACKED in aikit, not gitignored as this line used to claim; the advice is unchanged, the reason
-  was wrong).
+  same input, pooled means carry between-input variance that can swamp the effect. The
+  [verify-width replay](../../../docs/measurements/default-verify-width-2026-08-25.md)
+  measured pooled standard deviations of 10–35 tok/s against an effect of about 8%.
+  The standard deviation of paired percentage changes ranged from 5.5 to 8.7 percentage points.
+  The strongest cell won 11 of 12 pairs. The two views of the same observations disagreed about
+  whether the effect existed.
 - **A bit-identical speed change ships even under its registered bar** when all four hold: (1) its outputs are bit-identical;
   (2) its scratch and allocated memory are not higher; (3) it is faster on at least 9 of 10 timed pairs; (4) it replaces code
   rather than adding a second path (a test-only switch back to the old form is not a second path). The registered bar still
@@ -281,8 +280,7 @@ the full text, with the evidence behind each:
   disqualifying `Qwen3.5-35B-A3B` from a qualifying agent-loop run in `queue-engineering.md` for
   months, on a figure that direct measurement then put at 1.52-1.73 (CPU) / 1.97-2.02 (Metal).
   Grep the figure WITH its unit: the bare digits matched six unrelated quantities (ms, kernel
-  ratios, KV-quant multipliers), the number plus `tok/s` matched only the real ones. This is a
-  convention on purpose, not a lint — the check the lint already documents as out of scope (see its
-  own `aikit v1.16.0 (go.mod:6)` example) was scoped out deliberately, and one incident is not
-  grounds to overturn that. Note the reach limit either way: figures also propagate into published
-  artifacts outside the repo, which no repo-side tooling can ever see.
+  ratios, KV-quant multipliers), the number plus `tok/s` matched only the real ones.
+  Do this search when retracting a figure. Citation lint checks that an anchor resolves. A version
+  claim can become stale when the manifest pin changes, even if its anchor still resolves.
+  Published artifacts outside the repo need a separate check.

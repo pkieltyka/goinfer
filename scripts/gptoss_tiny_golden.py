@@ -3,10 +3,8 @@
 goinfer can load and a golden JSON (input ids + reference next-token logits) — the
 forward-parity gate for the gpt-oss family (decoder/gptoss_test.go).
 
-Non-MXFP4 on purpose: the experts are written as plain F32 GGUF tensors so the gate
-runs today (aikit does not yet dequant ggml type 39). It exercises everything the
-real path does EXCEPT the MXFP4 dequant, which the committed bit-exact unpacker test
-covers separately. Uses a small sliding_window with seq_len > window so the
+The fixture stores the experts as F32 GGUF tensors to isolate forward parity. The
+committed unpacker test separately checks the MXFP4 dequantization. Uses a small sliding_window with seq_len > window so the
 alternating sliding/full attention is actually exercised.
 
 Run in the transformers venv:

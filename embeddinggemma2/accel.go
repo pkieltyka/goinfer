@@ -193,7 +193,7 @@ func (m *Model) TransformerWeights() Weights {
 func RopeTables(T, hd int, theta float64) (cos, sin []float32) { return ropeTables(T, hd, theta) }
 
 // UseAccelerator makes the encoder run its forward on the named accelerator or
-// a device identified by a linked backend; EmbedIDs, EmbedText and the aikit methods
+// a device identified by a linked backend; EmbedIDs, EmbedText and the serving encoder methods
 // then use it. A bare selector also moves the vision and audio towers when compatible tower accelerators
 // are registered. An explicit device ID or alias leaves both towers on the CPU. An error leaves the encoder unchanged.
 func (e *Encoder) UseAccelerator(name string) (Accelerator, error) {

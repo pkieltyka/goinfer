@@ -1,6 +1,6 @@
 package decoder
 
-import "github.com/pkieltyka/aikit/linalg"
+import "github.com/pkieltyka/goinfer/internal/modelcore/linalg"
 
 // DefaultDecodeParallelThreshold is the matmul parallelism crossover (in MACs) for the int8 (W8A8) decode path:
 // parallelize the per-token weight matmuls, leaving trivially small ops serial. It is hardware-specific (it shifts with
@@ -14,9 +14,9 @@ import "github.com/pkieltyka/aikit/linalg"
 // they were measured separately, on different kernels and models. Unify only after a proper joint sweep.
 const DefaultDecodeParallelThreshold = 300_000
 
-// SetDecodeParallelThreshold sets aikit/linalg's PROCESS-GLOBAL matmul crossover. It is NO
+// SetDecodeParallelThreshold sets internal/modelcore/linalg's PROCESS-GLOBAL matmul crossover. It is NO
 // LONGER needed for goinfer decode — that is automatic per-Workspace (see above). It remains
-// as an optional escape hatch for aikit paths that do NOT go through goinfer's decode
+// as an optional escape hatch for paths outside the decode
 // Workspace (e.g. a direct encoder/embedding call), or to force a global override in a
 // measurement sweep. 0 parallelizes every matmul; a large value forces serial. Prefer NOT
 // calling it — the per-Workspace default is race-free and needs no wiring.

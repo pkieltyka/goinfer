@@ -24,12 +24,13 @@ type relRow struct {
 // relEnv is what a row reads from: the tag being cut and the one before it, whether the network may be used, and look,
 // the one reader. root and run are the live reader's (liveRelEnv); a row never reads them.
 type relEnv struct {
-	root, tag, prev string
-	offline         bool
-	modules         []string                                               // a replay uses the set qualification actually covered
-	run             func(dir, name string, args ...string) (string, error) // combined output
-	look            func(kind string, args ...string) (string, error)
-	looks           []relLookup // what the live reader answered, each read once, in the order first asked
+	root, tag, prev     string
+	offline             bool
+	retiredModulePolicy bool
+	modules             []string                                               // a replay uses the set qualification actually covered
+	run                 func(dir, name string, args ...string) (string, error) // combined output
+	look                func(kind string, args ...string) (string, error)
+	looks               []relLookup // what the live reader answered, each read once, in the order first asked
 }
 
 // relLookup is one recorded read: its kind and arguments, the answer, and the error's text when it failed.
@@ -43,11 +44,12 @@ type relLookup struct {
 
 // releaseInputs is what a release run records beside its provenance: what the report header names and every read.
 type releaseInputs struct {
-	Tag     string      `json:"tag"`
-	Prev    string      `json:"prev"`
-	Offline bool        `json:"offline,omitempty"`
-	Looks   []relLookup `json:"looks"`
-	Modules []string    `json:"modules,omitempty"`
+	RetiredModulePolicy bool        `json:"retired_module_policy,omitempty"`
+	Tag                 string      `json:"tag"`
+	Prev                string      `json:"prev"`
+	Offline             bool        `json:"offline,omitempty"`
+	Looks               []relLookup `json:"looks"`
+	Modules             []string    `json:"modules,omitempty"`
 }
 
 func relLookupKey(kind string, args []string) string {
@@ -235,7 +237,7 @@ func rowPending(e *relEnv) relRow {
 	return done(name, "cmd/gate/parity.go awaitingFirstConfirmation", fmt.Sprintf("nothing pending since before %s (%s)", prevVer, prevDate))
 }
 
-// ---- row 2: the releasable modules agree on a tagged aikit, and none requires aikit/gpu ----
+// ---- row 2: standalone graphs exclude the retired dependencies ----
 
 var relModules = []string{".", "backend/cuda", "backend/metal", "backend/vulkan"}
 
@@ -247,8 +249,7 @@ func (e *relEnv) releaseModules() []string {
 }
 
 // rePseudo matches the three pseudo-version forms Go writes (vX.0.0-yyyymmddhhmmss-hash, vX.Y.Z-pre.0.yyyymmddhhmmss-hash,
-// vX.Y.Z-0.yyyymmddhhmmss-hash), with or without build metadata such as +incompatible. goinfer's main may require one
-// between weekly aikit tags; a release may not (the owner's decision).
+// vX.Y.Z-0.yyyymmddhhmmss-hash), with or without build metadata such as +incompatible. The historical pin grader rejects them.
 var rePseudo = regexp.MustCompile(`[-.][0-9]{14}-[0-9a-f]{12}(?:\+[0-9A-Za-z.-]+)?$`)
 
 // modRequire is the version a go.mod requires for module, or "".
@@ -274,6 +275,37 @@ func aikitRequire(gomod, sub string) string {
 }
 
 func rowPins(e *relEnv) relRow {
+	if !e.retiredModulePolicy {
+		return rowHistoricalPins(e)
+	}
+	const name = "standalone modules exclude retired dependencies"
+	var bad []string
+	for _, dir := range relModules {
+		graph, err := e.look("standalone-modules", dir)
+		if err != nil {
+			bad = append(bad, fmt.Sprintf("%s: could not read the offline module graph: %v; %s", dir, err, graph))
+			continue
+		}
+		if strings.TrimSpace(graph) == "" {
+			bad = append(bad, dir+": empty module graph")
+			continue
+		}
+		for _, word := range strings.Fields(graph) {
+			for _, retired := range aikitPaths {
+				if word == retired || strings.HasPrefix(word, retired+"/") {
+					bad = append(bad, dir+": resolves retired module "+word)
+				}
+			}
+		}
+	}
+	if len(bad) != 0 {
+		return owed(name, "GOWORK=off go list -m all", bad...)
+	}
+	return done(name, "GOWORK=off go list -m all", "root, CUDA, Metal and Vulkan")
+}
+
+// rowHistoricalPins replays records made while releases still used the donor module.
+func rowHistoricalPins(e *relEnv) relRow {
 	const name = "the modules agree on the aikit pins"
 	aikit := map[string]string{}
 	var gpuReq []string // aikit's gpu module moved into goinfer (Track AX); a require is a module that did not switch

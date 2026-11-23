@@ -12,8 +12,8 @@ import (
 	"testing"
 	"unsafe"
 
-	"github.com/pkieltyka/aikit/linalg"
 	"github.com/pkieltyka/goinfer/decoder"
+	"github.com/pkieltyka/goinfer/internal/modelcore/linalg"
 )
 
 // heapAllocDuring is the Go heap bytes allocated while f runs (runtime.MemStats.TotalAlloc), with the collector held off

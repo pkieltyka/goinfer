@@ -8,8 +8,8 @@ import (
 	"io"
 	"path/filepath"
 
-	"github.com/pkieltyka/aikit/embed"
-	"github.com/pkieltyka/aikit/linalg"
+	"github.com/pkieltyka/goinfer/internal/modelcore/embed"
+	"github.com/pkieltyka/goinfer/internal/modelcore/linalg"
 
 	"github.com/pkieltyka/goinfer/internal/runtime/logs"
 
@@ -1452,6 +1452,7 @@ func validateGGUFDims(cfg *Config) error {
 // read a generation_config.json from), matching the file path's resolution for
 // a bare .gguf.
 func LoadGGUFBytes(raw []byte, opts Options) (*Model, error) {
+	ensureSettings() // the knobs are parsed on first use, never at package init
 	opts = opts.withAutoBackend()
 	be, beErr := NewBackend(opts.Backend)
 	quant, err := parseQuant(opts.Quant)

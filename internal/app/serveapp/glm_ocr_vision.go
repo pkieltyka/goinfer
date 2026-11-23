@@ -18,7 +18,7 @@ import (
 // tower -> GenerateQwenVL with m-RoPE, the merged tower rows replacing the <|image|> run) with these differences, all of
 // which live here, in glmVision (vision_tower.go) or in the glmOcr branches of vision_serve.go:
 //
-//   - the tower is aikit's GlmOcrVisionEncoder, loaded on first use (like qwen3Tower);
+//   - the tower is vision.GlmOcrVisionEncoder, loaded on first use (like qwen3Tower);
 // !  - the preprocessing config halves the file's pixel bounds (multimodal.LoadGlmOcrPreprocessConfig);
 // !  - the image block and the template are GLM's, image first (multimodal.GlmOcrImageBlock, chat.GlmOCR);
 // !  - NO per-image token cap here, unlike Qwen3.5's qwen3MaxImageTokens: serve accepts what the processor's own ceiling (6,144 tokens, 4.82 MP) does, and an image that does not fit the context is refused by name (imageFitsContext), never truncated.
@@ -34,7 +34,7 @@ type glmOcrTower struct {
 	plan  gridTowerPlan // where the tower runs: the device it is built on at first use
 	once  sync.Once
 	enc   *vision.GlmOcrVisionEncoder
-	acc   multimodal.GridTowerAccelerator // nil: aikit's CPU tower
+	acc   multimodal.GridTowerAccelerator // nil: the CPU tower
 	fb    deviceFallback                  // serializes the accelerator and falls back to the CPU on a device memory failure
 	err   error
 }
@@ -57,7 +57,7 @@ func (g *glmOcrTower) encoder() (*vision.GlmOcrVisionEncoder, error) {
 	return g.enc, g.err
 }
 
-// features runs the tower (on its device when the plan put it there) and aikit's tail: the merged image embeddings.
+// features runs the tower (on its device when the plan put it there) and the host tail: the merged image embeddings.
 func (g *glmOcrTower) features(pv []float32, grid [3]int) ([]float32, error) {
 	enc, err := g.encoder()
 	if err != nil {
@@ -185,7 +185,7 @@ func (lm *loadedModel) glmOcrExtractionTurn(rf *respFormat, turns []chat.Turn) e
 }
 
 // gridTowerPlan is where a Qwen3.5+ or GLM-OCR tower will run: device is the registered accelerator to build at first
-// use ("" = aikit's CPU tower), where the banner's word for it.
+// use ("" = the CPU tower), where the banner's word for it.
 type gridTowerPlan struct {
 	device, where string
 	require       bool

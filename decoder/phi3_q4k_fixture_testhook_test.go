@@ -6,7 +6,7 @@ import (
 	"path/filepath"
 	"testing"
 
-	"github.com/pkieltyka/aikit/linalg"
+	"github.com/pkieltyka/goinfer/internal/modelcore/linalg"
 )
 
 // TestWritePhi3Q4KTinyGGUFForTest: the synthetic Phi-3 GGUF reads as what its callers take it for: a Phi-3 by its header, whose

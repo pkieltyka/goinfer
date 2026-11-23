@@ -328,3 +328,32 @@ func TestRelModules_areTheTaggedModulesOfTheTree(t *testing.T) {
 		}
 	}
 }
+
+func TestRowPins_standaloneRetirement(t *testing.T) {
+	for _, tc := range []struct{ name, graph, want string }{
+		{"clean", "github.com/pkieltyka/goinfer/backend/metal\ngolang.org/x/sys v0.47.0", "done"},
+		{"old root transitive", "github.com/pkieltyka/goinfer/backend/metal\n" + aikitPaths[0] + " v1.79.0", "OWED"},
+		{"retired replacement", "example.org/replacement v0.0.1 => " + aikitPaths[1] + "/gpu v0.33.3", "OWED"},
+		{"empty", "", "OWED"},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			var paths []string
+			e := &relEnv{retiredModulePolicy: true, modules: []string{".", "backend/cuda", "backend/vulkan"}, look: func(kind string, args ...string) (string, error) {
+				if kind != "standalone-modules" || len(args) != 1 {
+					t.Fatalf("unexpected read %s %v", kind, args)
+				}
+				paths = append(paths, args[0])
+				if args[0] == "backend/metal" {
+					return tc.graph, nil
+				}
+				return "github.com/pkieltyka/goinfer", nil
+			}}
+			if got := rowPins(e); got.State != tc.want {
+				t.Fatalf("got %+v, want %s", got, tc.want)
+			}
+			if got := strings.Join(paths, ","); got != ".,backend/cuda,backend/metal,backend/vulkan" {
+				t.Fatalf("checked %s", got)
+			}
+		})
+	}
+}

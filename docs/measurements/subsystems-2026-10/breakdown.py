@@ -7,7 +7,8 @@ foreground call longer than the tool's cap is BLOCKED and left out. Call duratio
 other work), so these sums are not wall clock; test-wait-2026-10/session_wall.py is the wall-clock instrument.
 
   usage: breakdown.py [--since YYYY-MM-DD] [--projects GLOB ...]
-         defaults: ~/.claude/projects/*goinfer* and *aikit* (subagent transcripts included), since 2026-10-12
+         defaults: ~/.claude/projects/*goinfer* (subagent transcripts included), since 2026-10-12;
+                   pass --projects to add another glob
 
 Sections: `go test` calls by flag and target; wait/poll calls by what they waited on; build/lint by tool; served-gate
 scripts; touched.py's duration distribution; watching PR checks. Patterns are regexes over the command text, and a
@@ -39,7 +40,7 @@ def pct(xs, q):
 def main():
     ap = argparse.ArgumentParser()
     ap.add_argument("--since", default="2026-10-12")
-    ap.add_argument("--projects", nargs="*", default=["~/.claude/projects/*goinfer*", "~/.claude/projects/*aikit*"])
+    ap.add_argument("--projects", nargs="*", default=["~/.claude/projects/*goinfer*"])
     a = ap.parse_args()
     since = dt.datetime.fromisoformat(a.since + "T00:00:00").astimezone()
     files = []

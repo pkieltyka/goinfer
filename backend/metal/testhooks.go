@@ -6,9 +6,9 @@ import (
 	"fmt"
 	"runtime"
 
-	"github.com/pkieltyka/aikit/linalg"
 	gpu "github.com/pkieltyka/goinfer/backend/metal/internal/gpudev"
 	"github.com/pkieltyka/goinfer/decoder"
+	"github.com/pkieltyka/goinfer/internal/modelcore/linalg"
 )
 
 // Test hooks: entry points into the resident that only goinfer_testhooks tests call (bisection, sub-layer capture, the

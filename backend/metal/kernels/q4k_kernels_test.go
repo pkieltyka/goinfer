@@ -9,7 +9,7 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/pkieltyka/aikit/linalg"
+	"github.com/pkieltyka/goinfer/internal/modelcore/linalg"
 )
 
 // TestQ4KLaneKernels is G-Q1, and since KS-C1 its C1-G1:

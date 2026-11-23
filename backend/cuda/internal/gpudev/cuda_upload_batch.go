@@ -103,7 +103,7 @@ func UploadBatch(copies []HostCopy) error {
 	return cx.Synchronize(bg)
 }
 
-// checkHostCopy validates one pair in aikit's error vocabulary. The messages name
+// checkHostCopy validates one pair in the device API's error vocabulary. The messages name
 // the size and offset because a caller meeting one of these is looking at a batch of
 // 240 and needs to know which pair was wrong — gocudrv's own errors name neither.
 func checkHostCopy(c HostCopy, cx *gc.Context) error {

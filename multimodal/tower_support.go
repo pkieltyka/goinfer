@@ -13,8 +13,8 @@ import (
 
 // Tower families, as the support table and the declaration name them.
 const (
-	TowerSigLIP          = "siglip"          // Gemma 3's SigLIP (aikit vision.RegisterResident)
-	TowerQwen25VL        = "qwen2.5-vl"      // Qwen2.5-VL's ViT (aikit vision.RegisterQwenResident)
+	TowerSigLIP          = "siglip"          // Gemma 3's SigLIP (vision.RegisterResident)
+	TowerQwen25VL        = "qwen2.5-vl"      // Qwen2.5-VL's ViT (vision.RegisterQwenResident)
 	TowerQwen3           = "qwen3"           // the Qwen3.5+ and Qwen3-VL grid tower (RegisterQwen3Tower)
 	TowerGlmOcr          = "glm-ocr"         // GLM-OCR's grid tower (RegisterGlmOcrTower)
 	TowerGemma4          = "gemma4-vision"   // Gemma 4's vision tower (RegisterGemma4Tower)
@@ -54,9 +54,9 @@ var (
 	residentNames   = map[string][]string{} // tower family -> device names
 )
 
-// MarkResidentTower records that device registered a resident tower for family through one of aikit's unnamed slots
+// MarkResidentTower records that device registered a resident tower for family through one of the vision package's unnamed slots
 // (vision.RegisterResident for SigLIP, vision.RegisterQwenResident for Qwen2.5-VL), which cannot be asked what is
-// registered. A backend's init calls it beside the aikit registration.
+// registered. A backend's init calls it beside the vision registration.
 func MarkResidentTower(family, device string) {
 	residentNamesMu.Lock()
 	defer residentNamesMu.Unlock()

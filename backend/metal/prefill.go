@@ -606,7 +606,7 @@ func (r *resident) prefillLastImgSrc(src rowSource, startPos int, mrope [][3]int
 // prefillScratchU16 allocates one of a pass's f16 scratch buffers, n halves, zero-filled. Metal fills a new buffer
 // with zeros itself (newBufferWithLength), so the pass does not build a zeroed Go slice of the same size and copy it
 // in (prefillScratchCopy restores the copy, for the test that compares the two).
-// THIS RELIES ON THE ZERO-FILL, which is a Metal property only: aikit's gpu.NewBufferLen* contract says Metal returns
+// THIS RELIES ON THE ZERO-FILL, which is a Metal property only: gpudev.NewBufferLen* contract says Metal returns
 // zeroed memory and CUDA uninitialized memory, and code shared across backends must not rely on zeros. These buffers
 // are sized to Mpad rows and the pass writes M of them, so the pad rows hold the zeros Metal gave them. A CUDA port of
 // this pattern must zero the buffer explicitly (Queue.ZeroAsync). TestPrefillScratch_zeroFilled pins the property on

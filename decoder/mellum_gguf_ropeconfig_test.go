@@ -5,7 +5,7 @@ import (
 	"maps"
 	"testing"
 
-	"github.com/pkieltyka/aikit/embed"
+	"github.com/pkieltyka/goinfer/internal/modelcore/embed"
 )
 
 // TestGGUFMellumConfig_attentionFactorSentinelOmitted is N-69 (docs/audit-2026-09-10.md):

@@ -6,7 +6,7 @@ import (
 	"os"
 	"testing"
 
-	"github.com/pkieltyka/aikit/linalg"
+	"github.com/pkieltyka/goinfer/internal/modelcore/linalg"
 )
 
 // TestCPUDecode_weightBytesPerToken reports how many bytes of resident weight each decode

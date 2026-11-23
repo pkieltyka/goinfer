@@ -7,8 +7,8 @@ import (
 	"github.com/pkieltyka/goinfer/internal/runtime/mem"
 	"math"
 
-	"github.com/pkieltyka/aikit/linalg"
 	"github.com/pkieltyka/goinfer/decoder"
+	"github.com/pkieltyka/goinfer/internal/modelcore/linalg"
 )
 
 // The Mamba-2 mixer (Nemotron-H) on the resident runner, on top of mamba_kernels_msl.go's conv → SSM → gated-norm chain:

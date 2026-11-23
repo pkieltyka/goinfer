@@ -27,7 +27,7 @@ Four modules are developed together; a separate `go.mod`, `.github/actions/stati
 **`go.work` is gitignored and required for cross-module work.** The submodule `go.mod` files carry no `replace`, so a
 submodule built without a workspace resolves the root from the proxy at its last published tag (`RELEASING.md`). Create it
 with `scripts/make_work.sh` (copies `go.work.example`, which lists all four modules, to `go.work` when absent) and it builds
-from a clean clone. Without a `go.work` in the repo, Go walks up and uses one in a parent directory, and a `GOWORK` environment variable overrides both; `make_work.sh` warns about the second and fixes the first. A local aikit checkout is an optional extra `use` line, commented in the example.
+from a clean clone. Without a `go.work` in the repo, Go walks up and uses one in a parent directory, and a `GOWORK` environment variable overrides both; `make_work.sh` warns about the second and fixes the first.
 
 Untagged, `backend/cuda/` does not build on its own (`backend/cuda/internal/gpudev` needs the `cuda` build tag); see CLAUDE.md for the tags.
 
@@ -39,7 +39,7 @@ Untagged, `backend/cuda/` does not build on its own (`backend/cuda/internal/gpud
 | `decoder/config/` | checkpoint `Config` JSON loading, family defaults and validation; a leaf importing no goinfer package |
 | `decoder/fit/` | the types the fit guard and the placement planner hand their callers (`Plan`, `PlanRequest`, `Placement`, `FitAnswer`, `FitDeclineError`); a leaf over `internal/runtime/mem` |
 | `decoder/resident/` | the contract a resident backend implements: the four subsystem interfaces, `SubsystemProvider`, `Forward` (the base every resident implements), the drafter host and the small data their signatures carry; a leaf over `internal/cost` and `internal/runtime/adapter`, aliased from `decoder` as `decoder.Resident*` |
-| `decoder/quant/` | safetensors checkpoint quantization config parsing and weight reconstruction (`Reconstructor`, `RowStreamReconstructor` for FP8, GPTQ, AWQ, NVFP4, MLX); a leaf over `aikit/embed` (its `SafetensorsFile`; it imports no goinfer package, rule `quant-leaf` in `internal/layout/imports.json`) |
+| `decoder/quant/` | safetensors checkpoint quantization config parsing and weight reconstruction (`Reconstructor`, `RowStreamReconstructor` for FP8, GPTQ, AWQ, NVFP4, MLX); a leaf over `internal/modelcore/embed` for `SafetensorsFile` (rule `quant-leaf` in `internal/layout/imports.json`) |
 | `engine/` | what the serving shell asks of a model: a generation from a prepared request |
 | `server/` | the HTTP API (OpenAI and Anthropic routes, web UI) as a library handler |
 | `chat/` | chat templates and tool-call rendering and parsing, no Jinja engine |
@@ -48,6 +48,7 @@ Untagged, `backend/cuda/` does not build on its own (`backend/cuda/internal/gpud
 | `multimodal/` | vision and audio towers and preprocessing |
 | `embeddinggemma2/` | the EmbeddingGemma 2 text encoder |
 | `pull/` | resumable checkpoint download from HuggingFace |
+| `internal/modelcore/` | private CPU tensor kernels, model-file readers, memory mapping, and serving encoder and WordPiece code |
 | `internal/` | packages private to the root module, grouped under `internal/app/` (CLI/server apps and wiring), `internal/guard/` (lint/CI/memory/parity guards), `internal/diag/` (hardware census and reports), and `internal/runtime/` (execution, memory, KV, scheduler, model loading, sampling, and runtime kernels), plus top-level domain packages (`audio`, `batchio`, `clef`, `codec`, `confidence`, `config`, `cost`, `decide`, `fidelity`, `layout`, `vision`, `wrappedupload`), and `testgate`, the skip gates tests share (imported by `_test.go` files only); `internal/layout` holds repository-shape checks as tests |
 
 ## Tier 3: subpackages of `decoder/`
@@ -65,9 +66,8 @@ packages it may import; `TestLayout_arrows` enforces it. Aliases are deleted whe
 **The subpackages so far.** `decoder/fit` (the Order below), `decoder/config` (DC1) and `decoder/quant`. `quant` has no Order
 of its own: it holds the FP8, GPTQ, AWQ, NVFP4 and MLX config parsing and reconstruction behind `Reconstructor` and
 `RowStreamReconstructor`, and `decoder` calls it directly, through `decoder/gptq.go`'s config parsing. The rules are
-`fit-leaf` (may import `internal/runtime/mem`), `config-leaf` and `quant-leaf` (no goinfer package). `quant-leaf` forbids goinfer
-packages only, so `quant` importing `aikit/embed` for `SafetensorsFile` is inside it; the rule is right and the layout row
-now says so.
+`fit-leaf` (may import `internal/runtime/mem`), `config-leaf` (standard library), and
+`quant-leaf` (may import `internal/modelcore/embed` for safetensors).
 
 **Why `fit` cannot move whole.** The three files (`fitguard.go`, `fitplan.go`, `fitquery.go`) are the loader's front
 end, not a leaf. Moving them and reading the compiler's errors names 43 identifiers they need from `decoder`:

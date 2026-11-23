@@ -8,8 +8,8 @@ import (
 	"path/filepath"
 	"unsafe"
 
-	"github.com/pkieltyka/aikit/linalg"
 	"github.com/pkieltyka/goinfer/decoder"
+	"github.com/pkieltyka/goinfer/internal/modelcore/linalg"
 )
 
 // weightAlias binds a dense int4 weight in place instead of copying it a second time. Without it a weight is copied twice at

@@ -1,11 +1,11 @@
-# AX1: aikit's towers and GPU backends copied into goinfer (2026-10-26)
+# AX1: the towers and GPU backends copied into goinfer (2026-10-26)
 
 Track AX of `docs/tasks/task-subsystems-2026-10.md`, step AX1; the gates are registered in that doc's §7.6. Session
 mac-ax01, on the MacBook (arm64, Metal), Go 1.27.3. Everything here is tier 0: no model, no timed run.
 
 ## What was copied, and from where
 
-| aikit path | tag (commit) | goinfer path |
+| source path | tag (commit) | goinfer path |
 |---|---|---|
 | `vision` | `v1.75.0` (`38dc8e2b`) | `internal/vision` |
 | `audio` | `v1.75.0` | `internal/audio` |
@@ -35,7 +35,7 @@ aikit oracle scripts that pinned the goldens.
 AX1-T, per package (`go test -v -count=1`, one package per call, under the shared timing lock). The aikit baseline ran
 11:43:57 to 11:44:08 PDT and goinfer 11:44:31 to 11:44:39; registered at about 10 minutes a side, measured 11 s and 8 s.
 
-| package | aikit PASS | goinfer PASS | skips (same on both sides unless noted) |
+| package | baseline PASS | goinfer PASS | skips (same on both sides unless noted) |
 |---|---:|---:|---|
 | vision | 68 | 73 | 8 real-checkpoint or env-gated (`ALS_G0`, `ALS_G2`, gemma4 E2B and 26B real, GLM-OCR real and cost sweep, Qwen3 real and DeepStack real); aikit also skipped the 3 gemma4 tiny tests, which pass here because the fixture is present (+2 gemma4 subtests) |
 | audio | 15 | 15 | `TestEncoderSpeed_record` (env-gated) |
@@ -94,7 +94,7 @@ linux/amd64, NVRTC 12.9.86 for `TestPTXReproducible`. goinfer at `origin/main` `
 `go test -v -count=1 -timeout 20m`, one package per call, aikit then goinfer, under the exclusive timing lock, 15:29 to
 15:30 PDT. Load average 0.14, 60 GB available; the timing lock and the night queue were idle.
 
-| package | aikit PASS | goinfer PASS | result |
+| package | baseline PASS | goinfer PASS | result |
 |---|---:|---:|---|
 | `visioncuda` | 4 | 4 | PASS, 0 regressions: `TestVisionCUDA_parityWithCPU`, `_registersBackend`, `_repeatable`, `_graphCapture` |
 | `qwencuda` | 4 | 4 | PASS, 0 regressions: `TestQwenCUDA_parityWithCPU`, `_fixtureExercisesBothAttentionKinds`, `_repeatable`, `_allocationFailureIsAnErrorAndTheEncoderRecovers` |

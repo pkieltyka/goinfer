@@ -10,11 +10,11 @@ import (
 	"slices"
 	"sync"
 
-	"github.com/pkieltyka/aikit/embed"
-	"github.com/pkieltyka/aikit/linalg"
+	"github.com/pkieltyka/goinfer/internal/modelcore/embed"
+	"github.com/pkieltyka/goinfer/internal/modelcore/linalg"
 )
 
-// Qwen2.5-VL vision tower — aikit's second ViT family (after SigLIP / encoder.go),
+// Qwen2.5-VL vision tower,
 // the Qwen2.5-VL `.visual` submodule as a pure-Go fp32 forward. Where SigLIP is
 // fixed-resolution (896×896 → 256 tokens, learned absolute pos, LayerNorm,
 // gelu-tanh MLP), this is DYNAMIC-resolution: pre-flattened patches + grid_thw,

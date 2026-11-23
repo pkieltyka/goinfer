@@ -1,5 +1,5 @@
-// Package whisper is a pure-Go Whisper decoder: the cross-attention transformer that turns aikit's Whisper encoder output into text.
-// float32 on the CPU, greedy, one 30 s window; the encoder, the log-mel features and the weights reader are aikit's. It follows transformers' WhisperDecoder.
+// Package whisper is a pure-Go Whisper decoder: the cross-attention transformer that turns the in-tree Whisper encoder output into text.
+// float32 on the CPU, greedy, one 30 s window; the encoder and log-mel come from internal/audio and the weights reader from the model core. It follows transformers' WhisperDecoder.
 package whisper
 
 import (
@@ -12,8 +12,8 @@ import (
 	"runtime"
 	"sync"
 
-	"github.com/pkieltyka/aikit/embed"
-	"github.com/pkieltyka/aikit/linalg"
+	"github.com/pkieltyka/goinfer/internal/modelcore/embed"
+	"github.com/pkieltyka/goinfer/internal/modelcore/linalg"
 )
 
 // Config is the decoder's shape, read from the checkpoint's config.json.
@@ -66,7 +66,7 @@ type Decoder struct {
 	tsDefect   int // a planted timestamp or long-form defect (timestamps_test.go)
 	condDefect int // a planted conditioning defect (policy_test.go)
 	// st is the checkpoint: an F32 tensor is a view into its mapping, so the decoder holds the file until Close, the
-	// mapping's only release (aikit embed.SafetensorsFile.Close).
+	// mapping's only release (embed.SafetensorsFile.Close).
 	st     *embed.SafetensorsFile
 	closed bool
 }
@@ -163,7 +163,7 @@ type State struct {
 	pos            int
 }
 
-// NewState starts a request over the encoder's last hidden state enc ([nSrc][D], aikit's WhisperEncoder.Forward output).
+// NewState starts a request over the encoder's last hidden state enc ([nSrc][D], audio.WhisperEncoder.Forward output).
 func (d *Decoder) NewState(enc []float32) (*State, error) {
 	if d.closed {
 		return nil, errDecoderClosed
@@ -307,7 +307,7 @@ func headLayouts(k, v []float32, n, heads, hd int) (kh, vt [][]float32) {
 	return kh, vt
 }
 
-// attendCross is attend over the fixed cross keys and values in headLayouts' form, with no mask: per head one product for the scores, aikit's contract softmax per row, one product for the weighted sum, the heads on
+// attendCross is attend over the fixed cross keys and values in headLayouts' form, with no mask: per head one product for the scores, the model core's softmax per row, one product for the weighted sum, the heads on
 // separate goroutines (each head's products are far under MatmulBT's own fan-out threshold at one query row). q arrives already multiplied by head_dim^-0.5, as in attend.
 func attendCross(q []float32, kh, vt [][]float32, m, n, heads, hd int) []float32 {
 	D := heads * hd

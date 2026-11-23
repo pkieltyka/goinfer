@@ -7,7 +7,7 @@ import (
 	"slices"
 	"testing"
 
-	"github.com/pkieltyka/aikit/linalg"
+	"github.com/pkieltyka/goinfer/internal/modelcore/linalg"
 )
 
 // G-S2a: a device tower built from these exports runs the

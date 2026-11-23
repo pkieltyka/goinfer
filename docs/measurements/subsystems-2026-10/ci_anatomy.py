@@ -5,7 +5,7 @@ Read-only (it calls `gh` with the account's read access). For each of the last N
 wall time from creation to the last update; for each run over --slow minutes it prints every job's start offset from
 the run's creation and its own duration, so queueing (a late start) and work (a long job) can be told apart.
 
-  usage: ci_anatomy.py [--repo townsendmerino/goinfer] [--limit 60] [--slow 20]
+  usage: ci_anatomy.py [--repo pkieltyka/goinfer] [--limit 60] [--slow 20]
 """
 import argparse
 import datetime as dt
@@ -23,7 +23,7 @@ def t(s):
 
 def main():
     ap = argparse.ArgumentParser()
-    ap.add_argument("--repo", default="townsendmerino/goinfer")
+    ap.add_argument("--repo", default="pkieltyka/goinfer")
     ap.add_argument("--limit", type=int, default=60)
     ap.add_argument("--slow", type=float, default=20.0)
     a = ap.parse_args()

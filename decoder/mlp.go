@@ -8,7 +8,7 @@ import (
 	"time"
 	"unsafe"
 
-	"github.com/pkieltyka/aikit/linalg"
+	"github.com/pkieltyka/goinfer/internal/modelcore/linalg"
 )
 
 // moeSelTrace, when non-nil, records the top-k expert indices of every moeMLP call in forward order (de-interleave by NumLayers

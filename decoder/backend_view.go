@@ -3,7 +3,7 @@ package decoder
 import (
 	"math"
 
-	"github.com/pkieltyka/aikit/linalg"
+	"github.com/pkieltyka/goinfer/internal/modelcore/linalg"
 	"github.com/pkieltyka/goinfer/internal/runtime/logs"
 )
 
@@ -54,7 +54,7 @@ type BackendModelView interface {
 	GatedAct() int
 	OutBias() bool
 	LearnedPos() bool
-	PosEmbed() *linalg.WeightMat
+	PosEmbed() *WeightMat
 
 	FinalLogitSoftcap() float32
 	AttnLogitSoftcap() float32
@@ -99,12 +99,12 @@ type ResidentLayerView interface {
 
 	GraniteMamba() bool
 	GraniteMambaWeights() (inProj, convW, convB, aLog, dW, dtBias, normW, outProj []float32)
-	MambaProjInt8() (in, out *linalg.WeightMat)
+	MambaProjInt8() (in, out *WeightMat)
 	NemotronBlockKind() uint8
 
 	Qwen35Linear() bool
-	Qwen35DeltaWeights() (inQKV, inZ, outProj *linalg.WeightMat, inB, inA, convW, dtBias, negExpA, normW []float32)
-	Qwen35AttnWeights() (qProj, kProj, vProj, oProj *linalg.WeightMat, qNorm, kNorm []float32)
+	Qwen35DeltaWeights() (inQKV, inZ, outProj *WeightMat, inB, inA, convW, dtBias, negExpA, normW []float32)
+	Qwen35AttnWeights() (qProj, kProj, vProj, oProj *WeightMat, qNorm, kNorm []float32)
 }
 
 type backendModelView struct {
@@ -127,34 +127,34 @@ func (v backendModelView) Dims() ResidentDims {
 		Inter: a.IntermediateDim, Vocab: a.VocabSize}
 }
 
-func (v backendModelView) NumLayers() int              { return v.m.w.arch.NumLayers }
-func (v backendModelView) Spec() ResidentSpec          { return v.m.ResidentSpec() }
-func (v backendModelView) Weights() *Weights           { return v.m.w }
-func (v backendModelView) NormEps() float32            { return v.m.NormEps() }
-func (v backendModelView) AttnScale() float32          { return v.m.AttnScale() }
-func (v backendModelView) EmbedScale() float64         { return v.m.w.arch.EmbedScale }
-func (v backendModelView) SlidingWindow() int          { return v.m.w.arch.SlidingWindow }
-func (v backendModelView) HasQKNorm() bool             { return v.m.w.arch.QKNorm }
-func (v backendModelView) QKNormWhole() bool           { return v.m.w.arch.QKNormWhole }
-func (v backendModelView) PairwiseRoPE() bool          { return v.m.w.arch.pairwiseRoPE() }
-func (v backendModelView) MRopeSection() []int         { return v.m.w.arch.MRopeSection }
-func (v backendModelView) MRopeInterleaved() bool      { return v.m.w.arch.MRopeInterleaved }
-func (v backendModelView) RMSAddOne() bool             { return v.m.w.arch.RMSAddOne }
-func (v backendModelView) LayerNorm() bool             { return v.m.w.arch.Norm == NormLayer }
-func (v backendModelView) SandwichNorm() bool          { return v.m.w.arch.NormPlacement == NormSandwich4 }
-func (v backendModelView) PostOnlyNorm() bool          { return v.m.w.arch.NormPlacement == NormPostOnly }
-func (v backendModelView) ParallelBlock() bool         { return v.m.w.arch.NormPlacement == NormParallel }
-func (v backendModelView) NonGatedMLP() bool           { return v.m.w.arch.NonGatedMLP }
-func (v backendModelView) GatedAct() int               { return int(v.m.w.arch.Act) }
-func (v backendModelView) OutBias() bool               { return v.m.w.arch.OutBias }
-func (v backendModelView) LearnedPos() bool            { return v.m.w.arch.LearnedPosEmbed }
-func (v backendModelView) PosEmbed() *linalg.WeightMat { return &v.m.w.PosEmbed }
-func (v backendModelView) FinalLogitSoftcap() float32  { return float32(v.m.w.arch.FinalLogitSoftcap) }
-func (v backendModelView) AttnLogitSoftcap() float32   { return float32(v.m.w.arch.AttnLogitSoftcap) }
-func (v backendModelView) HasAttnSinks() bool          { return v.m.w.arch.hasAttnSinks() }
-func (v backendModelView) IsGemma4() bool              { return v.m.w.arch.gemma4 != nil }
-func (v backendModelView) ProjsInt4() bool             { return v.m.residentProjsInt4() }
-func (v backendModelView) LoadAbort() <-chan struct{}  { return v.m.opts.LoadAbort }
+func (v backendModelView) NumLayers() int             { return v.m.w.arch.NumLayers }
+func (v backendModelView) Spec() ResidentSpec         { return v.m.ResidentSpec() }
+func (v backendModelView) Weights() *Weights          { return v.m.w }
+func (v backendModelView) NormEps() float32           { return v.m.NormEps() }
+func (v backendModelView) AttnScale() float32         { return v.m.AttnScale() }
+func (v backendModelView) EmbedScale() float64        { return v.m.w.arch.EmbedScale }
+func (v backendModelView) SlidingWindow() int         { return v.m.w.arch.SlidingWindow }
+func (v backendModelView) HasQKNorm() bool            { return v.m.w.arch.QKNorm }
+func (v backendModelView) QKNormWhole() bool          { return v.m.w.arch.QKNormWhole }
+func (v backendModelView) PairwiseRoPE() bool         { return v.m.w.arch.pairwiseRoPE() }
+func (v backendModelView) MRopeSection() []int        { return v.m.w.arch.MRopeSection }
+func (v backendModelView) MRopeInterleaved() bool     { return v.m.w.arch.MRopeInterleaved }
+func (v backendModelView) RMSAddOne() bool            { return v.m.w.arch.RMSAddOne }
+func (v backendModelView) LayerNorm() bool            { return v.m.w.arch.Norm == NormLayer }
+func (v backendModelView) SandwichNorm() bool         { return v.m.w.arch.NormPlacement == NormSandwich4 }
+func (v backendModelView) PostOnlyNorm() bool         { return v.m.w.arch.NormPlacement == NormPostOnly }
+func (v backendModelView) ParallelBlock() bool        { return v.m.w.arch.NormPlacement == NormParallel }
+func (v backendModelView) NonGatedMLP() bool          { return v.m.w.arch.NonGatedMLP }
+func (v backendModelView) GatedAct() int              { return int(v.m.w.arch.Act) }
+func (v backendModelView) OutBias() bool              { return v.m.w.arch.OutBias }
+func (v backendModelView) LearnedPos() bool           { return v.m.w.arch.LearnedPosEmbed }
+func (v backendModelView) PosEmbed() *WeightMat       { return &v.m.w.PosEmbed }
+func (v backendModelView) FinalLogitSoftcap() float32 { return float32(v.m.w.arch.FinalLogitSoftcap) }
+func (v backendModelView) AttnLogitSoftcap() float32  { return float32(v.m.w.arch.AttnLogitSoftcap) }
+func (v backendModelView) HasAttnSinks() bool         { return v.m.w.arch.hasAttnSinks() }
+func (v backendModelView) IsGemma4() bool             { return v.m.w.arch.gemma4 != nil }
+func (v backendModelView) ProjsInt4() bool            { return v.m.residentProjsInt4() }
+func (v backendModelView) LoadAbort() <-chan struct{} { return v.m.opts.LoadAbort }
 
 func (v backendModelView) MoE() (ResidentMoESpec, bool) {
 	if mo := v.m.ResidentSpec().MoE; mo != nil {
@@ -487,7 +487,7 @@ func (lv residentLayerView) GraniteMambaWeights() (inProj, convW, convB, aLog, d
 	return w.inProj, w.convW, w.convB, w.aLog, w.d, w.dtBias, w.normW, w.outProj
 }
 
-func (lv residentLayerView) MambaProjInt8() (in, out *linalg.WeightMat) {
+func (lv residentLayerView) MambaProjInt8() (in, out *WeightMat) {
 	w := lv.m.w.Layers[lv.i].mamba
 	if w == nil || w.inQ.Rows() == 0 {
 		return nil, nil
@@ -503,7 +503,7 @@ func (lv residentLayerView) Qwen35Linear() bool {
 	return lv.m.w.arch.isLinearLayer(lv.i)
 }
 
-func (lv residentLayerView) Qwen35DeltaWeights() (inQKV, inZ, outProj *linalg.WeightMat, inB, inA, convW, dtBias, negExpA, normW []float32) {
+func (lv residentLayerView) Qwen35DeltaWeights() (inQKV, inZ, outProj *WeightMat, inB, inA, convW, dtBias, negExpA, normW []float32) {
 	w := lv.m.w.Layers[lv.i].delta
 	if w == nil {
 		return
@@ -511,7 +511,7 @@ func (lv residentLayerView) Qwen35DeltaWeights() (inQKV, inZ, outProj *linalg.We
 	return &w.inProjQKV, &w.inProjZ, &w.outProj, w.inProjB, w.inProjA, w.convW, w.dtBias, w.negExpA, w.normW
 }
 
-func (lv residentLayerView) Qwen35AttnWeights() (qProj, kProj, vProj, oProj *linalg.WeightMat, qNorm, kNorm []float32) {
+func (lv residentLayerView) Qwen35AttnWeights() (qProj, kProj, vProj, oProj *WeightMat, qNorm, kNorm []float32) {
 	a := lv.m.w.Layers[lv.i].qattn
 	if a == nil {
 		return

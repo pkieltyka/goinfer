@@ -1,5 +1,5 @@
 // Copy to go.work (gitignored) with `scripts/make_work.sh`, or by hand. Covers all four modules and
-// builds from a clean clone: every module resolves goinfer and aikit from this checkout or the proxy.
+// builds from a clean clone: every module resolves goinfer from this checkout.
 // docs/layout.md explains each module; RELEASING.md says why the workspace is mandatory for cross-module work.
 go 1.27.2
 use (
@@ -8,6 +8,3 @@ use (
 	./backend/metal
 	./backend/vulkan
 )
-// Optional, only when you edit a local aikit checkout (a clean worktree has none,
-// and a `use` of a missing directory breaks every build). Uncomment and fix the path:
-// use ../aikit/aikit

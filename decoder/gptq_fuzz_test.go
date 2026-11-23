@@ -7,8 +7,8 @@ import (
 	"testing"
 	"testing/fstest"
 
-	"github.com/pkieltyka/aikit/embed"
 	"github.com/pkieltyka/goinfer/decoder/quant"
+	"github.com/pkieltyka/goinfer/internal/modelcore/embed"
 )
 
 // Track 2.4 (testing campaign): goinfer's interpretation of a pre-quantized

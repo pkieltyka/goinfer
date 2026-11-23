@@ -464,9 +464,8 @@ fixed?** If the write-up names a mechanism and no list exists, the list is the m
 > **A hand-maintained literal duplicates a value that is computed or declared somewhere else.
 > Sibling drift with a literal as one of the siblings.**
 
-Two instances landed the same day, which is what made it a shape rather than a chore. The manifest's
-`aikit_version` field is mixed into `deps_hash` — so changing it re-stales every family, which is the
-right design — but nothing *computes* it, and it read `v1.12.0` against a `go.mod` saying `v1.16.0`
+Two instances landed the same day, which is what made it a shape rather than a chore. The manifest once mixed a manual dependency version into `deps_hash`. The field re-staled every
+family when edited, but nothing computed its value, and it read `v1.12.0` against a `go.mod` saying `v1.16.0`
 (QUEUE B7). And `RELEASING.md`'s version-alignment step named the versions to align on, going stale
 **twice** — once telling you to align on what had become a downgrade — before being rewritten to read
 them instead (`0898295`).
@@ -1301,7 +1300,7 @@ tightest margin regime seen here; even there the headroom clears the threshold b
 **Mechanism.** Go's spec permits fusing `x*y + z` into a single-rounding FMA "across statements." gc
 does this on **arm64** and not on **amd64's default GOAMD64 baseline** (FMA is not in v1): `-gcflags=-S`
 shows **85** fused sites in `decoder` and **47** in `aikit/linalg` on arm64 (e.g. `FMADDS` at
-`linalg/dot.go:dotF32`, the SIMD dot inner loop) — **0** on amd64. A fusion-sensitive `x*y+z` reproducer diverges
+`internal/modelcore/linalg/dot.go:dotF32`, the SIMD dot inner loop) — **0** on amd64. A fusion-sensitive `x*y+z` reproducer diverges
 on arm64, agrees on amd64. One source, two f32 results: 93% of the 151,936 logits differ bit-for-bit.
 
 **On the tail figure, and why ULP is the secondary metric.** The largest single divergence looks like

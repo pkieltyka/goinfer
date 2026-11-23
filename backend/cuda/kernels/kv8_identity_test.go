@@ -11,8 +11,8 @@ import (
 	"testing"
 
 	gc "github.com/eitamring/gocudrv/cuda"
-	"github.com/pkieltyka/aikit/linalg"
 	"github.com/pkieltyka/goinfer/backend/cuda/internal/launchgeom"
+	"github.com/pkieltyka/goinfer/internal/modelcore/linalg"
 )
 
 // G1 of CUDA int8 KV: on a cache that holds int8 values times

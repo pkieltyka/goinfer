@@ -4,14 +4,14 @@ import (
 	"fmt"
 	"math"
 
-	"github.com/pkieltyka/aikit/linalg"
+	"github.com/pkieltyka/goinfer/internal/modelcore/linalg"
 )
 
 // qwen_resident.go is the device-resident seam for the Qwen2.5-VL vision tower —
 // the counterpart of resident.go's ResidentEncoder for SigLIP, and the follow-on
 // qwen_encoder.go's header flagged ("the resident-GPU seam is a follow-on").
 //
-// Same inversion as everywhere else in aikit: this package defines the interface and
+// The device dependency is inverted: this package defines the interface and
 // the weight export, a GPU module implements it and registers a factory from its
 // init(), and `vision` never imports the GPU package — so the default build stays
 // pure-Go CPU.

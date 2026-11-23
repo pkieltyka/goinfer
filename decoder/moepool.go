@@ -7,7 +7,7 @@ import (
 	"os"
 	"unsafe"
 
-	"github.com/pkieltyka/aikit/linalg"
+	"github.com/pkieltyka/goinfer/internal/modelcore/linalg"
 )
 
 // expertBufferPool is an owned-buffer pread cache for MoE expert weights, replacing expertPager's mmap+madvise mode
@@ -18,7 +18,7 @@ import (
 // Darwin rates: docs/measurements/moe-pager-mode-darwin-2026-09-23.md.
 //
 // It mirrors metal/expertpool.go's shape, translated from GPU Buffer writes to plain []byte plus WeightMat repointing
-// via aikit/linalg's exported Wrap*/accessor API. No aikit API change is needed: scales, rows, cols and group are heap
+// via internal/modelcore/linalg's exported Wrap*/accessor API. The existing API is sufficient: scales, rows, cols and group are heap
 // copies untouched by paging (only the packed nibble/code payload bytes alias the mmap, decoder/serialize.go's
 // giwReader.weightMat), and a WeightMat can be rebuilt from those plus a freshly pread payload.
 
@@ -83,7 +83,7 @@ func buildExpertField(wm *linalg.WeightMat, base, end uintptr) (expertField, boo
 }
 
 // containedOffset returns raw's file offset within a mapping spanning [base,end) -- the
-// mapping covers the WHOLE .giw file from byte 0 (aikit/mmap.MapReadOnly maps the file at
+// mapping covers the WHOLE .giw file from byte 0 (internal/modelcore/mmap.MapReadOnly maps the file at
 // offset 0), so a byte's file offset is simply its mapping address minus base. ok=false if raw
 // is empty or heap-backed (not part of the mapping).
 func containedOffset(raw []byte, base, end uintptr) (off int64, n int, ok bool) {
@@ -171,7 +171,7 @@ type expertBufferPool struct {
 }
 
 // newExpertBufferPool builds a pool over members, opening its own fd on giwPath for pread
-// (independent of the mmap's own fd, which aikit/mmap.MapReadOnly closes right after mapping --
+// (independent of the mmap's own fd, which internal/modelcore/mmap.MapReadOnly closes right after mapping --
 // decoder/model.go's GiwPath doc comment). budget bytes are divided into slots sized to one
 // member's total field length; the slot count is raised to at least minSlots (the model's
 // top-k, so a single token's routing can never thrash the pool it just filled) and capped at

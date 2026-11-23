@@ -12,7 +12,7 @@ import (
 
 	gc "github.com/eitamring/gocudrv/cuda"
 
-	"github.com/pkieltyka/aikit/embed"
+	"github.com/pkieltyka/goinfer/internal/modelcore/embed"
 
 	"github.com/pkieltyka/goinfer/backend/cuda/internal/launchgeom"
 	"github.com/pkieltyka/goinfer/backend/cuda/internal/wpack"

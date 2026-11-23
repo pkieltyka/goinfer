@@ -8,8 +8,8 @@ import (
 	"sync"
 	"sync/atomic"
 
-	"github.com/pkieltyka/aikit/embed"
-	"github.com/pkieltyka/aikit/linalg"
+	"github.com/pkieltyka/goinfer/internal/modelcore/embed"
+	"github.com/pkieltyka/goinfer/internal/modelcore/linalg"
 
 	"github.com/pkieltyka/goinfer/decoder/fit"
 	"github.com/pkieltyka/goinfer/internal/runtime/logs"
@@ -60,7 +60,7 @@ type fitCheck struct {
 	// weightBytes+kvBytes: the mapping (embed.OpenGGUFMmap) stays open for the whole build and the per-row dequantizer touches essentially
 	// every page, so for most of the load the whole source file is resident at the same time as the resident weight set built from it. That is
 	// source and destination coexisting, not double-buffering: nothing releases the source pages as each tensor is consumed (that would need
-	// per-tensor madvise inside aikit/embed).
+	// per-tensor madvise inside internal/modelcore/embed).
 	//
 	// Only meaningful for a plain resident .gguf load (isGGUF && !streamWeights). A .giw load mmaps its weight blob directly and never reaches
 	// fitCheckFor (model.go's .giw branch: its pages are file-backed and droppable under pressure, so there is no allocation peak to price),
@@ -293,9 +293,9 @@ func giwPinnedExpertBytes(cfg *Config, opts Options) int64 {
 }
 
 // resolveWeightCacheBudget resolves WeightCacheBytes's 0 "auto" default from this platform's live probe (hostRAMAvailable: internal/mem/probe on
-// darwin and linux): half of available memory, the same math aikit's mmap.AutoBudget() uses, but AutoBudget is Linux-only and
+// darwin and linux): half of available memory, the same rule as mmap.AutoBudget, but AutoBudget is Linux-only and
 // falls back to a fixed 8 GB elsewhere, a number with no relation to what the machine has free. An explicit request (> 0) passes through
-// unchanged. When this platform's probe is unavailable too it returns 0 (aikit's own AutoBudget) and logs that, so the fallback is visible.
+// unchanged. When this platform's probe is unavailable too it returns 0 (the model core's own AutoBudget) and logs that, so the fallback is visible.
 func resolveWeightCacheBudget(requested int64) int64 {
 	if requested > 0 {
 		return requested

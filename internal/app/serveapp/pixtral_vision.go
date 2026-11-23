@@ -8,7 +8,7 @@ import (
 	"github.com/pkieltyka/goinfer/multimodal"
 )
 
-// pixtralTower is Ministral 3's image path: aikit's Pixtral tower, the multimodal projector, the processor's settings and the
+// pixtralTower is Ministral 3's image path: the local Pixtral tower, the multimodal projector, the processor's settings and the
 // [IMG] token id. The tower runs on the CPU in float32 (no backend declares a Pixtral device tower:
 // multimodal.DeclaredTowers); the image tokens are causal, so the turn goes through decoder.GenerateVLCausalSpans, one span
 // per merged row.

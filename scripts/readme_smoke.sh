@@ -206,8 +206,7 @@ ran=$((ran + 1))
 # checked the exit code, which passes, because `go get github.com/pkieltyka/goinfer`
 # SUCCEEDS. The failure the cold-user run hit was at BUILD time:
 #
-#   missing go.sum entry for module providing package github.com/pkieltyka/aikit/embed
-#   (imported by github.com/pkieltyka/goinfer/decoder)
+#   missing go.sum entry for a transitive dependency of decoder
 #
 # A gate that runs the documented command and stops there cannot see that, and this one was
 # proven unable to: with the old install line restored, it still went green. Building a trivial

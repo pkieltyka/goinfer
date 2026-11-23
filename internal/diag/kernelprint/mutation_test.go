@@ -3,7 +3,6 @@ package kernelprint
 import (
 	"encoding/json"
 	"fmt"
-	"io/fs"
 	"os"
 	"os/exec"
 	"path/filepath"
@@ -13,7 +12,7 @@ import (
 	"time"
 )
 
-// plant is a one-ULP change to one kernel's output, as a text edit of an aikit source file.
+// plant is a one-ULP change to one kernel's output, as a text edit of a modelcore source file.
 type plant struct {
 	name, kernel, file, anchor, insert string
 }
@@ -33,36 +32,26 @@ func ulpPlants() []plant {
 	return out
 }
 
-// TestCompute_mutation is K2. On a copy of the aikit this package builds against, each plant must change exactly its
+// TestCompute_mutation is K2. With source overlays of the kernels this package builds against, each plant must change exactly its
 // kernel's fingerprint, and the copy with no plant must reproduce this process's fingerprints for every kernel. It
-// builds aikit five times, so it runs only with GOINFER_KERNELPRINT_MUTATION=1.
+// builds modelcore with separate source overlays, so it runs only with GOINFER_KERNELPRINT_MUTATION=1.
 func TestCompute_mutation(t *testing.T) {
 	if os.Getenv("GOINFER_KERNELPRINT_MUTATION") != "1" {
-		t.Skip("K2 builds aikit five times; set GOINFER_KERNELPRINT_MUTATION=1")
+		t.Skip("K2 builds modelcore with separate source overlays; set GOINFER_KERNELPRINT_MUTATION=1")
 	}
 	tmp := t.TempDir()
-	copyDir := filepath.Join(tmp, "aikit")
-	copyTree(t, aikitDir(t), copyDir)
-	modfile := filepath.Join(tmp, "go.mod")
-	root, err := filepath.Abs("../../..")
-	if err != nil {
-		t.Fatal(err)
-	}
-	gomod, err := os.ReadFile(filepath.Join(root, "go.mod"))
-	if err != nil {
-		t.Fatal(err)
-	}
-	gosum, err := os.ReadFile(filepath.Join(root, "go.sum"))
-	if err != nil {
-		t.Fatal(err)
-	}
-	writeFile(t, modfile, append(gomod, []byte("\nreplace "+aikitModule+" => "+copyDir+"\n")...))
-	writeFile(t, filepath.Join(tmp, "go.sum"), gosum)
+	root := modelcoreDir(t)
 
-	child := func(label string) Report {
+	child := func(label string, replacements map[string]string) Report {
 		t0 := time.Now()
 		out := filepath.Join(tmp, "report.json")
-		cmd := exec.Command("go", "test", "-modfile="+modfile, "-count=1", "-run", "^TestCompute_child$", ".")
+		overlay := filepath.Join(tmp, "overlay.json")
+		manifest, err := json.Marshal(struct{ Replace map[string]string }{replacements})
+		if err != nil {
+			t.Fatal(err)
+		}
+		writeFile(t, overlay, manifest)
+		cmd := exec.Command("go", "test", "-overlay="+overlay, "-count=1", "-run", "^TestCompute_child$", ".")
 		cmd.Env = append(os.Environ(), "GOWORK=off", "GOINFER_KERNELPRINT_OUT="+out)
 		if b, err := cmd.CombinedOutput(); err != nil {
 			t.Fatalf("%s: %v\n%s", label, err, b)
@@ -80,11 +69,11 @@ func TestCompute_mutation(t *testing.T) {
 	}
 
 	base := Compute()
-	if d := changed(base, child("unplanted copy")); len(d) != 0 {
-		t.Fatalf("the unplanted copy changed %v: the copy is not the aikit this package builds against", d)
+	if d := changed(base, child("unplanted", nil)); len(d) != 0 {
+		t.Fatalf("the unplanted child changed %v", d)
 	}
 	for _, p := range ulpPlants() {
-		path := filepath.Join(copyDir, p.file)
+		path := filepath.Join(root, p.file)
 		orig, err := os.ReadFile(path)
 		if err != nil {
 			t.Fatal(err)
@@ -93,16 +82,16 @@ func TestCompute_mutation(t *testing.T) {
 		if strings.Count(src, p.anchor) != 1 {
 			t.Fatalf("VOID %s: the anchor occurs %d times in %s; fix the plant", p.name, strings.Count(src, p.anchor), p.file)
 		}
-		writeFile(t, path, []byte(withMath(strings.Replace(src, p.anchor, p.anchor+p.insert, 1))))
-		d := changed(base, child(p.name))
-		writeFile(t, path, orig)
+		staged := filepath.Join(tmp, filepath.Base(path))
+		writeFile(t, staged, []byte(withMath(strings.Replace(src, p.anchor, p.anchor+p.insert, 1))))
+		d := changed(base, child(p.name, map[string]string{path: staged}))
 		if len(d) != 1 || d[0] != p.kernel {
 			t.Errorf("%s: changed %v, want exactly [%s]", p.name, d, p.kernel)
 		} else {
 			t.Logf("%s: changed exactly %s", p.name, p.kernel)
 		}
 	}
-	if d := changed(base, child("plants removed")); len(d) != 0 {
+	if d := changed(base, child("plants removed", nil)); len(d) != 0 {
 		t.Errorf("removing the plants left %v changed", d)
 	}
 }
@@ -138,30 +127,6 @@ func withMath(src string) string {
 	}
 	j := strings.Index(src[i+1:], "\n") + i + 1
 	return src[:j+1] + "\nimport \"math\"\n" + src[j+1:]
-}
-
-// copyTree copies a module directory, skipping testdata, with writable modes (the module cache is read-only).
-func copyTree(t *testing.T, from, to string) {
-	err := filepath.WalkDir(from, func(path string, d fs.DirEntry, err error) error {
-		if err != nil {
-			return err
-		}
-		rel, _ := filepath.Rel(from, path)
-		if d.IsDir() {
-			if d.Name() == "testdata" || d.Name() == ".git" {
-				return filepath.SkipDir
-			}
-			return os.MkdirAll(filepath.Join(to, rel), 0o755)
-		}
-		b, err := os.ReadFile(path)
-		if err != nil {
-			return err
-		}
-		return os.WriteFile(filepath.Join(to, rel), b, 0o644)
-	})
-	if err != nil {
-		t.Fatal(err)
-	}
 }
 
 func writeFile(t *testing.T, path string, b []byte) {

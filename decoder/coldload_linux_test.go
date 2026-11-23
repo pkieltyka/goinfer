@@ -8,7 +8,7 @@ import (
 	"syscall"
 	"testing"
 
-	"github.com/pkieltyka/aikit/mmap"
+	"github.com/pkieltyka/goinfer/internal/modelcore/mmap"
 
 	"github.com/pkieltyka/goinfer/internal/runtime/mem/probe"
 )

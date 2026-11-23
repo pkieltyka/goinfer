@@ -1,6 +1,6 @@
 // Package wpack packs host weights into the layouts the CUDA kernels read: int8 rows as little-endian words, int4 nibbles
 // permuted for the forward GEMV with f16 group scales, Q4_K blocks as words, and f32 or bf16 quantized to int8 per row.
-// It imports aikit's linalg and nothing from goinfer, so kernel tests can pack weights without reaching decoder.
+// It imports only internal/modelcore/linalg from goinfer, so kernel tests can pack weights without reaching decoder.
 //
 // It does not decide whether a weight is admitted: package cuda's planWeight does, ahead of every Pack. Pack itself
 // refuses a kind it has no layout for. The bytes are pinned by cuda's TestWeightPackers_bitIdentity.
@@ -10,7 +10,7 @@ import (
 	"fmt"
 	"math"
 
-	"github.com/pkieltyka/aikit/linalg"
+	"github.com/pkieltyka/goinfer/internal/modelcore/linalg"
 )
 
 // Packed is one packed weight: Kind is the device layout ("int4", "int8" or "q4k"; f32 and bf16 pack as "int8"), Wpk
@@ -174,7 +174,7 @@ func Permute(w uint32) uint32 {
 }
 
 // F32ToF16 encodes a float32 as an f16 bit pattern, byte for byte identical to decoder's f32ToF16bits, the canonical
-// resident-backend f16 scale representation that metal/pack.go, aikit/linalg and the CPU's f16-scale diagnostic replicate.
+// resident-backend f16 scale representation that metal/pack.go, internal/modelcore/linalg and the CPU's f16-scale diagnostic replicate.
 // The int4 group scales it encodes must match every other backend's f16 scales bit for bit. It rounds half up with
 // gradual underflow to subnormals; it is not RNE or saturating, which would reintroduce a divergence.
 func F32ToF16(f float32) uint16 {

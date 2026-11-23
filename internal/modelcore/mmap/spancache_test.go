@@ -1,0 +1,208 @@
+package mmap
+
+import "testing"
+
+// fakeAdvise records WILLNEED/DONTNEED calls so the LRU/eviction logic can be tested
+// without a real mapping. The span pointers it sees are irrelevant — SpanCache's
+// accounting is driven by registered byte counts, not by what Advise does.
+type fakeAdvise struct {
+	willNeed, dontNeed int
+}
+
+func (f *fakeAdvise) advise(_ []byte, willNeed bool) error {
+	if willNeed {
+		f.willNeed++
+	} else {
+		f.dontNeed++
+	}
+	return nil
+}
+
+// span returns a non-empty byte slice of length n to register as a member's span.
+// SpanCache only reads len(span) for accounting, so the contents don't matter here.
+func span(n int) []byte { return make([]byte, n) }
+
+func TestSpanCache_evictsMostRecentOverBudget(t *testing.T) {
+	fa := &fakeAdvise{}
+	// Budget holds 2 of the 4 equal-sized members (100 each, budget 250).
+	c := NewSpanCache[int](250)
+	c.advise = fa.advise
+	for i := range 4 {
+		c.Add(i, [][]byte{span(100)})
+	}
+
+	c.Touch(0)
+	c.Touch(1) // resident {1,0}, 200 ≤ 250, no eviction yet
+	if _, _, ev := c.Stats(); ev != 0 {
+		t.Fatalf("no eviction expected yet, got %d", ev)
+	}
+	// Over budget → evict the MOST-recently-touched other member (1), not the
+	// least (0). This reversed with perf-campaign item 9: under LRU a cyclic
+	// scan — the only demand signal in the kit — evicts exactly the member it
+	// needs next and hits 0% of the time even at 98% of the working set
+	// resident. Keeping the older members pins a stable prefix instead.
+	c.Touch(2)
+	if got := c.Resident(); got != 200 {
+		t.Fatalf("resident = %d, want 200 (two 100-byte members)", got)
+	}
+	if _, _, ev := c.Stats(); ev != 1 {
+		t.Fatalf("evictions = %d, want 1", ev)
+	}
+
+	// 0 is the retained prefix and must still be resident; 1 was the victim.
+	hitsBefore, _, _ := c.Stats()
+	c.Touch(0)
+	if h, _, _ := c.Stats(); h != hitsBefore+1 {
+		t.Fatalf("the oldest member must survive: touching 0 should be a hit")
+	}
+	_, missBefore, _ := c.Stats()
+	c.Touch(1) // evicted above → miss
+	if _, m, _ := c.Stats(); m != missBefore+1 {
+		t.Fatalf("touching the evicted member should be a miss")
+	}
+	if got := c.Resident(); got > c.Budget() {
+		t.Fatalf("resident %d exceeds budget %d", got, c.Budget())
+	}
+
+	// Every fault hinted WILLNEED; every eviction hinted DONTNEED.
+	_, misses, evictions := c.Stats()
+	if int64(fa.willNeed) != misses {
+		t.Fatalf("WILLNEED calls = %d, want one per miss (%d)", fa.willNeed, misses)
+	}
+	if int64(fa.dontNeed) != evictions {
+		t.Fatalf("DONTNEED calls = %d, want one per eviction (%d)", fa.dontNeed, evictions)
+	}
+}
+
+func TestSpanCache_evictsLeastRecentWithPolicy(t *testing.T) {
+	fa := &fakeAdvise{}
+	// EvictLeastRecent (frequency-aware): the classic LRU tail, the opposite victim to
+	// the scan-resistant default — what a MoE expert pager needs so its hot set survives.
+	c := NewSpanCacheWithPolicy[int](250, EvictLeastRecent)
+	c.advise = fa.advise
+	for i := range 4 {
+		c.Add(i, [][]byte{span(100)})
+	}
+
+	c.Touch(0)
+	c.Touch(1) // resident {1,0}, 200 ≤ 250, no eviction
+	c.Touch(2) // over budget → evict the LEAST-recent (0), keep the more-recent (1)
+	if got := c.Resident(); got != 200 {
+		t.Fatalf("resident = %d, want 200", got)
+	}
+	if _, _, ev := c.Stats(); ev != 1 {
+		t.Fatalf("evictions = %d, want 1", ev)
+	}
+	// 1 is the more-recent member and must survive; 0 was the LRU victim.
+	hitsBefore, _, _ := c.Stats()
+	c.Touch(1)
+	if h, _, _ := c.Stats(); h != hitsBefore+1 {
+		t.Fatalf("the more-recent member must survive under EvictLeastRecent: touching 1 should hit")
+	}
+	_, missBefore, _ := c.Stats()
+	c.Touch(0) // LRU-evicted above → miss
+	if _, m, _ := c.Stats(); m != missBefore+1 {
+		t.Fatalf("touching the LRU-evicted member should be a miss")
+	}
+	// The default constructor stays scan-resistant (EvictMostRecent) — regression guard.
+	if NewSpanCache[int](0).policy != EvictMostRecent {
+		t.Fatal("NewSpanCache must default to EvictMostRecent (scan-resistant)")
+	}
+}
+
+func TestSpanCache_alwaysKeepsTouchedMember(t *testing.T) {
+	fa := &fakeAdvise{}
+	// Budget (50) is smaller than a single member (100): the just-touched member
+	// must stay resident anyway — never evict the thing you just asked for.
+	c := NewSpanCache[int](50)
+	c.advise = fa.advise
+	c.Add(0, [][]byte{span(100)})
+	c.Add(1, [][]byte{span(100)})
+
+	c.Touch(0)
+	if c.Resident() != 100 {
+		t.Fatalf("a single touched member must stay resident, got %d", c.Resident())
+	}
+	c.Touch(1) // evicts 0, keeps 1 — Len never drops below 1
+	if c.Resident() != 100 {
+		t.Fatalf("resident = %d, want 100 (only the latest member)", c.Resident())
+	}
+	if _, _, ev := c.Stats(); ev != 1 {
+		t.Fatalf("evictions = %d, want 1", ev)
+	}
+}
+
+func TestSpanCache_unboundedNeverEvicts(t *testing.T) {
+	fa := &fakeAdvise{}
+	c := NewSpanCache[int](0) // ≤ 0 ⇒ unbounded
+	c.advise = fa.advise
+	for i := range 5 {
+		c.Add(i, [][]byte{span(100)})
+		c.Touch(i)
+	}
+	if c.Resident() != 500 {
+		t.Fatalf("unbounded cache resident = %d, want 500", c.Resident())
+	}
+	if _, _, ev := c.Stats(); ev != 0 {
+		t.Fatalf("unbounded cache must never evict, got %d", ev)
+	}
+	if fa.dontNeed != 0 {
+		t.Fatalf("unbounded cache must never DONTNEED, got %d", fa.dontNeed)
+	}
+}
+
+func TestSpanCache_touchUnregisteredIsNoOp(t *testing.T) {
+	c := NewSpanCache[int](1000)
+	c.Touch(42) // never Added
+	if h, m, e := c.Stats(); h != 0 || m != 0 || e != 0 {
+		t.Fatalf("touching an unregistered key must not move any counter, got %d/%d/%d", h, m, e)
+	}
+	if c.Resident() != 0 {
+		t.Fatalf("resident = %d, want 0", c.Resident())
+	}
+}
+
+func TestSpanCache_addDropsEmptySpansAndDedups(t *testing.T) {
+	c := NewSpanCache[int](1000)
+	c.Add(0, [][]byte{span(40), nil, span(60)}) // empty span dropped
+	if c.Registered() != 100 {
+		t.Fatalf("Registered = %d, want 100 (empty span dropped)", c.Registered())
+	}
+	c.Add(0, [][]byte{span(999)}) // re-add ignored: first registration wins
+	if c.Registered() != 100 {
+		t.Fatalf("re-adding a key must be ignored, Registered = %d", c.Registered())
+	}
+
+	// A member with only empty spans is not registered at all (nothing to page).
+	c.Add(1, [][]byte{nil, {}})
+	c.Touch(1)
+	if _, m, _ := c.Stats(); m != 0 {
+		t.Fatalf("a member with no real spans should not be touchable, misses = %d", m)
+	}
+}
+
+// TestSpanCache_advisedBytesCountsWillneedNotResident is the durable check the .giw
+// kind-4 paged-decode regression should have caught: AdvisedBytes must reflect what
+// was actually passed to the WILLNEED hint (every span under a touched key, on a
+// miss), NOT a member's Resident-accounting size and NOT double-counted on a hit.
+// Registering redundant spans under one key (the real bug: a kind-4 tensor's unused
+// canonical copy alongside its row4 copy) would show up here directly, independent of
+// any external I/O tool and immune to whatever else the machine is doing.
+func TestSpanCache_advisedBytesCountsWillneedNotResident(t *testing.T) {
+	c := NewSpanCache[int](1 << 20)
+	c.Add(0, [][]byte{span(100), span(50)}) // two spans, one member — 150 bytes total
+	c.Add(1, [][]byte{span(30)})
+
+	c.Touch(0) // miss: WILLNEEDs both spans
+	if got := c.AdvisedBytes(); got != 150 {
+		t.Fatalf("AdvisedBytes after one miss = %d, want 150", got)
+	}
+	c.Touch(0) // hit: no new WILLNEED
+	if got := c.AdvisedBytes(); got != 150 {
+		t.Fatalf("AdvisedBytes after a hit must not grow, got %d, want 150", got)
+	}
+	c.Touch(1) // miss: WILLNEEDs its one span
+	if got := c.AdvisedBytes(); got != 180 {
+		t.Fatalf("AdvisedBytes after second member's miss = %d, want 180", got)
+	}
+}

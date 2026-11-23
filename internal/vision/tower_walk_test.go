@@ -3,7 +3,7 @@ package vision
 import (
 	"testing"
 
-	"github.com/pkieltyka/aikit/linalg"
+	"github.com/pkieltyka/goinfer/internal/modelcore/linalg"
 )
 
 type shapeOnlyBlock map[TowerWeight][2]int // a linear's [out, in]

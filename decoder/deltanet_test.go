@@ -3,7 +3,7 @@ package decoder
 import (
 	"encoding/json"
 	"errors"
-	"github.com/pkieltyka/aikit/linalg"
+	"github.com/pkieltyka/goinfer/internal/modelcore/linalg"
 	"io/fs"
 	"math"
 	"os"

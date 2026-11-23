@@ -161,7 +161,7 @@ func DepFiles(m *Manifest, fam Family) []string {
 
 var aikitPinRE = regexp.MustCompile(`(?m)^\s*github\.com/pkieltyka/aikit (v[0-9][^\s]*)`)
 
-// AikitPin reads the root go.mod's aikit requirement.
+// AikitPin reads the historical root requirement recorded before the kernel fingerprint table.
 func AikitPin(src Source) (string, error) {
 	b, err := src.ReadFile("go.mod")
 	if err != nil {

@@ -13,8 +13,8 @@ import (
 )
 
 // Images. EmbeddingGemma 2's vision tower is gemma4_vision, the same
-// tower and projector aikit already runs for Gemma 4 (vision.Gemma4Encoder, its tensors under the same names), so an
-// image's soft tokens come from aikit and replace their placeholder rows in the encoder's input, unscaled (the
+// tower and projector used by Gemma 4 (vision.Gemma4Encoder, its tensors under the same names), so an
+// image's soft tokens come from the tower and replace their placeholder rows in the encoder's input, unscaled (the
 // composite model's masked_scatter runs after the token embedding's sqrt(hidden) scale). The text encoder, its PLE
 // block and the mean pool then run over the whole sequence as for text.
 
@@ -27,7 +27,7 @@ type imageTokens struct {
 	EOI   int `json:"eoi_token_id"`
 }
 
-// visionTower is the loaded image path: aikit's tower and projector, the three image token ids, and the tower's
+// visionTower is the loaded image path: the vision tower and projector, the three image token ids, and the tower's
 // accelerator when it runs on another device (vision_accel.go).
 type visionTower struct {
 	enc    *vision.Gemma4Encoder
@@ -91,7 +91,7 @@ func (e *Encoder) TokenizeImage(in ImageInput, n int) (ids []int, imgPos int, er
 	return e.tokenizeMedia(in.Prompt, in.Text, t.BOI, t.Image, t.EOI, n)
 }
 
-// ImageFeatures preprocesses encoded image bytes (the encoder's resize, SetImageResize) and runs aikit's tower: the
+// ImageFeatures preprocesses encoded image bytes (the encoder's resize, SetImageResize) and runs the vision tower: the
 // pooled, projected soft tokens [n, hidden] and n.
 func (e *Encoder) ImageFeatures(img []byte) ([]float32, int, error) {
 	if e.vis == nil {
@@ -117,7 +117,7 @@ func (e *Encoder) featuresFrom(patches []float32, pos [][2]int) ([]float32, int,
 	return e.featuresOn(e.vis.accel, patches, pos)
 }
 
-// featuresOn runs the tower on a (nil: the CPU), then aikit's tail.
+// featuresOn runs the tower on a (nil: the CPU), then the host tail.
 func (e *Encoder) featuresOn(a VisionAccelerator, patches []float32, pos [][2]int) ([]float32, int, error) {
 	n := multimodal.Gemma4PooledTokens(pos, e.vis.enc.Cfg.PoolingKernelSize)
 	feats, err := multimodal.Gemma4TowerFeatures(e.vis.enc, a, patches, pos)

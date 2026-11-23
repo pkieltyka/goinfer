@@ -22,7 +22,7 @@ type visionTower interface {
 	// prep preprocesses one image; nothing runs the tower until the result's features is called.
 	prep(lm *loadedModel, img imageRef) (imagePrep, error)
 	// close releases the tower: its device tower first (a device ledger only its Close frees), then the CPU encoder,
-	// whose weights alias its checkpoint's mappings (aikit vision aliasQMat) until Close. Called once, by the tower's
+	// whose weights alias its checkpoint's mappings (vision.aliasQMat) until Close. Called once, by the tower's
 	// last holder.
 	close()
 }

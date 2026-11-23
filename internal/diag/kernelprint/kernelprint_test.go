@@ -34,7 +34,7 @@ func TestCompute_stable(t *testing.T) {
 	t.Logf("%d kernels under %s; one Compute took %s", len(suite), a.Config, d.Round(time.Millisecond))
 }
 
-// TestCompute_child runs Compute for K2 and K3, which run this package's test binary as a child with a different aikit
+// TestCompute_child runs Compute for K2 and K3, which run this package's test binary as a child with modelcore source overlays or forced build tags
 // or with coverage. It writes the report to GOINFER_KERNELPRINT_OUT, and does nothing without it.
 func TestCompute_child(t *testing.T) {
 	out := os.Getenv("GOINFER_KERNELPRINT_OUT")

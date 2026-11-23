@@ -9,11 +9,11 @@ import (
 	"runtime"
 	"sync"
 
-	"github.com/pkieltyka/aikit/linalg"
+	"github.com/pkieltyka/goinfer/internal/modelcore/linalg"
 )
 
 // Gemma 4's vision tower (the "gemma4" plain family — E2B/E4B/26B-A4B/31B, NOT the
-// separate encoder-free "gemma4_unified" 12B checkpoint). aikit's third ViT family,
+// separate encoder-free "gemma4_unified" 12B checkpoint). The Gemma 4 vision tower,
 // after SigLIP (encoder.go) and Qwen2.5-VL (qwen_encoder.go) — and architecturally
 // closer to this codebase's own text decoders than to either: Gemma2/3-style
 // SANDWICH RMSNorm (four independent norms per layer, not SigLIP's two LayerNorms),

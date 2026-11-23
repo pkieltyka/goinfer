@@ -8,7 +8,7 @@ import (
 	"unsafe"
 )
 
-// mapGIW maps a .giw read-only on Windows, so its weights are file-backed as guardGIWFit assumes, where aikit's mmap.MapReadOnly
+// mapGIW maps a .giw read-only on Windows, so its weights are file-backed as guardGIWFit assumes, where the model core's mmap.MapReadOnly
 // reads the whole file onto the heap. The share modes cover the open handle only, which closes here; what happens to a sidecar's
 // replacement under a live mapping is publishGIW's to handle. Release with unmapGIW.
 func mapGIW(path string) ([]byte, error) {

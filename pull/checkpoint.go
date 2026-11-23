@@ -38,7 +38,7 @@ type Plan struct {
 
 // checkpointExtras are the non-weight files a checkpoint plan takes when the repo has them: the tokenizer in its several
 // forms, the chat template, generation defaults, the image/video processor configs a vision-language family needs, and
-// the sentence-transformers module files an embedding model's pooling is read from (aikit's encoder reads
+// the sentence-transformers module files an embedding model's pooling is read from (the serving encoder reads
 // 1_Pooling/config.json; without it, pooling falls back to its default).
 var checkpointExtras = map[string]bool{
 	"config.json": true, "generation_config.json": true,
@@ -62,10 +62,10 @@ func generativeLoads(modelType string) (string, error) {
 const EncoderFamily = "nomic_bert encoder"
 
 // EmbeddingGemma2Family is the family an EmbeddingGemma 2 checkpoint loads as (serve --embed-model, through
-// goinfer's own embeddinggemma2 package rather than aikit's encoder).
+// goinfer's own embeddinggemma2 package rather than the model core encoder).
 const EmbeddingGemma2Family = "embedding_gemma2 encoder"
 
-// EncoderLoads is the model_type check of goinfer's embedding encoders (serve --embed-model): aikit's encoder.Load,
+// EncoderLoads is the model_type check of goinfer's embedding encoders (serve --embed-model): the model core's encoder.Load,
 // which loads a NomicBert (CodeRankEmbed, nomic-embed-text) and checks no model_type itself, and the embeddinggemma2
 // package. The one list of what they take: serve's own check and the pull CLI both read it.
 func EncoderLoads(modelType string) (string, error) {

@@ -4,7 +4,7 @@ import (
 	"math"
 	"testing"
 
-	"github.com/pkieltyka/aikit/linalg"
+	"github.com/pkieltyka/goinfer/internal/modelcore/linalg"
 )
 
 // f16Value is the exact value of a finite binary16 bit pattern.

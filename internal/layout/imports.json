@@ -29,10 +29,11 @@
       "allow_goinfer": {
         "decoder/resident": [
           "internal/cost",
+          "internal/modelcore/linalg",
           "internal/runtime/adapter"
         ]
       },
-      "why": "decoder/resident holds the contract a resident backend implements (the four subsystem interfaces, the provider, ResidentForward, the drafter host and the small data their signatures carry) so a reader can hold it without the loader (MZ5 option B, docs/sub1-resident-interfaces.md). It sits below decoder, which aliases every name in decoder/residentalias.go: it imports internal/cost and internal/runtime/adapter and no other goinfer package, decoder included."
+      "why": "decoder/resident holds the contract a resident backend implements (the four subsystem interfaces, the provider, ResidentForward, the drafter host and the small data their signatures carry) so a reader can hold it without the loader (MZ5 option B, docs/sub1-resident-interfaces.md). It sits below decoder, which aliases every name in decoder/residentalias.go: it imports internal/cost, internal/modelcore/linalg and internal/runtime/adapter and no other goinfer package, decoder included."
     },
     {
       "name": "config-leaf",
@@ -54,7 +55,12 @@
       "forbid_goinfer": [
         "*"
       ],
-      "why": "decoder/quant (Tier 3, docs/layout.md) parses safetensors checkpoint quantization configs and reconstructs FP8, GPTQ, AWQ, NVFP4 and MLX quantized weights behind Reconstructor/RowStreamReconstructor. It sits below decoder and imports no goinfer package, decoder included."
+      "allow_goinfer": {
+        "decoder/quant": [
+          "internal/modelcore/embed"
+        ]
+      },
+      "why": "decoder/quant (Tier 3, docs/layout.md) parses safetensors checkpoint quantization configs and reconstructs FP8, GPTQ, AWQ, NVFP4 and MLX quantized weights behind Reconstructor/RowStreamReconstructor. It sits below decoder and imports only internal/modelcore/embed for the safetensors format."
     },
     {
       "name": "towers-standalone",
@@ -68,14 +74,17 @@
       ],
       "allow_goinfer": {
         "internal/audio": [
+          "internal/modelcore/embed",
+          "internal/modelcore/linalg",
           "internal/vision"
+        ],
+        "internal/vision": [
+          "internal/modelcore/embed",
+          "internal/modelcore/linalg"
         ]
       },
-      "allow_external": [
-        "github.com/pkieltyka/aikit/linalg",
-        "github.com/pkieltyka/aikit/embed"
-      ],
-      "why": "The towers moved from aikit (AX) as model semantics over aikit's kernels: no goinfer package, and from outside the standard library only aikit's linalg and embed. One exception: internal/audio may import internal/vision, whose tower program type the audio towers walk (Francis, 2026-10-29)."
+      "std_only": true,
+      "why": "The vision and audio towers use only the standard library and the local model core tensor and weight helpers. The audio towers also use the vision tower program type."
     },
     {
       "name": "gpudev-standalone",
@@ -124,7 +133,6 @@
         "backend/vulkan"
       ],
       "forbid_external": [
-        "github.com/pkieltyka/aikit/gpu",
         "github.com/ebitengine/purego",
         "github.com/eitamring/gocudrv"
       ],
@@ -132,7 +140,6 @@
         "github.com/pkieltyka/goinfer/backend/cuda",
         "github.com/pkieltyka/goinfer/backend/metal",
         "github.com/pkieltyka/goinfer/backend/vulkan",
-        "github.com/pkieltyka/aikit/gpu",
         "github.com/ebitengine/purego",
         "github.com/eitamring/gocudrv"
       ],
@@ -214,6 +221,7 @@
       "embeddinggemma2",
       "internal/audio",
       "internal/cost",
+      "internal/modelcore/linalg",
       "internal/runtime/logs",
       "internal/runtime/mem",
       "internal/runtime/program",
@@ -232,6 +240,9 @@
     "backend/cuda/internal/fitdecide": [
       "internal/runtime/mem"
     ],
+    "backend/cuda/internal/wpack": [
+      "internal/modelcore/linalg"
+    ],
     "backend/metal": [
       "backend/metal/internal/gpudev",
       "backend/metal/kernels",
@@ -239,6 +250,7 @@
       "embeddinggemma2",
       "internal/audio",
       "internal/cost",
+      "internal/modelcore/linalg",
       "internal/runtime/f16",
       "internal/runtime/logs",
       "internal/runtime/mem",
@@ -292,6 +304,9 @@
       "decoder/quant",
       "decoder/resident",
       "internal/cost",
+      "internal/modelcore/embed",
+      "internal/modelcore/linalg",
+      "internal/modelcore/mmap",
       "internal/runtime/adapter",
       "internal/runtime/diskfree",
       "internal/runtime/f16",
@@ -309,8 +324,12 @@
     "decoder/fit": [
       "internal/runtime/mem"
     ],
+    "decoder/quant": [
+      "internal/modelcore/embed"
+    ],
     "decoder/resident": [
       "internal/cost",
+      "internal/modelcore/linalg",
       "internal/runtime/adapter"
     ],
     "demo/chat": [
@@ -319,6 +338,8 @@
     "embeddinggemma2": [
       "internal/audio",
       "internal/gguf",
+      "internal/modelcore/embed",
+      "internal/modelcore/linalg",
       "internal/vision",
       "multimodal",
       "tokenizer"
@@ -394,6 +415,8 @@
       "internal/decide",
       "internal/guard/servecheck",
       "internal/guard/swapguard",
+      "internal/modelcore/embed",
+      "internal/modelcore/encoder",
       "internal/runtime/mem",
       "internal/runtime/modelload",
       "internal/runtime/prequant",
@@ -409,10 +432,14 @@
       "internal/cost"
     ],
     "internal/audio": [
+      "internal/modelcore/embed",
+      "internal/modelcore/linalg",
       "internal/vision"
     ],
     "internal/clef": [
       "decoder",
+      "internal/modelcore/embed",
+      "internal/modelcore/linalg",
       "tokenizer"
     ],
     "internal/codec": [
@@ -425,11 +452,17 @@
       "decoder",
       "internal/codec",
       "internal/confidence",
+      "internal/modelcore/embed",
       "tokenizer"
     ],
     "internal/diag/hwreport": [
       "decoder",
-      "internal/app/fitcmd"
+      "internal/app/fitcmd",
+      "internal/modelcore/linalg"
+    ],
+    "internal/diag/kernelprint": [
+      "internal/modelcore/embed",
+      "internal/modelcore/linalg"
     ],
     "internal/diag/towerid": [
       "embeddinggemma2",
@@ -455,6 +488,28 @@
       "internal/runtime/logs",
       "internal/runtime/mem/probe"
     ],
+    "internal/modelcore/embed": [
+      "internal/modelcore/cursor",
+      "internal/modelcore/mmap"
+    ],
+    "internal/modelcore/encoder": [
+      "internal/modelcore/embed",
+      "internal/modelcore/linalg",
+      "internal/modelcore/sparse"
+    ],
+    "internal/modelcore/linalg": [
+      "internal/modelcore/mmap"
+    ],
+    "internal/modelcore/mmap": [
+      "internal/runtime/mem/probe"
+    ],
+    "internal/modelcore/sparse": [
+      "internal/modelcore/accum",
+      "internal/modelcore/topk"
+    ],
+    "internal/runtime/hybridattn": [
+      "internal/modelcore/linalg"
+    ],
     "internal/runtime/mamba2": [
       "internal/runtime/hybridattn"
     ],
@@ -474,13 +529,21 @@
     ],
     "internal/runtime/whisper": [
       "internal/audio",
+      "internal/modelcore/embed",
+      "internal/modelcore/linalg",
       "tokenizer"
+    ],
+    "internal/vision": [
+      "internal/modelcore/embed",
+      "internal/modelcore/linalg"
     ],
     "internal/wrappedupload": [
       "decoder"
     ],
     "multimodal": [
       "internal/audio",
+      "internal/modelcore/embed",
+      "internal/modelcore/linalg",
       "internal/vision",
       "tokenizer"
     ],
@@ -518,6 +581,7 @@
       "internal/diag/towerid",
       "internal/fidelity",
       "internal/guard/memgate",
+      "internal/modelcore/linalg",
       "internal/runtime/giw",
       "internal/runtime/mem",
       "internal/runtime/mem/probe",
@@ -531,10 +595,15 @@
       "multimodal",
       "tokenizer"
     ],
+    "backend/cuda/internal/wpack": [
+      "internal/modelcore/linalg"
+    ],
     "backend/cuda/kernels": [
       "backend/cuda/internal/gpudev",
       "backend/cuda/internal/launchgeom",
       "backend/cuda/internal/wpack",
+      "internal/modelcore/embed",
+      "internal/modelcore/linalg",
       "internal/runtime/hybridattn",
       "internal/runtime/mamba2",
       "internal/runtime/mem",
@@ -556,6 +625,8 @@
       "internal/diag/towerid",
       "internal/fidelity",
       "internal/guard/memgate",
+      "internal/modelcore/linalg",
+      "internal/modelcore/mmap",
       "internal/runtime/f16",
       "internal/runtime/giw",
       "internal/runtime/mem",
@@ -571,6 +642,7 @@
     ],
     "backend/metal/kernels": [
       "backend/metal/internal/gpudev",
+      "internal/modelcore/linalg",
       "internal/runtime/f16",
       "internal/runtime/hybridattn",
       "internal/runtime/mamba2",
@@ -607,6 +679,9 @@
       "internal/diag/sb2census",
       "internal/fidelity",
       "internal/guard/paritykey",
+      "internal/modelcore/embed",
+      "internal/modelcore/linalg",
+      "internal/modelcore/mmap",
       "internal/runtime/giw",
       "internal/runtime/hybridattn",
       "internal/runtime/kvmgr",
@@ -646,6 +721,7 @@
     "internal/app/fitcmd": [
       "decoder",
       "decoder/fit",
+      "internal/modelcore/linalg",
       "internal/runtime/giw",
       "internal/runtime/modelload"
     ],
@@ -676,6 +752,7 @@
       "internal/cost",
       "internal/decide",
       "internal/guard/swapguard",
+      "internal/modelcore/encoder",
       "internal/runtime/giw",
       "internal/runtime/kvmgr",
       "internal/runtime/mem",
@@ -691,6 +768,8 @@
       "tokenizer"
     ],
     "internal/audio": [
+      "internal/modelcore/embed",
+      "internal/modelcore/linalg",
       "internal/vision"
     ],
     "internal/clef": [
@@ -709,6 +788,9 @@
     "internal/diag/hwreport": [
       "decoder"
     ],
+    "internal/diag/kernelprint": [
+      "internal/modelcore/linalg"
+    ],
     "internal/diag/towerid": [
       "internal/vision"
     ],
@@ -722,6 +804,17 @@
       "decoder",
       "internal/runtime/mem/probe"
     ],
+    "internal/modelcore/embed": [
+      "internal/modelcore/linalg"
+    ],
+    "internal/modelcore/encoder": [
+      "internal/modelcore/embed",
+      "internal/modelcore/linalg",
+      "internal/modelcore/sparse"
+    ],
+    "internal/modelcore/linalg": [
+      "internal/modelcore/mmap"
+    ],
     "internal/runtime/modelload": [
       "decoder",
       "decoder/fit",
@@ -733,6 +826,9 @@
       "internal/audio",
       "multimodal"
     ],
+    "internal/vision": [
+      "internal/modelcore/linalg"
+    ],
     "multimodal": [
       "internal/audio",
       "internal/vision",
@@ -741,6 +837,9 @@
     "pull": [
       "decoder",
       "tokenizer"
+    ],
+    "tokenizer": [
+      "internal/modelcore/embed"
     ]
   }
 }

@@ -9,7 +9,7 @@ import (
 	"github.com/pkieltyka/goinfer/tokenizer"
 )
 
-// Transcriber is a whole short-form Whisper: aikit's log-mel front end and encoder, this package's decoder, and the checkpoint's tokenizer. One 30 s window per call.
+// Transcriber is a whole short-form Whisper: the audio package's log-mel front end and encoder, this package's decoder, and the checkpoint's tokenizer. One 30 s window per call.
 type Transcriber struct {
 	Mels int
 	Enc  *audio.WhisperEncoder
@@ -23,7 +23,7 @@ type Transcriber struct {
 // errTranscriberClosed is what a transcription returns after Close.
 var errTranscriberClosed = errors.New("whisper: the transcriber is closed")
 
-// Close releases the encoder's and the decoder's checkpoint mappings (aikit's audio.WhisperEncoder.Close and Decoder.Close);
+// Close releases the encoder's and the decoder's checkpoint mappings (audio.WhisperEncoder.Close and Decoder.Close);
 // Encode and every transcription return an error afterwards. A device attached to Enc stays the caller's to close. Calling
 // Close again does nothing.
 func (t *Transcriber) Close() error {

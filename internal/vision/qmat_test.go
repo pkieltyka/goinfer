@@ -4,7 +4,7 @@ import (
 	"math"
 	"testing"
 
-	"github.com/pkieltyka/aikit/linalg"
+	"github.com/pkieltyka/goinfer/internal/modelcore/linalg"
 )
 
 // TestQMat_migrationIsBitIdentical is the gate for the vision→WeightMat migration

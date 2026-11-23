@@ -3,7 +3,7 @@ package decoder
 import (
 	"testing"
 
-	"github.com/pkieltyka/aikit/linalg"
+	"github.com/pkieltyka/goinfer/internal/modelcore/linalg"
 )
 
 // TestBlockDrafterWeights_matchesTrunk checks the interface reports what the drafter actually

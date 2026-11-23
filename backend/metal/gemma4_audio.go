@@ -13,12 +13,11 @@ import (
 	"github.com/pkieltyka/goinfer/internal/vision"
 )
 
-// The Gemma 4 audio tower's conformer blocks on Metal (Phase A's AM): aikit's
-// audio.Gemma4AudioEncoder blocks in float32, from its exported Layers. The GEMMs and RMSNorm are aikit's ViT kernels
+// The Metal accelerator runs audio.Gemma4AudioEncoder's conformer blocks in float32, from its exported Layers. The GEMMs and RMSNorm are the device layer's ViT kernels
 // and the ClippableLinear clamps the vision tower's (gemma4_vision.go); this file adds the SiLU, the weighted residual,
 // the GLU, the causal depthwise conv, the query/key scales and a sliding-window attention kernel (one threadgroup per
 // query and head over the Window keys behind it, relative-position keys added to each, softcap, softmax). The
-// subsampler and the projections after the blocks stay aikit's, on the host. Registered as the "metal" audio
+// subsampler and the projections after the blocks run on the host. Registered as the "metal" audio
 // accelerator.
 
 func init() {

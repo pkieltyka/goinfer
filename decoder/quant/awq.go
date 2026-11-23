@@ -3,15 +3,13 @@ package quant
 import (
 	"fmt"
 	"strings"
-
-	"github.com/pkieltyka/aikit/embed"
 )
 
 var awqOrder = [8]uint{0, 4, 1, 5, 2, 6, 3, 7}
 
 // AWQReconstruct dequantizes one AWQ linear (named base) to a [out, in]
 // row-major float32 matrix.
-func AWQReconstruct(st *embed.SafetensorsFile, base string, in, out int) ([]float32, error) {
+func AWQReconstruct(st *SafetensorsFile, base string, in, out int) ([]float32, error) {
 	if in <= 0 || out <= 0 || out%8 != 0 {
 		return nil, fmt.Errorf("awq %q: in=%d out=%d invalid (out must be a positive multiple of 8, in positive)", base, in, out)
 	}
@@ -67,6 +65,6 @@ type AWQReconstructor struct{}
 
 func (AWQReconstructor) Method() string { return "awq" }
 
-func (AWQReconstructor) ReconstructMat2D(st *embed.SafetensorsFile, name string, out, in int) ([]float32, error) {
+func (AWQReconstructor) ReconstructMat2D(st *SafetensorsFile, name string, out, in int) ([]float32, error) {
 	return AWQReconstruct(st, strings.TrimSuffix(name, ".weight"), in, out)
 }

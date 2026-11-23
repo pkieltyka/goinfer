@@ -5,7 +5,7 @@ import (
 	"math"
 	"testing"
 
-	"github.com/pkieltyka/aikit/linalg"
+	"github.com/pkieltyka/goinfer/internal/modelcore/linalg"
 )
 
 // testWeights builds a deterministic [rows*cols] f32 matrix with per-group range

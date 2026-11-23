@@ -7,20 +7,20 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/pkieltyka/aikit/linalg"
+	"github.com/pkieltyka/goinfer/internal/modelcore/linalg"
 )
 
-// Hardware-coverage H1.3: CI builds this package with aikit's aikit_noavx512 / aikit_noavx2 / aikit_nopopcnt / aikit_nodotprod tags, which make the
+// Hardware-coverage H1.3: CI builds this package with modelcore_noavx512 / modelcore_noavx2 / modelcore_nopopcnt / modelcore_nodotprod tags, which make the
 // dispatchers take the narrower kernels on whatever CPU the runner has. forcedFallbacks reports which the test binary was built with (nil normally).
 func forcedFallbacks() []string { return linalg.ForcedFallbacks() }
 
-// TestForcedFallbacks_expected is the guard against a job that passes -tags and forces nothing: a tag that matches no file compiles and runs green. The job sets AIKIT_EXPECT_FORCED to the fallbacks
+// TestForcedFallbacks_expected is the guard against a job that passes -tags and forces nothing: a tag that matches no file compiles and runs green. The job sets GOINFER_EXPECT_FORCED_CPU to the fallbacks
 // it asked for ("noavx2", "none", ...) and this fails unless linalg.ForcedFallbacks says the same. Unset it checks nothing (an ordinary run) and says so, and a SKIP is not a pass: the job's own log
 // must show --- PASS for this test.
 func TestForcedFallbacks_expected(t *testing.T) {
-	want, set := os.LookupEnv("AIKIT_EXPECT_FORCED")
+	want, set := os.LookupEnv("GOINFER_EXPECT_FORCED_CPU")
 	if !set {
-		t.Skip("AIKIT_EXPECT_FORCED unset: not asserting which CPU fallbacks this build forces")
+		t.Skip("GOINFER_EXPECT_FORCED_CPU unset: not asserting which CPU fallbacks this build forces")
 	}
 	var wantList []string
 	if want != "none" && want != "" {

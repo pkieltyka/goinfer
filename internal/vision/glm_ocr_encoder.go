@@ -7,11 +7,11 @@ import (
 	"os"
 	"path/filepath"
 
-	"github.com/pkieltyka/aikit/embed"
-	"github.com/pkieltyka/aikit/linalg"
+	"github.com/pkieltyka/goinfer/internal/modelcore/embed"
+	"github.com/pkieltyka/goinfer/internal/modelcore/linalg"
 )
 
-// GLM-OCR vision tower — aikit's fourth ViT family (GlmOcrVisionModel, zai-org/GLM-OCR). It is
+// GLM-OCR vision tower — GlmOcrVisionModel from zai-org/GLM-OCR. It is
 // structurally the Qwen3.5+ tower (qwen3_encoder.go) with a short list of deltas. Read from the
 // GENERATED transformers modeling_glm_ocr.py (5.12.0), NOT modular_glm_ocr.py: in the modular file
 // GlmOcrVisionMlp calls its parent's constructor (layers built at out_hidden_size, unbiased) and only

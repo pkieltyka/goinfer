@@ -43,26 +43,13 @@ survives to a tag unless caught here.
   legitimately fails on perfectly good code that uses a root symbol added since. At tag time the
   root tag is published, which is when the answer means anything. Until 2026-09-02 the sentence
   here claimed a CI step that did not exist, and Step 2 below was the only thing checking it.
-- **Version alignment (B-07):** the root and the three releasable submodules must agree on `aikit`. **Read the versions, do not read them
-  here.** No module requires `aikit/gpu`: the device package is goinfer's own since Track AX
-  (`backend/cuda/internal/gpudev`, `backend/metal/internal/gpudev`), and `internal/guard/movedpaths` fails on a require of it.
-  The `aikit` they agree on must be a **tag**: `main` may require an aikit pseudo-version between weekly aikit
-  tags, a release may not (owner decision SD3). `gate release`'s pins row is OWED on a pseudo-version; tag aikit
-  and bump to the tag first.
-
-  ```sh
-  for m in . backend/cuda backend/metal backend/vulkan; do printf '%-16s ' "$m"; grep -h aikit $m/go.mod | tr '\n' ' '; echo; done
-  ```
-
-  This used to name the versions, and it has gone stale **twice** — first telling you to align on
-  `aikit/gpu v0.25.2` when that had become a downgrade, then naming `v1.16.0`/`v0.27.0` after the
-  v1.17.0 bump. A release checklist that restates a value maintained somewhere else is a second copy
-  that drifts, which is the defect this repo keeps finding; the command above has no such failure
-  mode. Act only if a module actually disagrees, **never downgrade**, and tidy the root last.
-
-  One thing the command will not tell you, so it is stated rather than restated: `metal` needs an
-  explicit `aikit` require, because it imports `aikit/linalg` and `aikit/mmap`. (That was B-02; it is
-  present now, and the command above is what confirms it still is.)
+- **Standalone dependency graph.** The CPU model core is part of the root module. The release
+  preflight checks `GOWORK=off go list -m all` for root, CUDA, Vulkan and Metal against their
+  recorded root pins. Before advancing the first pins after a dependency removal, publish the
+  reviewed root source through the normal PR flow. Verify all three backends against that exact
+  published root revision using the public proxy and checksum database. Keep this development
+  pin update separate from release pins. Metal still needs a compatible root even when it is
+  omitted from the backend tags.
 
 ## Pre-flight (before touching versions)
 
@@ -128,14 +115,15 @@ the report is shown. Upstream reserved approval to Francis, as with `swap_guard_
    the newest record made at the same code decides, and only a `-full` PASS on a clean tree counts. A change under `docs/`, `apps/site/`, `.github/` or `changelog.d/`,
    or to a top-level `.md` file, does not void a run; any other change does.
 9. **The CHANGELOG names what changed**: `go run ./cmd/gate changelog -section vX.Y.Z` (or without `-section` before the release's section is written; it then reads the entries in `changelog.d/`). It compares the tree with the newest v* tag and lists each
-   new HTTP route (read from `serve`'s registrations with `go/ast`), new or removed `serve` flag (`docs/flags.meta.json`), new model family (`docs/capability-matrix.json`) and a moved aikit pin that the
+   new HTTP route (read from `serve`'s registrations with `go/ast`), new or removed `serve` flag (`docs/flags.meta.json`), new model family (`docs/capability-matrix.json`) that the
    section does not name; exit 1 means something is owed. A whole-string match (a route's `{id}` placeholders read as `{}`, a new route's sub-routes ride with it); anything that is not release-note material
-   goes in `docs/changelog-waivers.txt` as `<kind> <name> <reason>` (a route's name is its method and path), the reason mandatory. aikit has the same rule for exported API
-   (`tools/releasegate`, "changelog-api"). `-base` and `-head` run it against a past release.
-10. **The CPU suites under Intel SDE, when this release moved a kernel or the decoder, or bumped aikit** (hardware-followups item 2):
-   queue `docs/measurements/sde-2026-10-04/run-sde-goldens.sh` on nobara (the night queue's `sde-goldens`) and read its `summary.txt` before tagging.
-   It runs aikit's `linalg` suite and goinfer's tiny-fixture goldens under `-hsw` (the control), `-icx` and `-spr`; a difference under the
-   VNNI targets is arithmetic, not emulation noise. Not a CI job: SDE is a click-through-license download. The same item applies at every aikit bump.
+   goes in `docs/changelog-waivers.txt` as `<kind> <name> <reason>` (a route's name is its method and path), the reason mandatory. `-base` and `-head` run it against a past release.
+10. **The CPU suites under Intel SDE, when this release changes decoder or CPU kernels.**
+   Run `docs/measurements/sde-2026-10-04/run-sde-goldens.sh` under the shared timing lock and read the
+   new run's `summary.txt` before tagging. It compiles this checkout's `internal/modelcore/linalg`
+   and decoder suites and tests them under Haswell (`-hsw`), Ice Lake (`-icx`) and Sapphire Rapids
+   (`-spr`). Set `SDE` to the installed Intel SDE executable. The launcher writes to a fresh
+   directory and prints its path.
 
 ## Tagging the root and selected backend submodules (single-commit flow)
 
@@ -177,7 +165,6 @@ the canonical root module zip for `BASE` directly. Do not modify any root-module
 export TAG="v0.6.2"
 export MODULES="backend/cuda,backend/vulkan"   # or add ",backend/metal", or "none" for root-only
 
-# Align aikit ONLY if a module disagrees (B-07 above); never downgrade.
 # Fold changelog.d/ if not already folded:
 #   python3 scripts/changelog.py release "${TAG}" --date YYYY-MM-DD
 go mod tidy
@@ -199,7 +186,7 @@ export BASE="$(git rev-parse --verify origin/main^{commit})"
 This fetches Go's canonical zip for `${BASE}`, relabels only the zip entry prefix to `${TAG}` in a
 temporary `file://` proxy, verifies the staged zip with `go mod download -json`, updates each
 selected `<mod>/go.mod` and `<mod>/go.sum` outside `go.work`, runs `go mod verify` plus standalone
-`go vet`/`go build`, confirms no `replace` directives and aligned tagged `aikit` pins, and lists
+`go vet`/`go build`, confirms no `replace` directives and verifies the selected backends' root pins, and lists
 any omitted backend.
 
 **Step 3 — commit only the selected submodule pins (skip for `MODULES=none`) and verify zero root drift.**
@@ -450,20 +437,15 @@ regenerate it) both have to move with it.
 A tag is the natural checkpoint to review what is outstanding, and the release process is read at
 exactly the moment those triggers fire. **After pushing the tags, open the four queues — a private queue first, then
 performance/correctness/engineering (`docs/QUEUE.md` indexes them) — and action any
-item whose trigger is a release or an aikit bump.** The queue is the list; this line is what makes a
+item whose trigger is a release or a change to the in-tree replacement for a former dependency.** The queue is the list; this line is what makes a
 tagger look at it — a file nothing reads is inert the first week nobody opens it.
 
 First concrete customer:
 
-- **C3 · Metal consumer window.** If THIS release carries an **aikit bump** (`aikit` and/or `aikit/gpu`
-  increased vs the previous tag — the B-07 version-alignment step above is where you'd have seen it),
-  then **C3 runs on `macbook-arm64` against this tag**. *(The condition is the bump, deliberately —
-  no version floor. A number standing in for the real condition is a literal that drifts; QUEUE.md's
-  copy carried "≥ v0.13.0" and was corrected 2026-08-12 for that reason.)*: an out-of-tree consumer evaluation of the
-  cgo-free Metal backend (build with no Xcode, decode tok/s vs the 73.6 claim, bit-identity, and
-  whether the tautological-gate shape is live on Metal). See `docs/QUEUE.md` → "C3 · Metal consumer
-  window" for the full scope, trigger, and bound. **This line is the durable carrier** — read by
-  whoever cuts the tag, dependent on no session or cron surviving.
+- **C3 · Metal consumer window.** If the release changes the Metal device layer or private model
+  core since the previous tag, run the existing out-of-tree Metal consumer evaluation on macOS
+  arm64. Cover the no-Xcode build, decode rate, bit identity and gate behavior described in
+  `docs/QUEUE.md` under “C3 · Metal consumer window.”
 
 ## The standalone-build gate
 

@@ -1,6 +1,6 @@
 # H1.2: the CPU suites under Intel SDE (2026-10-04)
 
-`run-sde-goldens.sh` runs aikit's `linalg` suite and goinfer's tiny-fixture goldens and parity tests under `sde64 -hsw` (Haswell, AVX2 only: the control, which must match the native run), `-icx` (Ice Lake,
+The [original launcher](https://github.com/pkieltyka/goinfer/blob/ab2721995e027c8ce6630396c922916cb2357a1d/docs/measurements/sde-2026-10-04/run-sde-goldens.sh) ran the upstream `linalg` suite and goinfer's tiny-fixture goldens and parity tests under `sde64 -hsw` (Haswell, AVX2 only: the control, which must match the native run), `-icx` (Ice Lake,
 AVX-512 VNNI+VL) and `-spr` (Sapphire Rapids). SDE 10.13.1 (`sde-external-10.13.1-2026-07-28-lin.tar.xz`, unpacked at `~/tools/sde`, SHA-256 of the tarball
 94e97d623fec54385686e1e7ba65ebc9941748c05ee451423948334892bf2b50; Intel's `.sig` was not checked).
 

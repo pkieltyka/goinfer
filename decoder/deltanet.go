@@ -1,11 +1,10 @@
 package decoder
 
 import (
-	"os"
 	"sync/atomic"
 	"time"
 
-	"github.com/pkieltyka/aikit/linalg"
+	"github.com/pkieltyka/goinfer/internal/modelcore/linalg"
 	"github.com/pkieltyka/goinfer/internal/runtime/hybridattn"
 	"github.com/pkieltyka/goinfer/internal/runtime/logs"
 )
@@ -13,7 +12,8 @@ import (
 // deltaNetTiming (GOINFER_DELTANET_TIMING=1) is a diagnostic that splits gatedDeltaNetStep's cost into the three dominant
 // projections, the delta-rule recurrence proper (section 3 below, plain scalar Go) and everything else (conv, gates, gated
 // RMSNorm). The accumulators are atomics, not Generate-loop locals, so concurrent decode streams do not race on them.
-var deltaNetTiming = os.Getenv("GOINFER_DELTANET_TIMING") != ""
+// deltaNetTiming is GOINFER_DELTANET_TIMING, parsed once by ensureSettings on first decoder use.
+var deltaNetTiming bool
 
 var (
 	dnProjNs     atomic.Int64

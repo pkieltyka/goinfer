@@ -7,7 +7,6 @@ import (
 	"go/printer"
 	"go/token"
 	"os"
-	"os/exec"
 	"path/filepath"
 	"regexp"
 	"strings"
@@ -17,7 +16,7 @@ import (
 // Audit R-11: no aikit CPU kernel accumulates into its output, so a caller that
 // zeroes a buffer and then hands it to a kernel whose documented contract is "overwrites dst" or "zeroes dst internally"
 // is doing dead work (or hiding a missing write). aikit v1.56.1 put an `Output contract:` line on every exported writer;
-// this test reads those lines from the PINNED aikit source and fails on a `clear(x)` (or `for i := range x { x[i] = 0 }`)
+// this test reads those lines from modelcore and fails on a `clear(x)` (or `for i := range x { x[i] = 0 }`)
 // that sits within a few statements of such a call taking x.
 //
 // What it does not do. It is a name-and-proximity check: it does not follow x through a helper, does not see a zeroed
@@ -33,11 +32,11 @@ var allowlist = map[string]string{}
 // lookAhead is how many following statements in the same block may hold the call.
 const lookAhead = 6
 
-func writerNames(t *testing.T, aikitDir string) map[string]string {
+func writerNames(t *testing.T, modelcoreDir string) map[string]string {
 	t.Helper()
 	names := map[string]string{}
 	for _, sub := range []string{"linalg", "embed", "encoder"} {
-		paths, _ := filepath.Glob(filepath.Join(aikitDir, sub, "*.go"))
+		paths, _ := filepath.Glob(filepath.Join(modelcoreDir, sub, "*.go"))
 		for _, p := range paths {
 			if strings.HasSuffix(p, "_test.go") {
 				continue
@@ -163,15 +162,6 @@ func itoa(n int) string {
 	return string(d)
 }
 
-func aikitDir(t *testing.T) string {
-	t.Helper()
-	out, err := exec.Command("go", "list", "-m", "-f", "{{.Dir}}", "github.com/pkieltyka/aikit").Output()
-	if err != nil {
-		t.Fatalf("go list -m aikit: %v (the module cache must hold the pinned aikit; run `go mod download`)", err)
-	}
-	return strings.TrimSpace(string(out))
-}
-
 // TestPreZero_scannerCanFire proves the scanner is not vacuous: planted pre-zeroing is found in both forms, and a clear before a
 // call that is NOT a contract writer, or on a different buffer, is not.
 func TestPreZero_scannerCanFire(t *testing.T) {
@@ -206,15 +196,15 @@ func c(x, dst, other []float32) {
 }
 
 func TestPreZero_noDeadZeroingBeforeOverwriteKernels(t *testing.T) {
-	writers := writerNames(t, aikitDir(t))
-	// If the pinned aikit predates the contract docs (v1.56.1), the set is empty or tiny and the check would pass vacuously.
+	writers := writerNames(t, "../../modelcore")
+	// If modelcore predates the contract docs (v1.56.1), the set is empty or tiny and the check would pass vacuously.
 	for _, must := range []string{"MatmulBT", "MatmulBTW4A8Into", "SoftmaxRowInto", "ExpF32Into", "QuantizeActivationsInto", "DequantizeRowInt4"} {
 		if writers[must] == "" {
-			t.Fatalf("pinned aikit has no `Output contract:` line on %s (%d writers found): it predates v1.56.1, so this check would pass vacuously", must, len(writers))
+			t.Fatalf("modelcore has no `Output contract:` line on %s (%d writers found): it predates v1.56.1, so this check would pass vacuously", must, len(writers))
 		}
 	}
 	if len(writers) < 60 {
-		t.Fatalf("only %d writers with an overwrite/zeroes contract found in the pinned aikit; expected at least 60", len(writers))
+		t.Fatalf("only %d writers with an overwrite/zeroes contract found in modelcore; expected at least 60", len(writers))
 	}
 	root, err := filepath.Abs("../../..")
 	if err != nil {

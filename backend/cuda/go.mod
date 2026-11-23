@@ -4,7 +4,6 @@ go 1.27.0
 
 require (
 	github.com/eitamring/gocudrv v0.3.2
-	github.com/pkieltyka/aikit v1.79.0
 	github.com/pkieltyka/goinfer v0.6.4
 )
 

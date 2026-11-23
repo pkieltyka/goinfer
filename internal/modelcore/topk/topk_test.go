@@ -1,0 +1,279 @@
+package topk
+
+import (
+	"math"
+	"math/rand"
+	"reflect"
+	"testing"
+)
+
+func TestNew_ZeroK(t *testing.T) {
+	s := New[int](0)
+	if got := s.Push(1, 1.0); got {
+		t.Errorf("Push(1, 1.0) on k=0 selector = true, want false")
+	}
+	if r := s.Result(); len(r) != 0 {
+		t.Errorf("Result() on k=0 selector = %v, want empty", r)
+	}
+	if s.Len() != 0 {
+		t.Errorf("Len() = %d, want 0", s.Len())
+	}
+}
+
+func TestNew_NegativeK_Panics(t *testing.T) {
+	defer func() {
+		if r := recover(); r == nil {
+			t.Error("New[int](-1) did not panic")
+		}
+	}()
+	_ = New[int](-1)
+}
+
+func TestPush_UnderCapacity(t *testing.T) {
+	s := New[int](10)
+	for i := range 5 {
+		if !s.Push(i, float64(i)) {
+			t.Errorf("Push(%d) under-capacity returned false, want true", i)
+		}
+	}
+	if s.Len() != 5 {
+		t.Errorf("Len() = %d, want 5", s.Len())
+	}
+	result := s.Result()
+	if len(result) != 5 {
+		t.Fatalf("Result() len = %d, want 5", len(result))
+	}
+	// Descending by score: scores 4,3,2,1,0
+	for i, r := range result {
+		want := float64(4 - i)
+		if r.Score != want {
+			t.Errorf("Result[%d].Score = %v, want %v", i, r.Score, want)
+		}
+	}
+}
+
+func TestPush_AtCapacity_HigherScoreReplaces(t *testing.T) {
+	s := New[string](3)
+	s.Push("a", 1)
+	s.Push("b", 2)
+	s.Push("c", 3)
+	if !s.Push("d", 4) {
+		t.Error("Push(d, 4) at-cap with score above min returned false, want true")
+	}
+	result := s.Result()
+	gotItems := []string{result[0].Item, result[1].Item, result[2].Item}
+	wantItems := []string{"d", "c", "b"}
+	if !reflect.DeepEqual(gotItems, wantItems) {
+		t.Errorf("Result items = %v, want %v", gotItems, wantItems)
+	}
+}
+
+func TestPush_AtCapacity_LowerScoreDiscarded(t *testing.T) {
+	s := New[string](3)
+	s.Push("a", 1)
+	s.Push("b", 2)
+	s.Push("c", 3)
+	if s.Push("d", 0) {
+		t.Error("Push(d, 0) at-cap with score below min returned true, want false")
+	}
+	result := s.Result()
+	gotItems := []string{result[0].Item, result[1].Item, result[2].Item}
+	wantItems := []string{"c", "b", "a"}
+	if !reflect.DeepEqual(gotItems, wantItems) {
+		t.Errorf("Result items = %v, want %v", gotItems, wantItems)
+	}
+}
+
+func TestPush_AtCapacity_TiedScoreDiscarded(t *testing.T) {
+	// Strict > in Push means a new item tying the current minimum's
+	// score does NOT replace it. The older item stays. This is
+	// load-bearing for callers (ann.Flat.Query, bm25.Index.TopK) that
+	// iterate input in natural index order and want "smaller-index
+	// wins on tie" semantics.
+	//
+	// Setup: heap full with min at score 3 (item "a"). Pushing a new
+	// item at score 3 must NOT displace "a".
+	s := New[string](3)
+	s.Push("a", 3) // first arrival at score 3 — becomes the min
+	s.Push("b", 5)
+	s.Push("c", 7)
+	if s.Push("d", 3) {
+		t.Error("Push(d, 3) tying current min (a:3) returned true, want false")
+	}
+	result := s.Result()
+	gotItems := []string{result[0].Item, result[1].Item, result[2].Item}
+	wantItems := []string{"c", "b", "a"}
+	if !reflect.DeepEqual(gotItems, wantItems) {
+		t.Errorf("Result items = %v, want %v (older 'a' must stay on tie)", gotItems, wantItems)
+	}
+}
+
+func TestPush_NaN_Rejected(t *testing.T) {
+	// A NaN score must never enter the heap: every comparison against NaN is
+	// false, so at capacity it would evict the true minimum and then poison the
+	// ordering (Result returning NaN while real high-scorers were dropped).
+	s := New[string](2)
+	s.Push("a", 3)
+	s.Push("b", 5)
+	if s.Push("nan", math.NaN()) {
+		t.Error("Push(NaN) at capacity returned true, want false")
+	}
+	// Under capacity too.
+	s2 := New[string](3)
+	if s2.Push("nan", math.NaN()) {
+		t.Error("Push(NaN) under capacity returned true, want false")
+	}
+	r := s.Result()
+	for _, it := range r {
+		if it.Score != it.Score {
+			t.Errorf("Result contains a NaN entry: %+v", it)
+		}
+	}
+	if len(r) != 2 || r[0].Item != "b" || r[1].Item != "a" {
+		t.Errorf("Result = %+v, want [b:5, a:3] undisturbed by the NaN push", r)
+	}
+}
+
+func TestResult_DescendingOrder(t *testing.T) {
+	// Push a deliberately unsorted sequence; Result() must come back
+	// strictly descending by score.
+	s := New[int](7)
+	scores := []float64{3, 1, 4, 1, 5, 9, 2, 6, 5, 3, 5}
+	for i, sc := range scores {
+		s.Push(i, sc)
+	}
+	result := s.Result()
+	for i := 1; i < len(result); i++ {
+		if result[i-1].Score < result[i].Score {
+			t.Errorf("Result not descending at index %d: %v vs %v",
+				i, result[i-1].Score, result[i].Score)
+		}
+	}
+}
+
+func TestResult_TiesPreserved(t *testing.T) {
+	// Push three items, all score 5. K=3 so all are retained. Result()
+	// must contain all three; their internal order isn't constrained
+	// beyond all having score 5.
+	s := New[string](3)
+	s.Push("x", 5)
+	s.Push("y", 5)
+	s.Push("z", 5)
+	result := s.Result()
+	if len(result) != 3 {
+		t.Fatalf("Result() len = %d, want 3", len(result))
+	}
+	for i, r := range result {
+		if r.Score != 5 {
+			t.Errorf("Result[%d].Score = %v, want 5", i, r.Score)
+		}
+	}
+	seen := map[string]bool{}
+	for _, r := range result {
+		seen[r.Item] = true
+	}
+	for _, want := range []string{"x", "y", "z"} {
+		if !seen[want] {
+			t.Errorf("Result missing item %q", want)
+		}
+	}
+}
+
+func TestPush_LargeStream(t *testing.T) {
+	// 1000 items, K=10. Top 10 by score must come out in descending order
+	// and match the highest 10 input scores (995..986 here).
+	s := New[int](10)
+	for i := range 1000 {
+		s.Push(i, float64(i%1000)+0.5)
+	}
+	result := s.Result()
+	if len(result) != 10 {
+		t.Fatalf("Result() len = %d, want 10", len(result))
+	}
+	// Scores must be exactly 999.5 down to 990.5.
+	for i, r := range result {
+		want := float64(999-i) + 0.5
+		if r.Score != want {
+			t.Errorf("Result[%d].Score = %v, want %v", i, r.Score, want)
+		}
+	}
+}
+
+// TestSelector_tieBreakFirstSeen is the regression for AUDIT #6: when a later,
+// strictly-higher score forces an eviction among tied minimums, the FIRST-seen
+// tied item must survive (the "ties broken by ascending id / first-seen wins"
+// contract bm25.TopK and sparse.Query document). The traced failure: Push(0,5),
+// Push(1,5), Push(2,10) at k=2 wrongly kept item 1 and dropped item 0.
+func TestSelector_tieBreakFirstSeen(t *testing.T) {
+	s := New[int](2)
+	s.Push(0, 5) // first-seen tied minimum — must survive
+	s.Push(1, 5) // later tied minimum — must be evicted first
+	s.Push(2, 10)
+	got := s.Result()
+	if len(got) != 2 {
+		t.Fatalf("got %d results, want 2", len(got))
+	}
+	if got[0].Item != 2 || got[0].Score != 10 {
+		t.Errorf("top result = {%d,%v}, want {2,10}", got[0].Item, got[0].Score)
+	}
+	if got[1].Item != 0 {
+		t.Errorf("tie survivor = item %d, want item 0 (first-seen); item 1 was wrongly kept", got[1].Item)
+	}
+
+	// Symmetric check with more ties: offer 0..4 all at score 1, then a 9. k=3.
+	// The three survivors must be the first-seen tied items {0,1} plus the 9.
+	s2 := New[int](3)
+	for i := range 5 {
+		s2.Push(i, 1)
+	}
+	s2.Push(9, 100)
+	res := s2.Result()
+	survivors := map[int]bool{}
+	for _, r := range res {
+		survivors[r.Item] = true
+	}
+	if !survivors[9] || !survivors[0] || !survivors[1] {
+		t.Errorf("survivors = %v, want {9,0,1} (first-seen ties kept)", survivors)
+	}
+}
+
+// TestThreshold_k0 pins the k==0 case. Threshold is the hoisted form of Push's own
+// guard, and Push returns early for k==0 — so a caller that hoists must get a value
+// that rejects everything rather than an index into the permanently empty heap.
+// A sparse k=0 query panicked here before this was handled.
+func TestThreshold_k0(t *testing.T) {
+	s := New[int](0)
+	th := s.Threshold()
+	if !math.IsInf(th, 1) {
+		t.Fatalf("Threshold() at k=0 = %v, want +Inf", th)
+	}
+	// And the hoisted guard must agree with Push: neither retains anything.
+	if 1e308 > th {
+		t.Error("a finite score passed the k=0 threshold guard")
+	}
+	if s.Push(1, 1e308) {
+		t.Error("Push retained an item at k=0")
+	}
+	if got := s.Result(); len(got) != 0 {
+		t.Errorf("k=0 Result() = %d items, want 0", len(got))
+	}
+}
+
+// TestThreshold_matchesPush cross-checks the hoisted guard against Push's own
+// decision across a random stream: if `score > Threshold()` disagrees with what Push
+// does, the optimisation changes which items are retained.
+func TestThreshold_matchesPush(t *testing.T) {
+	for _, k := range []int{0, 1, 3, 10} {
+		s := New[int](k)
+		rng := rand.New(rand.NewSource(5))
+		for i := range 500 {
+			score := rng.NormFloat64()
+			predicted := score > s.Threshold()
+			got := s.Push(i, score)
+			if predicted != got {
+				t.Fatalf("k=%d i=%d: Threshold guard said %v, Push did %v (score %v)",
+					k, i, predicted, got, score)
+			}
+		}
+	}
+}

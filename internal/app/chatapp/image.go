@@ -42,7 +42,7 @@ type imageInput struct {
 	nImg   int
 	tower  *vision.GlmOcrVisionEncoder // loaded on first use
 	// device is the backend whose GLM-OCR tower runs the blocks ("metal" or "cuda", when this binary registered one;
-	// towerDevice), "" for aikit's CPU tower. acc is that tower once built; nil runs on the CPU.
+	// towerDevice), "" for the CPU tower. acc is that tower once built; nil runs on the CPU.
 	device string
 	acc    multimodal.GridTowerAccelerator
 	// towerTime is how long the tower took (load excluded), so the reply's tok/s can exclude it.

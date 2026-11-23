@@ -7,7 +7,7 @@ import (
 	"os"
 	"path/filepath"
 
-	"github.com/pkieltyka/aikit/linalg"
+	"github.com/pkieltyka/goinfer/internal/modelcore/linalg"
 )
 
 // Siglip2NaFlexEncoder is SigLIP2's NaFlex vision tower (transformers' Siglip2VisionModel, without its pooling head), the

@@ -1,6 +1,6 @@
 //go:build darwin
 
-// Metal device layer: aikit's native-GPU substrate (github.com/pkieltyka/aikit/gpu). goinfer keeps its tuned kernels
+// Metal device layer through the in-tree gpudev package. goinfer keeps its tuned kernels
 // here and builds them on these device types, the GPU analogue of the linalg relationship. The decode path must stay
 // bit-identical across it (the Metal device-parity suite is the tripwire).
 package metal

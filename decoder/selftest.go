@@ -8,7 +8,7 @@ import (
 	"sync/atomic"
 	"time"
 
-	"github.com/pkieltyka/aikit/linalg"
+	"github.com/pkieltyka/goinfer/internal/modelcore/linalg"
 
 	"github.com/pkieltyka/goinfer/internal/runtime/logs"
 )
@@ -16,7 +16,7 @@ import (
 // Startup self-tests. goinfer is built and measured on two machines, and a wrong kernel on hardware nobody here owns does not crash: it
 // returns slightly wrong numbers. A self-test runs the kernels this process is about to use against a reference on a small fixed input, judged by the agreement the parity suite already
 // certified for them, and on a mismatch DECLINES (names the kernel and the numbers, falls back to the next path) instead of continuing silently. This file is the common record every backend
-// reports into, and the CPU test: aikit's linalg.SelfCheck, run once per process before the first model load.
+// reports into, and the CPU test: the model core's linalg.SelfCheck, run once per process before the first model load.
 
 // Self-test outcomes.
 const (
@@ -100,7 +100,7 @@ func SkipSelfTests() { selfTestSkipped.Store(true) }
 // SelfTestsSkipped reports whether SkipSelfTests was called, for a backend deciding whether to run its own.
 func SelfTestsSkipped() bool { return selfTestSkipped.Load() }
 
-// ensureCPUSelfTest runs aikit's linalg.SelfCheck once per process, with repair: a CPU kernel tier whose result disagrees with its reference is turned off and the next tier checked, so a bad
+// ensureCPUSelfTest runs the model core's linalg.SelfCheck once per process, with repair: a CPU kernel tier whose result disagrees with its reference is turned off and the next tier checked, so a bad
 // ISA path degrades instead of producing wrong numbers. It must run before concurrent use of the kernels (the dispatch flags are plain variables), which is why it is the first thing Load does:
 // the process's first Load has no other model running.
 func ensureCPUSelfTest() { cpuSelfTestOnce.Do(runCPUSelfTest) }

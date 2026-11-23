@@ -7,10 +7,10 @@ import (
 	"os"
 	"syscall"
 
-	"github.com/pkieltyka/aikit/mmap"
+	"github.com/pkieltyka/goinfer/internal/modelcore/mmap"
 )
 
-// mapGIW maps a .giw read-only and MAP_SHARED on darwin, where every other platform uses aikit's
+// mapGIW maps a .giw read-only and MAP_SHARED on darwin, where every other platform uses the model core's
 // MAP_PRIVATE mmap.MapReadOnly (giwmap_other.go).
 //
 // Why shared, and why only here (docs/measurements/s6-alias-2026-09-24.md; the probe is metal/alias_sharedprobe_test.go):

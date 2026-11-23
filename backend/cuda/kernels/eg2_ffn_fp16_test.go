@@ -11,9 +11,9 @@ import (
 	"testing"
 
 	gc "github.com/eitamring/gocudrv/cuda"
-	"github.com/pkieltyka/aikit/linalg"
 	gpu "github.com/pkieltyka/goinfer/backend/cuda/internal/gpudev"
 	"github.com/pkieltyka/goinfer/backend/cuda/internal/wpack"
+	"github.com/pkieltyka/goinfer/internal/modelcore/linalg"
 )
 
 func fp16FFNDevice(t *testing.T) (*gpu.Device, []byte) {

@@ -1,7 +1,7 @@
 package decoder
 
 import (
-	"github.com/pkieltyka/aikit/linalg"
+	"github.com/pkieltyka/goinfer/internal/modelcore/linalg"
 
 	"github.com/pkieltyka/goinfer/internal/runtime/hybridattn"
 )
@@ -60,7 +60,7 @@ func mlaMatvec(f []float32, q *linalg.WeightMat, rows, cols int, x []float32) []
 
 // MLALayerInt8 returns layer l's int8 MLA projections, each zero-valued where the load holds that projection f32: the q-LoRA
 // pair or the direct q, kv-A and o. A backend uploads these codes as they are; they are what it would make from the f32.
-func (m *Model) MLALayerInt8(l int) (qA, qB, q, kvA, o *linalg.WeightMat) {
+func (m *Model) MLALayerInt8(l int) (qA, qB, q, kvA, o *WeightMat) {
 	w := m.w.Layers[l].mla
 	return &w.qAQ, &w.qBQ, &w.qQ, &w.kvAQ, &w.oQ
 }

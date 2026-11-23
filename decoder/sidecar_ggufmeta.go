@@ -8,12 +8,12 @@ import (
 // metadataPrefixLen returns the byte length of a GGUF's header — magic, version,
 // counts, all metadata key-values, and all tensor INFOS — up to the aligned
 // start of the tensor DATA section. raw[:n] is therefore a self-contained GGUF
-// with the same metadata + tensor directory but zero weight bytes; aikit's
+// with the same metadata + tensor directory but zero weight bytes; the model core's
 // parseGGUF accepts it (it only checks the data start is within the file), and
 // the tokenizer loads from it (it never reads tensor data). This is how the
 // prequant bundle carries the tokenizer in ~MBs instead of the whole model.
 //
-// It mirrors aikit/embed.parseGGUF's cursor exactly; if that format changes,
+// It mirrors internal/modelcore/embed.parseGGUF's cursor exactly; if that format changes,
 // the prequant generator must follow (the version guards catch a stale bundle).
 func metadataPrefixLen(raw []byte) (int, error) {
 	c := &ggufCur{b: raw}

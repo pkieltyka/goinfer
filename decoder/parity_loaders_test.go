@@ -32,6 +32,8 @@ var loadersExempt = map[string]string{
 // not followed) lives in a file some shared set or family's own list covers, or in loadersExempt. The walk follows calls
 // into the module's other packages (decoder/quant, say), so a loader body moved out of decoder is still seen.
 func TestParityManifest_loadersClosed(t *testing.T) {
+	// Resolve the root module alone when the source importer runs go list.
+	t.Setenv("GOWORK", "off")
 	raw, err := parityManifestJSON()
 	if err != nil {
 		t.Fatal(err)

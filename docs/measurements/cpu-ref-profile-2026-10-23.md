@@ -43,8 +43,8 @@ finished its first batch of three at 2 h 24 min (about 48 min of throughput per 
 
 ## 2. Where the time goes
 
-**CR7B: about 97% of prefill is one function, aikit's amd64 weight-only int8 matmul.** It is `linalg/quant.go:MatmulBTQ8Into` →
-`linalg/q8span_other.go:q8Span` → `linalg/quant.go:q8SpanColumn` → `dotFMA`, and its share is 96.97% at K=1024 and 96.90% at
+**CR7B: about 97% of prefill is one function, aikit's amd64 weight-only int8 matmul.** It is `internal/modelcore/linalg/quant.go:MatmulBTQ8Into` →
+`internal/modelcore/linalg/q8span_other.go:q8Span` → `internal/modelcore/linalg/quant.go:q8SpanColumn` → `dotFMA`, and its share is 96.97% at K=1024 and 96.90% at
 K=2048. Exact (f64) attention, `decoder/forwardn.go:attendBatchedHeadsP` with `qkAcc64AVX4` and `avAcc64AVX32`, is 2.6% and 2.9%.
 Everything else is under 1%. Decode is a different mix: 54% `dequantI8AVX2` (widening int8 weight rows), 20% `dotFMA`.
 
@@ -52,7 +52,7 @@ Why it is slow: on amd64, `q8Span` is the column-at-a-time form. For each output
 against every one of the M activation rows. So the whole activation block `a[M, Kin]` is re-read once per output column: four bytes
 of activation traffic per multiply-accumulate. At the reference's pass size (`decoder/forwardn.go:Model.prefillPassesN` cuts an
 exact prefill into passes of `prefillChunkRows` = 2048 rows), that block is 32 MB for the Kin = 4096 projections and 117 MB for
-`down_proj` (Kin = 14336). Both are larger than a CCX's 16 MB L3. arm64 has an 8-column form (`linalg/q8span_arm64.go:q8Span`)
+`down_proj` (Kin = 14336). Both are larger than a CCX's 16 MB L3. arm64 has an 8-column form (`internal/modelcore/linalg/q8span_arm64.go:q8Span`)
 that reuses each activation row across eight columns; amd64 does not.
 
 **It scales worse than linearly with K, and the matmul is what scales.** Doubling K from 1024 to 2048 cost 3.66×, not 2×. Attention
@@ -73,7 +73,7 @@ Last night's three workers gave about 48 min per prompt of throughput.
 **QMOE is a different profile.** Its prefill runs at only 5.5 cores and its time is spread out:
 - `dequantI8AVX2` 20% and `dotFMA` 9%. The routed experts' matmuls have few rows (about K × 4 / 60), so widening each weight row is
   not amortised over many dots.
-- Go GC 28% (`gcBgMarkWorker`), plus 8% in `linalg/quant.go:q8SpanScratchPut`. The pool is emptied at every GC, so each of the many
+- Go GC 28% (`gcBgMarkWorker`), plus 8% in `internal/modelcore/linalg/quant.go:q8SpanScratchPut`. The pool is emptied at every GC, so each of the many
   small parallel calls allocates its per-worker K-float widen scratch again, which feeds the GC.
 
 None of that grows faster than K, so QMOE scales close to linearly. Because each prompt leaves cores idle, three workers do help it.
@@ -171,7 +171,7 @@ nothing was cancelled, and none was started after.
 
 ## 6. Follow-up: #1 shipped in aikit v1.73.0 (aikit-q8 session, 2026-10-23, on Francis's word at 9:58 am PDT)
 
-**What shipped.** aikit #10 / v1.73.0: on !arm64, `linalg/q8span_other.go:q8Span` blocks sixteen columns once the activation
+**What shipped.** aikit #10 / v1.73.0: on !arm64, `internal/modelcore/linalg/q8span_other.go:q8Span` blocks sixteen columns once the activation
 block is past M·K = 2 Mi floats (8 MB), and keeps the column form at or below that line. Every output is the same
 `dotF32(a_i, widen(b_j))·s_j`, so it is bit-identical by construction. aikit's tests hold it raw-bit against `q8SpanColumn`
 on AVX2, `aikit_noavx2`, riscv64 (generic) and arm64 (unchanged), and a planted reassociation goes red. The gates were

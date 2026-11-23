@@ -1,4 +1,4 @@
-// Package audio is aikit's audio towers: Gemma 4's (gemma4_audio, which EmbeddingGemma 2 shares) log-mel front end
+// Package audio provides goinfer's audio towers: Gemma 4's (gemma4_audio, which EmbeddingGemma 2 shares) log-mel front end
 // and conformer encoder, in pure Go.
 //
 // Parity reference: transformers 5.19.0's Gemma4AudioFeatureExtractor and Gemma4AudioModel, read and probed in

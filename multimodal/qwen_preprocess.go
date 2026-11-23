@@ -15,7 +15,7 @@ import (
 )
 
 // Qwen2.5-VL image preprocessing: image bytes -> pre-flattened pixel_values [n_patches, channels*temporal*patch*patch] + grid_thw
-// (t,h,w in patch units), matching HF Qwen2VLImageProcessor. The aikit Qwen vision encoder consumes this directly (it does no
+// (t,h,w in patch units), matching HF Qwen2VLImageProcessor. The Qwen vision encoder consumes this directly (it does no
 // preprocessing).
 //
 // Three stages: smart_resize (round H,W to a multiple of patch*merge within the pixel budget), resize+rescale+CLIP-normalize, and the

@@ -125,8 +125,8 @@ class FullPathReads(unittest.TestCase):
         self.assertEqual(self.cls({}, bump), "version")
 
     def test_other_changes_to_a_go_mod_are_full(self):
-        aikit = {"go.mod": ("github.com/pkieltyka/aikit v", "github.com/pkieltyka/aikit v9.")}
-        self.assertEqual(self.cls({}, aikit), "full")
+        dependency_change = {"go.mod": ("golang.org/x/text v", "golang.org/x/text v9.")}
+        self.assertEqual(self.cls({}, dependency_change), "full")
         self.assertEqual(self.cls({"go.mod": "require example.com/other v1.0.0\n"}), "full")
         # a goinfer bump riding with a different dependency's bump is not version-only either
         mixed = self.goinfer_version_bump()
@@ -153,8 +153,8 @@ class FullPathReads(unittest.TestCase):
         self.assertEqual(self.cls({"backend/cuda/doc.go": "//x\n"}, bump), "backend")
 
     def test_a_backend_go_mod_dependency_change_is_backend(self):
-        aikit = {"backend/metal/go.mod": ("github.com/pkieltyka/aikit v", "github.com/pkieltyka/aikit v9.")}
-        self.assertEqual(self.cls({}, aikit), "backend")
+        dependency_change = {"backend/metal/go.mod": ("golang.org/x/text v", "golang.org/x/text v9.")}
+        self.assertEqual(self.cls({}, dependency_change), "backend")
         other = "example.com/other v0.99.0 h1:AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA=\n"
         self.assertEqual(self.cls({"backend/metal/go.sum": other}), "backend")
 

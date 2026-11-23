@@ -19,7 +19,7 @@ import (
 
 // `gate changelog`: the release notes say what changed. The docs already have checks that fail when a table disagrees with the code
 // (the flags page, the support table, the env-var list); the CHANGELOG had none. Four kinds of change are user-visible, enumerable
-// from the tree, and have been missed: an HTTP route, a serve flag, a model family, and the aikit pin. This compares the tree at a
+// from the tree, and have been missed: an HTTP route, a serve flag, and a model family. This compares the tree at a
 // base tag with the working tree and lists each one the CHANGELOG section does not name.
 //
 // The rule is a whole-string match, deliberately weak: it catches the omission, which is what happens, and not a careless sentence,
@@ -118,7 +118,6 @@ type clState struct {
 	Routes   map[string]bool // "METHOD /path" as registered, placeholders normalised to {}
 	Flags    map[string]bool
 	Families map[string][]string // capability-matrix name -> the other names it goes by (display name, model types)
-	Pin      string              // the aikit version go.mod requires
 }
 
 var placeholderRE = regexp.MustCompile(`\{[^}]*\}`)
@@ -208,12 +207,6 @@ func readClState(src clSource) (*clState, error) {
 	for _, f := range fams {
 		st.Families[f.Name] = append([]string{f.Display}, f.ModelTypes...)
 	}
-	if b, err = src.read("go.mod"); err != nil {
-		return nil, err
-	}
-	if m := regexp.MustCompile(`(?m)^\s*github\.com/pkieltyka/aikit (v[^\s]+)`).FindSubmatch(b); m != nil {
-		st.Pin = string(m[1])
-	}
 	return st, nil
 }
 
@@ -290,10 +283,6 @@ func changelogOwed(base, head *clState, sec string, waived func(kind, name strin
 		if !hit {
 			add("family", n, "a new model family")
 		}
-	}
-	// the aikit pin
-	if head.Pin != "" && head.Pin != base.Pin && !strings.Contains(sec, head.Pin) && !strings.Contains(sec, strings.TrimPrefix(head.Pin, "v")) {
-		add("pin", "aikit "+head.Pin, "the aikit pin moved from "+base.Pin)
 	}
 	return owed
 }
@@ -471,12 +460,12 @@ func runChangelog(args []string, w io.Writer) int {
 		owed = append(owed, owedItem{Kind: "entry", Name: strings.TrimSpace(stray[0]),
 			Why: fmt.Sprintf("%d line(s) under CHANGELOG.md's [Unreleased], which holds only the pointer; move the entry into %s/", len(stray), changelogFragmentDir)})
 	}
-	fmt.Fprintf(w, "CHANGELOG [%s] against %s: %d routes, %d flags, %d families, aikit %s (was %s)\n", *section, *base, len(hs.Routes), len(hs.Flags), len(hs.Families), hs.Pin, bs.Pin)
+	fmt.Fprintf(w, "CHANGELOG [%s] against %s: %d routes, %d flags, %d families\n", *section, *base, len(hs.Routes), len(hs.Flags), len(hs.Families))
 	for _, k := range sortedKeysBool(used) {
 		fmt.Fprintf(w, "  waived %s: %s\n", k, waivers[k])
 	}
 	if len(owed) == 0 {
-		fmt.Fprintln(w, "  every new route, flag, family and the aikit pin is named")
+		fmt.Fprintln(w, "  every new route, flag and family is named")
 		return 0
 	}
 	for _, o := range owed {

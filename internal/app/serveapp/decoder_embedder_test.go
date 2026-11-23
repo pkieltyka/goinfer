@@ -7,8 +7,8 @@ import (
 	"sync"
 	"testing"
 
-	"github.com/pkieltyka/aikit/encoder"
 	"github.com/pkieltyka/goinfer/decoder"
+	"github.com/pkieltyka/goinfer/internal/modelcore/encoder"
 	"github.com/pkieltyka/goinfer/internal/runtime/modelload"
 
 	"github.com/pkieltyka/goinfer/internal/testgate"

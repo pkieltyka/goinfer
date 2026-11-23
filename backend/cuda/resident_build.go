@@ -10,11 +10,11 @@ import (
 	"slices"
 	"strconv"
 
-	"github.com/pkieltyka/aikit/linalg"
 	gpu "github.com/pkieltyka/goinfer/backend/cuda/internal/gpudev"
 	"github.com/pkieltyka/goinfer/backend/cuda/internal/launchgeom"
 	"github.com/pkieltyka/goinfer/decoder"
 	"github.com/pkieltyka/goinfer/decoder/fit"
+	"github.com/pkieltyka/goinfer/internal/modelcore/linalg"
 	"github.com/pkieltyka/goinfer/internal/runtime/logs"
 	"github.com/pkieltyka/goinfer/internal/runtime/mem"
 	"github.com/pkieltyka/goinfer/internal/runtime/program"
@@ -943,7 +943,7 @@ func (s *buildState) bindKernels(r *cudaResident) error {
 	if e != nil {
 		return e
 	}
-	// The generic quantized GEMVs come from aikit (gpu.QuantGEMVPTX), not gemv_fwd.ptx; gemv_fwd.cu keeps only the
+	// The generic quantized GEMVs come from gpudev (gpu.QuantGEMVPTX), not gemv_fwd.ptx; gemv_fwd.cu keeps only the
 	// LLM-specific kv_store / rope_kv, and decode stays bit-identical.
 	qgemv, e := r.dev.NewQuantGEMV()
 	if e != nil {

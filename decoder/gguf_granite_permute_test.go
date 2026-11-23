@@ -4,7 +4,7 @@ import (
 	"bytes"
 	"testing"
 
-	"github.com/pkieltyka/aikit/embed"
+	"github.com/pkieltyka/goinfer/internal/modelcore/embed"
 )
 
 // C-05 (docs/audit-2026-09-10.md): llama.cpp converts dense Granite (GraniteForCausalLM) through GraniteModel(LlamaModel),

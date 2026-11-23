@@ -23,7 +23,7 @@ import (
 //
 // In flight: chainNext commits the buffer after the newest before it waits for the oldest, so the next token is always
 // queued when the host waits, and one buffer is outstanding between calls. Token t binds uniform set t%2 and writes its id
-// to chainTok[t%2]; t+1 reads chainTok[t%2] and writes chainTok[(t+1)%2]. Buffers are hazard-tracked (aikit's default) and
+// to chainTok[t%2]; t+1 reads chainTok[t%2] and writes chainTok[(t+1)%2]. Buffers are hazard-tracked (the device layer's default) and
 // the encoder is serial, so Metal orders a buffer's reads behind the previous buffer's writes; the host rewrites set k only
 // for token t+2, after it has waited for token t, the set's last user. Every chainDrainEvery buffers the chain waits with
 // nothing queued and drains its autorelease pool (one gap), as execLoop does.

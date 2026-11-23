@@ -2,12 +2,12 @@
 
 package decoder
 
-import "github.com/pkieltyka/aikit/linalg"
+import "github.com/pkieltyka/goinfer/internal/modelcore/linalg"
 
 // repackRow4ForEmit computes the on-disk split-half + 4-row-interleaved layout from canonical int4 nibbles and their
 // binary16 group scales, for the .giw writer's kind 5 (decoder/serialize.go).
 //
-// It does not gate on the WRITING machine's DotProd support, unlike aikit's RepackInt4Row4, whose in-RAM repack serves
+// It does not gate on the WRITING machine's DotProd support, unlike the model core's RepackInt4Row4, whose in-RAM repack serves
 // this process's own decode: a prequant tool may run on any arm64 box, and the bytes are read back on whatever machine
 // loads the .giw. The READ side (linalg.WrapInt4Row4OnlyF16) is where the DotProd gate belongs.
 //

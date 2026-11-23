@@ -129,7 +129,7 @@ func adjacent(a, b DeviceCopy) bool {
 		a.Dst.off+uintptr(a.Bytes) == b.Dst.off
 }
 
-// checkDeviceCopy validates one pair up front, in aikit's error vocabulary rather
+// checkDeviceCopy validates one pair up front, in the device API's error vocabulary rather
 // than gocudrv's. gocudrv does check context and range itself and would return
 // ErrContextMismatch / ErrOutOfRange, but its errors name neither buffer nor the
 // offsets involved, and by the time a caller sees one it cannot tell which of 36

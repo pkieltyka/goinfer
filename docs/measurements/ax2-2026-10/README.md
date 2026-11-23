@@ -110,7 +110,7 @@ free in the same command.
   figure plus the scratch margin). **They are red on origin/main on nobara's card**, independent of Track AX.
   `TestCUDA_launchDirect` segfaults on both sides, as at AX1.
 
-## AX3: no goinfer module requires aikit's gpu module
+## AX3: no goinfer module requires the external gpu module
 
 Gates registered in the task doc's §7.11 (16:54) before the code.
 

@@ -5,7 +5,7 @@ import (
 	"testing"
 	"unsafe"
 
-	"github.com/pkieltyka/aikit/mmap"
+	"github.com/pkieltyka/goinfer/internal/modelcore/mmap"
 )
 
 // TestPagers_concurrent is the C-30 gate: the layer and expert pagers live on *Model and StreamWeights

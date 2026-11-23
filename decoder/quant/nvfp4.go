@@ -4,8 +4,6 @@ import (
 	"fmt"
 	"math"
 	"strings"
-
-	"github.com/pkieltyka/aikit/embed"
 )
 
 const (
@@ -68,7 +66,7 @@ func NVFP4DequantRow(packed []byte, scales []float32, globalScale float32, in in
 
 // NVFP4ScaleTensorF32 reads an NVFP4 block-scale tensor (F8_E4M3 or F32/BF16/F16)
 // and widens it to []float32, validating its shape against want.
-func NVFP4ScaleTensorF32(st *embed.SafetensorsFile, name string, want ...int) ([]float32, error) {
+func NVFP4ScaleTensorF32(st *SafetensorsFile, name string, want ...int) ([]float32, error) {
 	t, err := st.Tensor(name)
 	if err != nil {
 		return nil, err
@@ -99,7 +97,7 @@ func NVFP4ScaleTensorF32(st *embed.SafetensorsFile, name string, want ...int) ([
 
 // NVFP4GlobalScale reads the optional <prefix>.weight_scale_2 per-tensor F32 scale,
 // returning 1.0 when the tensor is absent.
-func NVFP4GlobalScale(st *embed.SafetensorsFile, prefix string) (float32, error) {
+func NVFP4GlobalScale(st *SafetensorsFile, prefix string) (float32, error) {
 	name := prefix + ".weight_scale_2"
 	t, err := st.Tensor(name)
 	if err != nil {
@@ -122,7 +120,7 @@ func NVFP4GlobalScale(st *embed.SafetensorsFile, prefix string) (float32, error)
 // + <prefix>.weight_scale + optional <prefix>.weight_scale_2) and returns a closure
 // that dequantizes row r (0 <= r < out) into dst[:in] without materializing the full
 // [out, in] matrix at once.
-func NVFP4RowReader2D(st *embed.SafetensorsFile, name string, out, in int) (func(r int, dst []float32) error, error) {
+func NVFP4RowReader2D(st *SafetensorsFile, name string, out, in int) (func(r int, dst []float32) error, error) {
 	wT, err := st.Tensor(name)
 	if err != nil {
 		return nil, fmt.Errorf("nvfp4 %q: %w", name, err)
@@ -161,7 +159,7 @@ func NVFP4RowReader2D(st *embed.SafetensorsFile, name string, out, in int) (func
 // NVFP4Reconstruct reads one NVFP4 linear projection from a safetensors checkpoint
 // and returns it as a row-major [out, in] []float32. Unquantized tensors (F32/BF16/F16)
 // fall back to st.TensorF32(name, out, in).
-func NVFP4Reconstruct(st *embed.SafetensorsFile, name string, in, out int) ([]float32, error) {
+func NVFP4Reconstruct(st *SafetensorsFile, name string, in, out int) ([]float32, error) {
 	wT, err := st.Tensor(name)
 	if err != nil {
 		return nil, fmt.Errorf("nvfp4 %q: %w", name, err)
@@ -187,10 +185,10 @@ type NVFP4Reconstructor struct{}
 
 func (NVFP4Reconstructor) Method() string { return "nvfp4" }
 
-func (NVFP4Reconstructor) ReconstructMat2D(st *embed.SafetensorsFile, name string, out, in int) ([]float32, error) {
+func (NVFP4Reconstructor) ReconstructMat2D(st *SafetensorsFile, name string, out, in int) ([]float32, error) {
 	return NVFP4Reconstruct(st, name, in, out)
 }
 
-func (NVFP4Reconstructor) RowReader2D(st *embed.SafetensorsFile, name string, out, in int) (func(r int, dst []float32) error, error) {
+func (NVFP4Reconstructor) RowReader2D(st *SafetensorsFile, name string, out, in int) (func(r int, dst []float32) error, error) {
 	return NVFP4RowReader2D(st, name, out, in)
 }
