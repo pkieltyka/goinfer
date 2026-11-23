@@ -1,7 +1,6 @@
 package embed
 
 import (
-	"encoding/json"
 	"math"
 	"os"
 	"path/filepath"
@@ -11,34 +10,13 @@ import (
 
 // Item 8 (docs/internal/task-memory-campaign.md): Model2Vec mapped by default.
 
-// mappedTestModelDir is a local Model2Vec snapshot: testdata/model, else the embedded-corpus example's model.
+// mappedTestModelDir selects the optional local Model2Vec snapshot.
 func mappedTestModelDir(t *testing.T) string {
-	for _, d := range []string{filepath.Join("..", "testdata", "model"), filepath.Join("..", "examples", "embedded-corpus", "assets", "model")} {
-		if _, err := os.Stat(filepath.Join(d, "model.safetensors")); err == nil {
-			return d
-		}
+	d := filepath.Join("..", "testdata", "model")
+	if _, err := os.Stat(filepath.Join(d, "model.safetensors")); err != nil {
+		t.Skip("no local Model2Vec snapshot in internal/modelcore/testdata/model")
 	}
-	t.Skip("no local Model2Vec snapshot (testdata/model, or the embedded-corpus example's go generate)")
-	return ""
-}
-
-// mappedTestTexts is the embedded-corpus example's chunks when present, plus edge strings.
-func mappedTestTexts(t *testing.T) []string {
-	texts := []string{"", " ", "hello world", "func main() { fmt.Println(\"hi\") }", "ünïcödé 日本語 🙂", "a"}
-	raw, err := os.ReadFile(filepath.Join("..", "examples", "embedded-corpus", "assets", "corpus.json"))
-	if err != nil {
-		return texts
-	}
-	var chunks []struct {
-		Text string `json:"text"`
-	}
-	if err := json.Unmarshal(raw, &chunks); err != nil {
-		t.Fatal(err)
-	}
-	for _, c := range chunks {
-		texts = append(texts, c.Text)
-	}
-	return texts
+	return d
 }
 
 // Gate (a): an os.DirFS load is mapped, an fstest.MapFS load and LoadFromFSHeap are not, and every Encode and
@@ -75,7 +53,7 @@ func TestLoadFromFS_mappedByDefaultMatchesHeap(t *testing.T) {
 	if len(heap.st.mmapped) != 0 || len(mfs.st.mmapped) != 0 {
 		t.Error("LoadFromFSHeap or a MapFS load mapped the weights")
 	}
-	texts := mappedTestTexts(t)
+	texts := []string{"", " ", "hello world", "func main() { fmt.Println(\"hi\") }", "ünïcödé 日本語 🙂", "a"}
 	want := heap.EncodeBatch(texts, 4)
 	for name, m := range map[string]*StaticModel{"mapped": mapped, "MapFS": mfs} {
 		got := m.EncodeBatch(texts, 4)

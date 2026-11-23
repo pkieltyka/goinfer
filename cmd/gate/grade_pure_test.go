@@ -28,6 +28,8 @@ var graderClockCalls = map[string]bool{"Now": true, "Since": true, "Until": true
 // file, so a grader cannot reach I/O through a helper. Calls are resolved by type-checking the package, so a method is
 // told from a function of the same name.
 func TestGraders_arePure(t *testing.T) {
+	// Resolve the root module alone when the source importer runs go list.
+	t.Setenv("GOWORK", "off")
 	fset := token.NewFileSet()
 	names, err := filepath.Glob("*.go")
 	if err != nil {
