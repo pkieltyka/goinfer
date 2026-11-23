@@ -8,7 +8,7 @@ import (
 	"sync"
 	"sync/atomic"
 
-	"github.com/pkieltyka/aikit/linalg"
+	"github.com/pkieltyka/goinfer/internal/modelcore/linalg"
 )
 
 // Weight matrices are linalg.WeightMat (aikit): one type that hides f32, per-row int8 and group-wise int4 storage behind

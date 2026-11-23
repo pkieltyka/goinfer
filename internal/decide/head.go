@@ -11,8 +11,8 @@ import (
 	"sort"
 	"strings"
 
-	"github.com/pkieltyka/aikit/embed"
 	"github.com/pkieltyka/goinfer/decoder"
+	"github.com/pkieltyka/goinfer/internal/modelcore/embed"
 )
 
 // Route names, as a Result and the CLI's output lines report them.

@@ -7,7 +7,7 @@ import (
 	"strings"
 	"sync"
 
-	"github.com/pkieltyka/aikit/linalg"
+	"github.com/pkieltyka/goinfer/internal/modelcore/linalg"
 )
 
 // Backend abstracts the one hot primitive the decoder forward pass is

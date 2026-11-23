@@ -14,7 +14,7 @@ import (
 	"testing"
 	"weak"
 
-	"github.com/pkieltyka/aikit/embed"
+	"github.com/pkieltyka/goinfer/internal/modelcore/embed"
 )
 
 // stTensor is one F32 tensor of a test checkpoint.

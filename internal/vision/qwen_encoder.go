@@ -10,8 +10,8 @@ import (
 	"slices"
 	"sync"
 
-	"github.com/pkieltyka/aikit/embed"
-	"github.com/pkieltyka/aikit/linalg"
+	"github.com/pkieltyka/goinfer/internal/modelcore/embed"
+	"github.com/pkieltyka/goinfer/internal/modelcore/linalg"
 )
 
 // Qwen2.5-VL vision tower — aikit's second ViT family (after SigLIP / encoder.go),

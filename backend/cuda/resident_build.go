@@ -10,11 +10,11 @@ import (
 	"slices"
 	"strconv"
 
-	"github.com/pkieltyka/aikit/linalg"
 	gpu "github.com/pkieltyka/goinfer/backend/cuda/internal/gpudev"
 	"github.com/pkieltyka/goinfer/backend/cuda/internal/launchgeom"
 	"github.com/pkieltyka/goinfer/decoder"
 	"github.com/pkieltyka/goinfer/decoder/fit"
+	"github.com/pkieltyka/goinfer/internal/modelcore/linalg"
 	"github.com/pkieltyka/goinfer/internal/runtime/logs"
 	"github.com/pkieltyka/goinfer/internal/runtime/mem"
 	"github.com/pkieltyka/goinfer/internal/runtime/program"

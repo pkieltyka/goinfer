@@ -3,7 +3,7 @@ package decoder
 import (
 	"testing"
 
-	"github.com/pkieltyka/aikit/linalg"
+	"github.com/pkieltyka/goinfer/internal/modelcore/linalg"
 )
 
 // BenchmarkAttnDistinctBytes asks whether the real GQA layout (nKV distinct KV heads, each read by nH/nKV query

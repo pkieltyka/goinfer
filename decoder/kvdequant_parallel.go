@@ -4,7 +4,7 @@ import (
 	"sync"
 	"sync/atomic"
 
-	"github.com/pkieltyka/aikit/linalg"
+	"github.com/pkieltyka/goinfer/internal/modelcore/linalg"
 )
 
 // An int8-KV decode token widens every stored K and V row of every global layer back to f32 (dequantGlobalLayer), and a ring

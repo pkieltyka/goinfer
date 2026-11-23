@@ -6,7 +6,7 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/pkieltyka/aikit/linalg"
+	"github.com/pkieltyka/goinfer/internal/modelcore/linalg"
 )
 
 // TestInt4Pack_declinesNonMultipleOf32K is the gate for audit M-10: the W4A8 pack layout and its

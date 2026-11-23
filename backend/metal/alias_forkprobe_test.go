@@ -16,8 +16,8 @@ import (
 	"time"
 	"unsafe"
 
-	"github.com/pkieltyka/aikit/mmap"
 	gpu "github.com/pkieltyka/goinfer/backend/metal/internal/gpudev"
+	"github.com/pkieltyka/goinfer/internal/modelcore/mmap"
 )
 
 // TestAliasForkProbe measures whether a fork() of a process that holds a GPU-wired no-copy buffer over a

@@ -5,7 +5,7 @@ import (
 	"math"
 	"strings"
 
-	"github.com/pkieltyka/aikit/embed"
+	"github.com/pkieltyka/goinfer/internal/modelcore/embed"
 )
 
 const (

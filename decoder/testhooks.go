@@ -14,8 +14,8 @@ import (
 	"sync/atomic"
 	"time"
 
-	"github.com/pkieltyka/aikit/linalg"
 	"github.com/pkieltyka/goinfer/chat"
+	"github.com/pkieltyka/goinfer/internal/modelcore/linalg"
 	"github.com/pkieltyka/goinfer/internal/runtime/hybridattn"
 	"github.com/pkieltyka/goinfer/internal/runtime/kvmgr"
 	"github.com/pkieltyka/goinfer/internal/runtime/mamba2"

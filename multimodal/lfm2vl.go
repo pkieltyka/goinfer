@@ -11,7 +11,7 @@ import (
 	"sort"
 	"strings"
 
-	"github.com/pkieltyka/aikit/linalg"
+	"github.com/pkieltyka/goinfer/internal/modelcore/linalg"
 	"github.com/pkieltyka/goinfer/internal/vision"
 )
 

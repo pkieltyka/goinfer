@@ -11,7 +11,7 @@ import (
 	"fmt"
 	"strings"
 
-	"github.com/pkieltyka/aikit/embed"
+	"github.com/pkieltyka/goinfer/internal/modelcore/embed"
 )
 
 // Reconstructor dequantizes a named 2-D [out, in] weight tensor from a safetensors

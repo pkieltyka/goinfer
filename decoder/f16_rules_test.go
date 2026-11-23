@@ -5,7 +5,7 @@ import (
 	"math/rand/v2"
 	"testing"
 
-	"github.com/pkieltyka/aikit/linalg"
+	"github.com/pkieltyka/goinfer/internal/modelcore/linalg"
 )
 
 // TestF16Rules_agree pins that aikit's int4 scale storage (linalg.F32ToF16) and goinfer's F16Bits, the rule every

@@ -10,7 +10,7 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/pkieltyka/aikit/linalg"
+	"github.com/pkieltyka/goinfer/internal/modelcore/linalg"
 )
 
 // repadSafetensors rewrites a safetensors file with its JSON header padded by trailing spaces so its data starts at an odd byte

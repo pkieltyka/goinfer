@@ -6,7 +6,7 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/pkieltyka/aikit/linalg"
+	"github.com/pkieltyka/goinfer/internal/modelcore/linalg"
 )
 
 // q4kTestMat builds rows×cols of valid synthetic Q4_K super-blocks (normal f16 d/dmin, random scale,

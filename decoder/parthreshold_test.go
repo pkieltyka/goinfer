@@ -4,7 +4,7 @@ import (
 	"math/rand/v2"
 	"testing"
 
-	"github.com/pkieltyka/aikit/linalg"
+	"github.com/pkieltyka/goinfer/internal/modelcore/linalg"
 )
 
 // TestInt4ParThreshold_qwen05bShapesFanOut pins int4ParThreshold's effect on qwen2.5 0.5B's decode projections: aikit runs

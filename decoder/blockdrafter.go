@@ -1,6 +1,6 @@
 package decoder
 
-import "github.com/pkieltyka/aikit/linalg"
+import "github.com/pkieltyka/goinfer/internal/modelcore/linalg"
 
 // blockTrunk implements BlockDrafterWeights once, for every family that embeds it.
 

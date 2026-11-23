@@ -4,7 +4,7 @@ import (
 	"runtime"
 	"testing"
 
-	"github.com/pkieltyka/aikit/linalg"
+	"github.com/pkieltyka/goinfer/internal/modelcore/linalg"
 )
 
 // TestPackWeightStack is the gate for stacked-expert packing.

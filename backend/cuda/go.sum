@@ -2,8 +2,6 @@ github.com/ebitengine/purego v0.10.1 h1:dewVBCBT2GaMu1SrNTYxQhgQBethzfhiwvZiLGP/
 github.com/ebitengine/purego v0.10.1/go.mod h1:iIjxzd6CiRiOG0UyXP+V1+jWqUXVjPKLAI0mRfJZTmQ=
 github.com/eitamring/gocudrv v0.3.2 h1:zjRj3gRSfmbxbQkt1jXSTdGKHPwL1R912qovXnOPUlE=
 github.com/eitamring/gocudrv v0.3.2/go.mod h1:nA+ytiB8A1YvVSHzBQbn+Be+BGR4gAGVIP+7chLn+O4=
-github.com/pkieltyka/aikit v1.79.0 h1:V+jzZQK05MtAZTx21cuNOY3SXODIKMw2uWLhVwiA3uc=
-github.com/pkieltyka/aikit v1.79.0/go.mod h1:VoICCiLubSklB6hXh3LvUOA6lSBOPE/IDb2fDTHMeuc=
 github.com/pkieltyka/goinfer v0.6.4 h1:F+4LkrNn+3anZ1Tnu50c9P+appkzPotNMgLdwIAyyz8=
 github.com/pkieltyka/goinfer v0.6.4/go.mod h1:/+U/HqKR7+4gCgDPF7F6J+lfz3hmfjVkwXlgKa+ZdFs=
 go.uber.org/goleak v1.3.0 h1:2K3zAYmnTNqV73imy9J1T3WC+gmCePx2hEGkimedGto=

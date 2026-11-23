@@ -5,7 +5,7 @@ import (
 	"math/rand"
 	"testing"
 
-	"github.com/pkieltyka/aikit/linalg"
+	"github.com/pkieltyka/goinfer/internal/modelcore/linalg"
 )
 
 // The decode-matmul parallelism threshold sweep. int4ParThreshold (weightmat.go) and DefaultDecodeParallelThreshold

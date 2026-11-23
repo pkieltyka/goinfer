@@ -11,7 +11,7 @@ import (
 	"sort"
 	"unsafe"
 
-	"github.com/pkieltyka/aikit/linalg"
+	"github.com/pkieltyka/goinfer/internal/modelcore/linalg"
 )
 
 // tensorIdentity is one tensor of a loaded *Weights as the model receives it: one entry of the loader identity.

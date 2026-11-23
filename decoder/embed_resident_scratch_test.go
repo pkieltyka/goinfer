@@ -4,7 +4,7 @@ import (
 	"testing"
 	"unsafe"
 
-	"github.com/pkieltyka/aikit/linalg"
+	"github.com/pkieltyka/goinfer/internal/modelcore/linalg"
 )
 
 // TestEmbedResidentInto_reusesBuffer is P-08 (audit-2026-09-10): embedResident allocated a fresh

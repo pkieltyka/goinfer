@@ -3,7 +3,7 @@ package decoder
 import (
 	"testing"
 
-	"github.com/pkieltyka/aikit/embed"
+	"github.com/pkieltyka/goinfer/internal/modelcore/embed"
 )
 
 // R13 (docs/measurements/cold-user-2026-09-07-macbook-arm64.md): every GGUF architecture config builder must read

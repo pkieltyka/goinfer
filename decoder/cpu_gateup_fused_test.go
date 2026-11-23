@@ -5,7 +5,7 @@ import (
 	"math/rand/v2"
 	"testing"
 
-	"github.com/pkieltyka/aikit/linalg"
+	"github.com/pkieltyka/goinfer/internal/modelcore/linalg"
 )
 
 // TestGatedMLPFusedGateUp_bitIdentical pins the claim cpu_gateup_fused.go rests on: the fused fork/join

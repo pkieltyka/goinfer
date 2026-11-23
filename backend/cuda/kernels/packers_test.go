@@ -3,8 +3,8 @@
 package kernels
 
 import (
-	"github.com/pkieltyka/aikit/linalg"
 	"github.com/pkieltyka/goinfer/backend/cuda/internal/wpack"
+	"github.com/pkieltyka/goinfer/internal/modelcore/linalg"
 )
 
 // The names package cuda gives the packers, over wpack, so the tests moved from there read as they did. hostW holds only a

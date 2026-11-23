@@ -19,9 +19,9 @@ import (
 	"strconv"
 	"sync"
 
-	"github.com/pkieltyka/aikit/embed"
-	"github.com/pkieltyka/aikit/linalg"
 	"github.com/pkieltyka/goinfer/internal/gguf"
+	"github.com/pkieltyka/goinfer/internal/modelcore/embed"
+	"github.com/pkieltyka/goinfer/internal/modelcore/linalg"
 )
 
 // Config is the text half of an EmbeddingGemma 2 config.json (its text_config).

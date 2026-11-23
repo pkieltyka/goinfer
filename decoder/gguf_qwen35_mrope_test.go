@@ -3,7 +3,7 @@ package decoder
 import (
 	"testing"
 
-	"github.com/pkieltyka/aikit/embed"
+	"github.com/pkieltyka/goinfer/internal/modelcore/embed"
 )
 
 func kvI32Arr(k string, vs []int32) ggufKV {

@@ -9,8 +9,8 @@ import (
 	"time"
 	"unsafe"
 
-	"github.com/pkieltyka/aikit/linalg"
-	"github.com/pkieltyka/aikit/mmap"
+	"github.com/pkieltyka/goinfer/internal/modelcore/linalg"
+	"github.com/pkieltyka/goinfer/internal/modelcore/mmap"
 )
 
 // The pager's generic span-residency cache (eviction over budget, WILLNEED/DONTNEED,

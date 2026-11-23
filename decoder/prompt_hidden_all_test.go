@@ -10,7 +10,7 @@ import (
 	"sort"
 	"testing"
 
-	"github.com/pkieltyka/aikit/embed"
+	"github.com/pkieltyka/goinfer/internal/modelcore/embed"
 )
 
 // D11's gate: the final-norm hidden state at EVERY prompt position must

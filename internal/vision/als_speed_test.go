@@ -13,7 +13,7 @@ import (
 	"testing"
 	"time"
 
-	"github.com/pkieltyka/aikit/linalg"
+	"github.com/pkieltyka/goinfer/internal/modelcore/linalg"
 )
 
 // alsBF16 rebuilds a projection weight as 16-bit storage: QuantizeBF16 of its f32 values, exact for a weight that came from a

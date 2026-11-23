@@ -11,7 +11,7 @@ import (
 	"sort"
 	"testing"
 
-	"github.com/pkieltyka/aikit/linalg"
+	"github.com/pkieltyka/goinfer/internal/modelcore/linalg"
 )
 
 // writeHalfFixture re-encodes the tiny fixture at src as a checkpoint of 16-bit tensors (dtype "BF16" or "F16": every tensor, norms

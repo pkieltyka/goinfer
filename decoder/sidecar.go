@@ -16,7 +16,7 @@ import (
 	"testing"
 	"time"
 
-	"github.com/pkieltyka/aikit/linalg"
+	"github.com/pkieltyka/goinfer/internal/modelcore/linalg"
 	"github.com/pkieltyka/goinfer/internal/runtime/diskfree"
 	"github.com/pkieltyka/goinfer/internal/runtime/giw"
 	"github.com/pkieltyka/goinfer/internal/runtime/logs"

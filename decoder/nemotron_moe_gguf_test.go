@@ -3,7 +3,7 @@ package decoder
 import (
 	"testing"
 
-	"github.com/pkieltyka/aikit/embed"
+	"github.com/pkieltyka/goinfer/internal/modelcore/embed"
 )
 
 // TestNemotron3NanoMoE_ggufConfig verifies ggufNemotronConfig against REAL metadata —

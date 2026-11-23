@@ -18,9 +18,9 @@ import (
 	"strings"
 	"time"
 
-	"github.com/pkieltyka/aikit/linalg"
 	"github.com/pkieltyka/goinfer/decoder"
 	"github.com/pkieltyka/goinfer/internal/app/fitcmd"
+	"github.com/pkieltyka/goinfer/internal/modelcore/linalg"
 )
 
 // Options says which parts to add.

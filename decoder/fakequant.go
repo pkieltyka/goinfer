@@ -4,7 +4,7 @@ import (
 	"math"
 	"os"
 
-	"github.com/pkieltyka/aikit/linalg"
+	"github.com/pkieltyka/goinfer/internal/modelcore/linalg"
 )
 
 // fakeQuantScheme (GOINFER_FAKEQUANT=affine|sym|symmse) is a diagnostic, not for production: when set, the int4

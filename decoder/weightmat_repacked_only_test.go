@@ -5,7 +5,7 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/pkieltyka/aikit/linalg"
+	"github.com/pkieltyka/goinfer/internal/modelcore/linalg"
 )
 
 // fakeQuantBackend4 implements only QuantBackend4 (the staged per-token int4 consult) — a

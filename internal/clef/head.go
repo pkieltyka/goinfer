@@ -29,8 +29,8 @@ import (
 	"strings"
 	"sync"
 
-	"github.com/pkieltyka/aikit/embed"
-	"github.com/pkieltyka/aikit/linalg"
+	"github.com/pkieltyka/goinfer/internal/modelcore/embed"
+	"github.com/pkieltyka/goinfer/internal/modelcore/linalg"
 )
 
 // HeadConfig is joint_head_config.json. Every key is required and no other key is accepted.

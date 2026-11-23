@@ -6,7 +6,7 @@ import (
 	"testing"
 	"unsafe"
 
-	"github.com/pkieltyka/aikit/linalg"
+	"github.com/pkieltyka/goinfer/internal/modelcore/linalg"
 )
 
 // v13's fused groups (kind 6) put the nibbles of q,k,v and of gate,up back to back so a Metal fused GEMV

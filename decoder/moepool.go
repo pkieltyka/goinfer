@@ -7,7 +7,7 @@ import (
 	"os"
 	"unsafe"
 
-	"github.com/pkieltyka/aikit/linalg"
+	"github.com/pkieltyka/goinfer/internal/modelcore/linalg"
 )
 
 // expertBufferPool is an owned-buffer pread cache for MoE expert weights, replacing expertPager's mmap+madvise mode

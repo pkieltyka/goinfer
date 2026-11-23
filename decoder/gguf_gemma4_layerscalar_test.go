@@ -5,7 +5,7 @@ import (
 	"path/filepath"
 	"testing"
 
-	"github.com/pkieltyka/aikit/embed"
+	"github.com/pkieltyka/goinfer/internal/modelcore/embed"
 )
 
 // loadG4 must assign l.LayerScalar (1, or blk.{i}.layer_output_scale.weight) BEFORE building the layer's gemma4MoEWeights,

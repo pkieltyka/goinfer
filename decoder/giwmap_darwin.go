@@ -7,7 +7,7 @@ import (
 	"os"
 	"syscall"
 
-	"github.com/pkieltyka/aikit/mmap"
+	"github.com/pkieltyka/goinfer/internal/modelcore/mmap"
 )
 
 // mapGIW maps a .giw read-only and MAP_SHARED on darwin, where every other platform uses aikit's

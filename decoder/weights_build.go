@@ -3,8 +3,8 @@ package decoder
 import (
 	"fmt"
 
-	"github.com/pkieltyka/aikit/embed"
-	"github.com/pkieltyka/aikit/linalg"
+	"github.com/pkieltyka/goinfer/internal/modelcore/embed"
+	"github.com/pkieltyka/goinfer/internal/modelcore/linalg"
 )
 
 // stBuild is the state buildWeightsFromSafetensorsTo hands the per-layer loader: the load's inputs, the weight bundle it fills, the

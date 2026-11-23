@@ -6,7 +6,7 @@ import (
 	"sort"
 	"strings"
 
-	"github.com/pkieltyka/aikit/embed"
+	"github.com/pkieltyka/goinfer/internal/modelcore/embed"
 )
 
 // archAdapter resolves a parsed config.json into the family-agnostic

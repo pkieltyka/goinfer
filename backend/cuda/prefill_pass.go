@@ -7,9 +7,9 @@ import (
 	"fmt"
 	"time"
 
-	"github.com/pkieltyka/aikit/linalg"
 	gpu "github.com/pkieltyka/goinfer/backend/cuda/internal/gpudev"
 	"github.com/pkieltyka/goinfer/decoder"
+	"github.com/pkieltyka/goinfer/internal/modelcore/linalg"
 	"github.com/pkieltyka/goinfer/internal/runtime/program"
 
 	"github.com/pkieltyka/goinfer/backend/cuda/internal/launchgeom"

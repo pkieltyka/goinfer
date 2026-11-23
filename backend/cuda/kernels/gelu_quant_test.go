@@ -6,8 +6,8 @@ import (
 	"math"
 	"testing"
 
-	"github.com/pkieltyka/aikit/linalg"
 	gpu "github.com/pkieltyka/goinfer/backend/cuda/internal/gpudev"
+	"github.com/pkieltyka/goinfer/internal/modelcore/linalg"
 )
 
 // TestGeluQuantBatched_matchesCPUReference pins gelu_quant_batched against linalg.GELUTanhInto

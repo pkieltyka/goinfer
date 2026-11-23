@@ -23,7 +23,7 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/pkieltyka/aikit/linalg"
+	"github.com/pkieltyka/goinfer/internal/modelcore/linalg"
 )
 
 // populated reports whether a LayerWeights field holds anything, for the kinds this struct uses.

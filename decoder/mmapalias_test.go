@@ -6,7 +6,7 @@ import (
 	"testing"
 	"unsafe"
 
-	"github.com/pkieltyka/aikit/mmap"
+	"github.com/pkieltyka/goinfer/internal/modelcore/mmap"
 )
 
 // MmapAliasWindow hands Metal the page-aligned window it needs to wrap a weight array without a copy.

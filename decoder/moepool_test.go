@@ -8,8 +8,8 @@ import (
 	"testing"
 	"unsafe"
 
-	"github.com/pkieltyka/aikit/linalg"
-	"github.com/pkieltyka/aikit/mmap"
+	"github.com/pkieltyka/goinfer/internal/modelcore/linalg"
+	"github.com/pkieltyka/goinfer/internal/modelcore/mmap"
 )
 
 // int4PoolFixture is a real, file-backed (not heap) bank of nExperts synthetic int4 experts,

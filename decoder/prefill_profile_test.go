@@ -6,7 +6,7 @@ import (
 	"strconv"
 	"testing"
 
-	"github.com/pkieltyka/aikit/linalg"
+	"github.com/pkieltyka/goinfer/internal/modelcore/linalg"
 )
 
 // BenchmarkPrefillLong times an end-to-end prefill of a long prompt via the

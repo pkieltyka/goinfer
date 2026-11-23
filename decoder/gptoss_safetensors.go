@@ -3,8 +3,8 @@ package decoder
 import (
 	"fmt"
 
-	"github.com/pkieltyka/aikit/embed"
-	"github.com/pkieltyka/aikit/linalg"
+	"github.com/pkieltyka/goinfer/internal/modelcore/embed"
+	"github.com/pkieltyka/goinfer/internal/modelcore/linalg"
 )
 
 // buildGptOssWeights loads gpt-oss (20b/120b) from the released SAFETENSORS checkpoint,

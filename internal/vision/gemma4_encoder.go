@@ -9,7 +9,7 @@ import (
 	"runtime"
 	"sync"
 
-	"github.com/pkieltyka/aikit/linalg"
+	"github.com/pkieltyka/goinfer/internal/modelcore/linalg"
 )
 
 // Gemma 4's vision tower (the "gemma4" plain family — E2B/E4B/26B-A4B/31B, NOT the

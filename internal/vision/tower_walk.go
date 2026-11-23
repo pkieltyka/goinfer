@@ -5,7 +5,7 @@ import (
 	"fmt"
 	"math"
 
-	"github.com/pkieltyka/aikit/linalg"
+	"github.com/pkieltyka/goinfer/internal/modelcore/linalg"
 )
 
 // towerWeights is one CPU tower block's weights, by the names a program uses.
