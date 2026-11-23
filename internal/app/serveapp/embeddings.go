@@ -287,7 +287,7 @@ func parseInputType(t string) (isQuery bool, err error) {
 // Truncation is legitimate only for models trained with Matryoshka Representation Learning: slicing any other
 // embedder returns a unit-length, plausible vector that simply retrieves worse, a silent wrong. So a dimensions
 // request below the model's floor, or any dimensions for a non-MRL model, is a 400, not a quietly degraded vector.
-// s.embedMRLMin carries that floor (0 = not truncatable), resolved at load from the encoder's exported weightsed registry, the source
+// s.embedMRLMin carries that floor (0 = not truncatable), resolved at load from the model core encoder's Matryoshka registry, the source
 // of its published Truncatable column; s.embedWidths, when set, is the exact set of allowed widths instead.
 func (s *server) resolveDimensions(d *int) (int, error) {
 	if d == nil || *d == 0 || *d == s.embedDim {

@@ -1916,7 +1916,7 @@ func (s *server) loadEncoder(cfg config) error {
 		name = filepath.Base(strings.TrimRight(cfg.embedPath, "/"))
 	}
 	s.embed, s.embedTok, s.embedID, s.embedDim = enc, tok, name, enc.HiddenDim()
-	// Matryoshka floor from the encoder's exported weightsed registry — the same source of truth behind its
+	// Matryoshka floor from the model core encoder's Matryoshka registry — the same source of truth behind its
 	// published Truncatable column. Unknown/non-MRL models get 0, i.e. `dimensions` is refused
 	// rather than honored into a silently worse-retrieving vector. Keyed off the model PATH (the
 	// directory name is the HF model name); embedName is an operator-chosen alias, so it must not
