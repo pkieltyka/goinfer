@@ -31,14 +31,13 @@ from pathlib import Path
 from typing import Dict, List, Optional, Sequence, Tuple
 
 ROOT_MODULE = "github.com/pkieltyka/goinfer"
-AIKIT_MODULE = "github.com/pkieltyka/aikit"
+RETIRED_MODULES = ("github.com/pkieltyka/aikit", "github.com/townsendmerino/aikit")
 
 SEMVER_RE = re.compile(
     r"^v(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)"
     r"(?:-(?:0|[1-9][0-9]*|[0-9]*[A-Za-z-][0-9A-Za-z-]*)"
     r"(?:\.(?:0|[1-9][0-9]*|[0-9]*[A-Za-z-][0-9A-Za-z-]*))*)?$"
 )
-PSEUDO_RE = re.compile(r"-(?:0\.)?\d{14}-[0-9a-f]{12}$")
 CYCLE_RE = re.compile(
     r"github\.com/pkieltyka/goinfer/(?:backend/(?:cuda|metal|vulkan|webgpu)|cuda|gpu|metal)\b"
 )
@@ -175,7 +174,7 @@ def parse_gomod(text: str) -> Tuple[str, Dict[str, str], List[str]]:
     return mod_path, reqs, replaces
 
 
-def check_gomod(text: str, label: str, *, expected_mod: str, root_ver: Optional[str] = None, expected_aikit: Optional[str] = None, is_root: bool = False) -> List[str]:
+def check_gomod(text: str, label: str, *, expected_mod: str, root_ver: Optional[str] = None, is_root: bool = False) -> List[str]:
     errs: List[str] = []
     mod_path, reqs, replaces = parse_gomod(text)
     if mod_path != expected_mod:
@@ -188,17 +187,10 @@ def check_gomod(text: str, label: str, *, expected_mod: str, root_ver: Optional[
                 errs.append(f"{label}: root module must not require backend submodule {dep!r}")
     elif root_ver is not None and reqs.get(ROOT_MODULE) != root_ver:
         errs.append(f"{label}: requires {ROOT_MODULE} {reqs.get(ROOT_MODULE)!r}, expected {root_ver!r}")
-    aikit = reqs.get(AIKIT_MODULE)
-    if is_root:
-        if not aikit:
-            errs.append(f"{label}: missing {AIKIT_MODULE} require")
-        elif PSEUDO_RE.search(aikit):
-            errs.append(f"{label}: {AIKIT_MODULE} pin {aikit!r} is a pseudo-version")
-    elif aikit:
-        if PSEUDO_RE.search(aikit):
-            errs.append(f"{label}: {AIKIT_MODULE} pin {aikit!r} is a pseudo-version")
-        if expected_aikit and aikit != expected_aikit:
-            errs.append(f"{label}: {AIKIT_MODULE} pin {aikit!r} disagrees with root {expected_aikit!r}")
+    for dep in reqs:
+        path = dep.strip('"')
+        if any(path == old or path.startswith(old + "/") for old in RETIRED_MODULES):
+            errs.append(f"{label}: retired module requirement {path}")
     return errs
 
 
@@ -408,8 +400,6 @@ def cmd_prep(args: argparse.Namespace) -> int:
         raise PrepError(f"uncommitted changes outside selected submodule go.mod/go.sum: {', '.join(bad_dirty[:5])}")
 
     root_gomod = run(["git", "show", f"{base_sha}:go.mod"], cwd=repo).stdout
-    _, root_reqs, _ = parse_gomod(root_gomod)
-    root_aikit = root_reqs.get(AIKIT_MODULE)
     errs = check_gomod(root_gomod, "go.mod", expected_mod=ROOT_MODULE, is_root=True)
     if errs:
         raise PrepError("\n".join(errs))
@@ -452,7 +442,7 @@ def cmd_prep(args: argparse.Namespace) -> int:
             run(["go", "mod", "tidy"], cwd=mdir, env=env)
             run(["go", "mod", "verify"], cwd=mdir, env=env)
 
-            errs.extend(check_gomod((mdir / "go.mod").read_text(encoding="utf-8"), f"{m}/go.mod", expected_mod=spec.module_path, root_ver=args.version, expected_aikit=root_aikit))
+            errs.extend(check_gomod((mdir / "go.mod").read_text(encoding="utf-8"), f"{m}/go.mod", expected_mod=spec.module_path, root_ver=args.version))
             errs.extend(check_gosum((mdir / "go.sum").read_text(encoding="utf-8"), args.version, zip_sum, mod_sum, f"{m}/go.sum"))
             if not args.skip_build:
                 targs = ["-tags", spec.build_tags] if spec.build_tags else []
@@ -512,8 +502,6 @@ def cmd_check(args: argparse.Namespace) -> int:
         errs.append(f"files outside selected submodule go.mod/go.sum changed between --base ({base_sha[:12]}) and {rev_sha[:12]}: {', '.join(unexpected[:5])}")
 
     root_gomod = run(["git", "show", f"{rev_sha}:go.mod"], cwd=repo).stdout
-    _, root_reqs, _ = parse_gomod(root_gomod)
-    root_aikit = root_reqs.get(AIKIT_MODULE)
     errs.extend(check_gomod(root_gomod, "go.mod", expected_mod=ROOT_MODULE, is_root=True))
 
     zip_sum = mod_sum = None
@@ -534,7 +522,7 @@ def cmd_check(args: argparse.Namespace) -> int:
         spec = SUBMODULES[m]
         gm = run(["git", "show", f"{rev_sha}:{m}/go.mod"], cwd=repo).stdout
         gs = run(["git", "show", f"{rev_sha}:{m}/go.sum"], cwd=repo).stdout
-        errs.extend(check_gomod(gm, f"{m}/go.mod@{rev_sha[:12]}", expected_mod=spec.module_path, root_ver=args.version, expected_aikit=root_aikit))
+        errs.extend(check_gomod(gm, f"{m}/go.mod@{rev_sha[:12]}", expected_mod=spec.module_path, root_ver=args.version))
         if zip_sum and mod_sum:
             errs.extend(check_gosum(gs, args.version, zip_sum, mod_sum, f"{m}/go.sum@{rev_sha[:12]}"))
         elif f"{ROOT_MODULE} {args.version} h1:" not in gs or f"{ROOT_MODULE} {args.version}/go.mod h1:" not in gs:

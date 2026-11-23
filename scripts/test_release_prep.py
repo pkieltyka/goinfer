@@ -34,17 +34,17 @@ class TestReleasePrep(unittest.TestCase):
             with self.assertRaises(rp.PrepError):
                 rp.validate_semver(bad)
 
-        good_root = f"module {rp.ROOT_MODULE}\n\ngo 1.27.0\n\nrequire {rp.AIKIT_MODULE} v1.79.0\n"
+        good_root = f"module {rp.ROOT_MODULE}\n\ngo 1.27.0\n"
         self.assertEqual(rp.check_gomod(good_root, "go.mod", expected_mod=rp.ROOT_MODULE, is_root=True), [])
 
         bad_rep = f"module {rp.ROOT_MODULE}/backend/cuda\n\ngo 1.27.0\n\nrequire {rp.ROOT_MODULE} v0.6.2\nreplace {rp.ROOT_MODULE} => ../..\n"
         self.assertTrue(any("replace" in e for e in rp.check_gomod(bad_rep, "cuda", expected_mod=f"{rp.ROOT_MODULE}/backend/cuda", root_ver="v0.6.2")))
 
-        bad_cycle = f"module {rp.ROOT_MODULE}\n\ngo 1.27.0\n\nrequire (\n\t{rp.AIKIT_MODULE} v1.79.0\n\t{rp.ROOT_MODULE}/backend/vulkan v0.6.2\n)\n"
+        bad_cycle = f"module {rp.ROOT_MODULE}\n\ngo 1.27.0\n\nrequire (\n\t{rp.ROOT_MODULE}/backend/vulkan v0.6.2\n)\n"
         self.assertTrue(any("must not require" in e for e in rp.check_gomod(bad_cycle, "go.mod", expected_mod=rp.ROOT_MODULE, is_root=True)))
 
-        bad_aikit = f"module {rp.ROOT_MODULE}/backend/vulkan\n\ngo 1.27.0\n\nrequire (\n\t{rp.AIKIT_MODULE} v1.78.0\n\t{rp.ROOT_MODULE} v0.6.2\n)\n"
-        self.assertTrue(any("disagrees" in e for e in rp.check_gomod(bad_aikit, "vk", expected_mod=f"{rp.ROOT_MODULE}/backend/vulkan", root_ver="v0.6.2", expected_aikit="v1.79.0")))
+        bad_retired = f"module {rp.ROOT_MODULE}/backend/vulkan\n\ngo 1.27.0\n\nrequire (\n\t{rp.RETIRED_MODULES[1]}/gpu v1.78.0\n\t{rp.ROOT_MODULE} v0.6.2\n)\n"
+        self.assertTrue(any("retired module requirement" in e for e in rp.check_gomod(bad_retired, "vk", expected_mod=f"{rp.ROOT_MODULE}/backend/vulkan", root_ver="v0.6.2")))
 
         # GitHub Actions skips tag push events when >3 tags are pushed together.
         self.assertEqual(
@@ -84,15 +84,8 @@ class TestReleasePrep(unittest.TestCase):
     def test_single_commit_prep_and_guards(self):
         tmp = Path(tempfile.mkdtemp(prefix="goinfer-rp-lean-"))
         try:
-            # Stage a tiny fake aikit v1.79.0 in a local download cache so prep runs 100% offline.
             fake_dl = tmp / "fake-cache" / "cache" / "download"
-            aikit_vdir = fake_dl / rp.AIKIT_MODULE / "@v"
-            aikit_vdir.mkdir(parents=True)
-            (aikit_vdir / "list").write_text("v1.79.0\n", encoding="utf-8")
-            (aikit_vdir / "v1.79.0.info").write_text('{"Version":"v1.79.0","Time":"2026-11-22T00:00:00Z"}\n', encoding="utf-8")
-            aikit_mod = f"module {rp.AIKIT_MODULE}\n\ngo 1.27.0\n"
-            (aikit_vdir / "v1.79.0.mod").write_text(aikit_mod, encoding="utf-8")
-            _write_zip(aikit_vdir / "v1.79.0.zip", f"{rp.AIKIT_MODULE}@v1.79.0", {"go.mod": aikit_mod, "aikit.go": 'package aikit\nconst Ver = "v1.79.0"\n'})
+            fake_dl.mkdir(parents=True)
 
             # Build synthetic 4-module git repo (root + cuda + vulkan + metal).
             repo = tmp / "repo"
@@ -100,8 +93,8 @@ class TestReleasePrep(unittest.TestCase):
             _git(repo, "init", "-b", "main")
             _git(repo, "config", "user.name", "Test")
             _git(repo, "config", "user.email", "t@example.com")
-            root_mod = f"module {rp.ROOT_MODULE}\n\ngo 1.27.0\n\nrequire {rp.AIKIT_MODULE} v1.79.0\n"
-            root_api = f'package embeddinggemma2\nimport "{rp.AIKIT_MODULE}"\nfunc Mark() string {{ return aikit.Ver }}\n'
+            root_mod = f"module {rp.ROOT_MODULE}\n\ngo 1.27.0\n"
+            root_api = 'package embeddinggemma2\nfunc Mark() string { return "original" }\n'
             (repo / "go.mod").write_text(root_mod, encoding="utf-8")
             (repo / "embeddinggemma2").mkdir()
             (repo / "embeddinggemma2" / "api.go").write_text(root_api, encoding="utf-8")
@@ -112,7 +105,7 @@ class TestReleasePrep(unittest.TestCase):
             ]:
                 d = repo / rel
                 d.mkdir(parents=True)
-                (d / "go.mod").write_text(f"module {rp.ROOT_MODULE}/{rel}\n\ngo 1.27.0\n\nrequire (\n\t{rp.AIKIT_MODULE} v1.79.0\n\t{rp.ROOT_MODULE} v0.6.1\n)\n", encoding="utf-8")
+                (d / "go.mod").write_text(f"module {rp.ROOT_MODULE}/{rel}\n\ngo 1.27.0\n\nrequire (\n\t{rp.ROOT_MODULE} v0.6.1\n)\n", encoding="utf-8")
                 (d / "mod.go").write_text(f'{body_hdr}\nimport "{rp.ROOT_MODULE}/embeddinggemma2"\nfunc M() string {{ return embeddinggemma2.Mark() }}\n', encoding="utf-8")
             _git(repo, "add", "go.mod", "embeddinggemma2/api.go", "backend/cuda", "backend/vulkan", "backend/metal")
             _git(repo, "commit", "-m", "base root release content")
