@@ -381,8 +381,6 @@ func newEG2AccelConfigured(m *embeddinggemma2.Model, combined bool, fp16PTX, pac
 	}
 	a := &eg2Accel{ops: ops, cfg: c, model: m}
 	if err := ops.do(func() error {
-		adapter, capabilityErr := gpu.AttachedAdapter(ops.dev)
-		a.identity = cudaDeviceInfo(adapter)
 		if len(fusionPTX) != 0 {
 			fusions, err := loadEG2Fusions(ops.dev, fusionPTX)
 			if err != nil {
@@ -390,6 +388,8 @@ func newEG2AccelConfigured(m *embeddinggemma2.Model, combined bool, fp16PTX, pac
 			}
 			a.fusions = fusions
 		}
+		adapter, capabilityErr := gpu.AttachedAdapter(ops.dev)
+		a.identity = cudaDeviceInfo(adapter)
 		if len(fp16PTX) != 0 {
 			p, err := eg2FP16Pipeline(ops.dev, fp16PTX, a.identity.ComputeCapability, capabilityErr)
 			if err != nil {
