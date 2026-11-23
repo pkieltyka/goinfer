@@ -17,6 +17,18 @@ any surface may still change.
 
 Each unreleased change is a file in [`changelog.d/`](changelog.d/), collected into the release's section when it is tagged (`scripts/changelog.py release`).
 
+## [v0.6.5] — 2026-11-23
+
+### Changed
+
+- **The inference model core is now part of this module.** The CPU tensor, memory-mapping, weight-reader and serving-encoder packages goinfer requires moved into the private root `internal/modelcore`, retaining the MIT notice and identifying the v1.79.0 sources. The root module no longer requires `github.com/pkieltyka/aikit`, and the CUDA and Vulkan module pins move to this root. The nominal-type migration is in the experimental extension surface; the sealed stable (Hard-tier) API baseline passed, so the stable API is unchanged. [#72](https://github.com/pkieltyka/goinfer/pull/72), [#73](https://github.com/pkieltyka/goinfer/pull/73)
+- **Decoder settings are read once, on first use.** The eight decoder environment settings are parsed lazily at the first decoder use instead of at package initialization, with the same names, defaults and parsing. The Linux amd64 and arm64 release importers have zero direct decoder-initialization environment reads. [#70](https://github.com/pkieltyka/goinfer/issues/70), [#72](https://github.com/pkieltyka/goinfer/pull/72)
+- **Historical measurement tooling runs from this tree.** Active references to the former external checkouts are retired; runnable launchers build from this tree or cite their original recipe at an immutable revision. [#71](https://github.com/pkieltyka/goinfer/issues/71)
+
+### Verification
+
+This release covers the root, CUDA and Vulkan modules. Metal is outside the module tag set, as in v0.6.4. [Verification record](docs/releases/v0.6.5-verification.md)
+
 ## [v0.6.4] — 2026-11-23
 
 ### Changed

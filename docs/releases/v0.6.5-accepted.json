@@ -1,0 +1,63 @@
+{
+  "schema": 1,
+  "release": "v0.6.5",
+  "scope": ["root", "backend/cuda", "backend/vulkan"],
+  "source_commit": "f784b9da606ff3db6aa5b7fb7183dd9548ae53e7",
+  "decision": "Peter approved publishing v0.6.5 for the root, backend/cuda and backend/vulkan once source-tip CI and the release checksum checks pass, deferring only the full CUDA and Metal device suites, the broad parity sweep, the Linux and Darwin quick -full runs, the Intel SDE suite and the previous-tag cold-user run. The standalone-module graph and exact-CI rows are required and are not deferred. The final release pin commit takes its exact CI through a workflow dispatch on a staging ref and is published atomically to main and the three tags. Metal is outside the tag set; C3 is on the post-tag queue.",
+  "accepted_by": "Peter",
+  "accepted_on": "2026-11-23",
+  "required": [
+    "row 2: standalone modules exclude retired dependencies, re-read at the final pin commit",
+    "row 10: CI green at the source tip f784b9da",
+    "release checksum checks: release_prep.py check --verify-sum at the final pin commit",
+    "exact final-pin CI through a workflow dispatch on the staging ref"
+  ],
+  "accepted": [],
+  "owner_decisions": [
+    {
+      "row": 3,
+      "gate": "Previous-tag cold-user report",
+      "item": "Cold-user qualification on v0.6.4",
+      "candidate_record": null,
+      "evidence": "No committed record names v0.6.4. Deferred by the owner decision of 2026-11-23; see docs/releases/v0.6.5-verification.md.",
+      "accepted_by": "Peter",
+      "accepted_on": "2026-11-23"
+    },
+    {
+      "row": 4,
+      "gate": "Full CUDA and Metal device suites",
+      "item": "Full device qualification on both backends",
+      "candidate_record": null,
+      "evidence": "The newest CUDA and Metal records are from ccdfb3ad. The release is scoped to root/CUDA/Vulkan; Metal is outside the tag set and C3 is post-tag. See docs/releases/v0.6.5-verification.md.",
+      "accepted_by": "Peter",
+      "accepted_on": "2026-11-23"
+    },
+    {
+      "row": 11,
+      "gate": "Broad parity sweep",
+      "item": "Full parity qualification",
+      "candidate_record": null,
+      "evidence": "The newest parity record is from ccdfb3ad. The broad sweep is deferred by the owner decision of 2026-11-23; see docs/releases/v0.6.5-verification.md.",
+      "accepted_by": "Peter",
+      "accepted_on": "2026-11-23"
+    },
+    {
+      "row": 12,
+      "gate": "Linux and Darwin quick -full",
+      "item": "Full deferred-test suite on both systems",
+      "candidate_record": null,
+      "evidence": "The Linux record is at 6df55538 and the Darwin record at ccdfb3ad. Both are deferred by the owner decision of 2026-11-23; see docs/releases/v0.6.5-verification.md.",
+      "accepted_by": "Peter",
+      "accepted_on": "2026-11-23"
+    },
+    {
+      "row": null,
+      "gate": "Intel SDE CPU model-core suite",
+      "item": "Haswell, Ice Lake and Sapphire Rapids runs",
+      "candidate_record": null,
+      "evidence": "The suite is required by RELEASING.md pre-flight item 10 because the model core and decoder changed. It is not one of the twelve gate rows and is deferred by the owner decision of 2026-11-23; see docs/releases/v0.6.5-verification.md.",
+      "accepted_by": "Peter",
+      "accepted_on": "2026-11-23"
+    }
+  ]
+}
