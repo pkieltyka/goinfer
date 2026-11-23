@@ -118,7 +118,7 @@ func (d DeviceInfo) RunnableSelectors() []string {
 	accelMu.Lock()
 	candidates := make(map[string]func(DeviceInfo) bool)
 	for name, factory := range selectedAccels {
-		if factory.backend == d.Backend && factory.open != nil && factory.supports != nil {
+		if name != "" && factory.backend == d.Backend && factory.open != nil && factory.supports != nil {
 			candidates[name] = factory.supports
 		}
 	}

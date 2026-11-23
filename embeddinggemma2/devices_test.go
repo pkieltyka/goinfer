@@ -125,7 +125,7 @@ func TestDeviceRunnableSelectors(t *testing.T) {
 	t.Cleanup(func() {
 		accelMu.Lock()
 		defer accelMu.Unlock()
-		for _, name := range []string{first, last, legacy, denied, nilOpen, other} {
+		for _, name := range []string{"", first, last, legacy, denied, nilOpen, other} {
 			delete(selectedAccels, name)
 		}
 	})
@@ -138,6 +138,10 @@ func TestDeviceRunnableSelectors(t *testing.T) {
 		calls++
 		return d.ComputeCapability.Major >= 8 && slices.Contains(DeviceSelectors(backend), first)
 	}
+	RegisterDeviceAcceleratorWithSupport("", backend, open, func(DeviceInfo) bool {
+		t.Error("empty selector name ran a predicate")
+		return true
+	})
 	RegisterDeviceAcceleratorWithSupport(last, backend, open, supports)
 	RegisterDeviceAcceleratorWithSupport(first, backend, open, supports)
 	RegisterDeviceAccelerator(legacy, backend, open)
@@ -167,7 +171,7 @@ func TestDeviceRunnableSelectors(t *testing.T) {
 	if next := d.RunnableSelectors(); !slices.Equal(next, []string{first, last}) {
 		t.Fatalf("caller changed later snapshot: %v", next)
 	}
-	if linked := DeviceSelectors(backend); !slices.Equal(linked, []string{first, denied, legacy, last}) {
+	if linked := DeviceSelectors(backend); !slices.Equal(linked, []string{"", first, denied, legacy, last}) {
 		t.Fatalf("linked selectors = %v", linked)
 	}
 	for _, id := range []string{"", "abc", "cuda:", "cuda::0", "cuda:12", "cuda:bad token", "metal:abc", d.Alias} {
