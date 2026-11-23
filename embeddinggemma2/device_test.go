@@ -7,15 +7,15 @@ import (
 )
 
 func TestDeviceErrorCategories(t *testing.T) {
-	categories := []error{ErrBackendUnavailable, ErrNoDevice, ErrAmbiguousDevice, ErrDeviceOutOfMemory}
-	for i, err := range categories {
+	categories := []error{ErrBackendUnavailable, ErrNoDevice, ErrAmbiguousDevice, ErrUnsupportedSelector, ErrDeviceOutOfMemory}
+	for _, err := range categories {
 		wrapped := fmt.Errorf("attach: %w", err)
-		if errors.Is(wrapped, ErrDeviceUnavailable) != (i != 3) {
+		if errors.Is(wrapped, ErrDeviceUnavailable) != (err != ErrDeviceOutOfMemory) {
 			t.Errorf("%v has the wrong umbrella category", wrapped)
 		}
-		for j, other := range categories {
-			if errors.Is(wrapped, other) != (i == j) {
-				t.Errorf("errors.Is(%v, %v) = %t", err, other, i != j)
+		for _, other := range categories {
+			if errors.Is(wrapped, other) != (err == other) {
+				t.Errorf("errors.Is(%v, %v) = %t", err, other, errors.Is(wrapped, other))
 			}
 		}
 	}

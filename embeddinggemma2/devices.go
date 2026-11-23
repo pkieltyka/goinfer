@@ -5,6 +5,8 @@ import (
 	"maps"
 	"slices"
 	"strings"
+
+	"github.com/pkieltyka/goinfer/internal/cudaid"
 )
 
 // MemoryKind describes how a device's memory is provisioned.
@@ -16,6 +18,12 @@ const (
 	MemoryShared                 // the device shares host memory
 )
 
+// CUDAComputeCapability is the native CUDA compute capability. A zero value
+// means the capability is unavailable or inapplicable.
+type CUDAComputeCapability struct {
+	Major, Minor int
+}
+
 // DeviceInfo describes one device a linked backend can attach.
 type DeviceInfo struct {
 	ID, Alias           string // backend-qualified; both empty when the device has no usable persistent identifier
@@ -25,6 +33,7 @@ type DeviceInfo struct {
 	MemoryKind          MemoryKind
 	Memory              DeviceMemory // total when known; available bytes when requested and supported
 	TextBatching        bool         // the default selector supports native EmbedIDsBatch
+	ComputeCapability   CUDAComputeCapability
 }
 
 // ProbeFailure records a device inventory error from one backend.
@@ -42,8 +51,9 @@ type AttachedDeviceReporter interface {
 var deviceProbes = map[string]func(ProbeOptions) ([]DeviceInfo, error){}
 
 type deviceFactory struct {
-	backend string
-	open    func(*Model, string) (Accelerator, error)
+	backend  string
+	open     func(*Model, string) (Accelerator, error)
+	supports func(DeviceInfo) bool
 }
 
 var selectedAccels = map[string]deviceFactory{}
@@ -81,9 +91,49 @@ func Devices(opts ProbeOptions) ([]DeviceInfo, []ProbeFailure) {
 // RegisterDeviceAccelerator registers selector as a kernel choice for explicit
 // devices of backend. The factory receives the part of the identifier after ':'.
 func RegisterDeviceAccelerator(selector, backend string, factory func(*Model, string) (Accelerator, error)) {
+	RegisterDeviceAcceleratorWithSupport(selector, backend, factory, nil)
+}
+
+// RegisterDeviceAcceleratorWithSupport also registers a hardware predicate for
+// RunnableSelectors. The predicate uses only the supplied inventory row and
+// must not probe the device or open an accelerator. A nil predicate leaves
+// eligibility unknown.
+func RegisterDeviceAcceleratorWithSupport(selector, backend string, factory func(*Model, string) (Accelerator, error), supports func(DeviceInfo) bool) {
 	accelMu.Lock()
 	defer accelMu.Unlock()
-	selectedAccels[selector] = deviceFactory{backend: backend, open: factory}
+	selectedAccels[selector] = deviceFactory{backend: backend, open: factory, supports: supports}
+}
+
+// RunnableSelectors returns a sorted, caller-owned list of linked selectors
+// whose hardware requirements this CUDA row satisfies for UseDevice(d.ID, name).
+// It returns nil for other backends and rows without a usable persistent ID
+// or verified hardware eligibility.
+// Attachment still checks device identity, model compatibility and memory fit.
+func (d DeviceInfo) RunnableSelectors() []string {
+	if d.Backend != "cuda" {
+		return nil
+	}
+	token, qualified := strings.CutPrefix(d.ID, "cuda:")
+	if !qualified || !cudaid.ValidUUID(token) || d.ID == d.Alias {
+		return nil
+	}
+	accelMu.Lock()
+	candidates := make(map[string]func(DeviceInfo) bool)
+	for name, factory := range selectedAccels {
+		if name != "" && factory.backend == d.Backend && factory.open != nil && factory.supports != nil {
+			candidates[name] = factory.supports
+		}
+	}
+	accelMu.Unlock()
+
+	var selectors []string
+	for name, supports := range candidates {
+		if supports(d) {
+			selectors = append(selectors, name)
+		}
+	}
+	slices.Sort(selectors)
+	return selectors
 }
 
 // DeviceSelectors lists the linked kernel selectors for explicit devices of

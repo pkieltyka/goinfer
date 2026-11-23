@@ -16,11 +16,10 @@ import (
 
 func probeCUDADevices(opts embeddinggemma2.ProbeOptions) ([]embeddinggemma2.DeviceInfo, error) {
 	adapters, err := gpu.Adapters()
-	rows, memoryErr := describeCUDADevices(adapters, opts, probeCUDADeviceMemory)
-	return rows, errors.Join(classifyCUDAAttach(err), memoryErr)
+	return describeCUDADevices(adapters, err, opts, probeCUDADeviceMemory)
 }
 
-func describeCUDADevices(adapters []gpu.Adapter, opts embeddinggemma2.ProbeOptions,
+func describeCUDADevices(adapters []gpu.Adapter, enumerateErr error, opts embeddinggemma2.ProbeOptions,
 	readMemory func(gpu.Adapter) (embeddinggemma2.DeviceMemory, error)) ([]embeddinggemma2.DeviceInfo, error) {
 	counts := make(map[string]int)
 	for _, adapter := range adapters {
@@ -28,11 +27,15 @@ func describeCUDADevices(adapters []gpu.Adapter, opts embeddinggemma2.ProbeOptio
 	}
 	var rows []embeddinggemma2.DeviceInfo
 	var failures []error
+	if enumerateErr != nil {
+		failures = append(failures, classifyCUDAAttach(enumerateErr))
+	}
 	for _, adapter := range adapters {
 		if !cudaEligible(adapter) {
 			continue
 		}
-		if counts[strings.ToLower(adapter.UUID)] > 1 {
+		// An omitted ordinal could conceal another adapter with this UUID.
+		if enumerateErr != nil || counts[strings.ToLower(adapter.UUID)] > 1 {
 			adapter.UUID = ""
 		}
 		row := cudaDeviceInfo(adapter)
@@ -52,8 +55,9 @@ func describeCUDADevices(adapters []gpu.Adapter, opts embeddinggemma2.ProbeOptio
 func cudaDeviceInfo(adapter gpu.Adapter) embeddinggemma2.DeviceInfo {
 	row := embeddinggemma2.DeviceInfo{
 		Backend: "cuda", Name: adapter.Name, VendorID: 0x10de,
-		Memory:       embeddinggemma2.DeviceMemory{TotalBytes: int64(min(adapter.TotalBytes, math.MaxInt64))},
-		TextBatching: true,
+		Memory:            embeddinggemma2.DeviceMemory{TotalBytes: int64(min(adapter.TotalBytes, math.MaxInt64))},
+		TextBatching:      true,
+		ComputeCapability: embeddinggemma2.CUDAComputeCapability{Major: adapter.Major, Minor: adapter.Minor},
 	}
 	if adapter.IntegratedKnown {
 		row.MemoryKind = embeddinggemma2.MemoryDedicated

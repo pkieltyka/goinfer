@@ -292,6 +292,24 @@ unchanged. A selector being listed does not guarantee the device can load a give
 Read the actual attached device through the accelerator's
 `embeddinggemma2.AttachedDeviceReporter` interface.
 
+Each CUDA row also carries the device's native compute capability in
+`ComputeCapability` (`Major`, `Minor`). The zero value means the capability is
+unavailable or inapplicable; CUDA majors are positive, so capability 8.0 has
+`Minor == 0`. `Devices` reads this from the driver without retaining a context;
+`IncludeMemory` still controls only the optional headroom probe.
+
+For an explicit device, call `device.RunnableSelectors()`. It returns the
+caller-owned, sorted selector names this API can affirmatively run on that row,
+or `nil` when it has no verified answer. Only CUDA supports the query in this
+release; every Vulkan, Metal or other row returns `nil`, even when the backend is
+linked, and registered Vulkan factories remain available through
+`DeviceSelectors` and `UseDevice`. A CUDA name is returned only when the row has
+a usable unique ID and a linked factory whose hardware predicate the capability
+satisfies. The query reads the row and the registry only; it makes no backend or
+device call. An empty or `nil` result is not a claim that the device cannot run
+anything. Use `DeviceSelectors(device.Backend)` for the separate linked-factory
+list, which includes third-party factories whose eligibility is unknown.
+
 For the opt-in FP16 CUDA path, link the CUDA package, build with
 `CGO_ENABLED=0` and `-tags 'cuda eg2_combined eg2_fp16'`, and call
 `encoder.UseDevice(device.ID, "cuda-eg2-fp16")`. The selector requires CUDA
@@ -300,6 +318,15 @@ projections use round-to-nearest-even FP16 operands with FP32 accumulation,
 attention runs packed variable-length three-term split-FP16 tiles over Q/K/V
 with FP32 accumulation, and the FFN and PLE GELU multiplications run in fused
 elementwise kernels. An out-of-range weight or activation returns an error.
+
+On an identified CUDA device that is otherwise eligible but below the
+selector's compute capability, `UseDevice` returns an error wrapping
+`embeddinggemma2.ErrUnsupportedSelector` (itself under
+`ErrDeviceUnavailable`); test it with `errors.Is`. A disappeared or remapped
+selected UUID remains `ErrNoDevice`, several matches remain
+`ErrAmbiguousDevice`, and a selector that is not linked remains
+`ErrBackendUnavailable`. `ErrUnsupportedSelector` is not a transient device
+failure.
 
 Keep both the build revision and the `cuda-eg2-fp16` selector fixed for
 embeddings that share an index. Earlier FFN-only builds used the same
