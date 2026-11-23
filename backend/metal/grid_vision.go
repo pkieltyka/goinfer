@@ -14,14 +14,13 @@ import (
 	"github.com/pkieltyka/goinfer/multimodal"
 )
 
-// The Qwen3.5+ and GLM-OCR vision towers on Metal: aikit's
-// ForwardViT up to the last block, in float32, from aikit's export (Weights, RopeTables, PositionEmbeds,
+// The Qwen3.5+ and GLM-OCR vision towers on Metal run the vision package's ForwardViT up to the last block, in float32, from the encoder's exported weights (Weights, RopeTables, PositionEmbeds,
 // VisionSegments). The patch embed and every block run here on the Gemma 4 tower's base (eg2Ops: f32 GEMM, RMSNorm,
-// rotate-half RoPE, blocked attention) plus aikit gpu.ViT's bias add, LayerNorm, GELU-tanh and SiLU-mul. The tail
-// (Qwen3: the merger; GLM-OCR: post-norm, downsample, merger) stays aikit's FinishHidden, on the host.
+// rotate-half RoPE, blocked attention) plus the device layer's ViT bias add, LayerNorm, GELU-tanh and SiLU-mul. The tail
+// (Qwen3: the merger; GLM-OCR: post-norm, downsample, merger) stays the vision package's FinishHidden, on the host.
 //
 // Both towers' blocks: biased fused qkv (split into three GEMMs at upload), 2-D RoPE (rotate-half over the full head,
-// aikit's own tables), attention scale 1/sqrt(head_dim) applied to q after RoPE, full attention within each image
+// the vision package's tables), attention scale 1/sqrt(head_dim) applied to q after RoPE, full attention within each image
 // frame (one eg2Ops.attention per segment), biased proj and residual, then the MLP and residual. Qwen3: LayerNorm with
 // bias, eps 1e-6, MLP fc1 -> GELU-tanh -> fc2, and the interpolated position rows added after the patch embed. GLM-OCR:
 // RMSNorm, eps rms_norm_eps, per-head RMSNorm of q and k before RoPE, MLP down(silu(gate)·up), no position table.
@@ -419,8 +418,8 @@ func maxSegment(segs []int) int {
 	return m
 }
 
-// stageRope uploads aikit's cos/sin [np, head_dim] tables. eg2_rope takes [T, hd/2]: the first half of each row, which is
-// the whole table (aikit's rows are cat(f, f)).
+// stageRope uploads the vision encoder's cos/sin [np, head_dim] tables. eg2_rope takes [T, hd/2]: the first half of each row, which is
+// the whole table (the rows are cat(f, f)).
 func (a *gridVAccel) stageRope(cos, sin []float32, np int) error {
 	hd := a.hd
 	if len(cos) != np*hd || len(sin) != np*hd {

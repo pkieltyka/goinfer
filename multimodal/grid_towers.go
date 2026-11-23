@@ -9,9 +9,9 @@ import (
 )
 
 // Device towers for the grid-based vision encoders, Qwen3.5+ and GLM-OCR,
-// on the pattern of the Gemma 4 registry (gemma4_tower.go): a backend module registers a tower built from aikit's export
+// on the pattern of the Gemma 4 registry (gemma4_tower.go): a backend module registers a tower built from the encoder's exported weights
 // (the encoder's Weights, RopeTables, VisionSegments) here, the tower runs the patch embed and the blocks on its
-// device, and the tail (Qwen3's merger; GLM-OCR's post-norm, downsample and merger) stays aikit's FinishHidden.
+// device, and the tail (Qwen3's merger; GLM-OCR's post-norm, downsample and merger) stays the vision package's FinishHidden.
 
 // GridTowerAccelerator runs a grid-based tower up to its last block on another device.
 type GridTowerAccelerator interface {
@@ -29,7 +29,7 @@ type GridTowerTapper interface {
 }
 
 // Qwen3TowerFeaturesDeepstack is Qwen3TowerFeatures for a DeepStack tower (Qwen3-VL): the merged rows and each
-// DeepStack set, from acc's taps through aikit's host tails (FinishHidden, DeepstackFromHidden), or aikit's CPU
+// DeepStack set, from acc's taps through the host tail methods (FinishHidden, DeepstackFromHidden), or the in-tree encoder's CPU
 // ForwardDeepstack when acc is nil. An accelerator that cannot tap is an error, not a silent loss of the sets.
 func Qwen3TowerFeaturesDeepstack(enc *vision.Qwen3VisionEncoder, acc GridTowerAccelerator, pixels []float32, gridTHW [][3]int) ([]float32, [][]float32, error) {
 	if acc == nil {
@@ -119,7 +119,7 @@ func NewQwen3Tower(name string, enc *vision.Qwen3VisionEncoder) (GridTowerAccele
 	return qwen3Towers.build("Qwen3.5", name, enc)
 }
 
-// Qwen3TowerFeatures runs the tower on acc (nil: aikit's CPU Forward) and aikit's tail: the merged image embeddings.
+// Qwen3TowerFeatures runs the tower on acc (nil: the CPU Forward) and the host tail: the merged image embeddings.
 func Qwen3TowerFeatures(enc *vision.Qwen3VisionEncoder, acc GridTowerAccelerator, pixels []float32, gridTHW [][3]int) ([]float32, error) {
 	if acc == nil {
 		return enc.Forward(pixels, gridTHW)
@@ -147,7 +147,7 @@ func NewGlmOcrTower(name string, enc *vision.GlmOcrVisionEncoder) (GridTowerAcce
 	return glmOcrTowers.build("GLM-OCR", name, enc)
 }
 
-// GlmOcrTowerFeatures runs the tower on acc (nil: aikit's CPU Forward) and aikit's tail: the merged image embeddings.
+// GlmOcrTowerFeatures runs the tower on acc (nil: the CPU Forward) and the host tail: the merged image embeddings.
 func GlmOcrTowerFeatures(enc *vision.GlmOcrVisionEncoder, acc GridTowerAccelerator, pixels []float32, gridTHW [][3]int) ([]float32, error) {
 	if acc == nil {
 		return enc.Forward(pixels, gridTHW)

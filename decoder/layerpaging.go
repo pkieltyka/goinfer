@@ -12,11 +12,11 @@ import (
 // layerPager streams a dense model's per-layer weights out of the read-only .giw mapping (docs/ideas-weight-memory.md,
 // idea #4). The layer loop is sequential and known in advance, so the pager prefetches the upcoming layer (Advise
 // WILLNEED) while the current one computes and releases (Advise DONTNEED) the layer that slides out the back of a
-// window. It is a windowed prefetch, not an LRU, so it does not use aikit/mmap.SpanCache; it borrows the span
+// window. It is a windowed prefetch, not an LRU, so it does not use internal/modelcore/mmap.SpanCache; it borrows the span
 // alignment (WeightMat.MappedSpan), the residency hint (mmap.Advise) and the RAM budget (mmap.AutoBudget). Resident
 // weight RAM is bounded to about window layers, so a dense model too big for RAM still runs; the floor is NVMe
 // bandwidth, since a model that does not fit is re-read about once per token. Bit-exact: the mapping is read-only and
-// file-backed, so a released layer re-faults with identical bytes (aikit's TestMadvise_dontneedRefaultsIntact).
+// file-backed, so a released layer re-faults with identical bytes (the model core's TestMadvise_dontneedRefaultsIntact).
 //
 // The resident floor is not zero: only the 7 per-layer projections stream. The token embedding, final norm and LM head
 // stay resident, plus the live window, so "bigger than RAM" means bounded to floor + window.

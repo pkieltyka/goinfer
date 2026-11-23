@@ -12,10 +12,10 @@ import (
 	"github.com/pkieltyka/goinfer/multimodal"
 )
 
-// The Gemma 4 vision tower on CUDA: aikit's Gemma4Encoder.Forward up to
-// its pool, in float32, from aikit's export (Gemma4Encoder.Weights), on the CUDA tower base (tower_base.go). The patch
-// embed and the layers run here; the pool and the projection after them stay aikit's (FinishHidden), on the host. The
-// port of metal/gemma4_vision.go: the same ops in the same order, with aikit's bidirectional attention kernel (scale
+// The Gemma 4 vision tower on CUDA runs vision.Gemma4Encoder.Forward up to
+// its pool, in float32, from the encoder's exported weights (Gemma4Encoder.Weights), on the CUDA tower base (tower_base.go). The patch
+// embed and the layers run here; the pool and the projection after them stay on the host (FinishHidden). The
+// port of metal/gemma4_vision.go: the same ops in the same order, with the in-tree bidirectional attention kernel (scale
 // 1.0, one head per KV head, no window) in place of Metal's matmul-blocked attention. Registered as multimodal's "cuda"
 // Gemma 4 tower.
 
@@ -123,7 +123,7 @@ func (a *g4Tower) proj(x Buffer, p *g4Proj, out, cp Buffer, rows int) {
 	}
 }
 
-// Hidden runs the patch embed and every layer (multimodal.Gemma4TowerAccelerator): the last layer's output, [np, hidden], for aikit's FinishHidden.
+// Hidden runs the patch embed and every layer (multimodal.Gemma4TowerAccelerator): the last layer's output, [np, hidden], for vision.FinishHidden.
 func (a *g4Tower) Hidden(patches []float32, pos [][2]int) ([]float32, error) {
 	a.mu.Lock()
 	defer a.mu.Unlock()

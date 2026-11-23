@@ -53,7 +53,7 @@ func quantizeHeads(src []float32, q []int8, scales []float32, nKV, headDim int) 
 
 // dequantHeads expands one position's int8 KV (nKV head-rows of headDim, one scale per KV head) into f32 dst: the inverse of
 // quantizeHeads, for the batched prefill's dequant-into-scratch (the f32 matmul kernels stay unchanged). The arithmetic lives in
-// aikit (linalg.DequantizeRowsInt8Into); this is the argument order goinfer's call sites use.
+// the model core (linalg.DequantizeRowsInt8Into); this is the argument order goinfer's call sites use.
 func dequantHeads(q []int8, scales []float32, nKV, headDim int, dst []float32) {
 	linalg.DequantizeRowsInt8Into(dst, q, scales, nKV, headDim)
 }

@@ -63,7 +63,7 @@ func (g *gemma4Audio) close() {
 	g.enc = nil
 }
 
-// encoder is the audio tower, loaded on the first clip (aikit's gemma4_audio, CPU, float32). name is the entry's, for
+// encoder is the audio tower, loaded on the first clip (gemma4_audio, CPU, float32). name is the entry's, for
 // the load line.
 func (g *gemma4Audio) encoder(name string) (*audio.Gemma4AudioEncoder, error) {
 	g.once.Do(func() {
@@ -84,8 +84,8 @@ func (g *gemma4Audio) encoder(name string) (*audio.Gemma4AudioEncoder, error) {
 	return g.enc, g.err
 }
 
-// forward is the audio tower: the conformer blocks on the accelerator when there is one between aikit's Subsample and
-// FinishBlocks on the host; otherwise aikit's CPU Forward.
+// forward is the audio tower: the conformer blocks on the accelerator when there is one between the audio encoder's Subsample and
+// FinishBlocks on the host; otherwise the CPU Forward.
 func (g *gemma4Audio) forward(enc *audio.Gemma4AudioEncoder, mel []float32, T int) ([]float32, error) {
 	if g.acc == nil {
 		return enc.Forward(mel, T)
@@ -109,7 +109,7 @@ const gemma4AudioMaxSoftTokens = 750
 const gemma4AudioMaxSeconds = 30
 
 // clipPrompt is the Gemma 4 audio path: the WAV (16-bit PCM at any rate, 1-8 channels, downmixed and resampled to 16
-// kHz mono by resample_poly's filter) through aikit's log-mel and the audio tower (embed_audio baked in) -> the prompt
+// kHz mono by resample_poly's filter) through the audio package's log-mel and the audio tower (embed_audio baked in) -> the prompt
 // with the audio block, <|audio> + n x <|audio|> + <audio|>, before turns[idx]'s text, as HF's processor writes it (no
 // newline on either side). The run is generated through GenerateGemma4VL, which splices any media run the same way: rows
 // unscaled, PAD for PLE's token-identity term.
@@ -178,7 +178,7 @@ func (q *qwenASRAudio) prompt(lm *loadedModel, _ *chat.Template, system string, 
 	return q.clipPrompt(lm, system, clip)
 }
 
-// close releases the encoder, which keeps its checkpoint mapped until Close (aikit embed.SafetensorsFile.Close).
+// close releases the encoder, which keeps its checkpoint mapped until Close (embed.SafetensorsFile.Close).
 func (q *qwenASRAudio) close() {
 	if q.enc != nil {
 		_ = closeAudioEncoder("qwenASR", q.enc)
@@ -190,7 +190,7 @@ func (q *qwenASRAudio) close() {
 // clip over it is refused rather than cut.
 const qwenASRMaxSeconds = 600
 
-// encoder is the Qwen3-ASR audio encoder and projector, loaded on the first clip (aikit's, CPU, float32).
+// encoder is the Qwen3-ASR audio encoder and projector, loaded on the first clip (CPU, float32).
 func (q *qwenASRAudio) encoder() (*audio.QwenASREncoder, error) {
 	q.once.Do(func() { q.enc, q.err = audio.LoadQwenASREncoder(q.dir) })
 	return q.enc, q.err
@@ -268,7 +268,7 @@ func (v *voxtralAudio) close() {
 // refused rather than cut.
 const voxtralMaxSeconds = 600
 
-// encoder is Voxtral's audio tower and projector (aikit's, CPU, float32), loaded on the first clip. name is the entry's,
+// encoder is Voxtral's audio tower and projector (CPU, float32), loaded on the first clip. name is the entry's,
 // for the load line.
 func (v *voxtralAudio) encoder(name string) (*audio.VoxtralAudio, error) {
 	v.once.Do(func() {

@@ -437,8 +437,8 @@ func loadWeights(dir string, o weightLoadOpts) (*Weights, error) {
 // mmapAliasRisk reports the first tensor whose dtype could leave a slice ALIASING the mapping,
 // or "" when none can and the source is therefore safe to close at end of load.
 //
-// The rule comes from aikit's reader, not from inspection of checkpoints. BF16 and F16 are widened
-// into a fresh slice by TensorF32/SubF32 — aikit's own comment: "the result then does not alias the
+// The rule comes from the model-file reader, not from inspection of checkpoints. BF16 and F16 are widened
+// into a fresh slice by TensorF32/SubF32 — the reader's contract: "the result then does not alias the
 // file". Every other dtype is served by reinterpretLE, which takes a "zero-copy view" whenever the
 // payload is aligned, and alignment is the common case. So a checkpoint of BF16/F16 tensors leaves
 // nothing pointing into the mapping, and any other dtype might.
@@ -1404,7 +1404,7 @@ func streamExperts(t embed.Tensor, nExpert, rows, cols int, quant quantMode, nee
 	return out, nil
 }
 
-// loadMat loads + shape-validates a [rows, cols] matrix (via the aikit
+// loadMat loads + shape-validates a [rows, cols] matrix (via the model core's
 // embed.SafetensorsFile.TensorF32 typed read — F32/BF16/F16 dispatch + shape
 // check) and wraps it as a (f32) linalg.WeightMat ready for matmul/quantization.
 func loadMat(st *embed.SafetensorsFile, name string, rows, cols int) (linalg.WeightMat, error) {

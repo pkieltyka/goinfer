@@ -61,7 +61,7 @@ const (
 	// Gemma4Bicubic is the reference processor's resize (torchvision's antialiased bicubic on uint8, resample=3,
 	// ResizeBicubicAA), skipped when the image is already at its target size, as the processor skips it. The default.
 	Gemma4Bicubic Gemma4Resize = iota
-	// Gemma4Bilinear is aikit's bilinear resize, Gemma4Preprocess's only one before v1.58.0.
+	// Gemma4Bilinear is the original bilinear resize used by Gemma4Preprocess before upstream v1.58.0.
 	Gemma4Bilinear
 )
 

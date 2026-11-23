@@ -16,7 +16,7 @@ import (
 // expertPager bounds the resident RAM of a MoE model's expert weights by paging them on demand out of the read-only.
 // giw mapping (docs/ideas-weight-memory.md). The router's top-k selection is the demand signal: a 35B-A3B holds ~32 GB
 // of experts but activates only K*L per token. The generic span-residency pager (touch faults in with WILLNEED, eviction
-// over budget releases with DONTNEED) lives in aikit/mmap.SpanCache, which this pager runs with the frequency-aware
+// over budget releases with DONTNEED) lives in internal/modelcore/mmap.SpanCache, which this pager runs with the frequency-aware
 // EvictLeastRecent policy (newExpertPager). This type holds the MoE-specific half: which experts alias the mapping and
 // the touch hook the router calls (moeMLP in mlp.go for [NumExperts]expertWeights families, gemma4MoEFFN for gemma4's
 // fused gate||up + down experts). Releasing is lossless: the mapping is read-only and file-backed, so an evicted expert
@@ -149,7 +149,7 @@ func mappedExpertBytes(w *Weights, mapping []byte) (total, maxExpert int64, n in
 	return total, maxExpert, n
 }
 
-// pagerBudget is the byte budget a pager over total expert bytes takes when asked for budget: the request, or aikit's auto
+// pagerBudget is the byte budget a pager over total expert bytes takes when asked for budget: the request, or the model core's auto
 // budget when it is 0, never more than exists and never less than one expert.
 func pagerBudget(budget, total, maxExpert int64) int64 {
 	if budget <= 0 {
@@ -233,7 +233,7 @@ func newExpertPager(w *Weights, mapping []byte, budget int64, giwPath string, po
 	}
 	// Frequency-aware (classic LRU tail) eviction: the router's demand is skewed frequency, not a scan, so the hot set must
 	// stay resident. SpanCache's default is scan-resistant (evict-most-recent), right for a cyclic scan but evicting exactly
-	// the hot experts here; EvictLeastRecent restores it (aikit mmap.EvictPolicy).
+	// the hot experts here; EvictLeastRecent restores it (mmap.EvictPolicy).
 	cache := mmap.NewSpanCacheWithPolicy[unsafe.Pointer](budget, mmap.EvictLeastRecent)
 	for _, m := range members {
 		cache.Add(m.key, m.spans)

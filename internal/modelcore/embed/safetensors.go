@@ -596,7 +596,7 @@ func (t Tensor) Float32s() ([]float32, error) {
 // WHY THIS EXISTS. Block-quantized formats increasingly ship their payload as U8
 // tensors that only the consumer knows how to interpret: MXFP4 in safetensors, for
 // instance, stores packed 4-bit codes in a `*_blocks` U8 tensor and their E8M0
-// exponents in a separate `*_scales` U8 tensor. There is no meaningful "decode" aikit
+// exponents in a separate `*_scales` U8 tensor. There is no meaningful "decode" the reader
 // could apply — the layout is the caller's — so the honest accessor is the bytes
 // themselves rather than a typed one that would have to guess.
 //
@@ -605,7 +605,7 @@ func (t Tensor) Float32s() ([]float32, error) {
 // to reimplement reinterpretLE badly; those dtypes already have typed accessors.
 //
 // The fp8 dtypes belong here for exactly that reason, not as an exception to it. F8_E4M3
-// and F8_E5M2 are one byte per element, so there is no endianness to get wrong, and aikit
+// and F8_E5M2 are one byte per element, so there is no endianness to get wrong, and the reader
 // cannot offer a typed accessor without choosing a decode convention the CALLER owns: the
 // checkpoints that use them (DeepSeek V3/V4, Qwen3-FP8) keep the scales in a SEPARATE
 // tensor over 2-D blocks (`*.weight_scale_inv`, block 128x128), so a lone fp8 tensor does
@@ -878,7 +878,7 @@ func halfBitsToF32(h uint16) float32 {
 	return math.Float32frombits(bits)
 }
 
-// dtypeSize returns the byte width of a safetensors dtype and whether aikit
+// dtypeSize returns the byte width of a safetensors dtype and whether the reader
 // knows it. Only the dtypes the typed accessors decode are sized; anything else
 // (I8/U8/BOOL/F8_*, …) is reported unknown, so parseSafetensors skips the
 // shape×dtype byte-range check for it — the typed accessors reject it at read

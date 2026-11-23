@@ -12,18 +12,18 @@ import (
 
 // Qwen2.5-VL's vision tower in float32 on the CUDA tower base: the port
 // of metal/vl_towers.go's qwen25VResident, replacing aikit's gpu/qwencuda (unfused attention, and an allocation that
-// failed beside the decoder at serve's defaults). Everything positional comes from aikit's own exports, not a
+// failed beside the decoder at serve's defaults). Everything positional comes from the vision encoder's exports, not a
 // reimplementation:
 // BuildWindowPlan gives the window permutation, both segmentations and the RoPE tables in window order; the pixel rows are permuted into window order before the patch embed (a per-row matmul, so this equals permuting
-// its output), each block attends per window except the full-attention blocks (per frame), and the result is permuted back to the original patch order; the merger (MergeHidden) stays aikit's, on the host, where Forward calls it.
-// Block: RMSNorm (eps 1e-6, aikit's rmsNorm), biased q/k/v from the fused qkv split at upload, NeoX rotate-half RoPE, attention at scale 1/sqrt(head_dim) through the fused kernel (tower_base.cu), biased proj and residual,
+// its output), each block attends per window except the full-attention blocks (per frame), and the result is permuted back to the original patch order; MergeHidden stays with the vision encoder, on the host, where Forward calls it.
+// Block: RMSNorm (eps 1e-6, the vision encoder's rmsNorm), biased q/k/v from the fused qkv split at upload, NeoX rotate-half RoPE, attention at scale 1/sqrt(head_dim) through the fused kernel (tower_base.cu), biased proj and residual,
 // RMSNorm, the SiLU-gated biased MLP, residual. Float32 only: an int8-loaded encoder declines, as Metal's does.
 
 func init() {
 	vision.RegisterQwenResident(func(enc *vision.QwenVisionEncoder) (vision.QwenResidentEncoder, error) {
 		return newQwen25Tower(enc)
 	})
-	multimodal.MarkResidentTower(multimodal.TowerQwen25VL, "cuda") // aikit's slot cannot be asked what is registered
+	multimodal.MarkResidentTower(multimodal.TowerQwen25VL, "cuda") // the vision registration slot cannot be asked what is registered
 }
 
 type qwen25Tower struct {
@@ -46,7 +46,7 @@ func newQwen25Tower(enc *vision.QwenVisionEncoder) (*qwen25Tower, error) {
 	// register-blocked kernel. The extra gate and up rows and bias entries are zero, so silu(0) * 0 = 0 exactly and the
 	// padded columns of down add nothing: the arithmetic is the unpadded tower's.
 	inter := (w.Inter + 63) / 64 * 64
-	g, err := newGridTower(gridQwen25, w.Hidden, inter, w.NumHeads, w.PatchDim, 1e-6) // aikit's rmsNorm: eps 1e-6
+	g, err := newGridTower(gridQwen25, w.Hidden, inter, w.NumHeads, w.PatchDim, 1e-6) // the vision encoder's rmsNorm: eps 1e-6
 	if err != nil {
 		return nil, err
 	}

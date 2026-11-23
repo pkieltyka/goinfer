@@ -1,6 +1,6 @@
 //go:build linux
 
-// cuda.go is the CUDA half of aikit's cgo-free GPU device substrate — the Linux
+// cuda.go is the cgo-free CUDA device layer — the Linux
 // mirror of metal.go (docs/task-native-gpu.md, Phase 1b). It presents the SAME
 // vocabulary as the Metal impl — Device / Buffer / Queue / Pipeline / Encoder,
 // CreateSystemDefaultDevice, NewBuffer*, Run1D, Begin/Dispatch/End, and the
@@ -9,7 +9,7 @@
 // exclusive (darwin vs linux), so the shared type names never collide.
 //
 // It is a thin wrapper over github.com/eitamring/gocudrv, which dlopens libcuda
-// and is cgo-free by construction (CGO_ENABLED=0 throughout). No aikit imports —
+// and is cgo-free by construction (CGO_ENABLED=0 throughout). The device package is self-contained —
 // the device layer stays ann-free, exactly like metal.go.
 //
 // # Three places the CUDA surface deliberately diverges from Metal
@@ -1132,8 +1132,7 @@ func ReadToHost[T Scalar](b Buffer, dst *HostBuffer[T]) error {
 // path does not: kernels that take scalars positionally between buffers, geometry
 // the author picks by hand (including dynamic shared memory), and a launch-many-
 // then-sync-at-a-boundary model rather than a sync per call. Run1D / Run1DBatch /
-// Encoder above stay as they are — they are the right ergonomics for aikit's own
-// consumers, and they are built on this same machinery.
+// Encoder use the same machinery for consumers that prefer the simpler launch interface.
 //
 // The design constraint is that a consumer can express its whole decode loop
 // importing ONLY this package: no gocudrv type appears in any signature here.

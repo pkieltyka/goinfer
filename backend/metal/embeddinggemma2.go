@@ -15,7 +15,7 @@ import (
 
 // EmbeddingGemma 2's text encoder on Metal: the CPU forward of
 // embeddinggemma2/model.go in float32 on the GPU, one command buffer per input. The GEMMs and the row RMSNorm are
-// aikit's ViT kernels (an f32 simdgroup GEMM of A·Bᵀ with B as nn.Linear stores it, [N, K]); attention runs as those
+// the device layer's ViT kernels (an f32 simdgroup GEMM of A·Bᵀ with B as nn.Linear stores it, [N, K]); attention runs as those
 // GEMMs over blocks of query rows (attention, below), and this file adds the windowed row softmax and the data
 // movement around it, RoPE from the CPU's own tables, the GELU-tanh multiplies and the residual adds. The embedding
 // gather and pooling stay on the host. Registered as the "metal" accelerator.
@@ -43,7 +43,7 @@ type eg2Layer struct {
 	plePostNorm                        Buffer
 }
 
-// eg2Ops is what the text encoder and the vision tower (gemma4_vision.go) share: the device, a queue, aikit's ViT
+// eg2Ops is what the text encoder and the vision tower (gemma4_vision.go) share: the device, a queue, the device layer's ViT
 // kernels, this file's pipelines and the scalar arena.
 type eg2Ops struct {
 	d     *Device
@@ -54,7 +54,7 @@ type eg2Ops struct {
 	slot  int
 	eps   float32
 	w32   Pipeline // tower_gemm_w32: gemm's kernel
-	// vitGemmForTest runs gemm on aikit's GEMMF32Plan kernel, which tower_gemm_w32 matches byte for byte: the old arm of
+	// vitGemmForTest runs gemm on gpudev's GEMMF32Plan kernel, which tower_gemm_w32 matches byte for byte: the old arm of
 	// its A/B.
 	vitGemmForTest bool
 }

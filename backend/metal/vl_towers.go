@@ -10,19 +10,19 @@ import (
 )
 
 // Gemma 3's SigLIP tower and Qwen2.5-VL's tower on Metal, on the
-// same base as the Qwen3.5+ and GLM-OCR towers (grid_vision.go), in float32. They plug into aikit's own resident seams,
+// same base as the Qwen3.5+ and GLM-OCR towers (grid_vision.go), in float32. They plug into the vision package's resident interfaces,
 // vision.RegisterResident and vision.RegisterQwenResident, so serve's EnableResident routes the tower's Forward here
-// under --backend metal. aikit's tagged gpu/visionmetal and gpu/qwenmetal register on the same seams and are not
-// imported: measured, the first is wrong at real size and the second no faster than the CPU.
+// under --backend metal. In earlier upstream tests, the SigLIP Metal tower failed parity at real size
+// and the Qwen2.5-VL Metal tower ran at CPU speed.
 //
-// SigLIP: aikit's GridPatches (im2col) on the host, the patch embed plus the fixed position table, every layer over one
+// SigLIP: vision.GridPatches (im2col) on the host, the patch embed plus the fixed position table, every layer over one
 // segment of all the patches with no RoPE, then FinishHidden (the post-layernorm) on the host. Float32 weights
 // (LoadEncoder quant=false), from Encoder.Weights.
 //
-// Qwen2.5-VL: aikit's BuildWindowPlan on the host (the window permutation, both segmentations, RoPE in window order). The
+// Qwen2.5-VL: vision.BuildWindowPlan on the host (the window permutation, both segmentations, RoPE in window order). The
 // pixel rows are permuted into window order before the patch embed (a per-row matmul, so this equals permuting its
 // output), the blocks attend per window except the full-attention ones (per image frame), and the output is permuted
-// back to the original order; aikit's merger (MergeHidden) stays on the host, where Forward calls it. Float32 weights
+// back to the original order; the vision tower's merger (MergeHidden) stays on the host, where Forward calls it. Float32 weights
 // from GPUWeights' float32 form.
 
 func init() {
@@ -32,7 +32,7 @@ func init() {
 	vision.RegisterQwenResident(func(enc *vision.QwenVisionEncoder) (vision.QwenResidentEncoder, error) {
 		return newQwen25VResident(enc)
 	})
-	multimodal.MarkResidentTower(multimodal.TowerSigLIP, "metal") // aikit's slots cannot be asked what is registered
+	multimodal.MarkResidentTower(multimodal.TowerSigLIP, "metal") // the vision registration slots cannot be asked what is registered
 	multimodal.MarkResidentTower(multimodal.TowerQwen25VL, "metal")
 }
 
@@ -114,7 +114,7 @@ func (r *siglipVResident) ForwardPatches(patches []float32) ([]float32, error) {
 	return r.enc.FinishHidden(h)
 }
 
-// Close frees the tower's device memory (aikit's Encoder.Close calls it).
+// Close frees the tower's device memory (vision.Encoder.Close calls it).
 func (r *siglipVResident) Close() { _ = r.a.Close() }
 
 // qwen25VResident is the Qwen2.5-VL tower on Metal (vision.QwenResidentEncoder).
@@ -132,7 +132,7 @@ func newQwen25VResident(enc *vision.QwenVisionEncoder) (*qwen25VResident, error)
 		}
 		return m.F32, nil
 	}
-	a, err := newGridVAccel(gvkQwen25, w.Hidden, w.Inter, w.NumHeads, w.PatchDim, 1e-6) // aikit's rmsNorm: eps 1e-6
+	a, err := newGridVAccel(gvkQwen25, w.Hidden, w.Inter, w.NumHeads, w.PatchDim, 1e-6) // the vision encoder's rmsNorm: eps 1e-6
 	if err != nil {
 		return nil, err
 	}
@@ -239,5 +239,5 @@ func (r *qwen25VResident) ForwardViT(pixels []float32, gridTHW [][3]int) ([]floa
 	return out, nil
 }
 
-// Close frees the tower's device memory (aikit's QwenVisionEncoder.Close calls it).
+// Close frees the tower's device memory (vision.QwenVisionEncoder.Close calls it).
 func (r *qwen25VResident) Close() { _ = r.a.Close() }

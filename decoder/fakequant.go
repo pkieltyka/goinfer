@@ -30,7 +30,7 @@ var (
 // experts alone tolerate 4-bit when the router's input hidden state is kept accurate.
 
 // fakeInt4WM fake-quantizes an f32 WeightMat with a 4-bit scheme (grouped along cols at
-// int4GroupSize, matching aikit's int4 + scripts/gemma4_quant_recon.py) then stores the
+// int4GroupSize, matching the model core's int4 + scripts/gemma4_quant_recon.py) then stores the
 // reconstruction at int8 — W8A8 (int8 activations) by default, or Q8 (f32 activations) under
 // GOINFER_FAKEQUANT_ACT=f32. The int8 re-quant is transparent (0.99995), so the 4-bit error
 // survives; the activation precision is the only other variable.
@@ -50,7 +50,7 @@ func fakeInt4WM(f32 []float32, rows, cols int, scheme string) linalg.WeightMat {
 // fakeQuantInt4 quantize→dequantizes a [rows, cols] f32 matrix with a 4-bit scheme,
 // grouped along cols (input features) at `group`. Returns the reconstructed f32.
 //
-//	sym    — symmetric maxabs/7, codes [-7,7] (aikit's runtime int4; the control)
+//	sym    — symmetric maxabs/7, codes [-7,7] (the model core's runtime int4; the control)
 //	symmse — symmetric with an MSE-optimal per-group scale (grid over maxabs·[0.55,1])
 //	affine — per-group zero-point over [min,max]/15, codes [0,15] (MLX's scheme)
 func fakeQuantInt4(scheme string, w []float32, rows, cols, group int) []float32 {
@@ -102,7 +102,7 @@ func fakeQuantGroup(scheme string, g, dst []float32) {
 			}
 		}
 		symDequant(g, dst, bestS)
-	default: // "sym" — aikit's runtime int4 (the control)
+	default: // "sym" — the model core's runtime int4 (the control)
 		mx := maxAbs(g)
 		s := float32(1)
 		if mx > 0 {

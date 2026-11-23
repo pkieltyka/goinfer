@@ -11,8 +11,8 @@ import (
 	"github.com/pkieltyka/goinfer/multimodal"
 )
 
-// Audio. EmbeddingGemma 2's audio tower is gemma4_audio, which aikit's
-// audio package runs (Gemma4Features, then Gemma4AudioEncoder), so an audio clip's soft tokens come from aikit and
+// Audio. EmbeddingGemma 2's audio tower is gemma4_audio, which the local
+// audio package runs (Gemma4Features, then Gemma4AudioEncoder), so an audio clip's soft tokens come from the tower and
 // replace their placeholder rows in the encoder's input, unscaled, as an image's do.
 
 type audioTokens struct {
@@ -151,7 +151,7 @@ func (e *Encoder) tokenizeMedia(prompt, text string, open, ph, close, n int) ([]
 	return ids, pos, nil
 }
 
-// AudioLogMel is the tower's input for 16 kHz samples: aikit's log-mel [T, 128] over the T valid frames.
+// AudioLogMel is the tower's input for 16 kHz samples: the audio package's log-mel [T, 128] over the T valid frames.
 func AudioLogMel(samples []float32) ([]float32, int, error) { return audio.Gemma4Features(samples) }
 
 // AudioFeatures runs the log-mel and the tower on 16 kHz samples: the soft tokens [n, hidden] and n.
@@ -174,7 +174,7 @@ func (e *Encoder) AudioFeaturesFrom(mel []float32, T int) ([]float32, int, error
 	return e.audioFeaturesOn(e.aud.accel, mel, T)
 }
 
-// AudioTower is the loaded aikit tower (nil before EnableAudio), for per-stage tests.
+// AudioTower is the loaded audio tower (nil before EnableAudio), for per-stage tests.
 func (e *Encoder) AudioTower() *audio.Gemma4AudioEncoder {
 	if e.aud == nil {
 		return nil

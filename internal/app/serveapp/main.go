@@ -346,7 +346,7 @@ type config struct {
 	embedQuant string // "" | f32 | q8
 	embedName  string // -embed-served-model-name
 	// embedResize is -embed-image-resize: how an image-embedding model resizes an image before its tower ("" = the
-	// model's default). EmbeddingGemma 2 takes bilinear (aikit's) or bicubic (its reference processor's).
+	// model's default). EmbeddingGemma 2 takes bilinear (the in-tree encoder's) or bicubic (its reference processor's).
 	embedResize string
 }
 
@@ -1375,7 +1375,7 @@ func attachResidentTower(family string, enc interface{ EnableResident() error },
 }
 
 // blockReleaser is a vision encoder that can drop its encoder blocks from the host once a device tower holds them, and
-// load them again on its CPU path's first use (aikit's ReleaseBlocks).
+// load them again on its CPU path's first use (the in-tree encoder's ReleaseBlocks).
 type blockReleaser interface{ ReleaseBlocks() error }
 
 // releaseTowerBlocks drops a device-attached tower's host blocks: the
@@ -1418,7 +1418,7 @@ func (s *server) soleModelSource(cfg config) string {
 	return cfg.models[0].path
 }
 
-// loadQwenVisionTower attaches the Qwen2.5-VL ViT (aikit) to the single loaded
+// loadQwenVisionTower attaches the Qwen2.5-VL ViT to the single loaded
 // model. Unlike Gemma 3 there's no separate projector — the merger is in the
 // encoder; preprocessing + m-RoPE are Qwen-specific (the image path branches on
 // qwenEnc). Image placeholders use <|image_pad|>, expanded per image to the merged
@@ -1428,7 +1428,7 @@ func (s *server) loadQwenVisionTower(dir string, int8Tower bool, backend string,
 	if err != nil {
 		return fmt.Errorf("load qwen2.5-vl vision encoder (%s): %w", dir, err)
 	}
-	// Metal's tower attaches through attachResidentTower; CUDA's (aikit's gpu/qwencuda) and WebGPU's through
+	// Metal's tower attaches through attachResidentTower. Other registered device towers attach through
 	// qwenTowerPlacement, which names every CPU fallback; every other backend runs the CPU tower.
 	where := "CPU"
 	if backend == "metal" {
@@ -1463,11 +1463,11 @@ func (s *server) loadQwenVisionTower(dir string, int8Tower bool, backend string,
 	return nil
 }
 
-// loadGemma4VisionTower attaches the Gemma 4 vision tower (aikit) to the single loaded model. There is no separate
+// loadGemma4VisionTower attaches the Gemma 4 vision tower to the single loaded model. There is no separate
 // projector: Gemma4Encoder.Forward bakes in the embed_vision projection. decoder.GenerateGemma4VL implements two
 // forwards, chosen by the checkpoint's use_bidirectional_attention: unset (the E2B/E4B-class sequential/causal path)
 // and "vision" (the 26B-A4B/31B-class batched path, decoder/forward_gemma4_batched.go). Any other value is refused at
-// load rather than served with the wrong mask. Placement is chooseGemma4Tower's; aikit's
+// load rather than served with the wrong mask. Placement is chooseGemma4Tower's; the in-tree encoder's
 // Gemma4Encoder has no EnableResident method.
 func (s *server) loadGemma4VisionTower(dir string, int8Tower bool, backend string, require bool) error {
 	for _, lm := range s.models {
@@ -1853,7 +1853,7 @@ func requireAutoBackend(cfg config) error {
 		cfg.load.Auto.Reason)
 }
 
-// embedEncoderLoads is the plan check for an -embed-model safetensors checkpoint. loadEncoder's directory path is aikit's
+// embedEncoderLoads is the plan check for an -embed-model safetensors checkpoint. loadEncoder's directory path uses the model core's
 // encoder.Load, which loads a NomicBert (CodeRankEmbed, nomic-embed-text) and checks no model_type itself, so anything
 // else would fail late, or load a foreign checkpoint's tensors under the wrong architecture. It is refused here instead,
 // after config.json and before any weight. A decoder used as an embedder comes as a GGUF (hf:<repo>:<quant>), which is
@@ -1878,12 +1878,12 @@ var resolveEmbedModel = func(ctx context.Context, spec string) (string, error) {
 // precisions, whereas that method is f32-only).
 func (s *server) loadEncoder(cfg config) error {
 	// A causal decoder used as an embedder (qwen3-embedding / embeddinggemma) arrives as a .gguf
-	// FILE; the aikit encoder path takes an HF directory. Dispatch on that rather than adding
+	// FILE; the model core encoder path takes an HF directory. Dispatch on that rather than adding
 	// another flag —
 	if fi, statErr := os.Stat(cfg.embedPath); statErr == nil && !fi.IsDir() {
 		return s.loadDecoderEmbedder(cfg)
 	}
-	// EmbeddingGemma 2 is a directory too, but aikit's encoder.Load reads it as a NomicBert and would fail late; it
+	// EmbeddingGemma 2 is a directory too, but the model core's encoder.Load reads it as a NomicBert and would fail late; it
 	// has its own loader (embeddinggemma2_embedder.go).
 	if isEmbeddingGemma2(cfg.embedPath) {
 		return s.loadEmbeddingGemma2(cfg)
@@ -1916,7 +1916,7 @@ func (s *server) loadEncoder(cfg config) error {
 		name = filepath.Base(strings.TrimRight(cfg.embedPath, "/"))
 	}
 	s.embed, s.embedTok, s.embedID, s.embedDim = enc, tok, name, enc.HiddenDim()
-	// Matryoshka floor from aikit's exported registry — the same source of truth behind its
+	// Matryoshka floor from the encoder's exported weightsed registry — the same source of truth behind its
 	// published Truncatable column. Unknown/non-MRL models get 0, i.e. `dimensions` is refused
 	// rather than honored into a silently worse-retrieving vector. Keyed off the model PATH (the
 	// directory name is the HF model name); embedName is an operator-chosen alias, so it must not
@@ -2072,8 +2072,8 @@ func visionPathError(dir string) error {
 }
 
 // qwenTowerPlacement decides where Qwen2.5-VL's vision tower runs and attaches it: the device tower under --backend
-// cuda or webgpu when the binary registers one (cuda/vision_towers.go imports aikit's gpu/qwencuda) and the tower is
-// float32; the CPU everywhere else, with the reason named.
+// a device backend when the binary registers its tower and the tower uses
+// float32. Every fallback to the CPU names its reason.
 // -require-backend turns each CPU fallback on a device backend into a refusal. -vision-device cpu arrives here as backend
 // "cpu". Metal's tower is attached by loadQwenVisionTower.
 func qwenTowerPlacement(backend string, int8Tower, require bool, attach func() error, warn io.Writer) (string, error) {

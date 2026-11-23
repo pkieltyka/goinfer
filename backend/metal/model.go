@@ -851,7 +851,7 @@ func int8BufOn(line string, d *Device, w *linalg.WeightMat) (Buffer, Buffer, err
 }
 
 // int4DirectWords converts a decoder int4 WeightMat's packed nibbles and f32 group scales straight into Metal's W4A8
-// buffers (uint32 words plus f16 scales), with no int8 intermediate. aikit's group=32 packing (nib = q+8, byte k/2
+// buffers (uint32 words plus f16 scales), with no int8 intermediate. The model core's group=32 packing (nib = q+8, byte k/2
 // low/high) and Metal's packW4A8Row (element k to word k/8, bit 4*(k%8)) are the same bytes on little-endian, so the
 // nibbles copy verbatim; only the group scales narrow f32 to f16. Returns ok=false if the weight is not group-32 int4.
 // Consuming the int4 directly avoids the double quantization (f32 to int8 to int4) of BuildResident's default path,
@@ -2218,7 +2218,7 @@ func (r *resident) canUseF16Lane(l int) bool {
 
 // attnFACoreCount is the GPU core count attention_fa's split count targets (kvHead x S >= 2x the core count): 14, the
 // M1 Pro it was tuned on. It sets only the legacy kernel's split (the block kernel uses attnFABlkSplit), so changing
-// it changes the legacy kernel's bits. It is hardcoded, not device-queried (aikit's Device has no core-count
+// it changes the legacy kernel's bits. It is hardcoded, not device-queried (gpudev.Device has no core-count
 // accessor), although the kernel is default-on on every chip via metalAttnFAEnabled; a port to other Apple GPU core
 // counts would need it read from the device, not assumed.
 const attnFACoreCount = 14

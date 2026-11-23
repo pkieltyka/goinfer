@@ -1154,7 +1154,7 @@ func (m *Model) BackendReport() string {
 	return s
 }
 
-// int4LayoutSummary reports which int4 layout each tensor CLASS resolved to (aikit's WeightMat.Int4Layout(), one
+// int4LayoutSummary reports which int4 layout each tensor CLASS resolved to (the model core's WeightMat.Int4Layout(), one
 // representative per class, since every tensor in a class shares one needCanonical decision): "int4 layout: row4-only
 // (embed, qkv, gate/up); canonical (down)". Diagnosable from this line instead of a tok/s comparison when a resident or
 // staged build declines for a reason that traces back to wantsCanonicalInt4. "" when the model has no layers or

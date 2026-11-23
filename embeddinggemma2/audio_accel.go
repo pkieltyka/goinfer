@@ -8,8 +8,8 @@ import (
 )
 
 // The audio tower on another device (Phase A's AM: Metal). An AudioAccelerator
-// runs the 12 conformer blocks from aikit's loaded tower (its exported Layers); the subsampler before them and the
-// output projection and embedder after them stay aikit's (Subsample, FinishBlocks), on the host.
+// runs the 12 conformer blocks from the loaded audio tower (its exported Layers); the subsampler before them and the
+// output projection and embedder after them run on the host (Subsample, FinishBlocks).
 
 // AudioAccelerator runs the Gemma 4 audio tower's blocks on another device.
 type AudioAccelerator interface {

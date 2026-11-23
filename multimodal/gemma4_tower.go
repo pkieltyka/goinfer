@@ -9,9 +9,9 @@ import (
 )
 
 // Gemma 4 vision tower accelerators (docs/multimodal.md, "Finishing this doc"). A backend module (goinfer/backend/metal) registers a device
-// tower built from aikit's export (vision.Gemma4Encoder.Weights) here, and every Gemma 4 tower consumer can use it: Gemma 4's own image
+// tower built from the encoder's exported weights (vision.Gemma4Encoder.Weights) here, and every Gemma 4 tower consumer can use it: Gemma 4's own image
 // input in serve and EmbeddingGemma 2's image embeddings. The tower runs the patch embed and the encoder layers; the pool and
-// projection after them stay aikit's (Gemma4Encoder.FinishHidden).
+// projection after them run through Gemma4Encoder.FinishHidden on the host.
 
 // Gemma4TowerAccelerator runs the Gemma 4 vision tower up to its pool on another device.
 type Gemma4TowerAccelerator interface {
@@ -64,7 +64,7 @@ func NewGemma4Tower(name string, enc *vision.Gemma4Encoder) (Gemma4TowerAccelera
 	return f(enc)
 }
 
-// Gemma4TowerFeatures runs the tower on acc (nil: aikit's CPU Forward) and aikit's tail: the soft tokens.
+// Gemma4TowerFeatures runs the tower on acc (nil: the CPU Forward) and the host tail: the soft tokens.
 func Gemma4TowerFeatures(enc *vision.Gemma4Encoder, acc Gemma4TowerAccelerator, patches []float32, pos [][2]int) ([]float32, error) {
 	if acc == nil {
 		return enc.Forward(patches, pos)

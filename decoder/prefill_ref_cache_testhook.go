@@ -9,7 +9,7 @@ package decoder
 //   - the checkpoint's sha256 (cached by path + size + mtime, so a 4.7 GB file is hashed once);
 //   - the prompt's own token ids at that K (sha256, the same encoding as internal/fidelity.PromptSetHash);
 //   - the source the CPU reference path compiles from: every non-test .go file in decoder/, internal/runtime/giw/ and constrain/ (from
-//     go list -deps ./decoder) plus go.mod, which pins aikit and golang.org/x;
+//     go list -deps ./decoder) plus go.mod, which records the external Go dependencies;
 //   - runtime.GOARCH (the CPU reference is bit-identical within an arch, not across), the weight quant, the continuation length,
 //     and the forced exact attention.
 //

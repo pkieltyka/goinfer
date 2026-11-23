@@ -11,7 +11,7 @@ import (
 	"github.com/pkieltyka/goinfer/internal/modelcore/linalg"
 )
 
-// Qwen3.5+ vision tower — aikit's third ViT family. It is the Qwen3-VL tower
+// Qwen3.5+ vision tower. It is the Qwen3-VL tower
 // (Qwen3VLVisionModel) with DeepStack removed: Qwen3_5VisionModel deletes
 // deepstack_visual_indexes / deepstack_merger_list, and every released Qwen3.5 / 3.6 / 3.8
 // config carries deepstack_visual_indexes = []. Read from transformers 5.15.0's

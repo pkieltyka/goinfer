@@ -11,16 +11,16 @@ import (
 	"github.com/pkieltyka/goinfer/multimodal"
 )
 
-// The Qwen3.5+ and GLM-OCR vision towers on CUDA: aikit's CPU Forward up
-// to the merger, in float32, from aikit's export (Qwen3VisionEncoder.Weights, GlmOcrVisionEncoder.Weights), on the CUDA
-// tower base. It is the port of metal/grid_vision.go with aikit's own scaled bidirectional attention kernel (one call
+// The Qwen3.5+ and GLM-OCR vision towers on CUDA: the CPU Forward up
+// to the merger, in float32, from the encoder's exported weights (Qwen3VisionEncoder.Weights, GlmOcrVisionEncoder.Weights), on the CUDA
+// tower base. It is the port of metal/grid_vision.go with the in-tree scaled bidirectional attention kernel (one call
 // per image frame, the frame being the attention segment) in place of Metal's matmul-blocked attention, and a separate
 // q, k and v throughout (GLM-OCR norms q and k per head before RoPE, which a fused qkv buffer cannot do).
 //
-// Both towers' blocks: biased q, k and v (the fused [3*hidden, hidden] qkv split at upload), NeoX rotate-half RoPE from aikit's own tables, attention at scale
+// Both towers' blocks: biased q, k and v (the fused [3*hidden, hidden] qkv split at upload), NeoX rotate-half RoPE from the vision package's tables, attention at scale
 // 1/sqrt(head_dim) within each image frame, biased proj and residual, then the MLP and residual. Qwen3: LayerNorm with bias (eps 1e-6), MLP fc1 -> GELU-tanh -> fc2,
 // and the interpolated position rows added after the patch embed. GLM-OCR: RMSNorm (eps rms_norm_eps), per-head RMSNorm of q and k before RoPE, MLP
-// down(silu(gate) * up), no position table. The merger after the blocks stays aikit's (FinishHidden), on the host.
+// down(silu(gate) * up), no position table. The merger after the blocks stays on the host (FinishHidden).
 
 func init() {
 	multimodal.RegisterQwen3Tower("cuda", func(enc *vision.Qwen3VisionEncoder) (multimodal.GridTowerAccelerator, error) {
@@ -73,7 +73,7 @@ type gridTower struct {
 	patchW, patchB      Buffer
 	blocks              []gridBlock
 	posEmbeds           func([][3]int) []float32            // Qwen3's interpolated position rows; nil for GLM-OCR
-	ropeTables          func([][3]int) (cos, sin []float32) // aikit's [np, head_dim] tables, rows cat(f, f)
+	ropeTables          func([][3]int) (cos, sin []float32) // the vision package's [np, head_dim] tables, rows cat(f, f)
 	program             func() vision.TowerBlock            // the block program hiddenLocked walks (Qwen3, GLM-OCR)
 	planted             gridDefect
 }
@@ -206,7 +206,7 @@ func (a *gridTower) linearAdd(x Buffer, p *gridProj, resid, tmp Buffer, rows int
 	a.ops.addVec(resid, tmp, rows*p.out)
 }
 
-// Hidden runs the patch embed and every block (multimodal.GridTowerAccelerator): the last block's output, [np, hidden], for aikit's FinishHidden.
+// Hidden runs the patch embed and every block (multimodal.GridTowerAccelerator): the last block's output, [np, hidden], for vision.FinishHidden.
 func (a *gridTower) Hidden(pixels []float32, gridTHW [][3]int) ([]float32, error) {
 	a.mu.Lock()
 	defer a.mu.Unlock()

@@ -84,7 +84,7 @@ func (r *resident) newPrefillPass(src rowSource, startPos int, mrope [][3]int, d
 
 	// f16 activation scratch (per call, sized to the padded prompt).
 	// xF and the five prefillScratchU16 buffers below rely on Metal's zero-fill of a new buffer for their pad rows
-	// (aikit gpu.NewBufferLen* contract: Metal only; CUDA's is uninitialized) — see prefillScratchU16.
+	// (gpudev.NewBufferLen* contract: Metal only; CUDA's is uninitialized) — see prefillScratchU16.
 	// xF too: the embeddings are converted straight into the buffer's M rows, its pad rows left as Metal zeroed
 	// them, instead of into a zeroed Go slice of Mpad rows that was then copied in whole.
 	xF := prefillScratchU16(d, Mpad*H)

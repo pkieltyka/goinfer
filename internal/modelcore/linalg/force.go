@@ -18,7 +18,7 @@ package linalg
 // forcedFallbacks is appended to by the tagged init functions; empty in a normal build.
 var forcedFallbacks []string
 
-// ForcedFallbacks returns the CPU-feature fallbacks this build forces, as the tag names without the "aikit_" prefix ("noavx2", "noavx512", ...), or nil in a
+// ForcedFallbacks returns the CPU-feature fallbacks this build forces, as the tag names without the "modelcore_" prefix ("noavx2", "noavx512", ...), or nil in a
 // normal build. It never reports a feature the hardware really lacks, only one a build tag turned off.
 func ForcedFallbacks() []string {
 	if len(forcedFallbacks) == 0 {

@@ -48,7 +48,7 @@ const fastAttnMinPrompt = 512
 // the fan-out is never skipped on size.
 const attnHeadsParThreshold = 0
 
-// attnGroupedNEONSize is the query-head group size (NumHeads/NumKVHeads) the aikit grouped acc64 kernels
+// attnGroupedNEONSize is the query-head group size (NumHeads/NumKVHeads) the model core's grouped acc64 kernels
 // (MatmulQKAcc64Group/MatmulAVAcc64Group) have a NEON port for. Any other ratio still runs correctly through the Go fallback but
 // slower than separate per-head calls, so attendGroupedHeads is gated to exactly this size rather than trusting the kernel's own
 // dispatch to save a mismatched caller.
@@ -131,7 +131,7 @@ func (m *Model) specRollbackSafeVia(fold ResidentRuntimeSubsystem, width int) bo
 // the K tokens in ids — appended as the next K positions of cache — and returns
 // the [K, HiddenDim] post-final-norm hidden states (the LM head is the caller's).
 // The weight matmuls run at M=K, so each weight streams from memory once and is
-// reused across the K rows (aikit's column-blocked W8A8 kernel); attention stays
+// reused across the K rows (the model core's column-blocked W8A8 kernel); attention stays
 // per-position and causal. Bit-identical to K sequential forwards. Assumes
 // canBatchN(len(ids)) — callers check.
 func (m *Model) forwardLayersN(reqCtx context.Context, ids []int, cache *KVCache, fastAttn bool) ([]float32, error) {
@@ -224,7 +224,7 @@ var globalAttnWorkerPool = sync.OnceValue(func() *attnWorkerPool {
 // persistent globalAttnWorkerPool. fn must write only to worker w's own scratch (pool[w]) and to its own disjoint [lo,hi) region of
 // any shared output; no combining is performed, so callers must not need one.
 //
-// The alignment matters: aikit's NEON grouped kernels process their range in 8-wide blocks and fall back to the plain-Go grouped
+// The alignment matters: the model core's NEON grouped kernels process their range in 8-wide blocks and fall back to the plain-Go grouped
 // kernel (6-10x slower) for a remainder that does not fill a block. Equal-width splitting would give every worker a ragged
 // remainder; rounding up keeps each slice block-aligned at the cost of slightly uneven work.
 func runSplitAligned(workers, n, align int, fn func(w, lo, hi int)) {

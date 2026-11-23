@@ -71,7 +71,7 @@ func (s *decodeScratch) loraBuf(r int) []float32 {
 }
 
 func newDecodeScratch(a *Architecture) *decodeScratch {
-	// aikit's opt-in worker pool (Workspace.SetWorkers) is deliberately not used: it measured neutral-to-slightly-slower than the
+	// the model core's opt-in worker pool (Workspace.SetWorkers) is deliberately not used: it measured neutral-to-slightly-slower than the
 	// spawn path (the batch=1 fork/join cost is a floor, not pool-fixable).
 	//
 	// The W8A8 (int8) decode matmuls run through this Workspace (matmulInto), so its per-Workspace threshold, not the process
@@ -204,7 +204,7 @@ type headWorkerScratch struct {
 	// mmWS is this slot's private matmul Workspace, threshold pinned so high that MatmulBT through it is always serial. The f32
 	// attention path fans out over query heads and MatmulBT also fans out over its output columns; nesting them oversubscribes (6 head
 	// workers each spawning GOMAXPROCS column goroutines), so the head-parallel arm takes its matmul through here and keeps the
-	// fan-out at one level. Numerically inert: MatmulBT's per-element result is independent of fan-out width by contract (aikit
+	// fan-out at one level. Numerically inert: MatmulBT's per-element result is independent of fan-out width by contract (linalg
 	// TestParallelWidth_bitIdentical), so both arms share one golden.
 	mmWS *linalg.Workspace
 	// fused is this slot's fused-attention scratch, or nil when the fused schedule is off. Per worker, not shared: each worker gathers

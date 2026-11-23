@@ -241,7 +241,7 @@ func loadBERTFrom(files bertFiles, native bool) (*BERT, error) {
 			b.maxSeq = min(v.MaxSeqLength, usablePos)
 		}
 	}
-	// Tokenizer is best-effort: aikit parses WordPiece and Unigram/SentencePiece
+	// Tokenizer is best-effort: the tokenizer parses WordPiece and Unigram/SentencePiece
 	// (XLM-R family), but a model with some other tokenizer.json can still run the
 	// forward on PRE-TOKENIZED ids via Embed. Encode(text), which needs the
 	// tokenizer, errors when it's absent.
@@ -268,7 +268,7 @@ func (b *BERT) Close() error {
 }
 
 // Tokenizer returns the tokenizer the model loaded from its tokenizer.json, or nil when that file was absent or of a
-// kind aikit does not parse. A caller that cuts and wraps ids itself before Embed uses it instead of loading the file a
+// kind the tokenizer does not parse. A caller that cuts and wraps ids itself before Embed uses it instead of loading the file a
 // second time.
 func (b *BERT) Tokenizer() *embed.Tokenizer { return b.tok }
 

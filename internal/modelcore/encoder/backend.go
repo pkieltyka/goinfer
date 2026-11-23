@@ -15,7 +15,7 @@ import (
 // cgo). A WebGPU backend lives in the opt-in github.com/pkieltyka/goinfer/gpu
 // module: importing it under `-tags gpu` calls RegisterBackend("webgpu", …) on
 // init, so the encoder gains GPU acceleration WITHOUT ever importing
-// github.com/cogentcore/webgpu (cgo) into aikit's dependency graph.
+// github.com/cogentcore/webgpu (cgo) into the root dependency graph.
 type Backend interface {
 	// Name identifies the backend ("cpu", "webgpu").
 	Name() string
@@ -46,7 +46,7 @@ var (
 
 // RegisterBackend registers a named Backend factory. The goinfer/gpu module
 // calls this from init() (under `-tags gpu`) to make "webgpu" available
-// without aikit importing the cgo WebGPU implementation. Safe for concurrent
+// without the root importing a cgo GPU implementation. Safe for concurrent
 // use; a later registration of the same name replaces the earlier one.
 func RegisterBackend(name string, factory func() (Backend, error)) {
 	backendMu.Lock()

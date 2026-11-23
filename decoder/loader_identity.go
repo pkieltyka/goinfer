@@ -47,7 +47,7 @@ type identWalker struct {
 
 // loaderIdentity lists w's tensors, sorted by path. A nil slice, a zero WeightMat, a nil pointer and a zero scalar are
 // absent, not listed, so a field the loader never fills costs nothing and a newly filled one appears; a slice whose
-// elements are walked one by one also lists its length. The walk reads unexported fields, aikit's WeightMat's among them,
+// elements are walked one by one also lists its length. The walk reads unexported fields, the model core's WeightMat's among them,
 // by reflection. Before it reads a value it checks the static type of every field it will walk, so a map, func,
 // interface or other kind it was not told about panics even where the fixtures leave it nil.
 func loaderIdentity(w *Weights) []tensorIdentity {

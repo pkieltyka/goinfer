@@ -238,7 +238,7 @@ var cudaTowerRegistered = func(mt string) bool {
 	case "glm_ocr":
 		return slices.Contains(multimodal.GlmOcrTowers(), "cuda")
 	case "qwen2_5_vl":
-		return true // aikit's qwencuda registers through the vision package, not multimodal's registry; a cuda binary imports it
+		return true // the CUDA tower registers through the vision package
 	}
 	return false
 }

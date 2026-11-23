@@ -1137,7 +1137,7 @@ func (r *cudaResident) prefillCore(ctx context.Context, embeddings [][]float32, 
 		return e
 	})
 	if err != nil {
-		// An OOM inside the job arrives as a recovered panic (runJob) carrying aikit MustBuf's "device allocation failed"
+		// An OOM inside the job arrives as a recovered panic (runJob) carrying gpudev.MustBuf's "device allocation failed"
 		// message. For prefill that is a decline, not a request failure: the sequential path needs no M-sized scratch. Match
 		// that OOM sentinel, not any "panicked": a programming-bug panic in the batched path must surface as an error, not be
 		// absorbed into the slower path. Errors that are already declines keep their own wrapping.

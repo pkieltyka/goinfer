@@ -3,7 +3,7 @@
 // MLX affine/nvfp4/mxfp4) to row-major float32.
 //
 // This package is a Tier 3 leaf subpackage of decoder: it depends only on the Go
-// standard library and aikit/embed, and never imports package decoder.
+// standard library and internal/modelcore/embed, and never imports package decoder.
 package quant
 
 import (

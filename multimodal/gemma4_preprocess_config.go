@@ -9,7 +9,7 @@ import (
 
 // Gemma4PreprocessConfig holds the one per-checkpoint knob
 // vision.Gemma4Preprocess needs: the soft-token budget (config.json's top-level
-// vision_soft_tokens_per_image, one of aikit's five legal values
+// vision_soft_tokens_per_image, one of the five supported values
 // {70,140,280,560,1120}). Unlike Qwen, Gemma 4 checkpoints carry this in the
 // SAME config.json the text decoder and vision tower already read — there is
 // no separate preprocessor_config.json (confirmed absent on real checkpoint

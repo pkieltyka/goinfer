@@ -30,7 +30,7 @@ func Dot4x4(a, b0, b1, b2, b3 *float32, n4 int, sums *[16]float32) {
 // Dot4x4 — measured on amd64 AVX2 at 40.5 vs 51.4 GB/s at K=3072. A cache-blocked
 // caller should tile K into ≤~768-element strips and feed Dot8x4 the strips: that
 // keeps it in its fast range and is the right cache-blocking move regardless.
-// aikit's encoder does exactly this (kBlock=768), so it never hits the cliff; a
+// the serving encoder uses this block size (kBlock=768), so it never hits the cliff; a
 // caller that hands Dot8x4 a single large-K row instead should prefer Dot4x4.
 //
 // Output contract: overwrites sums; do not pre-zero. Every element of the fixed-size array is written.

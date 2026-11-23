@@ -1,4 +1,4 @@
-// Package linalg holds aikit's shared SIMD compute kernels — the single home for
+// Package linalg holds goinfer's shared CPU SIMD kernels — the single home for
 // the hand-written assembly, so the encoder and goinfer's LLM decoder share one
 // copy. It provides float32 dot products and a row-parallel matmul, the
 // register-blocked micro-kernels a cache-blocked matmul builds on, and the

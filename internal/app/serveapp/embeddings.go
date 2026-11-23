@@ -178,7 +178,7 @@ func (s *server) handleEmbeddings(w http.ResponseWriter, r *http.Request) {
 	// The encoder is goroutine-safe and EncodeBatch parallelizes internally, so there is no server mutex (that guards
 	// only the single shared decoder). embedBatchCounter reports each input's token count as a byproduct of the
 	// tokenize pass EncodeBatch already makes, for encoders that can (the decoder-backed embedder); the rest (the
-	// aikit-embed.Tokenizer path, an external interface this server does not control) fall back to EncodeBatch plus a
+	// the model-core tokenizer path, the shared encoder interface) fall back to EncodeBatch plus a
 	// second, count-only tokenize pass (countEmbedTokens).
 	var vecs [][]float32
 	var promptTokens int
@@ -287,7 +287,7 @@ func parseInputType(t string) (isQuery bool, err error) {
 // Truncation is legitimate only for models trained with Matryoshka Representation Learning: slicing any other
 // embedder returns a unit-length, plausible vector that simply retrieves worse, a silent wrong. So a dimensions
 // request below the model's floor, or any dimensions for a non-MRL model, is a 400, not a quietly degraded vector.
-// s.embedMRLMin carries that floor (0 = not truncatable), resolved at load from aikit's exported registry, the source
+// s.embedMRLMin carries that floor (0 = not truncatable), resolved at load from the encoder's exported weightsed registry, the source
 // of its published Truncatable column; s.embedWidths, when set, is the exact set of allowed widths instead.
 func (s *server) resolveDimensions(d *int) (int, error) {
 	if d == nil || *d == 0 || *d == s.embedDim {
@@ -362,7 +362,7 @@ func float32sToBase64(v []float32) string {
 	return base64.StdEncoding.EncodeToString(buf)
 }
 
-// embedTokenCounter is implemented by embedders that carry their own tokenizer instead of an aikit embed.Tokenizer:
+// embedTokenCounter is implemented by embedders that carry their own tokenizer instead of a model core embed.Tokenizer:
 // the decoder-backed embedder. s.embedTok is nil for those, so without
 // this prompt_tokens would silently report 0 on every response.
 type embedTokenCounter interface {
@@ -372,7 +372,7 @@ type embedTokenCounter interface {
 // embedBatchCounter is the optional capability of an embedder that can report each input's token count as a byproduct
 // of the tokenize pass EncodeBatch already makes, so the handler need not tokenize every input twice
 // (embedTokenCounter and countEmbedTokens below). The decoder-backed embedder implements it; the
-// aikit-embed.Tokenizer path does not (an external interface this server does not control), so it keeps the two-pass
+// the model-core tokenizer path does not (the shared encoder interface), so it keeps the two-pass
 // fallback.
 type embedBatchCounter interface {
 	EncodeBatchCounted(texts []string, isQueries []bool, concurrency int) (vecs [][]float32, tokenCounts []int, err error)

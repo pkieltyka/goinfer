@@ -24,7 +24,7 @@ const MaxTokens = 8192
 var MatryoshkaWidths = []int{768, 512}
 
 // Encoder is an EmbeddingGemma 2 model with its tokenizer and its named task prompts
-// (config_sentence_transformers.json's `prompts`). It implements aikit's encoder.Encoder (Encode, EncodeBatch,
+// (config_sentence_transformers.json's `prompts`). It implements the model core's encoder.Encoder (Encode, EncodeBatch,
 // HiddenDim), where isQuery selects the checkpoint's own "query" prompt and false its "document" prompt, and offers
 // EncodeTasks for a caller that names the prompt, or none. It is safe for concurrent use.
 type Encoder struct {
@@ -233,7 +233,7 @@ func (e *Encoder) EncodeTasks(texts []string, prompt string) ([][]float32, []int
 	return vecs, counts, nil
 }
 
-// queryDoc maps aikit's isQuery flag onto the checkpoint's own query and document prompts.
+// queryDoc maps the encoder's isQuery flag onto the checkpoint's own query and document prompts.
 func queryDoc(isQuery bool) string {
 	if isQuery {
 		return "query"
@@ -241,13 +241,13 @@ func queryDoc(isQuery bool) string {
 	return "document"
 }
 
-// Encode implements aikit's encoder.Encoder: the "query" prompt when isQuery, else the "document" prompt.
+// Encode implements the model core's encoder.Encoder: the "query" prompt when isQuery, else the "document" prompt.
 func (e *Encoder) Encode(text string, isQuery bool) ([]float32, error) {
 	v, _, err := e.EmbedText(text, queryDoc(isQuery))
 	return v, err
 }
 
-// EncodeBatch implements aikit's encoder.Encoder. concurrency is ignored: the matmuls parallelise internally.
+// EncodeBatch implements the model core's encoder.Encoder. concurrency is ignored: the matmuls parallelise internally.
 func (e *Encoder) EncodeBatch(texts []string, isQueries []bool, concurrency int) ([][]float32, error) {
 	vecs, _, err := e.EncodeBatchCounted(texts, isQueries, concurrency)
 	return vecs, err

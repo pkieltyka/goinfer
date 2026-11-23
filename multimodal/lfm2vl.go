@@ -18,7 +18,7 @@ import (
 // LFM2-VL's image path: the
 // preprocessing (HF's Lfm2VlImageProcessorFast: a large image becomes a grid of 512-pixel tiles plus a thumbnail, a small
 // one a single smart-resized tile), the prompt block and the multimodal projector (Lfm2VlMultiModalProjector). The tower
-// is aikit's vision.Siglip2NaFlexEncoder, one tile per call.
+// is vision.Siglip2NaFlexEncoder, one tile per call.
 
 // LFM2-VL's image special tokens.
 const (

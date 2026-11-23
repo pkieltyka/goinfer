@@ -55,7 +55,7 @@ const (
 	gvF64
 )
 
-const ggufMetaMaxDepth = 128 // aikit's nesting cap for arrays of arrays
+const ggufMetaMaxDepth = 128 // the GGUF reader's nesting cap for arrays of arrays
 
 // readGGUFMetaFile reads path's metadata from the head of the file.
 func readGGUFMetaFile(path string) (*ggufMeta, error) {

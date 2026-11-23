@@ -943,7 +943,7 @@ func (s *buildState) bindKernels(r *cudaResident) error {
 	if e != nil {
 		return e
 	}
-	// The generic quantized GEMVs come from aikit (gpu.QuantGEMVPTX), not gemv_fwd.ptx; gemv_fwd.cu keeps only the
+	// The generic quantized GEMVs come from gpudev (gpu.QuantGEMVPTX), not gemv_fwd.ptx; gemv_fwd.cu keeps only the
 	// LLM-specific kv_store / rope_kv, and decode stays bit-identical.
 	qgemv, e := r.dev.NewQuantGEMV()
 	if e != nil {

@@ -10,7 +10,7 @@ import (
 	"github.com/pkieltyka/goinfer/internal/modelcore/linalg"
 )
 
-// Weight matrices are linalg.WeightMat (aikit): one type that hides f32, per-row int8 and group-wise int4 storage behind
+// Weight matrices are linalg.WeightMat from the model core: one type that hides f32, per-row int8 and group-wise int4 storage behind
 // uniform accessors and the linalg kernels. goinfer keeps the model policy here (which table gets which precision, the
 // int4 group size, the matmul backend routing) while the storage wrapper, quantize primitives and Row dequant live in
 // linalg.
@@ -103,15 +103,15 @@ func (q quantMode) gatherTable() quantMode { return q.embeddingWith(true) }
 // stays ~0.125 byte/element.
 const int4GroupSize = 32
 
-// int4ParThreshold sets the fan-out threshold for the int4 (W4A8 and Q4_K) matmul below aikit's default (parThreshold =
-// 1<<24 MACs) so the small decode matmuls parallelize. aikit runs a call serial when M*N*K (M*totalN*K for a batch) is
+// int4ParThreshold sets the fan-out threshold for the int4 (W4A8 and Q4_K) matmul below the model core's default (parThreshold =
+// 1<<24 MACs) so the small decode matmuls parallelize. the model core runs a call serial when M*N*K (M*totalN*K for a batch) is
 // under it. 1<<19 lets the smallest projections of the sub-1B models fan out (qwen2.5 0.5B's q/k/v batch, 1,032,192 MACs,
 // and its o projection, 802,816), while ops under 512K MACs stay serial; threshold 0, which fans out everything,
 // over-parallelizes on the 8-core Ryzen. TestInt4ParThreshold_qwen05bShapesFanOut pins the 0.5B shapes.
 //
-// Output is byte-identical (aikit partitions output columns in 8-wide groups, the width-invariant contract), and it only
+// Output is byte-identical (the model core partitions output columns in 8-wide groups, the width-invariant contract), and it only
 // widens fan-out, so prefill's already-parallel large-M matmuls are unaffected. Re-run BenchmarkInt4ParThresholdSweep if
-// the core topology or aikit's kernel changes. Measurements on both rigs: docs/code-notes/decoder.md#int4ParThreshold.
+// the core topology or the model core's kernel changes. Measurements on both rigs: docs/code-notes/decoder.md#int4ParThreshold.
 const int4ParThreshold = 1 << 19
 
 // streamQuantized builds a [rows, cols] linalg.WeightMat in the target precision
@@ -438,14 +438,14 @@ var w4a8Row4RepackEnabled = true
 // per-group VPUNPCK{L,H}BW). A no-op on non-int4 WeightMats, non-amd64 builds, CPUs without AVX2 and any shape the repack
 // rejects, so always safe to call unconditionally.
 //
-// Also a no-op on hosts with AVX-512 VNNI: aikit's canonical W4A8 dot prefers its VNNI tier there and split-half exists
+// Also a no-op on hosts with AVX-512 VNNI: the model core's canonical W4A8 dot prefers its VNNI tier there and split-half exists
 // only at AVX2, so the layout would swap a faster kernel for a slower one. The repack therefore applies to
 // AVX2-without-VNNI hosts only.
 //
 // Wired into the same two call sites as the row4 repack and for the same reason (see that function for why the .giw
 // loader is excluded). The repack allocates a second buffer and never writes through the canonical bytes, which for a.
 // giw kind=3 tensor are a zero-copy mmap alias of the file; rewriting them in place would silently misdecode every
-// existing bundle (aikit's TestWeightMatSplitHalf_canonicalUntouched pins that it does not).
+// existing bundle (the model core's TestWeightMatSplitHalf_canonicalUntouched pins that it does not).
 //
 // Memory: a second copy of every eligible tensor's nibbles, with canonical kept. The cost and why it is default-off live
 // on w4a8SplitHalfRepackEnabled, in one place so the figures cannot drift apart.
@@ -456,7 +456,7 @@ func repackW4A8SplitHalfIfEligible(wm linalg.WeightMat) linalg.WeightMat {
 	if wm.RepackInt4SplitHalf() {
 		w4a8SplitHalfRepacked.Add(1)
 		// The second copy's actual cost, asked of the layout's owner rather than re-derived from rows x ceil(cols/2): the memory
-		// half of the trade must be a computed quantity, and duplicating aikit's arithmetic would let it drift.
+		// half of the trade must be a computed quantity, and duplicating the model core's arithmetic would let it drift.
 		w4a8SplitHalfBytes.Add(int64(wm.SplitHalfBytes()))
 	} else {
 		w4a8SplitHalfSkipped.Add(1)
@@ -477,14 +477,14 @@ var w4a8SplitHalfRepacked, w4a8SplitHalfSkipped, w4a8SplitHalfBytes atomic.Int64
 // the band the pre-registration named in advance as ambiguous, so it is parked with the code and wiring intact.
 //
 // Turning it on is defensible where decode latency outranks resident memory, on amd64 with AVX2 and no AVX-512 VNNI
-// (aikit declines on VNNI hosts). It is not defensible as a default. Re-open the decision if the kernel gets faster or
+// (the repack declines on VNNI hosts). It is not defensible as a default. Re-open the decision if the kernel gets faster or
 // canonical can be dropped for a decode-only build. The A/B and the figures:
 // docs/measurements/w4a8-splithalf-decode-ab-PREREGISTERED.md and docs/code-notes/decoder.md#w4a8SplitHalfRepackEnabled.
 // w4a8SplitHalfRepackEnabled is GOINFER_W4A8_SPLITHALF, parsed once by ensureSettings on first use.
 var w4a8SplitHalfRepackEnabled bool
 
 // w4a8BatchEnabled runs a layer's q/k/v (and gate/up, where the fused gate+up does not take them) as one W4A8 fork/join
-// instead of one per projection (aikit MatmulBTW4A8Batch). Bit-identical: every output column is the same dot product
+// instead of one per projection (linalg.MatmulBTW4A8Batch). Bit-identical: every output column is the same dot product
 // either way. The default is per architecture (w4a8BatchDefault, cpu_tuning_{arm64,other}.go); GOINFER_W4A8_BATCH=0
 // opts out and =1 forces it on. Why the defaults differ: docs/code-notes/decoder.md#w4a8BatchEnabled.
 // w4a8BatchEnabled is GOINFER_W4A8_BATCH, parsed once by ensureSettings on first decoder use.
@@ -709,8 +709,8 @@ func GIWTargetForBackend(backendName string) GIWTarget {
 	case "cpu":
 		switch runtime.GOARCH {
 		case "arm64":
-			// A kind-5 (row4-only) file promises that this core can read it, and aikit's row4 kernels need DotProd
-			// (Int4Row4Usable). A core without it (a Raspberry Pi 4, Windows on ARM, where aikit assumes none) would refuse to load
+			// A kind-5 (row4-only) file promises that this core can read it, and the model core's row4 kernels need DotProd
+			// (Int4Row4Usable). A core without it (a Raspberry Pi 4, Windows on ARM, where the model core assumes none) would refuse to load
 			// its own cpu-arm64 file and rebuild it on every start, so it builds canonical bundles, which any core loads. A
 			// cpu-arm64 bundle can still be built for a DotProd reader by naming the target (-target cpu-arm64).
 			if linalg.Int4Row4Usable(4, 32, 32) {
@@ -820,7 +820,7 @@ var (
 
 // w4a8Act is one activation quantized once for several CPU W4A8 matmuls over it: q, k and v of one normed row, gate and
 // up, every expert of a MoE layer. Quantization is deterministic, so repeating it per call was dead work. prepare
-// quantizes exactly as matmul's CPU W4A8 path would, and matmulPre runs aikit's Pre entry on it, so the result is the bits
+// quantizes exactly as matmul's CPU W4A8 path would, and matmulPre runs the model core's Pre entry on it, so the result is the bits
 // matmul gives. A weight the block does not fit (another K, another activation group, a backend that may take the call)
 // runs matmul instead.
 type w4a8Act struct {
@@ -921,7 +921,7 @@ func matmulWS(be Backend, own *linalg.Workspace, w *linalg.WeightMat, a, dst []f
 		// The pooled Workspace lowers the fan-out threshold (see int4ParThreshold). Each Get is exclusive to this call, so
 		// concurrent decode streams never share one.
 		//
-		// Use w.MatmulBTW4A8Into, not the raw linalg free function: aikit picks the repacked layout (arm64 row4, amd64
+		// Use w.MatmulBTW4A8Into, not the raw linalg free function: the model core picks the repacked layout (arm64 row4, amd64
 		// split-half) inside it, at M=1 only, and the load-time repacks do nothing without this call.
 		ws, pooled := matmulWorkspace(own)
 		if pooled {
@@ -938,7 +938,7 @@ func matmulWS(be Backend, own *linalg.Workspace, w *linalg.WeightMat, a, dst []f
 				return
 			}
 			// Pooled Workspace with the int8 decode threshold: the free-matmul path (e.g. gemma4's own forward) has no scratch
-			// Workspace, and without this its W8A8 decode matmuls would run at aikit's conservative default. matmulInto gets the same
+			// Workspace, and without this its W8A8 decode matmuls would run at the model core's conservative default. matmulInto gets the same
 			// through decodeScratch. The threshold differs from int4's (see DefaultDecodeParallelThreshold and int4ParThreshold).
 			ws, pooled := matmulWorkspace(own)
 			if pooled {

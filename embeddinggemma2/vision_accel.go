@@ -9,8 +9,8 @@ import (
 )
 
 // The vision tower on another device (Phase VM: Metal). A VisionAccelerator runs
-// the tower's patch embed and every encoder layer from aikit's export (vision.Gemma4Encoder.Weights); the pool and the
-// projection after them stay aikit's (FinishHidden), shared with the CPU tower.
+// the tower's patch embed and every encoder layer from the encoder's exported weights (vision.Gemma4Encoder.Weights); the pool and the
+// projection after them run through FinishHidden, shared with the CPU tower.
 
 // VisionAccelerator runs the Gemma 4 tower up to its pool on another device. The registry is multimodal's
 // (docs/multimodal.md, "Gemma 4's own images on the Metal tower"), shared with Gemma 4's own image input; these names stay as aliases.

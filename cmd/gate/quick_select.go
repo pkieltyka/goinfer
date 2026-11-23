@@ -153,8 +153,7 @@ func realQuickConfig(root string) (*quickConfig, error) {
 			Name: "cuda", Dir: "backend/cuda", Work: []string{".", "backend/cuda"},
 			ListTags: []string{"cuda", "goinfer_testhooks"}, TestTags: []string{"cuda", "goinfer_testhooks"},
 			TestArgs: []string{"-short"}, Env: map[string]string{"CGO_ENABLED": "0"},
-			// `CGO_ENABLED=0 go build -tags 'cuda goinfer_testhooks' ./cuda/...` fails on darwin/arm64 (aikit/gpu's
-			// CUDA surface is linux-only) while the same vet for GOOS=linux GOARCH=amd64 passes. So it is linted
+			// `CGO_ENABLED=0 go build -tags 'cuda goinfer_testhooks' ./backend/cuda/...` fails on Darwin arm64 because the tagged CUDA backend targets Linux while the same vet for GOOS=linux GOARCH=amd64 passes. So it is linted
 			// cross-target and its tests are NOT RUN off linux.
 			NativeGOOS: "linux", CrossTarget: "linux/amd64", Device: true,
 			// Kernel sweeps that load no model through the decoder and carry no goinfer_testhooks constraint, so gate

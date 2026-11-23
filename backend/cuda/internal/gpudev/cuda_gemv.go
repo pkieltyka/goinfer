@@ -7,10 +7,10 @@ import (
 	"fmt"
 )
 
-// cuda_gemv.go publishes the TUNED generic quantized GEMV — aikit's GPU twin of
+// cuda_gemv.go publishes the TUNED generic quantized GEMV — the GPU counterpart of
 // linalg's W4A8/W8A8 matmul, and the payload of the Phase-1b blob-split
 // (docs/task-native-gpu.md). The device layer in cuda.go is the substrate; this is
-// the first compute aikit ships on top of it.
+// a compute kernel built on the device layer.
 //
 // The kernels are lifted verbatim from goinfer's decode path (see gemv_quant.cu for
 // the provenance and the bit-identity rule). Consumers get the PTX and the entry

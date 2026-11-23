@@ -13,7 +13,7 @@ import (
 // A dispatcher here picks its kernel from a flag detected once at init, so a machine nobody here owns can select a kernel that has never run, and a wrong kernel
 // does not crash: it returns slightly wrong numbers (the 2026-09-24 AVX-512 VNNI accumulator bug moved a logit by 3.2e-3 and was found only because one CI runner
 // happened to have the CPU). SelfCheck runs the DISPATCHED kernel against the portable scalar reference on a small fixed, seeded input and holds it to the SAME
-// agreement aikit's own tests assert for that kernel (exact where they assert bit-identity, the same relative bound where they allow one), so it accepts exactly what
+// agreement the kernel tests assert for that kernel (exact where they assert bit-identity, the same relative bound where they allow one), so it accepts exactly what
 // the suite certified and rejects what the suite would reject: it invents no tolerance. It costs well under a millisecond.
 //
 // With repair, a mismatch turns the highest active ISA tier off (AVX-512 VNNI, then AVX2 on amd64; DotProd on arm64) and checks again, so a bad tier degrades to the

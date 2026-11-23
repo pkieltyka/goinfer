@@ -10,7 +10,7 @@ import (
 
 // mmapAliasedBytes is wmBytes' quantized-kind sum counting only bytes that alias m's .giw mmap region (MmapByteOffset): a
 // zero-copy load, not a heap allocation. f32 and SplitHalfBytes are never mmap-aliased (f32 is copied at .giw read time;
-// SplitHalfBytes is a derived repack). Unlike aikit's WeightMat.MappedSpan (the expert paging registry), this does not
+// SplitHalfBytes is a derived repack). Unlike the model core's WeightMat.MappedSpan (the expert paging registry), this does not
 // page-align: it answers "did this allocation happen at all", not "can MADV_DONTNEED release whole pages", and rounding
 // would undercount a small mmap-backed tensor. A heap model standing in for its sidecar (Options.SidecarFor) counts every payload of
 // these kinds, as the bundle maps them.

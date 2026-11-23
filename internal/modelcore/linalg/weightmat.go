@@ -13,12 +13,12 @@ import (
 // plus its scales plus a precision-dispatched MatmulBT. All three are now migrated
 // onto it (roadmap §2.8), each bit-identically:
 //
-//   - aikit encoder.LayerWeightsQ8 — per-row int8 projection weights (storage only;
+//   - encoder.LayerWeightsQ8 — per-row int8 projection weights (storage only;
 //     the encoder keeps its own baked-scale blocked matmul for large-M prefill, fed
 //     from Int8()/Scales(), since that path is numerically distinct from MatmulBTQ8).
 //   - goinfer decoder.weightMat — the richest: f32 / per-row int8 / group int4 / W8A8,
 //     with the matmul dispatch and tied-embedding Row lookup.
-//   - aikit vision.qmat (was goinfer's, before §2.9 moved the tower) — f32 / W8A8
+//   - the former vision.qmat — f32 / W8A8
 //     for the SigLIP / Qwen-ViT towers. Now only vision.newQMat remains, holding the
 //     storage POLICY (which weights quantize; f32 copies because the source mmap is
 //     released after load) rather than a second abstraction.

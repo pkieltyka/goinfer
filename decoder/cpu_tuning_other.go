@@ -5,7 +5,7 @@ package decoder
 // Architecture-conditional CPU decode defaults (see cpu_tuning_arm64.go). Both measured on the
 // Ryzen 7 3700X, docs/measurements/cpu-decode-attribution-2026-09-22-linux.md.
 
-// attnGroupedKernels: aikit ships the grouped acc64 attention kernels as NEON only (linalg/attn_acc64_group_other.go
+// attnGroupedKernels: the model core implements grouped acc64 attention with NEON (linalg/attn_acc64_group_other.go
 // returns 0 blocks, so the whole group falls to the Go path). On every other architecture the "grouped" path is a
 // pure-Go loop that is slower than the per-head path on the 1.5B's 6-heads-per-KV geometry. Off until a port exists.
 var attnGroupedKernels = false

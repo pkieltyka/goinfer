@@ -493,7 +493,7 @@ func Load(dir string, opts Options) (*Model, error) {
 			closeBackend(be)
 			return nil, fmt.Errorf("decoder: LoRA merge needs a safetensors base; %s is a prequantized .giw with no base to merge into", dir)
 		}
-		data, rerr := mapGIW(dir) // MAP_SHARED on darwin, aikit's MAP_PRIVATE elsewhere (giwmap_*.go)
+		data, rerr := mapGIW(dir) // MAP_SHARED on darwin, the model core's MAP_PRIVATE elsewhere (giwmap_*.go)
 		if rerr != nil {
 			closeBackend(be)
 			return nil, fmt.Errorf("decoder: mmap .giw: %w", rerr)
@@ -576,7 +576,7 @@ func Load(dir string, opts Options) (*Model, error) {
 		m.withBackendNames(opts.Backend, beErr)
 		if opts.StreamWeights {
 			// Resolve an "auto" (0) weight-cache request from this platform's own live probe before either pager sees it, so darwin gets
-			// a real figure instead of aikit's Linux-only /proc probe plus a fixed darwin fallback.
+			// a real figure instead of the model core's Linux-only /proc probe plus a fixed darwin fallback.
 			opts.WeightCacheBytes = resolveWeightCacheBudget(opts.WeightCacheBytes)
 			// MoE → expert demand-paging (#2); dense → per-layer streaming (#4).
 			if w.arch.MoE != nil {

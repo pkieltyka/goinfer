@@ -1,5 +1,5 @@
-// Package mmap is a zero-dependency-on-aikit leaf providing the OS memory
-// substrate that aikit's loaders sit on: a read-only file mapping, residency
+// Package mmap is a standard-library leaf providing the OS memory
+// substrate used by the model loaders: a read-only file mapping, residency
 // hints (madvise), and a demand-signal-agnostic span-residency cache for paging
 // a mapping in and out under a byte budget.
 //
@@ -11,9 +11,9 @@
 // collapse to one without any package growing a dependency on another aikit
 // package. The leaf invariant is that this package imports only the standard
 // library (plus golang.org/x/sys/unix on darwin, where the stdlib lacks a madvise
-// wrapper) and never imports another aikit package — so any aikit package can
+// wrapper) and imports no model-core package, so any model loader can
 // import it with zero cycle risk. It is cgo-free; the //go:build !unix builds
-// fall back to a heap read and inert hints, exactly as aikit's existing loaders
+// fall back to a heap read and inert hints, consistent with the existing loaders
 // do.
 //
 // # What it provides

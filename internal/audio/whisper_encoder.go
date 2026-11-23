@@ -220,7 +220,7 @@ func (e *WhisperEncoder) gelu(v float32) float32 {
 	return float32(0.5 * float64(v) * (1 + math.Erf(float64(v)/math.Sqrt2)))
 }
 
-// geluInto applies the activation to buf in place: aikit's exact-GELU contract kernel (HF's "gelu", x times Phi(x)), spread over the cores in chunks, unless the planted
+// geluInto applies the activation to buf in place: the exact GELU kernel (HF's "gelu", x times Phi(x)), spread over the cores in chunks, unless the planted
 // tanh defect is on, which keeps its scalar form.
 func (e *WhisperEncoder) geluInto(buf []float32) {
 	if e.defect == whisperEncDefectTanhGELU {

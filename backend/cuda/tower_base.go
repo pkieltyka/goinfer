@@ -11,11 +11,11 @@ import (
 	"github.com/pkieltyka/goinfer/internal/runtime/mem"
 )
 
-// The CUDA vision-tower base (// docs/measurements/multimodal-support-2026-10/s4-gate0-cuda-towers.md): aikit's gpu.ViT (f32 GEMMs with bias and
+// The CUDA vision-tower base (docs/measurements/multimodal-support-2026-10/s4-gate0-cuda-towers.md) uses gpudev's ViT kernels (f32 GEMMs with bias and
 // bias+residual epilogues, LayerNorm, RMSNorm, GELU, scaled attention, a NeoX RoPE) plus the six kernels of
 // tower_base.cu, behind one executor goroutine that owns the device (CUDA contexts are thread-affine, as in
 // vision_encoder.go) and a launch helper that latches the first error. It is the counterpart of Metal's eg2Ops, not a
-// port: CUDA kernels take their scalars as launch arguments, and attention is aikit's own kernel (np <= 12288 by its
+// port: CUDA kernels take their scalars as launch arguments, and attention uses the CUDA device kernel (np <= 12288 by its
 // shared-memory row).
 //
 // Every method except new/close/do must run inside do(), which turns a failed allocation (a panic inside the executor,
@@ -35,7 +35,7 @@ type towerOps struct {
 	err        error            // the first launch error of the current call
 	shortTiled bool             // opt-in EmbeddingGemma 2 query experiment
 	prof       *towerProf       // the per-class profile; nil in production (tower_prof.go)
-	ownAttn    map[int]Pipeline // the tower's own fused attention by head dim (64, 72, 80); a head dim not in it takes aikit's kernel
+	ownAttn    map[int]Pipeline // the tower's own fused attention by head dim (64, 72, 80); a head dim not in it takes the reference kernel
 
 	reqCh chan func() error
 	ackCh chan error
@@ -229,7 +229,7 @@ var f32v = gpu.ArgValue[float32]
 var i64 = gpu.ArgValue[int64]
 
 // gemm is out[M,N] = a[M,K] · w[N,K]ᵀ. With K a multiple of 16 it runs the bias kernel with a zero bias, which takes any M and N at the register-blocked
-// speed; otherwise aikit's plan (the register kernel when M and N are multiples of 64, else the tiled one).
+// speed; otherwise the device layer's plan (the register kernel when M and N are multiples of 64, else the tiled one).
 func (t *towerOps) gemm(a, w, out Buffer, M, N, K int) {
 	t.cls(clsGEMM)
 	t.profGEMM(M, N, K)
@@ -343,7 +343,7 @@ func (t *towerOps) ropeHalfTo(x, cs, sn Buffer, T, heads, hd int) {
 	t.launch(t.ropeHalf, gpu.Grid1D(n, 256), Arg(x), Arg(cs), Arg(sn), i32(int32(heads)), i32(int32(hd)), i64(int64(n)))
 }
 
-// attention is aikit's bidirectional multi-head self-attention over np patches, q/k/v/out all [np, nH*hd] with the heads in place, at the given scale. The
+// attention is the in-tree bidirectional multi-head self-attention over np patches, q/k/v/out all [np, nH*hd] with the heads in place, at the given scale. The
 // untiled kernel keeps a score row in shared memory (np*4 bytes, np <= 12288 at 48 KB) and the tiled one (from np 3072, hd <= 128) does not; an image neither can
 // take is refused by name, not truncated.
 func (t *towerOps) attention(q, k, v, out Buffer, np, nH, hd int, scale float32) error {
@@ -364,7 +364,7 @@ func (t *towerOps) attention(q, k, v, out Buffer, np, nH, hd int, scale float32)
 	return nil
 }
 
-// towerAttnAikit routes the towers back to aikit's attention kernel (the A/B arm of the whole-tower comparison and the
+// towerAttnAikit routes the towers back to the reference attention kernel (the A/B arm of the whole-tower comparison and the
 // fallback's own test); towerAttnDefect plants the fused kernel's defects for its tests (1: no rescale when the running
 // max moves; 2: the key mask one past the segment). Both are zero in production.
 var (

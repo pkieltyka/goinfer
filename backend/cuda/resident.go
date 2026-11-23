@@ -2796,7 +2796,7 @@ func (r *cudaResident) launch(f Pipeline, cfg LaunchConfig, args ...KernelArg) e
 // pipeName recovers the struct-field name a Pipeline was bound to, by scanning cudaResident's
 // fields for one equal to it. Pipeline is a single-pointer struct, so it compares by identity.
 //
-// aikit's Pipeline carries no name (it is `struct{ f *gc.Function }`) and lives in another module,
+// gpudev.Pipeline carries no name (it is `struct{ f *gc.Function }`),
 // so the name cannot come from the value itself — but goinfer binds every pipeline to a named
 // field, which makes the mapping recoverable here. Error path only; the reflection cost never
 // touches a working launch.
@@ -4452,7 +4452,7 @@ func (r *cudaResident) layerTail(Ly *cudaLayer, l int, gC bool, x Buffer) error 
 		// segC(l-1) writes AND reads g4x2 on r.stream (CU_STREAM_NON_BLOCKING). The clear must land after that read and
 		// before segC(l) accumulates into it. A memset ON r.stream is ordered by the stream itself, in every mode, and
 		// drains nothing. Do not clear with gpu.Upload of a host zero slice: it runs its copy on the context's legacy null
-		// stream, which has NO ordering against r.stream (aikit gpu/cuda.go), so it needs a Sync first, plus two more
+		// stream, which has NO ordering against r.stream (see the CUDA gpudev queue), so it needs a Sync first, plus two more
 		// context syncs and a pageable copy. The router readback that follows (loadRoutedExperts) still syncs r.stream
 		// itself, so the wait is not lost, only moved to where it was needed anyway.
 		if e := r.stream.ZeroAsync(r.g4x2, r.hidden*4); e != nil {

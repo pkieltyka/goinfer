@@ -237,7 +237,7 @@ func rowPending(e *relEnv) relRow {
 	return done(name, "cmd/gate/parity.go awaitingFirstConfirmation", fmt.Sprintf("nothing pending since before %s (%s)", prevVer, prevDate))
 }
 
-// ---- row 2: the releasable modules agree on a tagged aikit, and none requires aikit/gpu ----
+// ---- row 2: standalone graphs exclude the retired dependencies ----
 
 var relModules = []string{".", "backend/cuda", "backend/metal", "backend/vulkan"}
 
@@ -249,8 +249,7 @@ func (e *relEnv) releaseModules() []string {
 }
 
 // rePseudo matches the three pseudo-version forms Go writes (vX.0.0-yyyymmddhhmmss-hash, vX.Y.Z-pre.0.yyyymmddhhmmss-hash,
-// vX.Y.Z-0.yyyymmddhhmmss-hash), with or without build metadata such as +incompatible. goinfer's main may require one
-// between weekly aikit tags; a release may not (the owner's decision).
+// vX.Y.Z-0.yyyymmddhhmmss-hash), with or without build metadata such as +incompatible. The historical pin grader rejects them.
 var rePseudo = regexp.MustCompile(`[-.][0-9]{14}-[0-9a-f]{12}(?:\+[0-9A-Za-z.-]+)?$`)
 
 // modRequire is the version a go.mod requires for module, or "".

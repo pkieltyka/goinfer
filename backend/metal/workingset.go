@@ -13,7 +13,7 @@ import (
 // memory Metal can use for this GPU's resources before performance suffers. A variable so a test can stand in a device.
 var metalWorkingSetCap = func() int64 { return deviceWorkingSet() }
 
-// deviceWorkingSet asks MTLCreateSystemDefaultDevice once (the same device every resident uses; aikit's Device keeps its handle
+// deviceWorkingSet asks MTLCreateSystemDefaultDevice once (the same device every resident uses; gpudev.Device keeps its handle
 // private), then releases it.
 var deviceWorkingSet = sync.OnceValue(func() (n int64) {
 	defer func() {

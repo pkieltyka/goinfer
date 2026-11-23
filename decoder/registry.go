@@ -28,8 +28,8 @@ var registry = map[string]archAdapter{
 	"qwen3":               qwen3Architecture,      // Qwen3 dense (0.6B/1.7B/4B/8B/…)
 	"qwen2":               qwen2Architecture,      // Qwen2/Qwen2.5 dense (llama + q/k/v bias)
 	"qwen2_5_vl":          qwen2_5_vlArchitecture, // Qwen2.5-VL text decoder (qwen2 + m-RoPE; nested rope_parameters)
-	"voxtral":             voxtralArchitecture,    // Voxtral Mini's text decoder: exactly Llama (nested text_config, tensors under language_model.*, head_dim 128 != hidden/heads); the audio tower and projector are aikit/audio.VoxtralAudio
-	"qwen3_asr":           qwen3_asrArchitecture,  // Qwen3-ASR's text decoder: exactly Qwen3 (nested thinker_config.text_config, tensors under thinker.*); the audio encoder is aikit/audio
+	"voxtral":             voxtralArchitecture,    // Voxtral Mini's text decoder: exactly Llama (nested text_config, tensors under language_model.*, head_dim 128 != hidden/heads); the audio tower and projector are internal/audio.VoxtralAudio
+	"qwen3_asr":           qwen3_asrArchitecture,  // Qwen3-ASR's text decoder: exactly Qwen3 (nested thinker_config.text_config, tensors under thinker.*); the audio encoder is internal/audio
 	"qwen3_vl":            qwen3_vlArchitecture,   // Qwen3-VL TEXT decoder only (qwen3 + interleaved m-RoPE; nested text_config/rope_parameters)
 	"qwen2_moe":           qwen2MoeArchitecture,   // Qwen-MoE/Qwen2-MoE (qwen2 + sparse MoE + shared expert)
 	"qwen3_moe":           qwen3MoeArchitecture,   // Qwen3-30B-A3B / Qwen3-Coder-30B-A3B: qwen3's attention (QK-norm, no bias) + a sparse MoE on every layer, NO shared expert
@@ -65,7 +65,7 @@ var registry = map[string]archAdapter{
 	"granitemoehybrid": graniteArchitecture,       // Granite-4.0-H: Mamba-2 + attention hybrid + MoE-on-every-layer + Granite multipliers
 	"granite":          graniteDenseArchitecture,  // Granite 4.2 (3B/8B/30B) dense: llama skeleton + Granite's four scalar multipliers
 	"lfm2":             lfm2Architecture,          // LFM2 / LFM2.5: gated short-conv + GQA hybrid (layer_types), tied head, per-head RMSNorm QK-norm
-	"lfm2_vl":          lfm2Architecture,          // LFM2-VL / LFM2.5-VL: the lfm2 decoder of an Lfm2VlForConditionalGeneration, text_config extracted; its SigLIP2 tower is multimodal/aikit's
+	"lfm2_vl":          lfm2Architecture,          // LFM2-VL / LFM2.5-VL: the lfm2 decoder of an Lfm2VlForConditionalGeneration, text_config extracted; its SigLIP2 tower is the in-tree multimodal implementation
 	"nemotron_h":       nemotronhArchitecture,     // Nemotron-H: single-op-per-block hybrid (mamba | NoPE-attention | relu² MLP)
 	"deepseek_v2":      deepseekArchitecture,      // DeepSeek-V2 (MLA + DeepSeekMoE; softmax routing, V2-Lite has no q-LoRA)
 	"deepseek_v3":      deepseekArchitecture,      // DeepSeek-V3 (MLA + DeepSeekMoE; sigmoid + e_score_correction_bias group-limited routing)

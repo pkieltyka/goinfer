@@ -8,16 +8,14 @@ import (
 )
 
 // The encoder's image resize. The checkpoint's Gemma4ImageProcessor
-// resizes the decoded uint8 image with torchvision's antialiased bicubic before rescaling to [0, 1]. That resize lived
-// here until 2026-10-06 and is aikit's now (vision.ResizeBicubicAA, the default of vision.Gemma4Preprocess, held to
-// torchvision bit for bit by aikit's own test), so EmbeddingGemma 2 and Gemma 4's image input share it. aikit's
-// bilinear stays selectable.
+// resizes the decoded uint8 image with torchvision's antialiased bicubic before rescaling to [0, 1]. EmbeddingGemma 2 and Gemma 4 share vision.ResizeBicubicAA, whose test compares every bit with
+// torchvision. The vision package's bilinear resize stays selectable.
 
 // ImageResize chooses an encoder's image resize.
 type ImageResize string
 
 const (
-	ResizeBilinear ImageResize = "bilinear" // aikit's bilinear (vision.Gemma4Bilinear)
+	ResizeBilinear ImageResize = "bilinear" // vision.Gemma4Bilinear
 	ResizeBicubic  ImageResize = "bicubic"  // the reference processor's (vision.Gemma4Bicubic)
 )
 
