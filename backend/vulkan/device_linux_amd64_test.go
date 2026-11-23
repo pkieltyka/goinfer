@@ -101,3 +101,42 @@ func TestVulkanDeviceMemoryConversion(t *testing.T) {
 		t.Fatalf("closed encoder returned memory %v, %v", mem, err)
 	}
 }
+
+// TestVulkanRunnableSelectorsStayBackendGated is the no-driver regression for
+// #68: duplicate nonzero UUIDs still produce two inventory rows with the same
+// ID and distinct ordinal aliases, and every Vulkan row — duplicate or unique —
+// returns no affirmative selectors. The linked-factory query is unchanged.
+func TestVulkanRunnableSelectorsStayBackendGated(t *testing.T) {
+	duplicate := [16]byte{0x44}
+	rows := describeDevices([]vk.Info{
+		{UUID: duplicate, Name: "first"},
+		{UUID: duplicate, Name: "second"},
+	})
+	if len(rows) != 2 {
+		t.Fatalf("describeDevices returned %d rows, want 2: %+v", len(rows), rows)
+	}
+	first, second := inventoryDevice(rows[0]), inventoryDevice(rows[1])
+	if first.ID == "" || first.ID != second.ID {
+		t.Fatalf("duplicate UUID lost identity: %q and %q", first.ID, second.ID)
+	}
+	if first.Alias != "vulkan:0" || second.Alias != "vulkan:1" {
+		t.Fatalf("duplicate UUID aliases = %q, %q; want vulkan:0, vulkan:1", first.Alias, second.Alias)
+	}
+	for i, row := range []embeddinggemma2.DeviceInfo{first, second} {
+		if got := row.RunnableSelectors(); got != nil {
+			t.Fatalf("duplicate-UUID Vulkan row %d RunnableSelectors() = %v, want nil", i, got)
+		}
+	}
+
+	unique := describeDevices([]vk.Info{{UUID: [16]byte{0x55}, Name: "unique"}})
+	if len(unique) != 1 {
+		t.Fatalf("describeDevices returned %d rows for the unique control, want 1", len(unique))
+	}
+	if got := inventoryDevice(unique[0]).RunnableSelectors(); got != nil {
+		t.Fatalf("unique Vulkan row RunnableSelectors() = %v, want nil", got)
+	}
+
+	if selectors := embeddinggemma2.DeviceSelectors("vulkan"); !slices.Contains(selectors, "vulkan") {
+		t.Fatalf("linked Vulkan selectors = %v, want vulkan", selectors)
+	}
+}
