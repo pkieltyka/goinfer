@@ -45,8 +45,6 @@ import (
 	"syscall"
 	"time"
 
-	"github.com/pkieltyka/goinfer/internal/modelcore/embed"
-	"github.com/pkieltyka/goinfer/internal/modelcore/encoder"
 	"github.com/pkieltyka/goinfer/chat"
 	"github.com/pkieltyka/goinfer/decoder"
 	"github.com/pkieltyka/goinfer/embeddinggemma2"
@@ -57,6 +55,8 @@ import (
 	"github.com/pkieltyka/goinfer/internal/codec"
 	"github.com/pkieltyka/goinfer/internal/decide"
 	"github.com/pkieltyka/goinfer/internal/guard/servecheck"
+	"github.com/pkieltyka/goinfer/internal/modelcore/embed"
+	"github.com/pkieltyka/goinfer/internal/modelcore/encoder"
 	"github.com/pkieltyka/goinfer/internal/runtime/modelload"
 	"github.com/pkieltyka/goinfer/internal/runtime/prequant"
 	"github.com/pkieltyka/goinfer/internal/runtime/scheduler"

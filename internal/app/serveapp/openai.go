@@ -18,8 +18,6 @@ import (
 	"sync/atomic"
 	"time"
 
-	"github.com/pkieltyka/goinfer/internal/modelcore/embed"
-	"github.com/pkieltyka/goinfer/internal/modelcore/encoder"
 	"github.com/pkieltyka/goinfer/chat"
 	"github.com/pkieltyka/goinfer/constrain"
 	"github.com/pkieltyka/goinfer/decoder"
@@ -29,6 +27,8 @@ import (
 	"github.com/pkieltyka/goinfer/internal/cost"
 	"github.com/pkieltyka/goinfer/internal/decide"
 	"github.com/pkieltyka/goinfer/internal/guard/swapguard"
+	"github.com/pkieltyka/goinfer/internal/modelcore/embed"
+	"github.com/pkieltyka/goinfer/internal/modelcore/encoder"
 	samplingp "github.com/pkieltyka/goinfer/internal/runtime/sampling"
 	"github.com/pkieltyka/goinfer/internal/runtime/scheduler"
 	"github.com/pkieltyka/goinfer/tokenizer"
