@@ -369,8 +369,8 @@ in-process. Longer form: [docs/positioning.md](docs/positioning.md).
   (`libcuda.so.1`, Metal.framework) and run kernels shipped in the binary, so there is no CUDA
   toolkit to build against, and without the driver the load declines to the CPU path. The optional
   Vulkan backend accelerates EmbeddingGemma 2 text on Linux. Nothing that performs inference is loaded from outside the binary: no
-  llama.cpp, no libllama, no Python runtime. The library's `go.mod` has two direct requirements,
-  `github.com/pkieltyka/aikit` and `golang.org/x/text`; each GPU backend is its own module.
+  llama.cpp, no libllama, no Python runtime. The root depends on `golang.org/x/sys` and `golang.org/x/text` for OS and text support.
+  Each GPU backend is a separate module.
   Dense and MoE models; anything unsupported declines at load and falls back to CPU. See [docs/cuda-backend.md](docs/cuda-backend.md)
   and [docs/gpu-residency-coverage.md](docs/gpu-residency-coverage.md). On CUDA, prompts of 512
   tokens or more use a fused FlashAttention-style kernel and a tensor-core int4 GEMM (3.9×
@@ -432,7 +432,7 @@ is the one to read if you read only one. Source: [docs/book/](docs/book).
 
 Demos: `demo/chat` (single-binary local chat), `demo/agent` (fully-local stdlib RAG coding agent).
 
-Built on [`aikit`](https://github.com/pkieltyka/aikit)'s embedding and tensor primitives.
+The CPU embedding and tensor code is in `internal/modelcore`. See its [source notice](internal/modelcore/NOTICE).
 
 See the [upstream archive](docs/upstream-archive.md) for retired components and raw measurement artifacts.
 

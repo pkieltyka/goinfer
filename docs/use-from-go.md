@@ -445,6 +445,15 @@ call `decoder.SetLogger` with a `*slog.Logger`: each message becomes a record at
 and nothing reaches stderr. It covers `decoder` and the GPU backends. It does not cover the banner and request log of a server embedded
 with `server.NewHandler`, or `pull`'s download progress.
 
+## Backend extensions
+
+Recompile extensions against the current Go type identities. Use `decoder.W8A8Op`,
+`decoder.W4A8Op`, `decoder.WeightMat` and `decoder.GGUFFile` in decoder-facing
+signatures. The resident interface also names `resident.WeightMat`. Custom weight
+reconstructors use `quant.SafetensorsFile`. Use `decoder.WrapF32`,
+`decoder.OpenGGUFMmap` or `quant.OpenSafetensorsMmap` to construct those values
+through goinfer. The previous external package types have different Go identities.
+
 ## What v1.0 will bind
 
 goinfer is pre-1.0, so any of this can still change. Which surfaces the v1.0 tag will hold to

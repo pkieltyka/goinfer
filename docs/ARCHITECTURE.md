@@ -52,7 +52,7 @@ flowchart TB
   APPS -- "--model" --> ML["internal/runtime/modelload<br/>resolve hf: / demo: · sidecar .giw · tokenizer<br/>swap-guarded decoder.Load · streaming retry"]
   ML --> MODEL["decoder.Model<br/>Architecture descriptor · quantized weights<br/>knob snapshot · KV cache · resident runner if admitted"]
   APPS -- "Generate · Session · speculative" --> MODEL
-  MODEL --> CPU["CPU forward<br/>aikit/linalg integer SIMD kernels"]
+  MODEL --> CPU["CPU forward<br/>modelcore/linalg integer SIMD kernels"]
   MODEL --> RES["resident forward · decoder.ResidentForward<br/>cuda · metal · webgpu, registered at init"]
   CPU --> STEP["logits → LogitProcessor (constrain) → sampler → token id"]
   RES --> STEP
@@ -303,7 +303,7 @@ because they did not pay, and their records stay:
 
 Vision in, text out, and on serve only (`--vision`).
 
-- **Towers** live in `internal/vision` (moved from aikit, Track AX): SigLIP for Gemma 3, Gemma 4's own ViT, the
+- **Towers** live in `internal/vision`: SigLIP for Gemma 3, Gemma 4's own ViT, the
   dynamic-resolution ViT for Qwen2.5-VL, the Qwen3.5+ tower, and GLM-OCR's own tower.
 - **`multimodal`** holds the goinfer side: projectors, image-token blocks, preprocessing, and image
   hashing.
@@ -313,7 +313,7 @@ Vision in, text out, and on serve only (`--vision`).
 - **Where towers run.** Each backend's resident towers are its own, registered through `vision.RegisterResident` and
   `vision.RegisterQwenResident`: on CUDA, `backend/cuda/tower_base.go` with `vision_register.go`, `siglip_vision.go`,
   `qwen25_vision.go`, `grid_vision.go` and `gemma4_vision.go`; on Metal, `backend/metal/vl_towers.go`, `grid_vision.go` and
-  `gemma4_vision.go`; SigLIP on WebGPU. aikit's own GPU towers are not imported. The other towers run on the CPU.
+  `gemma4_vision.go`; SigLIP on WebGPU. The other towers run on the CPU.
 - **Where the decode runs after the image.** Resident for Gemma 3, Qwen2.5-VL and Gemma 4 26B/31B (the CPU's
   image-block prefill is uploaded with `UploadKV`; CUDA also prefills the image resident), and for GLM-OCR on CUDA.
   **Not resident:** Qwen3.5+ (a recurrent family refuses every resident branch), Gemma 4 E2B/E4B, and GLM-OCR off CUDA.
@@ -484,7 +484,7 @@ A bare `decoder.Options{}` means f32. [quantization.md](quantization.md) has the
 explicit `--quant` that disagrees with a `.giw` you named is refused rather than silently ignored.
 Metal's resident build runs every quantized weight as int4, because it has no int8 GEMV kernel.
 
-**The CPU kernels** are integer SIMD in `aikit/linalg`, written in hand-written assembly: NEON and
+**The CPU kernels** are integer SIMD in `internal/modelcore/linalg`, written in hand-written assembly: NEON and
 SDOT on arm64, AVX-512 VNNI or AVX2 on amd64. `decoder/weightmat.go` dispatches each
 `linalg.WeightMat` by its precision:
 - `MatmulBTW4A8Into` (int4);
@@ -916,7 +916,7 @@ user on consumer hardware.
   client (`goinfer-serve status | ls | cancel | halt | resume`). A halt can also come from
   `--halt-file` or SIGUSR1/SIGUSR2 ([tasks/task-halt-2026-09.md](tasks/task-halt-2026-09.md)).
 - **Also:**
-  - `/v1/embeddings` serves an `aikit/encoder` model (`--embed-model`), or uses a causal decoder as
+  - `/v1/embeddings` serves an encoder model via `internal/modelcore/encoder` (`--embed-model`), or uses a causal decoder as
     an embedder.
   - `--web` adds a browser UI that can also fetch and load models.
   - `goinfer-serve check` drives a running server through each feature and prints a verdict per
@@ -977,10 +977,10 @@ documents every variable, and its operator-facing rows are Hard-tier contract.
 
 ## 6. Modules, packages, and where cgo is quarantined
 
-goinfer is the LLM runtime. `aikit`, a separate repository, holds the rest: the tensor kernels, file
-parsers, memory mapping, embedding models and vision towers. Everything in the default build is pure
-Go with `CGO_ENABLED=0`. The root module requires `aikit`, `golang.org/x/sys` and `golang.org/x/text`.
-The optional GPU backends have separate modules.
+The root module contains the inference runtime, private CPU tensor kernels and model-file
+readers in `internal/modelcore`, and vision and audio towers in `internal/vision` and `internal/audio`.
+The default build is pure Go with `CGO_ENABLED=0`. The root requires `golang.org/x/sys` and
+`golang.org/x/text`. The optional GPU backends have separate modules.
 
 ```mermaid
 flowchart TB
@@ -993,6 +993,7 @@ flowchart TB
     CON["constrain<br/>logit-mask grammars"]
     MM["multimodal<br/>projectors · preprocessing · image hash"]
     PULL["pull<br/>hf: / demo: references"]
+    CORE["internal/modelcore<br/>linalg · embed · mmap · encoder"]
     APPS --> DEC
     APPS --> CHT
     APPS --> CON
@@ -1001,9 +1002,9 @@ flowchart TB
     APPS --> TKN
     DEC --> CON
     CHT --> TKN
-  end
-  subgraph AIKIT["github.com/pkieltyka/aikit  (pure Go)"]
-    AK["embed · linalg · mmap · encoder · vision"]
+    DEC --> CORE
+    MM --> CORE
+    APPS --> CORE
   end
   subgraph GPUDEV["goinfer backend/{cuda,metal}/internal/gpudev  (cgo-free device layer)"]
     AG["CUDA via gocudrv (purego dlopen) · Metal via purego + Obj-C"]
@@ -1014,19 +1015,13 @@ flowchart TB
   subgraph METAL["goinfer/backend/metal  (darwin · cgo-free)"]
     MT["resident runner · MSL compiled at run time · expert streaming<br/>cmd/chat · cmd/serve"]
   end
-  subgraph GPU["goinfer/backend/webgpu  (-tags gpu · the one cgo module)"]
-    WG["oliverbestmann/webgpu → wgpu-native<br/>DecodeRunner · staged path · SSM residency<br/>cmd/chat · cmd/serve"]
+  subgraph VULKAN["goinfer/backend/vulkan (linux/amd64 · cgo-free)"]
+    VK["EmbeddingGemma 2 text accelerator"]
   end
-  DEC --> AK
-  TKN --> AK
-  MM --> AK
-  APPS --> AK
   CU --> AG
   MT --> AG
   CUDA -. "registers into" .-> DEC
   METAL -. "registers into" .-> DEC
-  GPU -. "registers into" .-> DEC
-  GPU -. "and into aikit/encoder" .-> AK
 ```
 
 The arrows into `decoder` are dashed because the dependency is **inverted**. Each backend imports
@@ -1037,7 +1032,7 @@ checks two things about the root:
 - its compiled package set (`go list -deps ./...`);
 - the module graph a consumer resolves (`go list -m all`).
 
-Neither may mention a WebGPU binding, gocudrv, purego, `aikit/gpu`, or a goinfer backend module.
+The root package and module graphs exclude GPU bindings and backend modules.
 
 A browser/WASM backend (`GOOS=js` → `navigator.gpu`) is parked in [roadmap.md](roadmap.md) as a demo,
 not a binding strategy.
@@ -1047,9 +1042,9 @@ not a binding strategy.
 Four Go modules share a workspace. The backend dependencies stay outside root-only builds.
 A separate module under `.github/actions/staticcheck/` pins the linter.
 
-| Module | Contents | Requires beyond the root and `aikit` |
+| Module | Contents | Requires beyond the root |
 |---|---|---|
-| `github.com/pkieltyka/goinfer` | everything in the Packages table below except the three backend modules | `golang.org/x/text` |
+| `github.com/pkieltyka/goinfer` | everything in the Packages table below except the three backend modules | `golang.org/x/sys`, `golang.org/x/text` |
 | `github.com/pkieltyka/goinfer/backend/cuda` | the CUDA backend (`-tags cuda`), `backend/cuda/cmd/chat`, `backend/cuda/cmd/serve` | `eitamring/gocudrv`, `ebitengine/purego` |
 | `github.com/pkieltyka/goinfer/backend/metal` | the Metal backend (darwin), `backend/metal/cmd/chat`, `backend/metal/cmd/serve` | `ebitengine/purego`, `golang.org/x/sys` |
 | `github.com/pkieltyka/goinfer/backend/vulkan` | direct Vulkan EmbeddingGemma 2 text accelerator (Linux amd64) | `ebitengine/purego` |
