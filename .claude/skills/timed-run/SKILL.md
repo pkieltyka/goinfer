@@ -231,8 +231,9 @@ the full text, with the evidence behind each:
   same input, pooled means carry between-input variance that can swamp the effect. The
   [verify-width replay](../../../docs/measurements/default-verify-width-2026-08-25.md)
   measured pooled standard deviations of 10–35 tok/s against an effect of about 8%.
-  Paired standard deviations were 5.5–8.7 tok/s, with the strongest cell winning 11 of 12 pairs.
-  The two views of the same observations disagreed about whether the effect existed.
+  The standard deviation of paired percentage changes ranged from 5.5 to 8.7 percentage points.
+  The strongest cell won 11 of 12 pairs. The two views of the same observations disagreed about
+  whether the effect existed.
 - **A bit-identical speed change ships even under its registered bar** when all four hold: (1) its outputs are bit-identical;
   (2) its scratch and allocated memory are not higher; (3) it is faster on at least 9 of 10 timed pairs; (4) it replaces code
   rather than adding a second path (a test-only switch back to the old form is not a second path). The registered bar still
