@@ -31,8 +31,12 @@ func init() {
 }
 
 func bareEG2Factory(combined bool) func(*embeddinggemma2.Model) (embeddinggemma2.Accelerator, error) {
+	return bareEG2FactoryOn(eg2CUDAAttach(combined, nil))
+}
+
+func bareEG2FactoryOn(attach eg2Attacher) func(*embeddinggemma2.Model) (embeddinggemma2.Accelerator, error) {
 	return func(m *embeddinggemma2.Model) (embeddinggemma2.Accelerator, error) {
-		acc, err := newEG2Accel(m, combined)
+		acc, err := attach(m, CreateSystemDefaultDevice)
 		if err != nil {
 			return nil, err
 		}
@@ -88,6 +92,7 @@ type eg2Accel struct {
 	broken                                  error // set when a failed forward could not be drained or Close failed; every later forward returns it
 	teardownStarted                         bool  // set once Close has drained (if needed) and entered closeChecked; retries skip q.Sync on destroyed streams
 	combinedTranspose, combinedAttention    Pipeline
+	ffnFP16                                 Pipeline
 	defect                                  eg2Defect
 }
 
@@ -319,12 +324,27 @@ func pendingEG2CleanupsLen() int {
 // constructor owns admission serialization, setup, checked rollback, and OOM
 // classification.
 func newEG2AccelOn(m *embeddinggemma2.Model, combined bool, open func() (*Device, error)) (_ *eg2Accel, err error) {
+	return newEG2AccelWithFFN(m, combined, nil, open)
+}
+
+type eg2Attacher func(*embeddinggemma2.Model, func() (*Device, error)) (*eg2Accel, error)
+
+func eg2CUDAAttach(combined bool, fp16PTX []byte) eg2Attacher {
+	return func(m *embeddinggemma2.Model, open func() (*Device, error)) (*eg2Accel, error) {
+		return newEG2AccelWithFFN(m, combined, fp16PTX, open)
+	}
+}
+
+func newEG2AccelWithFFN(m *embeddinggemma2.Model, combined bool, fp16PTX []byte, open func() (*Device, error)) (_ *eg2Accel, err error) {
 	defer func() { err = classifyCUDAAttach(err) }()
 	if open == nil {
 		return nil, errors.New("cuda: EmbeddingGemma 2 nil device opener")
 	}
 	w := m.TransformerWeights()
 	c := w.Config
+	if len(fp16PTX) != 0 && !eg2FFNGeometry(c.Hidden, c.Intermediate) {
+		return nil, fmt.Errorf("%w: CUDA FP16 FFN cannot run hidden %d and intermediate %d", embeddinggemma2.ErrDeviceUnavailable, c.Hidden, c.Intermediate)
+	}
 	maxN := max(c.Layers*c.PLEDim, c.Intermediate, c.Hidden, c.EmbeddingDim)
 	maxHD := 0
 	for i, ly := range w.Layers {
@@ -349,12 +369,30 @@ func newEG2AccelOn(m *embeddinggemma2.Model, combined bool, open func() (*Device
 	a := &eg2Accel{ops: ops, cfg: c, model: m}
 	a.identity = cudaDeviceInfo(ops.dev.Adapter())
 	if err := ops.do(func() error {
+		if len(fp16PTX) != 0 {
+			p, err := eg2FP16Pipeline(ops.dev, fp16PTX)
+			if err != nil {
+				return err
+			}
+			a.ffnFP16 = p
+		}
 		var weightBytes int64
 		upWeight := func(v []float32) Buffer {
 			if len(v) > 0 {
 				weightBytes += gpu.ChargedBytes(int64(len(v)) * 4)
 			}
 			return ops.up(v)
+		}
+		upFFNWeight := func(v []float32) Buffer {
+			if len(fp16PTX) == 0 {
+				return upWeight(v)
+			}
+			packed, err := eg2FP16Weights(v)
+			if err != nil {
+				panic(err)
+			}
+			weightBytes += gpu.ChargedBytes(int64(len(v)) * 2)
+			return gpu.NewBufferOfOn(ops.dev, mem.LineCompanion, packed)
 		}
 		a.pleProj, a.pleNorm, a.finalNorm, a.proj = upWeight(w.PLEProj), upWeight(w.PLENorm), upWeight(w.FinalNorm), upWeight(w.Projection)
 		ones := make([]float32, maxHD)
@@ -365,7 +403,7 @@ func newEG2AccelOn(m *embeddinggemma2.Model, combined bool, open func() (*Device
 		for _, ly := range w.Layers {
 			a.layers = append(a.layers, eg2Layer{w: ly, inNorm: upWeight(ly.InNorm), q: upWeight(ly.Q), k: upWeight(ly.K), v: upWeight(ly.V), o: upWeight(ly.O),
 				qNorm: upWeight(ly.QNorm), kNorm: upWeight(ly.KNorm), postAttnNorm: upWeight(ly.PostAttnNorm), preFFNorm: upWeight(ly.PreFFNorm),
-				gate: upWeight(ly.Gate), up: upWeight(ly.Up), down: upWeight(ly.Down), postFFNorm: upWeight(ly.PostFFNorm), pleGate: upWeight(ly.PLEGate),
+				gate: upFFNWeight(ly.Gate), up: upFFNWeight(ly.Up), down: upFFNWeight(ly.Down), postFFNorm: upWeight(ly.PostFFNorm), pleGate: upWeight(ly.PLEGate),
 				pleProj: upWeight(ly.PLEProj), plePostNorm: upWeight(ly.PLEPostNorm)})
 		}
 		a.residentWeightBytes = weightBytes
@@ -529,6 +567,9 @@ type eg2ScratchPlan struct {
 // Shared by forwardRows and BatchMemory so buffer dimensions stay aligned.
 func (a *eg2Accel) scratchPlan(T int) (eg2ScratchPlan, error) {
 	c := a.cfg
+	if a.ffnFP16 != (Pipeline{}) && (T > math.MaxInt32/max(c.Hidden, c.Intermediate) || T > 65535*32) {
+		return eg2ScratchPlan{}, fmt.Errorf("%w: CUDA FP16 FFN exceeds its launch dimensions", embeddinggemma2.ErrUnsupportedBatchShape)
+	}
 	maxQD, maxKVD := 0, 0
 	for _, ly := range a.layers {
 		maxQD = max(maxQD, c.Heads*ly.w.HeadDim)
@@ -580,6 +621,19 @@ func (a *eg2Accel) scratchPlan(T int) (eg2ScratchPlan, error) {
 		{&p.bounds, 1, 4, 4}, // slLoB, slHiB, fuLoB, fuHiB
 	} {
 		if err := add(spec.dst, spec.cols, spec.count, spec.bytes); err != nil {
+			return eg2ScratchPlan{}, err
+		}
+	}
+	if a.ffnFP16 != (Pipeline{}) {
+		// The final projected rows share their readback with one FP16 conversion status word.
+		oldCharge := gpu.ChargedBytes(int64(p.res) * 4)
+		res, charge, err := checkedBufCharged(1, p.res+1, 4)
+		if err != nil {
+			return eg2ScratchPlan{}, err
+		}
+		p.res = res
+		p.chargedBytes, err = addCharged(p.chargedBytes-oldCharge, charge)
+		if err != nil {
 			return eg2ScratchPlan{}, err
 		}
 	}
@@ -1015,6 +1069,13 @@ func (a *eg2Accel) forwardRows(x0 []float32, lens []int, keepLayers bool) ([]flo
 				return e
 			}
 		}
+		var invalidInput Buffer
+		if a.ffnFP16 != (Pipeline{}) {
+			invalidInput = res.At((plan.res - 1) * 4)
+			if err := o.q.ZeroAsync(invalidInput, 4); err != nil {
+				return err
+			}
+		}
 		eps := float32(c.RMSNormEps)
 		// Per-layer inputs, as the CPU forms them: RMSNorm(W · x0 · hidden^-0.5) over [T, L, P].
 		o.gemm(x, a.pleProj, ple, T, L*P, H)
@@ -1077,11 +1138,11 @@ func (a *eg2Accel) forwardRows(x0 []float32, lens []int, keepLayers bool) ([]flo
 			o.addVec(x, ob, T*H)
 			// MLP
 			o.rms(x, ly.preFFNorm, xn, T, H, eps)
-			o.gemm(xn, ly.gate, g, T, I, H)
-			o.gemm(xn, ly.up, u, T, I, H)
+			a.ffnGEMM(xn, ly.gate, g, invalidInput, T, I, H)
+			a.ffnGEMM(xn, ly.up, u, invalidInput, T, I, H)
 			o.geluTanh(g, T*I)
 			o.mulVec(g, u, T*I)
-			o.gemm(g, ly.down, f, T, H, I)
+			a.ffnGEMM(g, ly.down, f, invalidInput, T, H, I)
 			o.rms(f, ly.postFFNorm, f, T, H, eps)
 			o.addVec(x, f, T*H)
 			// PLE block, then the layer scalar over the whole residual sum
@@ -1118,11 +1179,18 @@ func (a *eg2Accel) forwardRows(x0 []float32, lens []int, keepLayers bool) ([]flo
 		if e := o.finish(); e != nil {
 			return e
 		}
-		out = make([]float32, T*E)
+		out = make([]float32, plan.res)
 		if e := gpu.Download(res, out); e != nil {
 			return e
 		}
 		done = true
+		if invalidInput != (Buffer{}) {
+			last := len(out) - 1
+			if math.Float32bits(out[last]) != 0 {
+				return errEG2FP16InputRange
+			}
+			out = out[:last:last]
+		}
 		return nil
 	})
 	if a.broken == nil {

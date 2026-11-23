@@ -5,11 +5,13 @@ package cuda
 import (
 	"regexp"
 	"sort"
+	"strconv"
 	"strings"
 	"testing"
 	"unsafe"
 
 	gc "github.com/eitamring/gocudrv/cuda"
+	"github.com/pkieltyka/goinfer/backend/cuda/internal/launchgeom"
 	"os"
 	"path/filepath"
 )
@@ -24,30 +26,36 @@ func rawFunc(p Pipeline) *gc.Function { return (*pipeShim)(unsafe.Pointer(&p)).f
 
 var ptxEntry = regexp.MustCompile(`\.visible\s+\.entry\s+([A-Za-z_][A-Za-z0-9_$]*)`)
 
-// ptxModules is every PTX blob goinfer embeds, DERIVED from kernels.go's //go:embed list rather than
-// hand-listed, so the census cannot miss a new production module (a hand-written list once missed
-// gptoss_act.ptx, the expert-cache path the moe_route precondition exists for). Reading
-// testdata/<name>.ptx is byte-for-byte what go:embed embeds. TestPTXModules_coverEveryEmbed holds
-// the result to the embed list, as TestKernelFMALint_coversEmbeddedPTX does for the FMA lint.
-func ptxModules() []struct {
-	name string
-	ptx  []byte
-} {
-	var out []struct {
-		name string
-		ptx  []byte
-	}
-	kb, err := os.ReadFile("kernels.go")
+var ptxSM = regexp.MustCompile(`(?m)^\s*\.target\s+sm_([0-9]+)(?:[ ,\t]|$)`)
+
+type censusPTXModule struct {
+	name  string
+	ptx   []byte
+	minSM int
+}
+
+// ptxModules derives the census inputs and their minimum SM from production embeds.
+func ptxModules(t *testing.T) []censusPTXModule {
+	t.Helper()
+	names, err := launchgeom.EmbeddedPTXModules(".")
 	if err != nil {
-		return out
+		t.Fatal(err)
 	}
-	for _, m := range regexp.MustCompile(`//go:embed testdata/([A-Za-z0-9_]+\.ptx)`).FindAllStringSubmatch(string(kb), -1) {
-		if b, err := os.ReadFile(filepath.Join("testdata", m[1])); err == nil {
-			out = append(out, struct {
-				name string
-				ptx  []byte
-			}{m[1], b})
+	out := make([]censusPTXModule, 0, len(names))
+	for _, name := range names {
+		b, err := os.ReadFile(filepath.Join("testdata", name))
+		if err != nil {
+			t.Fatal(err)
 		}
+		match := ptxSM.FindSubmatch(b)
+		if len(match) != 2 {
+			t.Fatalf("%s has no numeric PTX SM target", name)
+		}
+		minSM, err := strconv.Atoi(string(match[1]))
+		if err != nil {
+			t.Fatalf("%s PTX SM target: %v", name, err)
+		}
+		out = append(out, censusPTXModule{name: name, ptx: b, minSM: minSM})
 	}
 	return out
 }
@@ -68,6 +76,11 @@ func TestKernelLocalMemoryCensus(t *testing.T) {
 	}
 	defer dev.ReleaseObjects()
 	raw := dev.Context().Device()
+	major, minor, err := raw.ComputeCapability()
+	if err != nil {
+		t.Fatalf("ComputeCapability: %v", err)
+	}
+	deviceSM := 10*major + minor
 	sms, err := raw.Attribute(gc.DeviceAttributeMultiprocessorCount)
 	if err != nil {
 		t.Fatalf("MultiprocessorCount: %v", err)
@@ -85,7 +98,13 @@ func TestKernelLocalMemoryCensus(t *testing.T) {
 	}
 	var rows []row
 	var total int64
-	for _, m := range ptxModules() {
+	modules := ptxModules(t)
+	var measured []string
+	for _, m := range modules {
+		if m.minSM > deviceSM {
+			t.Logf("NOT APPLICABLE: %s requires SM%d, device is SM%d", m.name, m.minSM, deviceSM)
+			continue
+		}
 		names := map[string]bool{}
 		for _, mm := range ptxEntry.FindAllStringSubmatch(string(m.ptx), -1) {
 			names[mm[1]] = true
@@ -100,6 +119,7 @@ func TestKernelLocalMemoryCensus(t *testing.T) {
 			t.Errorf("%s: CompileLibrary: %v", m.name, e)
 			continue
 		}
+		measured = append(measured, m.name)
 		sorted := make([]string, 0, len(names))
 		for n := range names {
 			sorted = append(sorted, n)
@@ -134,23 +154,8 @@ func TestKernelLocalMemoryCensus(t *testing.T) {
 			float64(r.predicted)/(1<<20))
 	}
 	t.Logf("%d entry points across %d modules; %d declare per-thread local memory",
-		len(rows), len(ptxModules()), nonZero)
-	// DENOMINATOR, stated every run. ptxModules() is DERIVED from kernels.go's own //go:embed list
-	// (see its doc comment), not hand-maintained, so it cannot silently drop a new production module
-	// the way a hand-picked list could. Naming the modules examined still makes the set visible in the
-	// log, not just the count.
-	names := make([]string, 0, len(ptxModules()))
-	for _, m := range ptxModules() {
-		names = append(names, m.name)
-	}
-	t.Logf("EXAMINED: %d module(s) — %s. Derived straight from kernels.go's //go:embed list, so "+
-		"this line names exactly what that list currently contains.",
-		len(names), strings.Join(names, " "))
-	// Only the production embeds count: .ptx blobs embedded across cuda/*.go that no non-test file
-	// uses are variant-comparison blobs with no production path. If kernels.go's embed list ever needs
-	// independent confirmation, re-run the count (`grep -n go:embed cuda/*.go`, then which vars
-	// non-test files use); the derivation above means it can no longer drift silently, only the source
-	// file can move.
+		len(rows), len(measured), nonZero)
+	t.Logf("EXAMINED: %d of %d production PTX modules — %s", len(measured), len(modules), strings.Join(measured, " "))
 	t.Logf("SUM of per-kernel backing stores at full occupancy: %d B (%.1f MiB) — an UPPER BOUND on "+
 		"the deferred cost, not a prediction: the driver may share or reuse a backing store across "+
 		"kernels, and nothing here shows that it allocates them all simultaneously",
@@ -171,9 +176,7 @@ func TestKernelLocalMemoryCensus(t *testing.T) {
 		"rope_kv_batched": 32,
 		// The ragged step's twin of rope_kv_batched (prefill_batched.cu): the same 28 B cosf/sinf slow-path scratch, so the same
 		// 1.2 MiB at full occupancy, and no larger than the largest kernel already pinned.
-		"rope_kv_ragged": 32,
-		// The next two come from modules the census reads only because ptxModules() is derived from
-		// kernels.go's embeds.
+		"rope_kv_ragged":        32,
 		"route_gptoss":          4608, // gptoss_act.ptx; larger than moe_route, so backend.go forces it too
 		"rope_kv_mrope_batched": 32,   // rope_mrope_prefill.ptx
 		// rope_pairwise.ptx: the GPT-J pairwise twins; the same 28 B cosf/sinf slow-path scratch
