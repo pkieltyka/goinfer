@@ -85,9 +85,13 @@ mkdir -p testdata
 for k in "${targets[@]}"; do
 	src="./${k%.cu}.cu"
 	[ -f "$src" ] || { echo "build_ptx: no such kernel source: $src" >&2; exit 1; }
-	nvrtc "$src" "out/${k%.cu}.ptx" "$ARCH" "$CUDA_INC"
+	target_arch="$ARCH"
+	if [ "${k%.cu}" = eg2_ffn_fp16 ]; then
+		target_arch=compute_80
+	fi
+	nvrtc "$src" "out/${k%.cu}.ptx" "$target_arch" "$CUDA_INC"
 	case "${k%.cu}" in
-	eg2_transposed_experiment | eg2_packed_attn)
+	eg2_transposed_experiment | eg2_ffn_fp16 | eg2_packed_attn)
 		# Strip NVRTC's trailing horizontal spaces and blank lines from this artifact.
 		sed -z -i -e 's/[ \t]*\n/\n/g' -e 's/\n\+$/\n/' "$STAGE/out/${k%.cu}.ptx"
 		;;

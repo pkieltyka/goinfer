@@ -26,11 +26,6 @@ import (
 //go:embed testdata/eg2_transposed_experiment.ptx
 var eg2CombinedAttentionPTX []byte
 
-// eg2PackedAttentionPTX runs packed variable-length three-term split-f16 tensor-core attention for EmbeddingGemma 2.
-//
-//go:embed testdata/eg2_packed_attn.ptx
-var eg2PackedAttentionPTX []byte
-
 // gemvFwdPTX: the LLM-specific forward kernels, kv_store / rope_kv. The generic quantized GEMVs live in aikit/gpu
 // (gpu.QuantGEMVPTX, Device.NewQuantGEMV; see backend.go); the name is kept for continuity with the .cu it is built
 // from.

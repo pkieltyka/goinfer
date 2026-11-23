@@ -14,6 +14,7 @@ import (
 	"os"
 	"path/filepath"
 	"runtime"
+	"runtime/debug"
 	"slices"
 	"strconv"
 	"strings"
@@ -3141,138 +3142,416 @@ func TestCUDAProbeRetainsFailedCloseOwnership(t *testing.T) {
 	}
 }
 
-// TestEG2CUDA_PackedAttn_ParityBitIdentityRangeAndMemory verifies the opt-in
-// cuda-eg2-packed-attn accelerator end-to-end on the tiny EG2 fixture: CPU
-// parity, exact singleton/packed/split/reordered bit-identity, BatchMemory
-// scratch savings (omitting qkv/bounds), and fail-closed ErrEG2NumericRange on
-// finite K half-overflow without poisoning the accelerator.
-func TestEG2CUDA_PackedAttn_ParityBitIdentityRangeAndMemory(t *testing.T) {
-	if !slices.Contains(embeddinggemma2.Accelerators(), "cuda-eg2-packed-attn") {
-		t.Skip("requires eg2_combined build tag")
-	}
-	m := eg2TinyModel(t)
-	acc, err := m.NewAccelerator("cuda-eg2-packed-attn")
-	if err != nil {
-		t.Skipf("CUDA unavailable: %v", err)
-	}
-	defer func() {
-		if cerr := acc.Close(); cerr != nil {
-			t.Errorf("packed Close: %v", cerr)
-		}
-	}()
-	comb, err := m.NewAccelerator("cuda-eg2-combined")
-	if err != nil {
-		t.Fatalf("combined attach: %v", err)
-	}
-	defer func() {
-		if cerr := comb.Close(); cerr != nil {
-			t.Errorf("combined Close: %v", cerr)
-		}
-	}()
+const eg2FP16TestSelector = "cuda-eg2-fp16"
 
-	// 1. BatchMemory: packed omits qkv and 4 bounds buffers, so its peak scratch
-	// is strictly below combined on non-trivial batches.
-	pEst, err := acc.(*eg2Accel).BatchMemory([]int{17, 33, 65})
+func eg2FP16TaggedBinary(t *testing.T) bool {
+	t.Helper()
+	info, ok := debug.ReadBuildInfo()
+	if !ok {
+		t.Fatal("test binary has no Go build information")
+	}
+	for _, setting := range info.Settings {
+		if setting.Key == "-tags" {
+			tags := strings.Fields(strings.ReplaceAll(setting.Value, ",", " "))
+			return slices.Contains(tags, "eg2_combined") && slices.Contains(tags, "eg2_fp16")
+		}
+	}
+	return false
+}
+
+func TestEG2FP16Geometry(t *testing.T) {
+	tagsLinked := eg2FP16TaggedBinary(t)
+	selectors := embeddinggemma2.DeviceSelectors("cuda")
+	registered := slices.Contains(selectors, eg2FP16TestSelector)
+	if registered != tagsLinked {
+		t.Fatalf("FP16 selector registration = %t for combined and FP16 build tags = %t: %v", registered, tagsLinked, selectors)
+	}
+	t.Logf("combined and FP16 build tags = %t, selector registered = %t", tagsLinked, registered)
+	for _, shape := range [][2]int{{64, 96}, {512, 2048}, {16, 16}} {
+		if !eg2FFNGeometry(shape[0], shape[1]) {
+			t.Errorf("refused %v", shape)
+		}
+	}
+	for _, shape := range [][2]int{{0, 16}, {16, -16}, {32, 15}, {1 << 20, 1 << 20}} {
+		if eg2FFNGeometry(shape[0], shape[1]) {
+			t.Errorf("admitted %v", shape)
+		}
+	}
+	acc, err := selectedEG2FactoryOn(eg2CUDAAttach(true, nil))(nil, "invalid")
+	if acc != nil || !errors.Is(err, embeddinggemma2.ErrDeviceUnavailable) {
+		t.Fatalf("invalid explicit device = %v, %v", acc, err)
+	}
+}
+
+func TestEG2FP16Weights(t *testing.T) {
+	values := []float32{65504, 65519, -65504, -65519, 0, math.Float32frombits(1 << 31), 0x1p-24, 0x1p-25, 1 + 0x1p-11}
+	want := []uint16{0x7bff, 0x7bff, 0xfbff, 0xfbff, 0, 0x8000, 1, 0, 0x3c00}
+	if got, err := eg2FP16Weights(values); err != nil || !slices.Equal(got, want) {
+		t.Fatalf("weights = %#x, %v, want %#x", got, err, want)
+	}
+	for _, bad := range []float32{65520, -65520, float32(math.NaN()), float32(math.Inf(1)), float32(math.Inf(-1))} {
+		if packed, err := eg2FP16Weights([]float32{1, bad}); packed != nil || err == nil {
+			t.Errorf("invalid weight %g returned %v, %v", bad, packed, err)
+		}
+	}
+}
+
+func eg2FP16TestAdapter(t *testing.T) gpu.Adapter {
+	t.Helper()
+	if !eg2FP16TaggedBinary(t) {
+		t.Skip("build with cuda,eg2_combined,eg2_fp16 to run FP16 encoder tests")
+	}
+	if !slices.Contains(embeddinggemma2.DeviceSelectors("cuda"), eg2FP16TestSelector) {
+		t.Fatalf("tagged FP16 build is missing the %q device selector", eg2FP16TestSelector)
+	}
+	id := os.Getenv("GOINFER_TEST_CUDA_UUID")
+	if id == "" {
+		t.Skip("set GOINFER_TEST_CUDA_UUID to run FP16 FFN device tests")
+	}
+	devices, err := gpu.Adapters()
 	if err != nil {
-		t.Fatalf("packed BatchMemory: %v", err)
+		t.Fatal(err)
+	}
+	adapter, err := resolveCUDADevice(id, devices)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if adapter.Major < 8 {
+		t.Fatalf("FP16 FFN device test requires SM80 or newer, got %d.%d", adapter.Major, adapter.Minor)
+	}
+	return adapter
+}
+
+func TestEG2FP16Encoder(t *testing.T) {
+	device := eg2FP16TestAdapter(t)
+	m := eg2TinyModel(t)
+	rec := &eg2RecordingLeaser{}
+	origHook := leaseSeenForTest
+	t.Cleanup(func() { leaseSeenForTest = origHook })
+	leaseSeenForTest = func(onDevice bool, line string, requested int64, release func()) func() {
+		if origHook != nil {
+			release = origHook(onDevice, line, requested, release)
+		}
+		recordRelease := rec.Lease(onDevice, line, requested, gpu.ChargedBytes(requested))
+		return func() {
+			release()
+			recordRelease()
+		}
+	}
+	acc, err := m.NewAccelerator(eg2FP16TestSelector + ":" + device.UUID)
+	if err != nil {
+		t.Fatal(err)
+	}
+	a := acc.(*eg2Accel)
+	t.Cleanup(func() {
+		if err := a.Close(); err != nil {
+			t.Error(err)
+		}
+	})
+	if a.ffnFP16 == (Pipeline{}) || a.AttachedDevice().ID != "cuda:"+device.UUID {
+		t.Fatalf("FP16 pipeline/device not selected: %s", a.AttachedDevice().ID)
+	}
+	maxHD, maxN := 0, max(a.cfg.Layers*a.cfg.PLEDim, a.cfg.Intermediate, a.cfg.Hidden, a.cfg.EmbeddingDim)
+	for _, ly := range a.layers {
+		maxHD = max(maxHD, ly.w.HeadDim)
+		maxN = max(maxN, a.cfg.Heads*ly.w.HeadDim)
+	}
+	est, err := a.BatchMemory([]int{17, 31})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if want := rec.devLive - gpu.ChargedBytes(int64(maxHD)*4) - gpu.ChargedBytes(int64(maxN)*4); est.ResidentWeightBytes != want {
+		t.Fatalf("resident weight estimate %d, want %d charged bytes", est.ResidentWeightBytes, want)
+	}
+	cfg := a.cfg
+	cfg.EmbeddingDim = 64
+	plain := &eg2Accel{cfg: cfg, layers: a.layers}
+	withStatus := &eg2Accel{cfg: cfg, layers: a.layers, ffnFP16: a.ffnFP16}
+	refPlan, err := plain.scratchPlan(8192)
+	if err != nil {
+		t.Fatal(err)
+	}
+	fp16Plan, err := withStatus.scratchPlan(8192)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if fp16Plan.res != refPlan.res+1 || fp16Plan.chargedBytes-refPlan.chargedBytes != gpu.AllocQuantumBytes {
+		t.Fatalf("status crosses a charge boundary: elements %d to %d, charge %d to %d",
+			refPlan.res, fp16Plan.res, refPlan.chargedBytes, fp16Plan.chargedBytes)
+	}
+	old := gpu.TraceForTest
+	t.Cleanup(func() { gpu.TraceForTest = old })
+	launches := 0
+	gpu.TraceForTest = func(event gpu.TraceEvent) {
+		if event.Op == gpu.TraceLaunch && event.Pipe == a.ffnFP16.Ptr() {
+			launches++
+		}
+	}
+	inputs := make([][]int, 0, 8)
+	for _, n := range []int{1, 15, 16, 17, 31, 32, 33, 65} {
+		inputs = append(inputs, eg2SeqIDs(n, n+1, m.Config().VocabSize))
+	}
+	singles := make([][]float32, len(inputs))
+	minCosine := 1.0
+	for i, ids := range inputs {
+		h, _, err := a.Forward(ids, false)
+		if err != nil {
+			t.Fatal(err)
+		}
+		cp, err := m.Embed(ids)
+		if err != nil {
+			t.Fatal(err)
+		}
+		v := eg2PoolNorm(h, len(ids), m.Dim(), m.Dim())
+		if c := eg2Cos(v, cp); !eg2Finite(v) || !(c >= .999) {
+			t.Fatalf("input %d length %d CPU cosine %g", i, len(ids), c)
+		} else {
+			minCosine = min(minCosine, c)
+		}
+		singles[i] = h
+	}
+	for _, order := range [][]int{{0, 1, 2, 3, 4, 5, 6, 7}, {7, 6, 5, 4, 3, 2, 1, 0}, {0, 1, 2, 3}, {4, 5, 6, 7}, {7, 2}, {0, 2}} {
+		group := make([][]int, len(order))
+		for i, pos := range order {
+			group[i] = inputs[pos]
+		}
+		before := launches
+		out, err := a.ForwardBatch(group)
+		if err != nil {
+			t.Fatal(err)
+		}
+		if launches-before != 3*m.Config().Layers {
+			t.Fatalf("order %v: FP16 launches %d", order, launches-before)
+		}
+		for i, pos := range order {
+			if d := eg2FirstDiff(out[i], singles[pos], m.Dim()); d != "" {
+				t.Fatalf("order %v input %d: %s", order, pos, d)
+			}
+		}
+	}
+	t.Logf("raw rows match singleton bits; minimum pooled CPU cosine %.12f", minCosine)
+
+	// A nonfinite value in the later prepared member invalidates the entire packed forward.
+	x, err := m.EmbedTokens(append(slices.Clone(inputs[0]), inputs[1]...))
+	if err != nil {
+		t.Fatal(err)
+	}
+	x[len(x)-1] = float32(math.Inf(1))
+	h, layers, err := a.forwardRows(x, []int{len(inputs[0]), len(inputs[1])}, true)
+	if h != nil || layers != nil || !errors.Is(err, errEG2FP16InputRange) || errors.Is(err, embeddinggemma2.ErrBatchOutOfMemory) {
+		t.Fatalf("invalid later input returned %d rows, %d layers, %v", len(h), len(layers), err)
+	}
+	base, allocs := rec.resetWindow()
+	est, err = a.BatchMemory([]int{len(inputs[0]), len(inputs[1])})
+	if err != nil {
+		t.Fatal(err)
+	}
+	out, err := a.ForwardBatch(inputs[:2])
+	if err != nil {
+		t.Fatal(err)
+	}
+	peak, end, _ := rec.windowDelta(base, allocs)
+	if peak > est.AdditionalPeakBytes || end != 0 {
+		t.Fatalf("recovery scratch peak=%d, estimate=%d, end=%d", peak, est.AdditionalPeakBytes, end)
+	}
+	for i := range out {
+		if d := eg2FirstDiff(out[i], singles[i], m.Dim()); d != "" {
+			t.Fatalf("after range failure input %d: %s", i, d)
+		}
+	}
+
+	oom := gc.ErrOutOfMemory
+	a.ops.dev.SetAllocHookForTest(func(string, int) error { return oom })
+	out, err = a.ForwardBatch(inputs[:2])
+	a.ops.dev.SetAllocHookForTest(nil)
+	if out != nil || !errors.Is(err, embeddinggemma2.ErrBatchOutOfMemory) || !errors.Is(err, oom) {
+		t.Fatalf("forward allocation failure returned %d outputs, %v", len(out), err)
+	}
+	recovered, err := a.ForwardBatch(inputs[:2])
+	if err != nil {
+		t.Fatal(err)
+	}
+	for i := range recovered {
+		if d := eg2FirstDiff(recovered[i], singles[i], m.Dim()); d != "" {
+			t.Fatalf("after allocation retry input %d: %s", i, d)
+		}
+	}
+
+	fatal := &cudaresult.Error{Code: cudasys.CUDA_ERROR_ASSERT, Op: "injected FFN execution failure"}
+	a.defect.failForward, a.defect.failForwardErr = true, fatal
+	beforeFatal := launches
+	out, err = a.ForwardBatch(inputs[:2])
+	if out != nil || !errors.Is(err, fatal) || errors.Is(err, embeddinggemma2.ErrBatchOutOfMemory) || launches <= beforeFatal {
+		t.Fatalf("post-FFN execution failure returned %d outputs, %v, launched %d FP16 kernels", len(out), err, launches-beforeFatal)
+	}
+	beforeFatal = launches
+	out, err = a.ForwardBatch(inputs[:2])
+	if out != nil || !errors.Is(err, fatal) || launches != beforeFatal {
+		t.Fatalf("poisoned forward returned %d outputs, %v, launched %d FP16 kernels", len(out), err, launches-beforeFatal)
+	}
+}
+
+func TestEG2FP16FailedAttach(t *testing.T) {
+	adapter := eg2FP16TestAdapter(t)
+	m := eg2TinyModel(t)
+	ptx, err := os.ReadFile("testdata/eg2_ffn_fp16.ptx")
+	if err != nil {
+		t.Fatal(err)
+	}
+	bytes := m.Config().Hidden * m.Config().Intermediate * 2
+	var dev *Device
+	var count int
+	acc, err := newEG2AccelWithFFN(m, true, ptx, func() (*Device, error) {
+		d, err := gpu.CreateSelectedDevice(adapter)
+		if err != nil {
+			return nil, err
+		}
+		dev = d
+		d.SetAllocHookForTest(func(_ string, n int) error {
+			if n == bytes {
+				count++
+				if count == 2 {
+					return gc.ErrOutOfMemory
+				}
+			}
+			return nil
+		})
+		return d, nil
+	})
+	if acc != nil || !errors.Is(err, embeddinggemma2.ErrDeviceOutOfMemory) ||
+		!errors.Is(err, gc.ErrOutOfMemory) || errors.Is(err, embeddinggemma2.ErrBatchOutOfMemory) {
+		t.Fatalf("failed attach = %v, %v", acc, err)
+	}
+	if dev == nil || count != 2 {
+		t.Fatalf("device %v allocated %d FP16-size matrices before failure", dev != nil, count)
+	}
+	if allocs, objects := dev.LedgerLen(); allocs != 0 || objects != 0 {
+		t.Fatalf("failed attach retains %d allocations and %d objects", allocs, objects)
+	}
+	m.Weights().Layers[0].Up[0] = 65520
+	acc, err = newEG2AccelWithFFN(m, true, ptx, func() (*Device, error) {
+		d, err := gpu.CreateSelectedDevice(adapter)
+		dev = d
+		return d, err
+	})
+	if acc != nil || err == nil || !strings.Contains(err.Error(), "outside the finite FP16 range") ||
+		errors.Is(err, embeddinggemma2.ErrDeviceOutOfMemory) || errors.Is(err, embeddinggemma2.ErrBatchOutOfMemory) {
+		t.Fatalf("attach with invalid weight = %v, %v", acc, err)
+	}
+	if dev == nil {
+		t.Fatal("device did not open for the invalid-weight test")
+	}
+	if allocs, objects := dev.LedgerLen(); allocs != 0 || objects != 0 {
+		t.Fatalf("invalid-weight attach retains %d allocations and %d objects", allocs, objects)
+	}
+}
+
+// TestEG2FP16PackedAttnContract verifies that cuda-eg2-fp16 runs packed
+// split-f16 attention alongside FP16 FFN on the shared per-forward status word,
+// omits qkv/bounds scratch vs cuda-eg2-combined, fails closed with
+// errEG2FP16InputRange on attention-side finite K half-overflow (with clean
+// valid reuse and native error priority), and preserves an internal
+// attention-only comparison seam.
+func TestEG2FP16PackedAttnContract(t *testing.T) {
+	adapter := eg2FP16TestAdapter(t)
+	m := eg2TinyModel(t)
+	acc, err := m.NewAccelerator(eg2FP16TestSelector + ":" + adapter.UUID)
+	if err != nil {
+		t.Fatal(err)
+	}
+	a := acc.(*eg2Accel)
+	t.Cleanup(func() {
+		if err := a.Close(); err != nil {
+			t.Error(err)
+		}
+	})
+	if !a.packedAttnMode || len(a.packedAttn) == 0 || a.ffnFP16 == (Pipeline{}) {
+		t.Fatalf("cuda-eg2-fp16 did not enable both packedAttn (%v, %d pipes) and ffnFP16", a.packedAttnMode, len(a.packedAttn))
+	}
+
+	comb, err := m.NewAccelerator("cuda-eg2-combined:" + adapter.UUID)
+	if err != nil {
+		t.Fatal(err)
+	}
+	t.Cleanup(func() {
+		if err := comb.Close(); err != nil {
+			t.Error(err)
+		}
+	})
+	pEst, err := a.BatchMemory([]int{17, 33, 65})
+	if err != nil {
+		t.Fatal(err)
 	}
 	cEst, err := comb.(*eg2Accel).BatchMemory([]int{17, 33, 65})
 	if err != nil {
-		t.Fatalf("combined BatchMemory: %v", err)
+		t.Fatal(err)
 	}
 	if pEst.AdditionalPeakBytes >= cEst.AdditionalPeakBytes {
-		t.Fatalf("packed AdditionalPeakBytes=%d >= combined %d (expected qkv/bounds savings)",
+		t.Fatalf("cuda-eg2-fp16 AdditionalPeakBytes=%d >= combined %d (expected qkv/bounds savings)",
 			pEst.AdditionalPeakBytes, cEst.AdditionalPeakBytes)
 	}
 
-	// 2. CPU parity and exact singleton/packed/split/reordered bit-identity.
+	// Attention-side finite K overflow (>= 65520) shares errEG2FP16InputRange
+	// via the same status word on res, returns nil outputs, allows clean reuse,
+	// and keeps native execution errors ahead of range failure.
 	inputs := eg2TinyInputs(t, m.Config().VocabSize)
-	singles := make([][]float32, len(inputs))
-	for i, ids := range inputs {
-		want, _, err := m.ForwardCPU(ids, false)
-		if err != nil {
-			t.Fatalf("ForwardCPU(%d): %v", i, err)
-		}
-		got, _, err := acc.Forward(ids, false)
-		if err != nil {
-			t.Fatalf("packed Forward(%d): %v", i, err)
-		}
-		if len(got) != len(want) || !eg2Finite(got) || eg2Cos(got, want) < 0.9999 {
-			t.Fatalf("packed Forward(%d): cos=%.8f finite=%v", i, eg2Cos(got, want), eg2Finite(got))
-		}
-		singles[i] = got
-	}
-	checkOrder := func(label string, order []int) {
-		t.Helper()
-		batch := make([][]int, len(order))
-		for i, idx := range order {
-			batch[i] = inputs[idx]
-		}
-		got, err := acc.(*eg2Accel).ForwardBatch(batch)
-		if err != nil {
-			t.Fatalf("%s ForwardBatch: %v", label, err)
-		}
-		for i, idx := range order {
-			want := singles[idx]
-			if len(got[i]) != len(want) {
-				t.Fatalf("%s[%d] len=%d, want %d", label, i, len(got[i]), len(want))
-			}
-			for j := range want {
-				if math.Float32bits(got[i][j]) != math.Float32bits(want[j]) {
-					t.Fatalf("%s[%d] elem %d bit mismatch: got %08x (%g), want %08x (%g)",
-						label, i, j, math.Float32bits(got[i][j]), got[i][j], math.Float32bits(want[j]), want[j])
-				}
-			}
-		}
-	}
-	checkOrder("packed", []int{0, 1, 2, 3})
-	checkOrder("split-left", []int{0, 1})
-	checkOrder("split-right", []int{2, 3})
-	checkOrder("reversed", []int{3, 2, 1, 0})
-
-	// 3. Checked numeric-range contract: finite K > 65520 fails closed with
-	// ErrEG2NumericRange, returns nil output, and leaves the accelerator healthy.
 	ovModel := eg2TinyModel(t)
-	ovW := ovModel.Weights()
-	for i := range ovW.Layers[0].KNorm {
-		ovW.Layers[0].KNorm[i] = 1e5
+	for i := range ovModel.Weights().Layers[0].KNorm {
+		ovModel.Weights().Layers[0].KNorm[i] = 1e5
 	}
-	ovAcc, err := ovModel.NewAccelerator("cuda-eg2-packed-attn")
+	ovAcc, err := ovModel.NewAccelerator(eg2FP16TestSelector + ":" + adapter.UUID)
 	if err != nil {
 		t.Fatalf("overflow attach: %v", err)
 	}
-	defer func() {
-		if cerr := ovAcc.Close(); cerr != nil {
-			t.Errorf("overflow Close: %v", cerr)
+	t.Cleanup(func() {
+		if err := ovAcc.Close(); err != nil {
+			t.Error(err)
 		}
-	}()
+	})
 	ovOut, ovLays, err := ovAcc.Forward(inputs[0], false)
-	if !errors.Is(err, ErrEG2NumericRange) {
-		t.Fatalf("expected ErrEG2NumericRange on KNorm=1e5, got err=%v", err)
-	}
-	if ovOut != nil || ovLays != nil {
-		t.Fatalf("expected nil outputs on ErrEG2NumericRange, got len(out)=%d len(layers)=%d", len(ovOut), len(ovLays))
+	if !errors.Is(err, errEG2FP16InputRange) || ovOut != nil || ovLays != nil {
+		t.Fatalf("attention KNorm=1e5 returned len(out)=%d len(layers)=%d err=%v, want nil and errEG2FP16InputRange",
+			len(ovOut), len(ovLays), err)
 	}
 	if ovAcc.(*eg2Accel).broken != nil {
-		t.Fatalf("ErrEG2NumericRange unexpectedly poisoned accelerator: %v", ovAcc.(*eg2Accel).broken)
+		t.Fatalf("errEG2FP16InputRange poisoned accelerator: %v", ovAcc.(*eg2Accel).broken)
 	}
-	// Clean next-call reuse on the same accelerator: zero input keeps K=0 (no
-	// FP16 overflow even with KNorm=1e5) and must succeed cleanly.
 	zeros := make([]float32, 4*ovModel.Config().Hidden)
 	reuseOut, _, err := ovAcc.ForwardEmbeds(zeros, 4, false)
-	if err != nil {
-		t.Fatalf("valid reuse after ErrEG2NumericRange failed: %v", err)
+	if err != nil || len(reuseOut) != 4*ovModel.Config().EmbeddingDim || !eg2Finite(reuseOut) {
+		t.Fatalf("clean reuse after attention range error failed: len=%d err=%v", len(reuseOut), err)
 	}
-	if len(reuseOut) != 4*ovModel.Config().EmbeddingDim || !eg2Finite(reuseOut) {
-		t.Fatalf("valid reuse returned invalid output (len=%d finite=%v)", len(reuseOut), eg2Finite(reuseOut))
-	}
-	// Native execution error priority: a forward failure must surface ahead of
-	// ErrEG2NumericRange without returning ErrEG2NumericRange.
 	planted := errors.New("cuda: planted native forward fault")
-	ovAcc.(*eg2Accel).defect.failForward = true
-	ovAcc.(*eg2Accel).defect.failForwardErr = planted
-	_, _, err = ovAcc.Forward(inputs[0], false)
-	if !errors.Is(err, planted) || errors.Is(err, ErrEG2NumericRange) {
-		t.Fatalf("expected planted native fault ahead of ErrEG2NumericRange, got %v", err)
+	ovAcc.(*eg2Accel).defect.failForward, ovAcc.(*eg2Accel).defect.failForwardErr = true, planted
+	if _, _, err = ovAcc.Forward(inputs[0], false); !errors.Is(err, planted) || errors.Is(err, errEG2FP16InputRange) {
+		t.Fatalf("expected planted native fault ahead of errEG2FP16InputRange, got %v", err)
+	}
+
+	// Internal attention-only comparison seam (packed attention without FP16 FFN).
+	packedPTX, err := os.ReadFile("testdata/eg2_packed_attn.ptx")
+	if err != nil {
+		t.Fatal(err)
+	}
+	attnOnly, err := newEG2AccelWithFP16(m, true, nil, packedPTX, func() (*Device, error) {
+		return gpu.CreateSelectedDevice(adapter)
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	t.Cleanup(func() {
+		if err := attnOnly.Close(); err != nil {
+			t.Error(err)
+		}
+	})
+	if !attnOnly.packedAttnMode || attnOnly.ffnFP16 != (Pipeline{}) {
+		t.Fatalf("attention-only seam state mismatch: packed=%v ffnFP16=%v", attnOnly.packedAttnMode, attnOnly.ffnFP16 != (Pipeline{}))
+	}
+	want, _, err := m.ForwardCPU(inputs[0], false)
+	if err != nil {
+		t.Fatal(err)
+	}
+	got, _, err := attnOnly.Forward(inputs[0], false)
+	if err != nil || len(got) != len(want) || !eg2Finite(got) || eg2Cos(got, want) < 0.9999 {
+		t.Fatalf("attention-only seam parity: cos=%.8f err=%v", eg2Cos(got, want), err)
 	}
 }

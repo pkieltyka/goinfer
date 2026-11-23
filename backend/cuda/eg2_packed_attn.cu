@@ -53,27 +53,23 @@ __device__ __forceinline__ bool f16_is_exceptional(__half h) {
     return (__half_as_ushort(h) & 0x7c00u) == 0x7c00u;
 }
 
-__device__ __forceinline__ bool f32_finite_overflows_f16(float x, __half hi) {
-    return isfinite(x) && f16_is_exceptional(hi);
-}
-
 __device__ __forceinline__ bool f32_split_f16(float x, __half &hi, __half &lo) {
     hi = __float2half_rn(x);
     if (f16_is_exceptional(hi)) {
         lo = __float2half_rn(0.f);
-        return isfinite(x);
+        return true;
     }
     lo = __float2half_rn(__fsub_rn(x, __half2float(hi)));
     return false;
 }
 
 // f32_split_f16_v_safe splits V into (hi, lo), substituting (0, 0) and returning
-// true whenever hi would be NaN or Inf (including finite |x| >= 65520). If x was
-// finite and overflowed FP16, finiteOverflow is set to 1.
-__device__ __forceinline__ bool f32_split_f16_v_safe(float x, __half &hi, __half &lo, int &finiteOverflow) {
+// true whenever hi would be NaN or Inf (including finite |x| >= 65520), and
+// latches invalidInput = 1 to match eg2_ffn_fp16.cu's FP16 input-range contract.
+__device__ __forceinline__ bool f32_split_f16_v_safe(float x, __half &hi, __half &lo, int &invalidInput) {
     hi = __float2half_rn(x);
     if (f16_is_exceptional(hi)) {
-        if (isfinite(x)) finiteOverflow = 1;
+        invalidInput = 1;
         hi = __float2half_rn(0.f);
         lo = __float2half_rn(0.f);
         return true;

@@ -31,30 +31,13 @@ func init() {
 	embeddinggemma2.RegisterDeviceProber("cuda", probeCUDADevices)
 }
 
-// ErrEG2NumericRange reports that an opt-in packed-attention forward saw a
-// finite Q, K, or V activation outside the FP16 staging range (|x| >= 65520).
-// No partial output is returned and the accelerator remains usable.
-var ErrEG2NumericRange = errors.New("cuda: EmbeddingGemma 2 packed attention numeric range overflow")
-
-type eg2Mode uint8
-
-const (
-	eg2ModeDefault eg2Mode = iota
-	eg2ModeCombined
-	eg2ModePackedAttn
-)
-
 func bareEG2Factory(combined bool) func(*embeddinggemma2.Model) (embeddinggemma2.Accelerator, error) {
-	mode := eg2ModeDefault
-	if combined {
-		mode = eg2ModeCombined
-	}
-	return bareEG2FactoryMode(mode)
+	return bareEG2FactoryOn(eg2CUDAAttach(combined, nil))
 }
 
-func bareEG2FactoryMode(mode eg2Mode) func(*embeddinggemma2.Model) (embeddinggemma2.Accelerator, error) {
+func bareEG2FactoryOn(attach eg2Attacher) func(*embeddinggemma2.Model) (embeddinggemma2.Accelerator, error) {
 	return func(m *embeddinggemma2.Model) (embeddinggemma2.Accelerator, error) {
-		acc, err := newEG2AccelMode(m, mode)
+		acc, err := attach(m, CreateSystemDefaultDevice)
 		if err != nil {
 			return nil, err
 		}
@@ -110,6 +93,7 @@ type eg2Accel struct {
 	broken                                  error // set when a failed forward could not be drained or Close failed; every later forward returns it
 	teardownStarted                         bool  // set once Close has drained (if needed) and entered closeChecked; retries skip q.Sync on destroyed streams
 	combinedTranspose, combinedAttention    Pipeline
+	ffnFP16                                 Pipeline
 	packedAttnMode                          bool
 	packedAttn                              map[int]Pipeline
 	defect                                  eg2Defect
@@ -284,15 +268,7 @@ func classifyEG2ForwardErr(err, latchedErr, drainErr, releaseErr, broken error, 
 }
 
 func newEG2Accel(m *embeddinggemma2.Model, combined bool) (*eg2Accel, error) {
-	mode := eg2ModeDefault
-	if combined {
-		mode = eg2ModeCombined
-	}
-	return newEG2AccelMode(m, mode)
-}
-
-func newEG2AccelMode(m *embeddinggemma2.Model, mode eg2Mode) (*eg2Accel, error) {
-	return newEG2AccelOnMode(m, mode, CreateSystemDefaultDevice)
+	return newEG2AccelOn(m, combined, CreateSystemDefaultDevice)
 }
 
 // eg2AttachCleanup serializes EmbeddingGemma 2 CUDA attach admission and
@@ -350,30 +326,47 @@ func pendingEG2CleanupsLen() int {
 // explicitly selected device openers: open acquires the device while this
 // constructor owns admission serialization, setup, checked rollback, and OOM
 // classification.
-func newEG2AccelOn(m *embeddinggemma2.Model, combined bool, open func() (*Device, error)) (*eg2Accel, error) {
-	mode := eg2ModeDefault
-	if combined {
-		mode = eg2ModeCombined
-	}
-	return newEG2AccelOnMode(m, mode, open)
+func newEG2AccelOn(m *embeddinggemma2.Model, combined bool, open func() (*Device, error)) (_ *eg2Accel, err error) {
+	return newEG2AccelWithFFN(m, combined, nil, open)
 }
 
-func newEG2AccelOnMode(m *embeddinggemma2.Model, mode eg2Mode, open func() (*Device, error)) (_ *eg2Accel, err error) {
+type eg2Attacher func(*embeddinggemma2.Model, func() (*Device, error)) (*eg2Accel, error)
+
+func eg2CUDAAttach(combined bool, fp16PTX []byte) eg2Attacher {
+	return func(m *embeddinggemma2.Model, open func() (*Device, error)) (*eg2Accel, error) {
+		return newEG2AccelWithFFN(m, combined, fp16PTX, open)
+	}
+}
+
+func eg2CUDAAttachFP16(fp16PTX, packedAttnPTX []byte) eg2Attacher {
+	return func(m *embeddinggemma2.Model, open func() (*Device, error)) (*eg2Accel, error) {
+		return newEG2AccelWithFP16(m, true, fp16PTX, packedAttnPTX, open)
+	}
+}
+
+func newEG2AccelWithFFN(m *embeddinggemma2.Model, combined bool, fp16PTX []byte, open func() (*Device, error)) (*eg2Accel, error) {
+	return newEG2AccelWithFP16(m, combined, fp16PTX, nil, open)
+}
+
+func newEG2AccelWithFP16(m *embeddinggemma2.Model, combined bool, fp16PTX, packedAttnPTX []byte, open func() (*Device, error)) (_ *eg2Accel, err error) {
 	defer func() { err = classifyCUDAAttach(err) }()
 	if open == nil {
 		return nil, errors.New("cuda: EmbeddingGemma 2 nil device opener")
 	}
 	w := m.TransformerWeights()
 	c := w.Config
+	if len(fp16PTX) != 0 && !eg2FFNGeometry(c.Hidden, c.Intermediate) {
+		return nil, fmt.Errorf("%w: CUDA FP16 FFN cannot run hidden %d and intermediate %d", embeddinggemma2.ErrDeviceUnavailable, c.Hidden, c.Intermediate)
+	}
 	maxN := max(c.Layers*c.PLEDim, c.Intermediate, c.Hidden, c.EmbeddingDim)
 	maxHD := 0
 	for i, ly := range w.Layers {
 		if ly.HeadDim%2 != 0 || ly.KVHeads <= 0 || c.Heads%ly.KVHeads != 0 {
 			return nil, fmt.Errorf("cuda: EmbeddingGemma 2 layer %d: %d heads over %d KV heads, head dim %d", i, c.Heads, ly.KVHeads, ly.HeadDim)
 		}
-		if mode == eg2ModePackedAttn {
+		if len(packedAttnPTX) != 0 {
 			if _, ok := launchgeom.EG2PackedAttnSpecForHD(ly.HeadDim); !ok {
-				return nil, fmt.Errorf("cuda: EmbeddingGemma 2 layer %d: packed attention does not support head dim %d", i, ly.HeadDim)
+				return nil, fmt.Errorf("%w: CUDA packed attention cannot run layer %d head dim %d", embeddinggemma2.ErrDeviceUnavailable, i, ly.HeadDim)
 			}
 		}
 		maxN = max(maxN, c.Heads*ly.HeadDim)
@@ -394,12 +387,50 @@ func newEG2AccelOnMode(m *embeddinggemma2.Model, mode eg2Mode, open func() (*Dev
 	a := &eg2Accel{ops: ops, cfg: c, model: m}
 	a.identity = cudaDeviceInfo(ops.dev.Adapter())
 	if err := ops.do(func() error {
+		if len(fp16PTX) != 0 {
+			p, err := eg2FP16Pipeline(ops.dev, fp16PTX)
+			if err != nil {
+				return err
+			}
+			a.ffnFP16 = p
+		}
+		if len(packedAttnPTX) != 0 {
+			lib, err := ops.dev.CompileLibrary(packedAttnPTX)
+			if err != nil {
+				return fmt.Errorf("cuda: load EmbeddingGemma 2 packed attention: %w", err)
+			}
+			pipes := make(map[int]Pipeline)
+			for _, ly := range w.Layers {
+				if _, ok := pipes[ly.HeadDim]; ok {
+					continue
+				}
+				spec, _ := launchgeom.EG2PackedAttnSpecForHD(ly.HeadDim)
+				p, err := ops.dev.NewComputePipeline(lib, spec.Entry)
+				if err != nil {
+					return fmt.Errorf("cuda: load EmbeddingGemma 2 packed attention %s: %w", spec.Entry, err)
+				}
+				pipes[ly.HeadDim] = p
+			}
+			a.packedAttn = pipes
+			a.packedAttnMode = true
+		}
 		var weightBytes int64
 		upWeight := func(v []float32) Buffer {
 			if len(v) > 0 {
 				weightBytes += gpu.ChargedBytes(int64(len(v)) * 4)
 			}
 			return ops.up(v)
+		}
+		upFFNWeight := func(v []float32) Buffer {
+			if len(fp16PTX) == 0 {
+				return upWeight(v)
+			}
+			packed, err := eg2FP16Weights(v)
+			if err != nil {
+				panic(err)
+			}
+			weightBytes += gpu.ChargedBytes(int64(len(v)) * 2)
+			return gpu.NewBufferOfOn(ops.dev, mem.LineCompanion, packed)
 		}
 		a.pleProj, a.pleNorm, a.finalNorm, a.proj = upWeight(w.PLEProj), upWeight(w.PLENorm), upWeight(w.FinalNorm), upWeight(w.Projection)
 		ones := make([]float32, maxHD)
@@ -410,7 +441,7 @@ func newEG2AccelOnMode(m *embeddinggemma2.Model, mode eg2Mode, open func() (*Dev
 		for _, ly := range w.Layers {
 			a.layers = append(a.layers, eg2Layer{w: ly, inNorm: upWeight(ly.InNorm), q: upWeight(ly.Q), k: upWeight(ly.K), v: upWeight(ly.V), o: upWeight(ly.O),
 				qNorm: upWeight(ly.QNorm), kNorm: upWeight(ly.KNorm), postAttnNorm: upWeight(ly.PostAttnNorm), preFFNorm: upWeight(ly.PreFFNorm),
-				gate: upWeight(ly.Gate), up: upWeight(ly.Up), down: upWeight(ly.Down), postFFNorm: upWeight(ly.PostFFNorm), pleGate: upWeight(ly.PLEGate),
+				gate: upFFNWeight(ly.Gate), up: upFFNWeight(ly.Up), down: upFFNWeight(ly.Down), postFFNorm: upWeight(ly.PostFFNorm), pleGate: upWeight(ly.PLEGate),
 				pleProj: upWeight(ly.PLEProj), plePostNorm: upWeight(ly.PLEPostNorm)})
 		}
 		a.residentWeightBytes = weightBytes
@@ -421,16 +452,10 @@ func newEG2AccelOnMode(m *embeddinggemma2.Model, mode eg2Mode, open func() (*Dev
 		}
 		return nil, fmt.Errorf("cuda: EmbeddingGemma 2 upload: %w", err)
 	}
-	switch mode {
-	case eg2ModeCombined:
-		if err := a.enableCombined(); err != nil {
-			if cerr := retireEG2AttachLocked(a.ops); cerr != nil {
-				return nil, errors.Join(err, cerr)
-			}
-			return nil, err
-		}
-	case eg2ModePackedAttn:
-		if err := a.enablePackedAttn(); err != nil {
+	if combined {
+		if a.packedAttnMode {
+			a.ops.shortTiled = true
+		} else if err := a.enableCombined(); err != nil {
 			if cerr := retireEG2AttachLocked(a.ops); cerr != nil {
 				return nil, errors.Join(err, cerr)
 			}
@@ -438,38 +463,6 @@ func newEG2AccelOnMode(m *embeddinggemma2.Model, mode eg2Mode, open func() (*Dev
 		}
 	}
 	return a, nil
-}
-
-func (a *eg2Accel) enablePackedAttn() error {
-	pipes := make(map[int]Pipeline)
-	if err := a.ops.do(func() error {
-		lib, err := a.ops.dev.CompileLibrary(eg2PackedAttentionPTX)
-		if err != nil {
-			return err
-		}
-		for _, ly := range a.layers {
-			hd := ly.w.HeadDim
-			if _, ok := pipes[hd]; ok {
-				continue
-			}
-			spec, ok := launchgeom.EG2PackedAttnSpecForHD(hd)
-			if !ok {
-				return fmt.Errorf("unsupported head dim %d", hd)
-			}
-			p, err := a.ops.dev.NewComputePipeline(lib, spec.Entry)
-			if err != nil {
-				return err
-			}
-			pipes[hd] = p
-		}
-		return nil
-	}); err != nil {
-		return fmt.Errorf("cuda: load EmbeddingGemma 2 packed attention: %w", err)
-	}
-	a.packedAttn = pipes
-	a.packedAttnMode = true
-	a.ops.shortTiled = true
-	return nil
 }
 
 func (a *eg2Accel) enableCombined() error {
@@ -630,17 +623,20 @@ func (a *eg2Accel) scratchPlan(T int) (eg2ScratchPlan, error) {
 	return a.scratchPlanForLens([]int{T})
 }
 
-// scratchPlanForLens computes the element counts and total charged device bytes for
-// the per-forward scratch buffers (20 base buffers for default/combined, or
-// 15 base float32 buffers plus per-distinct-BM descriptor tables and one
-// overflow status word for packed attention). Shared by forwardRows and
-// BatchMemory so buffer dimensions stay aligned.
+// scratchPlanForLens computes the element counts and total charged device bytes
+// for per-forward scratch buffers (20 base buffers for default/combined, or 15
+// base float32 buffers plus per-distinct-BM descriptor tables when packed
+// attention is active, plus 1 shared FP16 status word on res when FP16 FFN or
+// packed attention is active). Shared by forwardRows and BatchMemory.
 func (a *eg2Accel) scratchPlanForLens(lens []int) (eg2ScratchPlan, error) {
 	T := 0
 	for _, n := range lens {
 		T += n
 	}
 	c := a.cfg
+	if a.ffnFP16 != (Pipeline{}) && (T > math.MaxInt32/max(c.Hidden, c.Intermediate) || T > 65535*32) {
+		return eg2ScratchPlan{}, fmt.Errorf("%w: CUDA FP16 FFN exceeds its launch dimensions", embeddinggemma2.ErrUnsupportedBatchShape)
+	}
 	maxQD, maxKVD := 0, 0
 	for _, ly := range a.layers {
 		maxQD = max(maxQD, c.Heads*ly.w.HeadDim)
@@ -731,11 +727,16 @@ func (a *eg2Accel) scratchPlanForLens(lens []int) (eg2ScratchPlan, error) {
 				}
 			}
 		}
-		_, ovCharged, err := checkedBufCharged(1, 1, 4)
+	}
+	if a.ffnFP16 != (Pipeline{}) || a.packedAttnMode {
+		// The final projected rows share their readback with one FP16 conversion status word.
+		oldCharge := gpu.ChargedBytes(int64(p.res) * 4)
+		res, charge, err := checkedBufCharged(1, p.res+1, 4)
 		if err != nil {
 			return eg2ScratchPlan{}, err
 		}
-		p.chargedBytes, err = addCharged(p.chargedBytes, ovCharged)
+		p.res = res
+		p.chargedBytes, err = addCharged(p.chargedBytes-oldCharge, charge)
 		if err != nil {
 			return eg2ScratchPlan{}, err
 		}
@@ -1155,17 +1156,13 @@ func (a *eg2Accel) forwardRows(x0 []float32, lens []int, keepLayers bool) ([]flo
 		ob, g, u, f := af(plan.ob), af(plan.g), af(plan.u), af(plan.f)
 		ple, pleL, gg, pr := af(plan.ple), af(plan.pleL), af(plan.gg), af(plan.pr)
 		res := af(plan.res)
-		var qkv, slLoB, slHiB, fuLoB, fuHiB, overflowBuf Buffer
+		var qkv, slLoB, slHiB, fuLoB, fuHiB Buffer
 		type packedTileBufs struct {
 			segStart, segLen, qLocal0 Buffer
 			nTiles                    int32
 		}
 		var packedBufs map[int]packedTileBufs
 		if a.packedAttnMode {
-			overflowBuf = o.ai(1)
-			if e := gpu.Upload(overflowBuf, []int32{0}); e != nil {
-				return e
-			}
 			packedBufs = make(map[int]packedTileBufs, len(plan.packedBMs))
 			for _, bm := range plan.packedBMs {
 				tab := plan.packedTabs[bm]
@@ -1201,6 +1198,13 @@ func (a *eg2Accel) forwardRows(x0 []float32, lens []int, keepLayers bool) ([]flo
 			batchRope, e = a.batchRope(lens, &pendingRope, &ropeReleaseErr)
 			if e != nil {
 				return e
+			}
+		}
+		var invalidInput Buffer
+		if a.ffnFP16 != (Pipeline{}) || a.packedAttnMode {
+			invalidInput = res.At((plan.res - 1) * 4)
+			if err := o.q.ZeroAsync(invalidInput, 4); err != nil {
+				return err
 			}
 		}
 		eps := float32(c.RMSNormEps)
@@ -1250,7 +1254,7 @@ func (a *eg2Accel) forwardRows(x0 []float32, lens []int, keepLayers bool) ([]flo
 				}, Arg(q), Arg(k), Arg(v),
 					Arg(td.segStart), Arg(td.segLen), Arg(td.qLocal0),
 					i32(int32(nH)), i32(int32(nKV)), i32(int32(win)),
-					f32v(1), i32(td.nTiles), Arg(ctx), Arg(overflowBuf))
+					f32v(1), i32(td.nTiles), Arg(ctx), Arg(invalidInput))
 			} else {
 				pitch := (T + 31) &^ 31
 				// Gate on the longest individual input. A pair of short inputs keeps the packed kernel.
@@ -1282,11 +1286,11 @@ func (a *eg2Accel) forwardRows(x0 []float32, lens []int, keepLayers bool) ([]flo
 			o.addVec(x, ob, T*H)
 			// MLP
 			o.rms(x, ly.preFFNorm, xn, T, H, eps)
-			o.gemm(xn, ly.gate, g, T, I, H)
-			o.gemm(xn, ly.up, u, T, I, H)
+			a.ffnGEMM(xn, ly.gate, g, invalidInput, T, I, H)
+			a.ffnGEMM(xn, ly.up, u, invalidInput, T, I, H)
 			o.geluTanh(g, T*I)
 			o.mulVec(g, u, T*I)
-			o.gemm(g, ly.down, f, T, H, I)
+			a.ffnGEMM(g, ly.down, f, invalidInput, T, H, I)
 			o.rms(f, ly.postFFNorm, f, T, H, eps)
 			o.addVec(x, f, T*H)
 			// PLE block, then the layer scalar over the whole residual sum
@@ -1323,21 +1327,18 @@ func (a *eg2Accel) forwardRows(x0 []float32, lens []int, keepLayers bool) ([]flo
 		if e := o.finish(); e != nil {
 			return e
 		}
-		if a.packedAttnMode {
-			var flag [1]int32
-			if e := gpu.Download(overflowBuf, flag[:]); e != nil {
-				return e
-			}
-			if flag[0] != 0 {
-				done = true
-				return fmt.Errorf("%w: active Q/K/V activation exceeded FP16 staging range", ErrEG2NumericRange)
-			}
-		}
-		out = make([]float32, T*E)
+		out = make([]float32, plan.res)
 		if e := gpu.Download(res, out); e != nil {
 			return e
 		}
 		done = true
+		if invalidInput != (Buffer{}) {
+			last := len(out) - 1
+			if math.Float32bits(out[last]) != 0 {
+				return errEG2FP16InputRange
+			}
+			out = out[:last:last]
+		}
 		return nil
 	})
 	if a.broken == nil {
