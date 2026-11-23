@@ -95,11 +95,13 @@ __device__ __forceinline__ void eg2_packed_attn_impl(
     constexpr int vStride = BN + KPAD;
 
     extern __shared__ __half sh[];
+    __shared__ int tileVNonFinite;
     __half* Qsh = sh;                              // [BM][HD + KPAD]
     __half* KVsh = sh + (size_t)BM * qStride;      // overlays Ksh, Vtsh, and Ssh
     __half* Ksh = KVsh;                            // [BN][DK_TOT + KPAD]
     __half* Vtsh = KVsh;                           // [DK_TOT][BN + KPAD]
     float* Ssh = reinterpret_cast<float*>(KVsh);   // [WARP_M][WARP_D - 1][16][BN] when WARP_D > 1
+    if (tid == 0) tileVNonFinite = 0;
 
     const int nqTile = (segLen - qLocal0 < BM) ? (segLen - qLocal0) : BM;
     const bool qVecOK = (reinterpret_cast<unsigned long long>(q) & 15ull) == 0ull;
@@ -157,6 +159,7 @@ __device__ __forceinline__ void eg2_packed_attn_impl(
 
     float mRun0 = -1e30f, mRun1 = -1e30f;
     float lRun0 = 0.f, lRun1 = 0.f;
+    bool hadPrev0 = false, hadPrev1 = false;
     float acc[OT_WARP][4];
 #pragma unroll
     for (int t = 0; t < OT_WARP; t++) {
@@ -334,10 +337,10 @@ __device__ __forceinline__ void eg2_packed_attn_impl(
 
         const bool hasValid0 = (rowAny0 != 0u);
         const bool hasValid1 = (rowAny1 != 0u);
-        const float mNew0 = hasValid0 ? (lRun0 > 0.f ? fmaxf(mRun0, tileMax0) : tileMax0) : mRun0;
-        const float mNew1 = hasValid1 ? (lRun1 > 0.f ? fmaxf(mRun1, tileMax1) : tileMax1) : mRun1;
-        const float alpha0 = hasValid0 ? (lRun0 > 0.f ? __expf(mRun0 - mNew0) : 0.f) : 1.f;
-        const float alpha1 = hasValid1 ? (lRun1 > 0.f ? __expf(mRun1 - mNew1) : 0.f) : 1.f;
+        const float mNew0 = hasValid0 ? (hadPrev0 ? fmaxf(mRun0, tileMax0) : tileMax0) : mRun0;
+        const float mNew1 = hasValid1 ? (hadPrev1 ? fmaxf(mRun1, tileMax1) : tileMax1) : mRun1;
+        const float alpha0 = hasValid0 ? (hadPrev0 ? __expf(mRun0 - mNew0) : 0.f) : 1.f;
+        const float alpha1 = hasValid1 ? (hadPrev1 ? __expf(mRun1 - mNew1) : 0.f) : 1.f;
 
         float sum0 = 0.f, sum1 = 0.f;
         unsigned int pFrag[NG][2];
@@ -365,10 +368,12 @@ __device__ __forceinline__ void eg2_packed_attn_impl(
         if (hasValid0) {
             lRun0 = __fmaf_rn(alpha0, lRun0, sum0);
             mRun0 = mNew0;
+            hadPrev0 = true;
         }
         if (hasValid1) {
             lRun1 = __fmaf_rn(alpha1, lRun1, sum1);
             mRun1 = mNew1;
+            hadPrev1 = true;
         }
 
 #pragma unroll
@@ -393,11 +398,21 @@ __device__ __forceinline__ void eg2_packed_attn_impl(
                     f32_vec4 v;
                     const float* src = vc + (long)(segStart + k0 + kk) * kvDim + kvh * HD + gD;
                     v.u = *reinterpret_cast<const uint4*>(src);
+                    const __half h0 = __float2half_rn(v.f[0]);
+                    const __half h1 = __float2half_rn(v.f[1]);
+                    const __half h2 = __float2half_rn(v.f[2]);
+                    const __half h3 = __float2half_rn(v.f[3]);
+                    if (((__half_as_ushort(h0) & 0x7c00u) == 0x7c00u) ||
+                        ((__half_as_ushort(h1) & 0x7c00u) == 0x7c00u) ||
+                        ((__half_as_ushort(h2) & 0x7c00u) == 0x7c00u) ||
+                        ((__half_as_ushort(h3) & 0x7c00u) == 0x7c00u)) {
+                        tileVNonFinite = 1;
+                    }
                     const int dd = dv * 4;
-                    Vtsh[(dd + 0) * vStride + kk] = __float2half_rn(v.f[0]);
-                    Vtsh[(dd + 1) * vStride + kk] = __float2half_rn(v.f[1]);
-                    Vtsh[(dd + 2) * vStride + kk] = __float2half_rn(v.f[2]);
-                    Vtsh[(dd + 3) * vStride + kk] = __float2half_rn(v.f[3]);
+                    Vtsh[(dd + 0) * vStride + kk] = h0;
+                    Vtsh[(dd + 1) * vStride + kk] = h1;
+                    Vtsh[(dd + 2) * vStride + kk] = h2;
+                    Vtsh[(dd + 3) * vStride + kk] = h3;
                 }
             } else {
                 for (int idx = tid; idx < nk * DK_TOT; idx += blockDim.x) {
@@ -407,37 +422,103 @@ __device__ __forceinline__ void eg2_packed_attn_impl(
                     const int dOff = dd - wd * DK_SUB;
                     const int gD = wd * HD_WARP + ch * DK_SUB + dOff;
                     const float vv = vc[(long)(segStart + k0 + kk) * kvDim + kvh * HD + gD];
-                    Vtsh[dd * vStride + kk] = __float2half_rn(vv);
+                    const __half hv = __float2half_rn(vv);
+                    if ((__half_as_ushort(hv) & 0x7c00u) == 0x7c00u) {
+                        tileVNonFinite = 1;
+                    }
+                    Vtsh[dd * vStride + kk] = hv;
                 }
             }
             __syncthreads();
 
+            const int vNonFinite = tileVNonFinite;
+            if (vNonFinite == 0) {
+                // Fast path: every entry in Vtsh is finite, so 0 * Vtsh == 0 in MMA.
 #pragma unroll
-            for (int g = 0; g < NG; g++) {
-                const unsigned int a0 = pFrag[g][0];
-                const unsigned int a1 = pFrag[g][1];
-                const int kIdx = g * 8 + colBase;
+                for (int g = 0; g < NG; g++) {
+                    const unsigned int a0 = pFrag[g][0];
+                    const unsigned int a1 = pFrag[g][1];
+                    const int kIdx = g * 8 + colBase;
 #pragma unroll
-                for (int tSub = 0; tSub < SUB_TILES; tSub++) {
-                    const int t = ch * SUB_TILES + tSub;
-                    const int dIdx = warpD * DK_SUB + tSub * 8 + (lane >> 2);
-                    unsigned int b0 = 0u;
-                    if (kIdx + 1 < nk) {
-                        b0 = *reinterpret_cast<const unsigned int*>(&Vtsh[dIdx * vStride + kIdx]);
-                    } else if (kIdx < nk) {
-                        __half2 hv = __halves2half2(Vtsh[dIdx * vStride + kIdx], __float2half_rn(0.f));
-                        b0 = *reinterpret_cast<unsigned int*>(&hv);
+                    for (int tSub = 0; tSub < SUB_TILES; tSub++) {
+                        const int t = ch * SUB_TILES + tSub;
+                        const int dIdx = warpD * DK_SUB + tSub * 8 + (lane >> 2);
+                        unsigned int b0 = 0u;
+                        if (kIdx + 1 < nk) {
+                            b0 = *reinterpret_cast<const unsigned int*>(&Vtsh[dIdx * vStride + kIdx]);
+                        } else if (kIdx < nk) {
+                            __half2 hv = __halves2half2(Vtsh[dIdx * vStride + kIdx], __float2half_rn(0.f));
+                            b0 = *reinterpret_cast<unsigned int*>(&hv);
+                        }
+                        mma_m16n8k8_f32(acc[t][0], acc[t][1], acc[t][2], acc[t][3],
+                                        a0, a1, b0,
+                                        acc[t][0], acc[t][1], acc[t][2], acc[t][3]);
                     }
-                    mma_m16n8k8_f32(acc[t][0], acc[t][1], acc[t][2], acc[t][3],
-                                    a0, a1, b0,
-                                    acc[t][0], acc[t][1], acc[t][2], acc[t][3]);
                 }
+            } else {
+                // Guarded exceptional-V path: at least one V element in this union tile is
+                // NaN, Inf, or overflows FP16. Accumulate in FP32 strictly over each row's
+                // valid keys so masked rows never compute 0 * NaN/Inf while eligible rows
+                // still expose nonfinite inputs.
+                const int rowBase = lane & ~3;
+#pragma unroll
+                for (int g = 0; g < NG; g++) {
+                    const int bitA = g << 1;
+                    const int bitB = bitA | 1;
+#pragma unroll 1
+                    for (int srcCol = 0; srcCol < 4; srcCol++) {
+                        const int srcLane = rowBase + srcCol;
+                        const unsigned int m0 = __shfl_sync(0xffffffffu, validMask0, srcLane);
+                        const unsigned int m1 = __shfl_sync(0xffffffffu, validMask1, srcLane);
+                        const unsigned int pf0 = __shfl_sync(0xffffffffu, pFrag[g][0], srcLane);
+                        const unsigned int pf1 = __shfl_sync(0xffffffffu, pFrag[g][1], srcLane);
+                        const __half2 hp0 = *reinterpret_cast<const __half2*>(&pf0);
+                        const __half2 hp1 = *reinterpret_cast<const __half2*>(&pf1);
+                        const float p0A = __low2float(hp0);
+                        const float p0B = __high2float(hp0);
+                        const float p1A = __low2float(hp1);
+                        const float p1B = __high2float(hp1);
+                        const bool v0A = ((m0 >> bitA) & 1u) != 0u;
+                        const bool v0B = ((m0 >> bitB) & 1u) != 0u;
+                        const bool v1A = ((m1 >> bitA) & 1u) != 0u;
+                        const bool v1B = ((m1 >> bitB) & 1u) != 0u;
+                        const int kA = g * 8 + (srcCol << 1);
+                        const int kB = kA + 1;
+#pragma unroll
+                        for (int tSub = 0; tSub < SUB_TILES; tSub++) {
+                            const int t = ch * SUB_TILES + tSub;
+                            const int dcol = dBaseWarp + t * 8 + colBase;
+                            if (v0A) {
+                                const float* vr = vc + (long)(segStart + k0 + kA) * kvDim + kvh * HD + dcol;
+                                acc[t][0] = __fmaf_rn(p0A, vr[0], acc[t][0]);
+                                acc[t][1] = __fmaf_rn(p0A, vr[1], acc[t][1]);
+                            }
+                            if (v0B) {
+                                const float* vr = vc + (long)(segStart + k0 + kB) * kvDim + kvh * HD + dcol;
+                                acc[t][0] = __fmaf_rn(p0B, vr[0], acc[t][0]);
+                                acc[t][1] = __fmaf_rn(p0B, vr[1], acc[t][1]);
+                            }
+                            if (v1A) {
+                                const float* vr = vc + (long)(segStart + k0 + kA) * kvDim + kvh * HD + dcol;
+                                acc[t][2] = __fmaf_rn(p1A, vr[0], acc[t][2]);
+                                acc[t][3] = __fmaf_rn(p1A, vr[1], acc[t][3]);
+                            }
+                            if (v1B) {
+                                const float* vr = vc + (long)(segStart + k0 + kB) * kvDim + kvh * HD + dcol;
+                                acc[t][2] = __fmaf_rn(p1B, vr[0], acc[t][2]);
+                                acc[t][3] = __fmaf_rn(p1B, vr[1], acc[t][3]);
+                            }
+                        }
+                    }
+                }
+                __syncthreads();
+                if (tid == 0) tileVNonFinite = 0;
             }
         }
     }
 
-    const float inv0 = (lRun0 > 0.f) ? (1.f / lRun0) : 0.f;
-    const float inv1 = (lRun1 > 0.f) ? (1.f / lRun1) : 0.f;
+    const float inv0 = (lRun0 == 0.f) ? 0.f : (1.f / lRun0);
+    const float inv1 = (lRun1 == 0.f) ? 0.f : (1.f / lRun1);
 #pragma unroll
     for (int t = 0; t < OT_WARP; t++) {
         const int dcol = dBaseWarp + t * 8 + colBase;
