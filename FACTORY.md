@@ -4,7 +4,7 @@
 
 goinfer is a Go inference library, CLI, and HTTP server for running local models on CPU and through CUDA, Metal, and WebGPU. It also includes a served web UI and a Go-built documentation site. Read `AGENTS.md` and `CLAUDE.md` in full before changing the tree. Use `docs/layout.md` to locate modules and `scripts/make_work.sh` to prepare a Go workspace for cross-module work.
 
-The team's focus is pbrain's Markdown indexing and retrieval workload. pbrain uses BM25, EmbeddingGemma 2 and BGE-small from goinfer alongside SQLite and sqlite-vec. Keep the Go inference core and use independent reference vectors and retrieval fixtures to check changes. Prioritize EmbeddingGemma 2 on NVIDIA CUDA, profile CPU separately, and investigate AMD support as its own track.
+The team's focus is pbrain's Markdown indexing and retrieval workload. pbrain uses BM25, EmbeddingGemma 2 from goinfer, and BGE-small separately from its own external dependency, alongside SQLite and sqlite-vec. Keep the Go inference core and use independent reference vectors and retrieval fixtures to check changes. Prioritize EmbeddingGemma 2 on NVIDIA CUDA, profile CPU separately, and investigate AMD support as its own track.
 
 Use the frozen Markdown fixture directly for EmbeddingGemma 2 experiments in goinfer. On 2026-11-21 the maintainer authorized enabling EmbeddingGemma 2 for the isolated pbrain CPU/RTX benchmark with fresh indexes and caches. Use a process-local setting for that run.
 
