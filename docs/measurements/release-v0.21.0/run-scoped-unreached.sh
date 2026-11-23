@@ -22,9 +22,10 @@
 # that revision writes (testdata/parity/ now, testdata/parity_manifest.json before that directory existed), and it returns
 # the gate's own exit status even when the copy succeeds.
 #
-# A candidate whose go.mod depends on the donor module is refused before any go command. The v0.21.0 reproduction is not
-# a mode of this template: it is the file at this path in goinfer ab2721995e027c8ce6630396c922916cb2357a1d, run from that
-# revision, so the historical gate never runs through a live tree.
+# A candidate whose go.mod requires a retired module graph is refused before any go command: the donor owner and the
+# retired aikit module are both rejected. The v0.21.0 reproduction is not a mode of this template: it is the file at this
+# path in goinfer ab2721995e027c8ce6630396c922916cb2357a1d, run from that revision, so the historical gate never runs
+# through a live tree.
 set -euo pipefail
 REV=${REV:?set REV to the candidate commit to gate}
 SRC=${SRC:-$(cd "$(dirname "${BASH_SOURCE[0]}")/../../.." && pwd)}
@@ -65,8 +66,16 @@ grep -q '^module github.com/pkieltyka/goinfer$' go.mod || {
   echo "FATAL: $REV is not a candidate of this repository (root module line); the v0.21.0 recipe is at ab2721995" >&2
   exit 2
 }
-if grep -Eqs 'github\.com/townsendmerino/' go.mod backend/*/go.mod 2>/dev/null; then
-  echo "FATAL: $REV depends on the donor module; the v0.21.0 recipe is the file at ab2721995" >&2
+retired=""
+for f in go.mod backend/*/go.mod; do
+  [ -f "$f" ] || continue
+  if grep -Eq '^[[:space:]]*(require[[:space:]]+)?github\.com/(townsendmerino/|pkieltyka/aikit([[:space:]/]|$))' "$f"; then
+    retired=$f
+    break
+  fi
+done
+if [ -n "$retired" ]; then
+  echo "FATAL: $REV requires a retired module graph ($retired matches the donor owner or the retired aikit module); the historical recipes are at 7b50947a and ab2721995" >&2
   exit 2
 fi
 if [ -d testdata/parity ]; then
