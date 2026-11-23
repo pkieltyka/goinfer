@@ -1,12 +1,12 @@
 #!/usr/bin/env python3
-"""sweep_report.py: which aikit bumps in VK0's window changed a kernel fingerprint, and what that would have saved.
+"""sweep_report.py: which module-version bumps in VK0's window changed a kernel fingerprint, and what that would have saved.
 
     python3 docs/measurements/vk1-2026-10/sweep_report.py SWEEP.jsonl.gz VK0-STEPS.jsonl.gz
 
 SWEEP is module_version_sweep.py's output (that producer is retired; the original is Git blob 2d30fdbde36a816ad78131647934aea55bce7081 in ab2721995); VK0-STEPS is docs/measurements/vk0-2026-10/steps-<date>.jsonl.gz. A bump "changed" a
 configuration when any kernel's fingerprint differs between its two versions there, or when either version does not
 build the suite (not comparable, counted as changed). A commit's re-stalings are "saved" only when its sole trigger is
-the aikit pin and the bump changed no fingerprint in any configuration.
+the module-version pin and the bump changed no fingerprint in any configuration.
 """
 import collections
 import gzip
@@ -49,7 +49,7 @@ def main(sweep_path, steps_path):
                 a, b = t[len("aikit:"):].split("->")
                 trans.setdefault((a, b), []).append(s)
     print()
-    print("aikit transition | per configuration: kernels whose fingerprint changed | commits | family re-stalings | sole-trigger re-stalings")
+    print("version transition | per configuration: kernels whose fingerprint changed | commits | family re-stalings | sole-trigger re-stalings")
     tot = collections.Counter()
     for (a, b), ss in sorted(trans.items(), key=lambda kv: min(s["date"] for s in kv[1])):
         per = {c: diff(a, b, c) for c in configs}
@@ -76,8 +76,8 @@ def main(sweep_path, steps_path):
     print()
     print(f"transitions: {tot['transitions']}; comparable in every configuration: {tot['comparable']}; "
           f"no fingerprint changed in any configuration: {tot['unchanged']}")
-    print(f"re-staling commits with an aikit trigger: {tot['commits']} ({tot['fam']} family re-stalings); "
-          f"aikit the sole trigger: {tot['sole_commits']} ({tot['sole_fam']})")
+    print(f"re-staling commits with a version trigger: {tot['commits']} ({tot['fam']} family re-stalings); "
+          f"version transition the sole trigger: {tot['sole_commits']} ({tot['sole_fam']})")
     print(f"of the sole-trigger commits on comparable transitions ({tot['comparable_sole_commits']}, "
           f"{tot['comparable_sole_fam']} re-stalings), a kernel-fingerprint key would have re-staled nothing at "
           f"{tot['saved_commits']} commits, {tot['saved_fam']} family re-stalings")
