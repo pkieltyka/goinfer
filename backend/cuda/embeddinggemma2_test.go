@@ -3145,7 +3145,7 @@ func TestCUDAProbeRetainsFailedCloseOwnership(t *testing.T) {
 
 const eg2FP16TestSelector = "cuda-eg2-fp16"
 
-func eg2FP16TaggedBinary(t *testing.T) bool {
+func eg2TaggedBinary(t *testing.T, required ...string) bool {
 	t.Helper()
 	info, ok := debug.ReadBuildInfo()
 	if !ok {
@@ -3154,14 +3154,19 @@ func eg2FP16TaggedBinary(t *testing.T) bool {
 	for _, setting := range info.Settings {
 		if setting.Key == "-tags" {
 			tags := strings.Fields(strings.ReplaceAll(setting.Value, ",", " "))
-			return slices.Contains(tags, "eg2_combined") && slices.Contains(tags, "eg2_fp16")
+			for _, tag := range required {
+				if !slices.Contains(tags, tag) {
+					return false
+				}
+			}
+			return true
 		}
 	}
 	return false
 }
 
 func TestEG2FP16Geometry(t *testing.T) {
-	tagsLinked := eg2FP16TaggedBinary(t)
+	tagsLinked := eg2TaggedBinary(t, "eg2_combined", "eg2_fp16")
 	selectors := embeddinggemma2.DeviceSelectors("cuda")
 	registered := slices.Contains(selectors, eg2FP16TestSelector)
 	if registered != tagsLinked {
@@ -3199,7 +3204,7 @@ func TestEG2FP16Weights(t *testing.T) {
 
 func eg2FP16TestAdapter(t *testing.T) gpu.Adapter {
 	t.Helper()
-	if !eg2FP16TaggedBinary(t) {
+	if !eg2TaggedBinary(t, "eg2_combined", "eg2_fp16") {
 		t.Skip("build with cuda,eg2_combined,eg2_fp16 to run FP16 encoder tests")
 	}
 	if !slices.Contains(embeddinggemma2.DeviceSelectors("cuda"), eg2FP16TestSelector) {
@@ -3450,6 +3455,46 @@ func TestEG2FP16FailedAttach(t *testing.T) {
 var eg2FusionPack = flag.String("eg2-fusion-pack", "", "EmbeddingGemma 2 pack for the fusion test")
 var eg2FusionIDs = flag.String("eg2-fusion-ids", "", "pinned prepared IDs for the fusion test")
 
+func TestEG2FusionsLinked(t *testing.T) {
+	tagged := eg2TaggedBinary(t, "eg2_fusions")
+	if linked := len(eg2FusionsPTX) != 0; linked != tagged {
+		t.Fatalf("fusion PTX linked = %t, eg2_fusions build tag = %t", linked, tagged)
+	}
+}
+
+func TestEG2FusionsAdmission(t *testing.T) {
+	for _, tc := range []struct {
+		name string
+		i, p int
+	}{
+		{"FFN", 262144, 256},
+		{"PLE", 2048, 262144},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			a := &eg2Accel{
+				cfg: embeddinggemma2.Config{
+					Hidden: 768, Intermediate: tc.i, PLEDim: tc.p,
+					Layers: 1, Heads: 8, EmbeddingDim: 768, MaxPositions: 8192,
+				},
+			}
+			if _, err := a.BatchMemory([]int{8192}); err != nil {
+				t.Fatalf("baseline singleton estimate rejected: %v", err)
+			}
+			a.fusions = &eg2Fusions{}
+			if _, err := a.BatchMemory([]int{8191}); err != nil {
+				t.Fatalf("in-range fused singleton estimate rejected: %v", err)
+			}
+			if _, err := a.BatchMemory([]int{8192}); !errors.Is(err, embeddinggemma2.ErrUnsupportedBatchShape) {
+				t.Fatalf("out-of-range fused singleton estimate: %v", err)
+			}
+			rows, layers, err := a.forwardRows(nil, []int{8192}, true)
+			if rows != nil || layers != nil || !errors.Is(err, embeddinggemma2.ErrUnsupportedBatchShape) {
+				t.Fatalf("out-of-range fused forward returned rows = %v, layers = %v, err = %v", rows, layers, err)
+			}
+		})
+	}
+}
+
 func TestEG2FusionsTiny(t *testing.T) {
 	m := eg2TinyModel(t)
 	inputs := make([][]int, 3)
@@ -3530,8 +3575,11 @@ func TestEG2FusionsReal(t *testing.T) {
 
 func checkEG2Fusions(t *testing.T, m *embeddinggemma2.Model, inputs [][]int, keepLayers bool) {
 	t.Helper()
-	if len(eg2FusionsPTX) == 0 {
+	if !eg2TaggedBinary(t, "eg2_fusions") {
 		t.Skip("build with cuda,eg2_fusions for the fused encoder experiment")
+	}
+	if len(eg2FusionsPTX) == 0 {
+		t.Fatal("tagged build is missing the fusion PTX")
 	}
 	id := os.Getenv("GOINFER_TEST_CUDA_UUID")
 	if id == "" {

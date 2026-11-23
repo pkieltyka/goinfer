@@ -579,6 +579,12 @@ type eg2ScratchPlan struct {
 // Shared by forwardRows and BatchMemory so buffer dimensions stay aligned.
 func (a *eg2Accel) scratchPlan(T int) (eg2ScratchPlan, error) {
 	c := a.cfg
+	if a.fusions != nil {
+		// Both fused kernels take a signed 32-bit element count.
+		if width := max(c.Intermediate, c.PLEDim); width > 0 && T > math.MaxInt32/width {
+			return eg2ScratchPlan{}, fmt.Errorf("cuda: %w: fused activations exceed their launch element count", embeddinggemma2.ErrUnsupportedBatchShape)
+		}
+	}
 	if a.ffnFP16 != (Pipeline{}) && (T > math.MaxInt32/max(c.Hidden, c.Intermediate) || T > 65535*32) {
 		return eg2ScratchPlan{}, fmt.Errorf("%w: CUDA FP16 FFN exceeds its launch dimensions", embeddinggemma2.ErrUnsupportedBatchShape)
 	}
@@ -999,6 +1005,10 @@ func (a *eg2Accel) forwardRows(x0 []float32, lens []int, keepLayers bool) ([]flo
 	for _, n := range lens {
 		T, maxT = T+n, max(maxT, n)
 	}
+	plan, err := a.scratchPlan(T)
+	if err != nil {
+		return nil, nil, err
+	}
 	W := c.SlidingWindow
 	if a.defect.windowWide {
 		W++
@@ -1008,10 +1018,6 @@ func (a *eg2Accel) forwardRows(x0 []float32, lens []int, keepLayers bool) ([]flo
 	}
 	slLo, slHi := eg2BatchBounds(lens, W)
 	fuLo, fuHi := eg2BatchBounds(lens, -1)
-	plan, err := a.scratchPlan(T)
-	if err != nil {
-		return nil, nil, err
-	}
 	var out []float32
 	var layers [][]float32
 	if keepLayers {
