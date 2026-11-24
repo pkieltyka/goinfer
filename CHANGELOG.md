@@ -17,6 +17,23 @@ any surface may still change.
 
 Each unreleased change is a file in [`changelog.d/`](changelog.d/), collected into the release's section when it is tagged (`scripts/changelog.py release`).
 
+## [v0.6.8] — 2026-11-24
+
+### Changed
+
+- **Faster default Metal EmbeddingGemma 2.** On eligible Apple Silicon, the `metal` selector checks both compiled kernels at attach and selects fused full and sliding attention. On the M4, paired runs at 2,042 tokens delivered about 1.155× throughput for Google BF16 and Unsloth Q8_0. Both formats passed CPU parity and fit at 8,192 tokens. `metal-eg2-stock` selects the previous route. Read `embeddinggemma2.AttachedProfileReporter` before choosing a persistent index fingerprint because the profiles produce different vector bits. [#91](https://github.com/pkieltyka/goinfer/pull/91)
+- **Vulkan Radeon indexing.** The qualified wide projection route reduces work on the Radeon RX 9060 XT. A native device loss retains its cause and stops subsequent dispatch planning. [#90](https://github.com/pkieltyka/goinfer/pull/90)
+- **CUDA FP16 feed-forward projections.** Fuse the opt-in FP16 gate projection's store with its activation. [#83](https://github.com/pkieltyka/goinfer/pull/83)
+
+### Fixed
+
+- Size the Metal embedding scalar arena before encoding long inputs. [#88](https://github.com/pkieltyka/goinfer/pull/88)
+- Reject Hadamard-rotated GGUF inputs before reading tensors. [#87](https://github.com/pkieltyka/goinfer/pull/87)
+
+### Verification
+
+The root, CUDA, Vulkan and Metal modules share one release commit. Native Metal qualification covers the M4. [Metal verification](https://github.com/pkieltyka/goinfer/issues/86#issuecomment-7147154129)
+
 ## [v0.6.7] — 2026-11-23
 
 ### Changed

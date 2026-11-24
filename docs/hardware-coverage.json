@@ -462,9 +462,18 @@
     "goinfer/backend/metal/embeddinggemma2_matrix.go",
     "goinfer/backend/metal/internal/gpudev/metal.go"
    ],
-   "our_machines": "Apple M4 is the product qualification target",
-   "last_executed": [],
-   "notes": "Native results for the exact product route are recorded separately."
+   "our_machines": "Apple M4 with 24 GiB unified memory",
+   "last_executed": [
+    {
+     "machine": "Apple M4, 24 GiB unified memory, macOS 27.2.1, Go 1.27.4 darwin/arm64",
+     "date": "2026-11-24",
+     "how": "native",
+     "goinfer": "7ee8392110a2affe22ec005ef1b25f78b5060745",
+     "aikit": "in-tree model core",
+     "gate": "Metal EG2 default attachment, native matrix canary and 2042-token Google BF16 and Q8_0 trials plus 8192-token fit, recorded in goinfer issue 86"
+    }
+   ],
+   "notes": "Device qualification covers M4."
   },
   {
    "id": "metal-newer-gpus",

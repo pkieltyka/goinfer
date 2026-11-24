@@ -170,6 +170,7 @@ How it ran: **native** is real hardware; **ci-pool** is a GitHub runner whose CP
 | GitHub ubuntu-24.04-arm runner: ARM Neoverse-N2, 4 CPUs, DotProd (asimddp) yes | ci-pool | 2 | 2026-10-03 |
 | qemu-aarch64-static 10.2.2 user-mode emulation of -cpu cortex-a72 (no DotProd) on nobara-pc | emulated | 1 | 2026-10-04 |
 | GitHub ubuntu-24.04-arm runner: Neoverse-N2 (has DotProd, forced off by aikit_nodotprod) | forced | 1 | 2026-10-04 |
+| Apple M4, 24 GiB unified memory, macOS 27.2.1, Go 1.27.4 darwin/arm64 | native | 1 | 2026-11-24 |
 | nobara-pc: RTX 2070 SUPER over Vulkan (wgpu-native, ADAPTER_PROBE backend=vulkan software=false), driver 595.91.07 | native | 1 | 2026-09-28 |
 | mbp2: MacBook Pro 13-inch 2020 on Kubuntu (kernel 7.3.3-2-t2-resolute), Core i5-8257U, 16 GB shared; Intel Iris Plus Graphics 645 (CFL GT3) over Vulkan, Mesa 26.0.8 (wgpu-native, ADAPTER_PROBE backend=vulkan software=false, integrated-gpu, dot4I8Packed yes) | native | 1 | 2026-11-20 |
 | Francis's MacBook Pro: M1 Pro, 16 GB unified memory, macOS (Darwin 25.6.0), wgpu-native Metal backend (adapter Apple M1 Pro, integrated-gpu, dot4I8Packed yes) | native | 1 | 2026-10-04 |
@@ -178,7 +179,7 @@ How it ran: **native** is real hardware; **ci-pool** is a GitHub runner whose CP
 | GitHub windows-11-arm runner: Azure Cobalt 100 (ARMv8, Microsoft), 4 logical CPUs, Windows 10.0.26200, windows/arm64, go1.27.0 | ci-pool | 1 | 2026-10-04 |
 | NVIDIA RTX PRO 6000 Blackwell Max-Q Workstation Edition (driver 595.112.07) with AMD Radeon RX 9060 XT (RADV, Mesa 26.3.1) | native | 1 | 2026-11-22 |
 
-**11 of 34 hardware-selected paths have no record of ever executing:**
+**11 of 35 hardware-selected paths have no record of ever executing:**
 
 - `cpu-popcnt`: POPCNT Hamming distance
 - `cuda-compute-mode`: CUDA graphs tenancy check (device compute mode)
