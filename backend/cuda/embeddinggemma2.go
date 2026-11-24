@@ -20,10 +20,9 @@ import (
 
 // EmbeddingGemma 2's text encoder on CUDA: the CPU forward of embeddinggemma2/model.go in float32 with every weight
 // resident on the device, on the tower base (tower_base.go). The token-row gather is the host's, as Metal's is; every
-// layer runs here. Attention uses the in-tree attention_seg kernel, which takes each query row's own key range: [i-W, i+W] clipped
-// to the input on a sliding layer, the whole input on a full one. It reads one fused [T, 3, nH, hd] buffer, so q, k and
-// v are normed and rotated in their own buffers and gathered into it by strided device copies (Queue.Copy2DAsync), each
-// query head taking its KV head's columns. Registered as the "cuda" accelerator; nothing selects it by default.
+// layer runs here. Attention takes each query row's own key range: [i-W, i+W] clipped to the input on a sliding layer,
+// the whole input on a full one. It uses transposed keys for eligible long inputs and the fused [T, 3, nH, hd] layout
+// for the stock attention_seg path. Registered as the "cuda" accelerator; callers select it explicitly.
 
 func init() {
 	embeddinggemma2.RegisterAccelerator("cuda", bareEG2Factory(false))
@@ -455,36 +454,64 @@ func newEG2AccelConfigured(m *embeddinggemma2.Model, combined bool, fp16PTX, pac
 		}
 		return nil, fmt.Errorf("cuda: EmbeddingGemma 2 upload: %w", err)
 	}
-	if combined {
-		if a.packedAttnMode {
-			a.ops.shortTiled = true
-		} else if err := a.enableCombined(); err != nil {
-			if cerr := retireEG2AttachLocked(a.ops); cerr != nil {
-				return nil, errors.Join(err, cerr)
-			}
-			return nil, err
+	var attentionErr error
+	switch {
+	case combined && a.packedAttnMode:
+		a.ops.shortTiled = true
+	case combined:
+		attentionErr = a.enableCombined()
+	case !a.packedAttnMode && len(fp16PTX) == 0 && len(fusionPTX) == 0 && cudaSupportsEG2(a.identity):
+		attentionErr = a.loadTransposedAttention(true)
+	}
+	if attentionErr != nil {
+		if cerr := retireEG2AttachLocked(ops); cerr != nil {
+			return nil, errors.Join(attentionErr, cerr)
 		}
+		return nil, attentionErr
 	}
 	return a, nil
 }
 
 func (a *eg2Accel) enableCombined() error {
-	if err := a.ops.do(func() error {
-		lib, err := a.ops.dev.CompileLibrary(eg2CombinedAttentionPTX)
-		if err != nil {
-			return err
-		}
-		a.combinedTranspose, err = a.ops.dev.NewComputePipeline(lib, "eg2_transpose_keys")
-		if err != nil {
-			return err
-		}
-		a.combinedAttention, err = a.ops.dev.NewComputePipeline(lib, "eg2_attention_transposed")
+	if err := a.loadTransposedAttention(false); err != nil {
 		return err
-	}); err != nil {
-		return fmt.Errorf("cuda: load EmbeddingGemma 2 transposed attention: %w", err)
 	}
 	a.ops.shortTiled = true
 	return nil
+}
+
+// loadTransposedAttention publishes both pipelines together. The default selector can keep
+// stock attention when its driver cannot JIT this optional module.
+func (a *eg2Accel) loadTransposedAttention(optional bool) error {
+	if a.combinedAttention != (Pipeline{}) {
+		return nil
+	}
+	if err := a.ops.do(func() error {
+		lib, err := a.ops.dev.CompileLibrary(eg2CombinedAttentionPTX)
+		if err != nil {
+			if optional && eg2TransposedJITUnsupported(err) {
+				return nil
+			}
+			return err
+		}
+		transpose, err := a.ops.dev.NewComputePipeline(lib, "eg2_transpose_keys")
+		if err != nil {
+			return err
+		}
+		attention, err := a.ops.dev.NewComputePipeline(lib, "eg2_attention_transposed")
+		if err != nil {
+			return err
+		}
+		a.combinedTranspose, a.combinedAttention = transpose, attention
+		return nil
+	}); err != nil {
+		return fmt.Errorf("cuda: load EmbeddingGemma 2 transposed attention: %w", err)
+	}
+	return nil
+}
+
+func eg2TransposedJITUnsupported(err error) bool {
+	return errors.Is(err, gc.ErrNoBinaryForGPU) || errors.Is(err, gc.ErrUnsupportedPTXVersion)
 }
 
 func (a *eg2Accel) Name() string { return "cuda" }
@@ -790,7 +817,7 @@ func (a *eg2Accel) ropeCachedRows(k eg2RopeKey) int {
 // cuMemGetInfo deltas, which also reflect driver page packing, context, and
 // external process memory. When a cached RoPE table grows to
 // max(preparedLengths), the full new pair is counted conservatively even though
-// the older pair is released first. Both combinedAttention selectors reuse qkv
+// the older pair is released first. Transposed attention reuses qkv
 // and zeroBias without extra buffers.
 func (a *eg2Accel) BatchMemory(preparedLengths []int) (embeddinggemma2.BatchMemoryEstimate, error) {
 	a.mu.Lock()
@@ -1280,7 +1307,7 @@ func (a *eg2Accel) forwardRows(x0 []float32, lens []int, keepLayers bool) ([]flo
 					f32v(1), i32(td.nTiles), Arg(ctx), Arg(invalidInput))
 			} else {
 				pitch := (T + 31) &^ 31
-				// Gate on the longest individual input. A pair of short inputs keeps the packed kernel.
+				// Gate on the longest individual input. A batch of short inputs keeps stock attention.
 				transposed := a.combinedAttention != (Pipeline{}) && maxT >= 128 && hd <= 512 && kvd*pitch <= qkv.Len()
 				if transposed {
 					o.launch(a.combinedTranspose, LaunchConfig{
