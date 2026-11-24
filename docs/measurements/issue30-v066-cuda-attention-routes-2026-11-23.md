@@ -143,9 +143,7 @@ staging, score interleaving and V loads and avoids stock QKV packing.
 | Transposed qualification receipt | `55249e3ae379bd28c05f04a208b11e1349bbc2799b050e6c64a569b57e985f1b` |
 | Transposed wall receipt | `25438405cc06d0f8e45b03e2813d9f2445f4bb6108ae55ca9021ded08b72128f` |
 
-Each comparison uses its own fresh stock pairs. The packed-only result
-identifies a substantial gain under its tested settings. These separate
-comparisons do not quantify the marginal contribution of FP16 FFN or
-fusions. The selector-constant formal target remains unchanged and was not
-assessed here. Measured outputs describe the Google checkpoint on this RTX
-and do not authorize a product, default or release change.
+Each comparison uses fresh stock pairs on the same RTX and Google checkpoint.
+Packed attention accounts for most of the observed long-batch gain. Measuring
+the separate contributions of FP16 FFN and fusions requires their own isolated
+arms. The selector-constant formal target remains open.
