@@ -182,12 +182,21 @@ func TestProject32DeclineAndRetry(t *testing.T) {
 		if errors.Is(err, embeddinggemma2.ErrBatchOutOfMemory) {
 			t.Fatal("device loss became a certified batch OOM")
 		}
+		var native *vk.ResultError
+		if !errors.As(err, &native) || native.Code != -4 {
+			t.Fatalf("first loss error %v does not unwrap to the native VK_ERROR_DEVICE_LOST", err)
+		}
 		if creates != 1 || submits != 0 || a.pipes["project32"] != nil {
 			t.Fatalf("loss: creates=%d submits=%d pipe=%v", creates, submits, a.pipes["project32"] != nil)
 		}
 		for name, rows := range map[string][][]int{"short": {{4, 5, 6, 7}}, "wide": batch} {
-			if _, err := e.EmbedIDsBatch(rows); !errors.Is(err, embeddinggemma2.ErrDeviceLost) {
+			_, err := e.EmbedIDsBatch(rows)
+			if !errors.Is(err, embeddinggemma2.ErrDeviceLost) {
 				t.Fatalf("%s forward after loss: %v, want the same loss", name, err)
+			}
+			var again *vk.ResultError
+			if !errors.As(err, &again) || again.Code != -4 {
+				t.Fatalf("%s forward after loss: %v does not unwrap to native VK_ERROR_DEVICE_LOST", name, err)
 			}
 		}
 		if creates != 1 || submits != 0 {
