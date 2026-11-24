@@ -5,12 +5,12 @@ package metal
 import (
 	"errors"
 	"fmt"
-	"github.com/pkieltyka/goinfer/internal/runtime/mem"
 	"math"
 	"sync"
 
 	gpu "github.com/pkieltyka/goinfer/backend/metal/internal/gpudev"
 	"github.com/pkieltyka/goinfer/embeddinggemma2"
+	"github.com/pkieltyka/goinfer/internal/runtime/mem"
 )
 
 // EmbeddingGemma 2's text encoder on Metal: the CPU forward of
@@ -23,6 +23,12 @@ import (
 func init() {
 	embeddinggemma2.RegisterAccelerator("metal", func(m *embeddinggemma2.Model) (embeddinggemma2.Accelerator, error) {
 		return newEG2Accel(m)
+	})
+	embeddinggemma2.RegisterAccelerator("metal-eg2-stock", func(m *embeddinggemma2.Model) (embeddinggemma2.Accelerator, error) {
+		return newEG2AccelWithAttention(m, eg2AttentionStock)
+	})
+	embeddinggemma2.RegisterAccelerator("metal-eg2-combined", func(m *embeddinggemma2.Model) (embeddinggemma2.Accelerator, error) {
+		return newEG2AccelWithAttention(m, eg2AttentionMatrix)
 	})
 	embeddinggemma2.RegisterDeviceProber("metal", probeMetalDevice)
 }
@@ -69,11 +75,17 @@ func newEG2Ops(extra string, more map[string]*Pipeline) (eg2Ops, error) {
 	return newEG2OpsOn(CreateSystemDefaultDevice, extra, more)
 }
 
-func newEG2OpsOn(open func() (*Device, error), extra string, more map[string]*Pipeline) (eg2Ops, error) {
+func newEG2OpsOn(open func() (*Device, error), extra string, more map[string]*Pipeline) (_ eg2Ops, err error) {
 	d, err := acquireMetalDevice(open)
 	if err != nil {
 		return eg2Ops{}, err
 	}
+	defer func() {
+		if err != nil {
+			d.ReleaseAll()
+			d.ReleaseObjects()
+		}
+	}()
 	vit, err := d.NewViT()
 	if err != nil {
 		return eg2Ops{}, err
@@ -99,7 +111,11 @@ func newEG2OpsOn(open func() (*Device, error), extra string, more map[string]*Pi
 			return eg2Ops{}, err
 		}
 	}
-	o.arena = d.NewBufferBytesOn(mem.LineCompanion, eg2ArenaSlots*256)
+	var ok bool
+	o.arena, ok = d.TryNewBufferBytesOn(mem.LineCompanion, eg2ArenaSlots*256)
+	if !ok {
+		return eg2Ops{}, fmt.Errorf("%w: Metal EG2 scalar arena", embeddinggemma2.ErrDeviceOutOfMemory)
+	}
 	return o, nil
 }
 
@@ -141,6 +157,8 @@ type eg2Accel struct {
 	cfg       embeddinggemma2.Config
 	model     *embeddinggemma2.Model
 	identity  embeddinggemma2.DeviceInfo
+	profile   string
+	matrix    eg2MatrixPipes
 	pleProj   Buffer // scaled by hidden^-0.5 at upload, as the CPU scales the product
 	pleNorm   Buffer
 	finalNorm Buffer
@@ -300,7 +318,7 @@ func (a *eg2Ops) ensureArena(slots int) error {
 		if next.Len() > 0 {
 			a.d.ReleaseBuf(next)
 		}
-		return fmt.Errorf("metal: EmbeddingGemma 2 needs %d scalar slots (%d bytes); the device could not provide a larger arena", slots, need)
+		return fmt.Errorf("%w: Metal EG2 needs %d scalar slots (%d bytes)", embeddinggemma2.ErrDeviceOutOfMemory, slots, need)
 	}
 	old := a.arena
 	a.arena = next
@@ -311,21 +329,47 @@ func (a *eg2Ops) ensureArena(slots int) error {
 }
 
 func newEG2Accel(m *embeddinggemma2.Model) (*eg2Accel, error) {
+	return newEG2AccelWithAttention(m, eg2AttentionDefault)
+}
+
+func newEG2AccelWithAttention(m *embeddinggemma2.Model, request eg2AttentionRequest) (_ *eg2Accel, err error) {
+	w := m.TransformerWeights()
+	for _, ly := range w.Layers {
+		if ly.HeadDim > 512 {
+			return nil, fmt.Errorf("metal: EmbeddingGemma 2 head dim %d, over the attention kernel's 512", ly.HeadDim)
+		}
+	}
 	ops, err := newEG2Ops("", nil)
 	if err != nil {
 		return nil, err
 	}
 	d := ops.d
 	a := &eg2Accel{eg2Ops: ops, identity: describeMetalDevice(d.Name(), d.HasUnifiedMemory(), false), ropes: map[eg2RopeKey][2]Buffer{}}
-	w := m.TransformerWeights()
+	defer func() {
+		if err != nil {
+			a.closeDevice()
+		}
+	}()
+	a.profile, err = resolveEG2Attention(request, eg2MatrixGeometry(w), func() error {
+		var setupErr error
+		a.matrix, setupErr = a.newEG2MatrixPipes()
+		return setupErr
+	})
+	if err != nil {
+		return nil, err
+	}
 	a.cfg, a.model = w.Config, m
 	a.eps = float32(a.cfg.RMSNormEps)
-	for _, ly := range w.Layers {
-		if ly.HeadDim > 512 {
-			return nil, fmt.Errorf("metal: EmbeddingGemma 2 head dim %d, over the attention kernel's 512", ly.HeadDim)
+	up := func(v []float32) Buffer {
+		if err != nil {
+			return Buffer{}
 		}
+		b, ok := gpu.TryNewBufferOfOn(d, mem.LineCompanion, v)
+		if !ok {
+			err = fmt.Errorf("%w: Metal EG2 weight upload (%d float32 values)", embeddinggemma2.ErrDeviceOutOfMemory, len(v))
+		}
+		return b
 	}
-	up := func(v []float32) Buffer { return NewBufferFloatsOn(mem.LineCompanion, d, v) }
 	ps := float32(1 / math.Sqrt(float64(a.cfg.Hidden)))
 	scaled := make([]float32, len(w.PLEProj))
 	for i, x := range w.PLEProj {
@@ -344,10 +388,49 @@ func newEG2Accel(m *embeddinggemma2.Model) (*eg2Accel, error) {
 			gate: up(ly.Gate), up: up(ly.Up), down: up(ly.Down), postFFNorm: up(ly.PostFFNorm), pleGate: up(ly.PLEGate),
 			pleProj: up(ly.PLEProj), plePostNorm: up(ly.PLEPostNorm)})
 	}
+	if err != nil {
+		return nil, err
+	}
 	return a, nil
 }
 
 func (a *eg2Accel) Name() string { return "metal" }
+
+var _ embeddinggemma2.AttachedProfileReporter = (*eg2Accel)(nil)
+var _ embeddinggemma2.BatchMemoryEstimator = (*eg2Accel)(nil)
+
+// AttachedProfile identifies the numerical route fixed at attachment.
+func (a *eg2Accel) AttachedProfile() string { return a.profile }
+
+func (a *eg2Accel) checkLength(T int) error {
+	limit := embeddinggemma2.MaxTokens
+	if a.cfg.MaxPositions > 0 {
+		limit = min(limit, a.cfg.MaxPositions)
+	}
+	if T > limit {
+		return fmt.Errorf("%w: Metal EG2 input has %d tokens, over limit %d", embeddinggemma2.ErrUnsupportedBatchShape, T, limit)
+	}
+	return nil
+}
+
+// BatchMemory checks singleton admission and reports unknown allocation costs.
+func (a *eg2Accel) BatchMemory(lengths []int) (embeddinggemma2.BatchMemoryEstimate, error) {
+	a.mu.Lock()
+	defer a.mu.Unlock()
+	if err := a.open(); err != nil {
+		return embeddinggemma2.BatchMemoryEstimate{}, err
+	}
+	if len(lengths) == 0 || lengths[0] <= 0 {
+		return embeddinggemma2.BatchMemoryEstimate{}, errors.New("metal: EG2 needs a positive input length")
+	}
+	if len(lengths) != 1 {
+		return embeddinggemma2.BatchMemoryEstimate{}, fmt.Errorf("%w: Metal EG2 runs single inputs", embeddinggemma2.ErrUnsupportedBatchShape)
+	}
+	if err := a.checkLength(lengths[0]); err != nil {
+		return embeddinggemma2.BatchMemoryEstimate{}, err
+	}
+	return embeddinggemma2.BatchMemoryEstimate{Quality: embeddinggemma2.BatchMemoryUnknown}, nil
+}
 
 // Close frees the encoder's device memory; a forward after it is an error.
 func (a *eg2Accel) Close() error {
@@ -382,6 +465,7 @@ func (a *eg2Accel) grow(T int) error {
 	s := &a.scr
 	a.release(&s.x, &s.xn, &s.q, &s.k, &s.v, &s.ctx, &s.o, &s.g, &s.u, &s.f, &s.gg, &s.pr, &s.ple, &s.out, &s.qh, &s.kh,
 		&s.vh, &s.sc, &s.vt, &s.ob)
+	a.cap = 0
 	c := a.cfg
 	maxQD, maxKVD, maxHD := 0, 0, 0
 	for _, ly := range a.layers {
@@ -389,11 +473,27 @@ func (a *eg2Accel) grow(T int) error {
 		maxKVD = max(maxKVD, ly.w.KVHeads*ly.w.HeadDim)
 		maxHD = max(maxHD, ly.w.HeadDim)
 	}
-	n := func(cols int) Buffer { return a.d.NewBufferLenOn(mem.LineCompanion, T*cols) }
+	var err error
+	alloc := func(rows, cols int) Buffer {
+		if err != nil {
+			return Buffer{}
+		}
+		buffer, ok := a.d.TryNewBufferLenOn(mem.LineCompanion, rows*cols)
+		if !ok {
+			err = fmt.Errorf("%w: Metal EG2 scratch for %d rows by %d columns", embeddinggemma2.ErrDeviceOutOfMemory, rows, cols)
+		}
+		return buffer
+	}
+	n := func(cols int) Buffer { return alloc(T, cols) }
 	a.scr = eg2Scratch{x: n(c.Hidden), xn: n(c.Hidden), q: n(maxQD), k: n(maxKVD), v: n(maxKVD), ctx: n(maxQD),
 		o: n(c.Hidden), g: n(c.Intermediate), u: n(c.Intermediate), f: n(c.Hidden), gg: n(c.PLEDim), pr: n(c.Hidden),
 		ple: n(c.Layers * c.PLEDim), out: n(c.EmbeddingDim), qh: n(maxQD), kh: n(maxKVD), vh: n(maxKVD),
-		sc: a.d.NewBufferLenOn(mem.LineCompanion, min(eg2Block, T)*T), vt: a.d.NewBufferLenOn(mem.LineCompanion, maxHD*T), ob: a.d.NewBufferLenOn(mem.LineCompanion, min(eg2Block, T)*maxHD)}
+		sc: alloc(min(eg2Block, T), T), vt: n(maxHD), ob: alloc(min(eg2Block, T), maxHD)}
+	if err != nil {
+		a.release(&s.x, &s.xn, &s.q, &s.k, &s.v, &s.ctx, &s.o, &s.g, &s.u, &s.f, &s.gg, &s.pr, &s.ple, &s.out, &s.qh, &s.kh,
+			&s.vh, &s.sc, &s.vt, &s.ob)
+		return err
+	}
 	a.cap = T
 	return nil
 }
@@ -426,6 +526,11 @@ func (a *eg2Accel) Forward(ids []int, keepLayers bool) ([]float32, [][]float32, 
 	if err := a.open(); err != nil {
 		return nil, nil, err
 	}
+	if a.profile == eg2MatrixProfile {
+		if err := a.checkLength(len(ids)); err != nil {
+			return nil, nil, err
+		}
+	}
 	x, err := a.model.EmbedTokens(ids)
 	if err != nil {
 		return nil, nil, err
@@ -446,8 +551,13 @@ func (a *eg2Accel) forwardEmbeds(x0 []float32, T int, keepLayers bool) ([]float3
 	}
 	c := a.cfg
 	H, I, P, L, E := c.Hidden, c.Intermediate, c.PLEDim, c.Layers, c.EmbeddingDim
-	if T == 0 || len(x0) != T*H {
+	if T <= 0 || H <= 0 || len(x0)/H != T || len(x0)%H != 0 {
 		return nil, nil, fmt.Errorf("metal: %d input values for %d rows of %d", len(x0), T, H)
+	}
+	if a.profile == eg2MatrixProfile {
+		if err := a.checkLength(T); err != nil {
+			return nil, nil, err
+		}
 	}
 	slots, err := eg2ArenaSlotsFor(c, a.kvHeads, T, keepLayers)
 	if err != nil {
@@ -485,12 +595,16 @@ func (a *eg2Accel) forwardEmbeds(x0 []float32, T int, keepLayers bool) ([]float3
 		cb, sb := a.ropeTables(T, hd, ly.w.RopeTheta)
 		e.Dispatch(a.p.rope, T*c.Heads*hd/2, 64, s.q, cb, sb, a.u32(uint32(c.Heads)), a.u32(uint32(hd)), a.u32(uint32(T*c.Heads*hd/2)))
 		e.Dispatch(a.p.rope, T*nKV*hd/2, 64, s.k, cb, sb, a.u32(uint32(nKV)), a.u32(uint32(hd)), a.u32(uint32(T*nKV*hd/2)))
-		win := uint32(c.SlidingWindow)
-		if ly.w.Full {
-			win = 0
+		if a.profile == eg2MatrixProfile {
+			a.dispatchEG2Matrix(e, a.matrix, s.q, s.k, s.v, s.ctx, T, ly.w.Full)
+		} else {
+			win := uint32(c.SlidingWindow)
+			if ly.w.Full {
+				win = 0
+			}
+			a.attention(e, eg2AttnBufs{q: s.q, k: s.k, v: s.v, qh: s.qh, kh: s.kh, vh: s.vh, sc: s.sc, vt: s.vt, ob: s.ob, ctx: s.ctx},
+				T, c.Heads, hd, nKV, win)
 		}
-		a.attention(e, eg2AttnBufs{q: s.q, k: s.k, v: s.v, qh: s.qh, kh: s.kh, vh: s.vh, sc: s.sc, vt: s.vt, ob: s.ob, ctx: s.ctx},
-			T, c.Heads, hd, nKV, win)
 		a.gemm(e, s.ctx, ly.o, s.o, T, H, qd)
 		a.rms(e, s.o, ly.postAttnNorm, s.o, T, H)
 		e.Dispatch(a.p.add, T*H, 256, s.x, s.o, a.u32(uint32(T*H)))

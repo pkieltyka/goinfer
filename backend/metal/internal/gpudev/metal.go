@@ -197,6 +197,21 @@ func (d *Device) TrackObj(id objc.ID) {
 	d.mu.Unlock()
 }
 
+// ReleaseObject relinquishes a tracked object after its last use.
+func (d *Device) ReleaseObject(id objc.ID) {
+	d.mu.Lock()
+	for i, obj := range d.objs {
+		if obj == id {
+			d.objs[i] = d.objs[len(d.objs)-1]
+			d.objs = d.objs[:len(d.objs)-1]
+			d.mu.Unlock()
+			id.Send(selRelease)
+			return
+		}
+	}
+	d.mu.Unlock()
+}
+
 // ReleaseObjects releases the non-buffer objc objects (command queue, pipelines, libraries) this
 // Device tracked, then the MTLDevice itself, and empties the ledgers. purego has no ARC, so these
 // leak per load/unload otherwise. Idempotent: it nils the
@@ -425,6 +440,31 @@ type Queue struct {
 }
 type Pipeline struct{ id objc.ID }
 
+var (
+	selSupportsGPUFamily     = objc.RegisterName("supportsFamily:")
+	selPipelineStaticTGBytes = objc.RegisterName("staticThreadgroupMemoryLength")
+	selPipelineMaxTGThreads  = objc.RegisterName("maxTotalThreadsPerThreadgroup")
+)
+
+// SupportsApple7 reports support for the Apple7 GPU family on this device.
+func (d *Device) SupportsApple7() bool {
+	const apple7 = 1007 // MTLGPUFamilyApple7
+	return respondsTo(d.id, selSupportsGPUFamily) && objc.Send[uintptr](d.id, selSupportsGPUFamily, uintptr(apple7))&0xff != 0
+}
+
+// StaticThreadgroupMemoryLength reports the compiled pipeline's static bytes.
+func (p Pipeline) StaticThreadgroupMemoryLength() int {
+	return int(objc.Send[uintptr](p.id, selPipelineStaticTGBytes))
+}
+
+// MaxTotalThreadsPerThreadgroup reports the compiled pipeline's thread limit.
+func (p Pipeline) MaxTotalThreadsPerThreadgroup() int {
+	return int(objc.Send[uintptr](p.id, selPipelineMaxTGThreads))
+}
+
+// ReleasePipeline relinquishes a tracked pipeline after its last dispatch completes.
+func (d *Device) ReleasePipeline(p Pipeline) { d.ReleaseObject(p.id) }
+
 // ThreadExecutionWidth is the pipeline's SIMD-group width — the number of threads that
 // execute in lockstep and over which simd_sum/simd_shuffle reduce (32 on every Apple GPU,
 // but read rather than assumed). A SIMD-group-per-row kernel launches N × this many threads
@@ -630,6 +670,15 @@ func (d *Device) TryNewBufferBytesOn(line string, n int) (Buffer, bool) {
 	return d.mustBuf(line, false, id, n, "bytes"), true
 }
 
+// TryNewBufferLenOn is NewBufferLenOn with an explicit native allocation result.
+func (d *Device) TryNewBufferLenOn(line string, nFloats int) (Buffer, bool) {
+	b, ok := d.TryNewBufferBytesOn(line, nFloats*4)
+	if ok {
+		b.n = nFloats
+	}
+	return b, ok
+}
+
 // NewBufferNoCopy wraps caller-owned memory in a shared MTLBuffer WITHOUT copying
 // (newBufferWithBytesNoCopy) — the resident-weights lever: alias an mmap'd .giw straight into
 // Metal instead of uploading a second GB-scale copy. ptr MUST be page-aligned and nBytes SHOULD be
@@ -690,15 +739,28 @@ func NewBufferOf[T Scalar](d *Device, data []T) Buffer { return NewBufferOfOn(d,
 
 // NewBufferOfOn is NewBufferOf leasing the buffer on plan line line.
 func NewBufferOfOn[T Scalar](d *Device, line string, data []T) Buffer {
+	return d.MustBufOn(line, newBufferOfID(d, data), len(data), "typed")
+}
+
+// TryNewBufferOfOn uploads data synchronously and reports a native allocation failure.
+func TryNewBufferOfOn[T Scalar](d *Device, line string, data []T) (Buffer, bool) {
+	id := newBufferOfID(d, data)
+	if id == 0 {
+		return Buffer{}, false
+	}
+	return d.MustBufOn(line, id, len(data), "typed"), true
+}
+
+func newBufferOfID[T Scalar](d *Device, data []T) objc.ID {
 	if len(data) == 0 {
-		return d.MustBufOn(line, d.allocID(func() objc.ID { return d.id.Send(selNewBufferLen, uintptr(0), uintptr(0)) }), 0, "typed-empty")
+		return d.allocID(func() objc.ID { return d.id.Send(selNewBufferLen, uintptr(0), uintptr(0)) })
 	}
 	b := asBytes(data)
 	id := d.allocID(func() objc.ID {
 		return d.id.Send(selNewBufferBytes, unsafe.Pointer(&b[0]), uintptr(len(b)), uintptr(0))
 	})
 	runtime.KeepAlive(data)
-	return d.MustBufOn(line, id, len(data), "typed")
+	return id
 }
 
 // NewBufferLenOf allocates a shared MTLBuffer of n elements of T. Zero-filled on Metal, like NewBufferLen; backend-shared code must not rely on that
@@ -957,16 +1019,26 @@ func (e *Encoder) WaitDone() {
 func (e *Encoder) captureErr() {
 	// Integer returns come back in x0 on arm64; objc.Send[uintptr] is the integer-return path this
 	// file already uses for enum getters (selLanguageVersion, selMathMode, selRespondsToSel).
-	if int(objc.Send[uintptr](e.cb, selStatus)) != mtlCmdBufStatusError {
+	if e.cb == 0 || e.enc == 0 {
+		e.err = errors.New("metal: could not create a compute command encoder")
 		return
 	}
-	e.err = cmdBufError(e.cb.Send(selError)) // NSError* — non-nil once status is Error
+	switch status := int(objc.Send[uintptr](e.cb, selStatus)); status {
+	case mtlCmdBufStatusCompleted:
+	case mtlCmdBufStatusError:
+		e.err = cmdBufError(e.cb.Send(selError)) // NSError* — non-nil once status is Error
+	default:
+		e.err = fmt.Errorf("metal: command buffer did not complete (status %d)", status)
+	}
 }
 
 // MTLCommandBufferStatus values: NotEnqueued 0, Enqueued 1, Committed 2, Scheduled 3,
 // Completed 4, Error 5. Only Error means the buffer aborted (a GPU fault, a threadgroup-memory
 // over-budget dispatch, etc.).
-const mtlCmdBufStatusError = 5
+const (
+	mtlCmdBufStatusCompleted = 4
+	mtlCmdBufStatusError     = 5
+)
 
 // Err reports whether the last committed command buffer aborted. Valid AFTER WaitDone / End, which
 // latch the status while the cb is still alive. waitUntilCompleted returns cleanly even when a

@@ -22,6 +22,13 @@ type Accelerator interface {
 	Close() error
 }
 
+// AttachedProfileReporter reports the resolved numerical profile of an
+// attached accelerator. Its versioned identity stays fixed for the life of
+// the attachment. A vector writer can include it in its index fingerprint.
+type AttachedProfileReporter interface {
+	AttachedProfile() string
+}
+
 var (
 	// ErrDeviceUnavailable covers malformed selectors and unavailable device selection.
 	ErrDeviceUnavailable = errors.New("embeddinggemma2: device unavailable")
