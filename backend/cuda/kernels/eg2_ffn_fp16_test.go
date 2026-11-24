@@ -167,25 +167,86 @@ func TestEG2FP16NativeResources(t *testing.T) {
 			t.Error(err)
 		}
 	})
-	f, err := module.Function("eg2_ffn_fp16")
-	if err != nil {
-		t.Fatal(err)
-	}
-	local, err := f.Attribute(gc.FuncAttrLocalSizeBytes)
-	if err != nil || local != 0 {
-		t.Fatalf("local memory %d B/thread, error %v", local, err)
-	}
-	shared, err := f.Attribute(gc.FuncAttrSharedSizeBytes)
-	if err != nil {
-		t.Fatal(err)
-	}
-	registers, err := f.Attribute(gc.FuncAttrNumRegs)
-	if err != nil {
-		t.Fatal(err)
-	}
 	major, minor, err := dev.Context().Device().ComputeCapability()
 	if err != nil {
 		t.Fatal(err)
 	}
-	t.Logf("SM%d.%d local=%d B/thread static shared=%d B/CTA registers=%d/thread", major, minor, local, shared, registers)
+	for _, name := range []string{"eg2_ffn_fp16", "eg2_ffn_fp16_gate_epilogue"} {
+		f, err := module.Function(name)
+		if err != nil {
+			t.Fatal(err)
+		}
+		local, err := f.Attribute(gc.FuncAttrLocalSizeBytes)
+		if err != nil || local != 0 {
+			t.Fatalf("%s local memory %d B/thread, error %v", name, local, err)
+		}
+		shared, err := f.Attribute(gc.FuncAttrSharedSizeBytes)
+		if err != nil || shared != 13056 {
+			t.Fatalf("%s static shared memory %d B/CTA, error %v", name, shared, err)
+		}
+		registers, err := f.Attribute(gc.FuncAttrNumRegs)
+		if err != nil {
+			t.Fatal(err)
+		}
+		t.Logf("%s SM%d.%d local=%d B/thread static shared=%d B/CTA registers=%d/thread",
+			name, major, minor, local, shared, registers)
+	}
+}
+
+func TestEG2FP16GateEpilogueRoundings(t *testing.T) {
+	dev, ptx := fp16FFNDevice(t)
+	module, err := dev.CompileLibrary(ptx)
+	if err != nil {
+		t.Fatal(err)
+	}
+	projection, err := dev.NewComputePipeline(module, "eg2_ffn_fp16")
+	if err != nil {
+		t.Fatal(err)
+	}
+	epilogue, err := dev.NewComputePipeline(module, "eg2_ffn_fp16_gate_epilogue")
+	if err != nil {
+		t.Fatal(err)
+	}
+	queue := dev.NewCommandQueue()
+	t.Cleanup(func() {
+		if err := queue.Sync(); err != nil {
+			t.Error(err)
+		}
+	})
+	const m, n, k = 1, 1, 16
+	x, gate, up := make([]float32, k), make([]uint16, k), make([]uint16, k)
+	x[0], gate[0], up[0] = 1, wpack.F32ToF16RNE(.25), wpack.F32ToF16RNE(.625)
+	xb, wg, wu := gpu.NewBufferOf(dev, x), gpu.NewBufferOf(dev, gate), gpu.NewBufferOf(dev, up)
+	g, u := gpu.NewBufferLenOf[float32](dev, 1), gpu.NewBufferLenOf[float32](dev, 1)
+	status := gpu.NewBufferLenOf[uint32](dev, 1)
+	if err := queue.ZeroAsync(status, 4); err != nil {
+		t.Fatal(err)
+	}
+	grid := gpu.LaunchConfig{GridX: 1, GridY: 1, GridZ: 1, BlockX: 128, BlockY: 1, BlockZ: 1}
+	shape := []gpu.KernelArg{gpu.ArgValue(int32(m)), gpu.ArgValue(int32(n)), gpu.ArgValue(int32(k))}
+	if err := queue.Launch(projection, grid, append([]gpu.KernelArg{
+		gpu.Arg(xb), gpu.Arg(wu), gpu.Arg(u), gpu.Arg(status),
+	}, shape...)...); err != nil {
+		t.Fatal(err)
+	}
+	if err := queue.Launch(epilogue, grid, append([]gpu.KernelArg{
+		gpu.Arg(xb), gpu.Arg(wg), gpu.Arg(g), gpu.Arg(u), gpu.Arg(status),
+	}, shape...)...); err != nil {
+		t.Fatal(err)
+	}
+	if err := queue.Sync(); err != nil {
+		t.Fatal(err)
+	}
+	var got [1]float32
+	if err := gpu.Download(g, got[:]); err != nil {
+		t.Fatal(err)
+	}
+	var invalid [1]uint32
+	if err := gpu.Download(status, invalid[:]); err != nil {
+		t.Fatal(err)
+	}
+	// A single rounding after multiplying GELU in FP64 gives 0x3dbf959e.
+	if bits := math.Float32bits(got[0]); bits != 0x3dbf959f || invalid[0] != 0 {
+		t.Fatalf("two-round epilogue got %08x and range status %08x", bits, invalid[0])
+	}
 }

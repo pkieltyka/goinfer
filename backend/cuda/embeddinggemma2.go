@@ -93,6 +93,7 @@ type eg2Accel struct {
 	teardownStarted                         bool  // set once Close has drained (if needed) and entered closeChecked; retries skip q.Sync on destroyed streams
 	combinedTranspose, combinedAttention    Pipeline
 	ffnFP16                                 Pipeline
+	ffnGateEpilogue                         Pipeline
 	packedAttnMode                          bool
 	packedAttn                              map[int]Pipeline
 	fusions                                 *eg2Fusions
@@ -390,11 +391,11 @@ func newEG2AccelConfigured(m *embeddinggemma2.Model, combined bool, fp16PTX, pac
 		adapter, capabilityErr := gpu.AttachedAdapter(ops.dev)
 		a.identity = cudaDeviceInfo(adapter)
 		if len(fp16PTX) != 0 {
-			p, err := eg2FP16Pipeline(ops.dev, fp16PTX, a.identity.ComputeCapability, capabilityErr)
+			projection, gate, err := eg2FP16Pipelines(ops.dev, fp16PTX, a.fusions != nil, a.identity.ComputeCapability, capabilityErr)
 			if err != nil {
 				return err
 			}
-			a.ffnFP16 = p
+			a.ffnFP16, a.ffnGateEpilogue = projection, gate
 		}
 		if len(packedAttnPTX) != 0 {
 			lib, err := ops.dev.CompileLibrary(packedAttnPTX)
@@ -1336,9 +1337,7 @@ func (a *eg2Accel) forwardRows(x0 []float32, lens []int, keepLayers bool) ([]flo
 			o.addVec(x, ob, T*H)
 			// MLP
 			o.rms(x, ly.preFFNorm, xn, T, H, eps)
-			a.ffnGEMM(xn, ly.gate, g, invalidInput, T, I, H)
-			a.ffnGEMM(xn, ly.up, u, invalidInput, T, I, H)
-			a.ffnActivation(g, u, T*I)
+			a.ffnGateUp(xn, ly.gate, ly.up, g, u, invalidInput, T, I, H)
 			a.ffnGEMM(g, ly.down, f, invalidInput, T, H, I)
 			o.rms(f, ly.postFFNorm, f, T, H, eps)
 			o.addVec(x, f, T*H)

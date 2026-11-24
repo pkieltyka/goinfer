@@ -55,15 +55,32 @@ func requireEG2FP16Capability(capability embeddinggemma2.CUDAComputeCapability, 
 	return nil
 }
 
-func eg2FP16Pipeline(dev *Device, ptx []byte, capability embeddinggemma2.CUDAComputeCapability, capabilityErr error) (Pipeline, error) {
+func eg2FP16Pipelines(dev *Device, ptx []byte, fuseGate bool, capability embeddinggemma2.CUDAComputeCapability, capabilityErr error) (projection, gate Pipeline, err error) {
 	if err := requireEG2FP16Capability(capability, capabilityErr); err != nil {
-		return Pipeline{}, err
+		return Pipeline{}, Pipeline{}, err
 	}
 	lib, err := dev.CompileLibrary(ptx)
 	if err != nil {
-		return Pipeline{}, fmt.Errorf("cuda: load FP16 FFN: %w", err)
+		return Pipeline{}, Pipeline{}, fmt.Errorf("cuda: load FP16 FFN: %w", err)
 	}
-	return dev.NewComputePipeline(lib, "eg2_ffn_fp16")
+	projection, err = dev.NewComputePipeline(lib, "eg2_ffn_fp16")
+	if err != nil {
+		return Pipeline{}, Pipeline{}, err
+	}
+	if fuseGate {
+		gate, err = dev.NewComputePipeline(lib, "eg2_ffn_fp16_gate_epilogue")
+		if err != nil {
+			return Pipeline{}, Pipeline{}, fmt.Errorf("cuda: load FP16 FFN gate epilogue: %w", err)
+		}
+	}
+	return projection, gate, nil
+}
+
+func eg2FP16Grid(m, n int) LaunchConfig {
+	return LaunchConfig{
+		GridX: uint32((n + 63) / 64), GridY: uint32((m + 31) / 32), GridZ: 1,
+		BlockX: 128, BlockY: 1, BlockZ: 1,
+	}
 }
 
 func (a *eg2Accel) ffnGEMM(x, w, out, invalidInput Buffer, m, n, k int) {
@@ -74,8 +91,22 @@ func (a *eg2Accel) ffnGEMM(x, w, out, invalidInput Buffer, m, n, k int) {
 	}
 	o.cls(clsGEMM)
 	o.profGEMM(m, n, k)
-	o.launch(a.ffnFP16, LaunchConfig{
-		GridX: uint32((n + 63) / 64), GridY: uint32((m + 31) / 32), GridZ: 1,
-		BlockX: 128, BlockY: 1, BlockZ: 1,
-	}, Arg(x), Arg(w), Arg(out), Arg(invalidInput), i32(int32(m)), i32(int32(n)), i32(int32(k)))
+	o.launch(a.ffnFP16, eg2FP16Grid(m, n),
+		Arg(x), Arg(w), Arg(out), Arg(invalidInput), i32(int32(m)), i32(int32(n)), i32(int32(k)))
+}
+
+func (a *eg2Accel) ffnGateUp(x, gateWeights, upWeights, gate, up, invalidInput Buffer, m, n, k int) {
+	if a.ffnGateEpilogue == (Pipeline{}) {
+		a.ffnGEMM(x, gateWeights, gate, invalidInput, m, n, k)
+		a.ffnGEMM(x, upWeights, up, invalidInput, m, n, k)
+		a.ffnActivation(gate, up, m*n)
+		return
+	}
+	// The gate epilogue reads the completed up projection on the same queue.
+	a.ffnGEMM(x, upWeights, up, invalidInput, m, n, k)
+	o := a.ops
+	o.cls(clsGEMM)
+	o.profGEMM(m, n, k)
+	o.launch(a.ffnGateEpilogue, eg2FP16Grid(m, n),
+		Arg(x), Arg(gateWeights), Arg(gate), Arg(up), Arg(invalidInput), i32(int32(m)), i32(int32(n)), i32(int32(k)))
 }
