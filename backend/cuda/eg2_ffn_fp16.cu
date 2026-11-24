@@ -3,6 +3,8 @@
 // Each output has the same ascending K16 instruction sequence in any row tile.
 // Lane fragment layout follows NVIDIA PTX ISA "mma.m16n8k16 with floating point type".
 
+#include "eg2_gelu_gate.cuh"
+
 namespace {
 constexpr int rows = 32;
 constexpr int cols = 64;
@@ -24,10 +26,14 @@ __device__ __forceinline__ void mma(float (&v)[4], unsigned a0, unsigned a1,
         : "+f"(v[0]), "+f"(v[1]), "+f"(v[2]), "+f"(v[3])
         : "r"(a0), "r"(a1), "r"(a2), "r"(a3), "r"(b0), "r"(b1));
 }
-} // namespace
+template <bool GateEpilogue>
+__device__ __forceinline__ float output_value(float value, const float *up, int i) {
+    return GateEpilogue ? __fmul_rn(gelu_gate(value), up[i]) : value;
+}
 
-extern "C" __global__ __launch_bounds__(threads)
-void eg2_ffn_fp16(const float *x, const unsigned *w, float *out, unsigned *invalid_input, int m, int n, int k) {
+template <bool GateEpilogue>
+__device__ __forceinline__ void ffn_fp16(const float *x, const unsigned *w, float *out,
+                                        const float *up, unsigned *invalid_input, int m, int n, int k) {
     __shared__ unsigned a[rows][pitch];
     __shared__ unsigned b[cols][pitch];
 
@@ -89,14 +95,28 @@ void eg2_ffn_fp16(const float *x, const unsigned *w, float *out, unsigned *inval
     for (int j = 0; j < 4; ++j) {
         const int c = col_base + (warp % 2) * 32 + j * 8 + 2 * lane_pair;
         if (r < m && c < n) {
-            out[r * n + c] = accum[j][0];
+            const int index = r * n + c;
+            out[index] = output_value<GateEpilogue>(accum[j][0], up, index);
             if (c + 1 < n)
-                out[r * n + c + 1] = accum[j][1];
+                out[index + 1] = output_value<GateEpilogue>(accum[j][1], up, index + 1);
         }
         if (r + 8 < m && c < n) {
-            out[(r + 8) * n + c] = accum[j][2];
+            const int index = (r + 8) * n + c;
+            out[index] = output_value<GateEpilogue>(accum[j][2], up, index);
             if (c + 1 < n)
-                out[(r + 8) * n + c + 1] = accum[j][3];
+                out[index + 1] = output_value<GateEpilogue>(accum[j][3], up, index + 1);
         }
     }
+}
+} // namespace
+
+extern "C" __global__ __launch_bounds__(threads)
+void eg2_ffn_fp16(const float *x, const unsigned *w, float *out, unsigned *invalid_input, int m, int n, int k) {
+    ffn_fp16<false>(x, w, out, nullptr, invalid_input, m, n, k);
+}
+
+extern "C" __global__ __launch_bounds__(threads)
+void eg2_ffn_fp16_gate_epilogue(const float *x, const unsigned *w, float *out, const float *up,
+                               unsigned *invalid_input, int m, int n, int k) {
+    ffn_fp16<true>(x, w, out, up, invalid_input, m, n, k);
 }

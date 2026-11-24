@@ -3359,9 +3359,9 @@ func TestCUDAEG2FP16RetainedCapability(t *testing.T) {
 				return
 			}
 			// A rejection must precede any JIT work on the device.
-			pipeline, err := eg2FP16Pipeline(nil, nil, cc, tt.query)
-			if pipeline != (Pipeline{}) || !errors.Is(err, tt.want) {
-				t.Fatalf("capability %+v: pipeline %v, error %v; want %v", cc, pipeline, err, tt.want)
+			projection, gate, err := eg2FP16Pipelines(nil, nil, true, cc, tt.query)
+			if projection != (Pipeline{}) || gate != (Pipeline{}) || !errors.Is(err, tt.want) {
+				t.Fatalf("capability %+v: projection %v, gate %v, error %v; want %v", cc, projection, gate, err, tt.want)
 			}
 			if errors.Is(err, embeddinggemma2.ErrUnsupportedSelector) != (tt.want == embeddinggemma2.ErrUnsupportedSelector) ||
 				errors.Is(err, embeddinggemma2.ErrNoDevice) != (tt.want == embeddinggemma2.ErrNoDevice) ||
@@ -3555,7 +3555,8 @@ func TestEG2FP16Encoder(t *testing.T) {
 			t.Error(err)
 		}
 	})
-	if a.ffnFP16 == (Pipeline{}) || a.AttachedDevice().ID != "cuda:"+device.UUID {
+	if a.ffnFP16 == (Pipeline{}) || a.ffnGateEpilogue == (Pipeline{}) || a.fusions == nil ||
+		a.AttachedDevice().ID != "cuda:"+device.UUID {
 		t.Fatalf("FP16 pipeline/device not selected: %s", a.AttachedDevice().ID)
 	}
 	maxHD, maxN := 0, max(a.cfg.Layers*a.cfg.PLEDim, a.cfg.Intermediate, a.cfg.Hidden, a.cfg.EmbeddingDim)
@@ -3588,10 +3589,18 @@ func TestEG2FP16Encoder(t *testing.T) {
 	}
 	old := gpu.TraceForTest
 	t.Cleanup(func() { gpu.TraceForTest = old })
-	launches := 0
+	launches, gateLaunches, activationLaunches := 0, 0, 0
 	gpu.TraceForTest = func(event gpu.TraceEvent) {
-		if event.Op == gpu.TraceLaunch && event.Pipe == a.ffnFP16.Ptr() {
+		if event.Op != gpu.TraceLaunch {
+			return
+		}
+		switch event.Pipe {
+		case a.ffnFP16.Ptr():
 			launches++
+		case a.ffnGateEpilogue.Ptr():
+			gateLaunches++
+		case a.fusions.geluMul.Ptr():
+			activationLaunches++
 		}
 	}
 	inputs := make([][]int, 0, 8)
@@ -3622,13 +3631,14 @@ func TestEG2FP16Encoder(t *testing.T) {
 		for i, pos := range order {
 			group[i] = inputs[pos]
 		}
-		before := launches
+		before, beforeGate, beforeActivation := launches, gateLaunches, activationLaunches
 		out, err := a.ForwardBatch(group)
 		if err != nil {
 			t.Fatal(err)
 		}
-		if launches-before != 3*m.Config().Layers {
-			t.Fatalf("order %v: FP16 launches %d", order, launches-before)
+		if launches-before != 2*m.Config().Layers || gateLaunches-beforeGate != m.Config().Layers || activationLaunches != beforeActivation {
+			t.Fatalf("order %v: up/down launches %d, gate epilogues %d, standalone activations %d",
+				order, launches-before, gateLaunches-beforeGate, activationLaunches-beforeActivation)
 		}
 		for i, pos := range order {
 			if d := eg2FirstDiff(out[i], singles[pos], m.Dim()); d != "" {
@@ -4413,6 +4423,9 @@ func checkEG2Fusions(t *testing.T, m *embeddinggemma2.Model, inputs [][]int, kee
 				if a.AttachedDevice().ID != "cuda:"+device.UUID || (a.fusions != nil) != (len(ptx) != 0) {
 					t.Fatal("wrong device or fusion mode")
 				}
+				if (a.ffnGateEpilogue != (Pipeline{})) != (len(arm.fp16PTX) != 0 && len(ptx) != 0) {
+					t.Fatal("wrong FP16 gate epilogue mode")
+				}
 				fit, err := a.BatchMemory(lengths)
 				if err != nil || fit.Quality != embeddinggemma2.BatchMemoryUpperBound {
 					t.Fatalf("batch fit = %v, %v", fit, err)
@@ -4522,7 +4535,11 @@ func checkEG2Fusions(t *testing.T, m *embeddinggemma2.Model, inputs [][]int, kee
 			}
 			wantBytes := gpu.ChargedBytes(int64(rows) * int64(m.Config().PLEDim) * 4)
 			layers := m.Config().Layers
-			if ref.launches-fused.launches != 2*layers || ref.copies-fused.copies != layers ||
+			savedLaunches := 2 * layers
+			if len(arm.fp16PTX) != 0 {
+				savedLaunches += layers
+			}
+			if ref.launches-fused.launches != savedLaunches || ref.copies-fused.copies != layers ||
 				ref.allocs-fused.allocs != 1 || ref.estimate-fused.estimate != wantBytes || ref.peak-fused.peak != wantBytes {
 				t.Fatalf("unexpected fusion savings: launches %d, copies %d, allocations %d, estimated bytes %d, peak bytes %d",
 					ref.launches-fused.launches, ref.copies-fused.copies, ref.allocs-fused.allocs,
