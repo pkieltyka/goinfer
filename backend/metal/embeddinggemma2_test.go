@@ -11,6 +11,7 @@ import (
 
 	gpu "github.com/pkieltyka/goinfer/backend/metal/internal/gpudev"
 	"github.com/pkieltyka/goinfer/embeddinggemma2"
+	"github.com/pkieltyka/goinfer/internal/runtime/mem"
 )
 
 const eg2TinyDir = "../../testdata/embeddinggemma2-tiny"
@@ -149,5 +150,222 @@ func TestMetalInventoryAndAttachAcquisitionErrors(t *testing.T) {
 			tt.category == embeddinggemma2.ErrBackendUnavailable && (!errors.Is(err, tt.category) || !errors.Is(err, tt.native)) {
 			t.Fatalf("inventory %v: rows %+v, error %v", tt.native, rows, err)
 		}
+	}
+}
+
+// #84 scalar-arena sizing and growth regressions.
+
+func eg2GoogleKVHeads() []int {
+	// Google geometry: every sixth layer is full attention with one KV head,
+	// the other twenty are sliding with two.
+	out := make([]int, 24)
+	for i := range out {
+		out[i] = 2
+		if (i+1)%6 == 0 {
+			out[i] = 1
+		}
+	}
+	return out
+}
+
+func TestEG2ArenaSlotsGoogle(t *testing.T) {
+	cfg := embeddinggemma2.Config{Heads: 4, Layers: 24}
+	kv := eg2GoogleKVHeads()
+	for _, tc := range []struct{ tokens, want int }{
+		{1536, 14512}, {1537, 16556}, {2048, 18600}, {8192, 67656},
+	} {
+		got, err := eg2ArenaSlotsFor(cfg, kv, tc.tokens, false)
+		if err != nil {
+			t.Fatalf("%d tokens: %v", tc.tokens, err)
+		}
+		if got != tc.want {
+			t.Fatalf("%d tokens: %d slots, want %d", tc.tokens, got, tc.want)
+		}
+	}
+	// The initial arena must not already cover the observed 1,537 boundary, so
+	// the growth path is the one exercised there.
+	slots, err := eg2ArenaSlotsFor(cfg, kv, 1537, false)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if slots <= eg2ArenaSlots {
+		t.Fatalf("1,537 needs %d slots, initial arena already holds %d", slots, eg2ArenaSlots)
+	}
+}
+
+func TestEG2ArenaSlotsKeepLayers(t *testing.T) {
+	cfg := embeddinggemma2.Config{Heads: 4, Layers: 24}
+	kv := eg2GoogleKVHeads()
+	got, err := eg2ArenaSlotsFor(cfg, kv, 1536, true)
+	if err != nil {
+		t.Fatal(err)
+	}
+	// Largest interval is the opening plus the first (sliding, two-KV-head)
+	// layer: 6 blocks of (19*4 + 5*2) plus 8 + 93.
+	if want := 8 + 93 + 6*(19*4+5*2); got != want {
+		t.Fatalf("keepLayers interval %d slots, want %d", got, want)
+	}
+	if got >= 14512 {
+		t.Fatalf("keepLayers interval %d should be far below the whole forward", got)
+	}
+}
+
+func TestEG2ArenaSlotsInvalid(t *testing.T) {
+	cfg := embeddinggemma2.Config{Heads: 4, Layers: 24}
+	kv := eg2GoogleKVHeads()
+	if _, err := eg2ArenaSlotsFor(cfg, kv, 0, false); err == nil {
+		t.Fatal("zero rows accepted")
+	}
+	if _, err := eg2ArenaSlotsFor(cfg, kv, -1, false); err == nil {
+		t.Fatal("negative rows accepted")
+	}
+	if _, err := eg2ArenaSlotsFor(cfg, kv[:23], 128, false); err == nil {
+		t.Fatal("short KV slice accepted")
+	}
+	bad := append([]int(nil), kv...)
+	bad[3] = 0
+	if _, err := eg2ArenaSlotsFor(cfg, bad, 128, false); err == nil {
+		t.Fatal("zero KV heads accepted")
+	}
+	if _, err := eg2ArenaSlotsFor(cfg, kv, math.MaxInt/2, false); err == nil {
+		t.Fatal("addressable-range overflow accepted")
+	}
+	old := eg2Block
+	eg2Block = 0
+	defer func() { eg2Block = old }()
+	if _, err := eg2ArenaSlotsFor(cfg, kv, 128, false); err == nil {
+		t.Fatal("zero block accepted")
+	}
+}
+
+// TestEG2Metal_growsScalarArena is the red-first caller regression: with a
+// one-slot arena the old fixed-capacity guard panicked; the sized path grows
+// before encoding and reproduces the normal run's bytes.
+func TestEG2Metal_growsScalarArena(t *testing.T) {
+	m, err := embeddinggemma2.Load(eg2TinyDir)
+	if err != nil {
+		t.Fatal(err)
+	}
+	acc, err := m.NewAccelerator("metal")
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer acc.Close()
+	a := acc.(*eg2Accel)
+	ids := make([]int, 300)
+	for i := range ids {
+		ids[i] = (i*7919 + 13) % m.Config().VocabSize
+	}
+	want, _, err := a.Forward(ids, false)
+	if err != nil {
+		t.Fatal(err)
+	}
+	short := make([]int, 17)
+	for i := range short {
+		short[i] = (i*104729 + 7) % m.Config().VocabSize
+	}
+	shortWant, _, err := a.Forward(short, false)
+	if err != nil {
+		t.Fatal(err)
+	}
+	a.d.ReleaseBuf(a.arena)
+	a.arena = a.d.NewBufferBytesOn(mem.LineCompanion, 256)
+	got, _, err := a.Forward(ids, false)
+	if err != nil {
+		t.Fatalf("grown forward: %v", err)
+	}
+	if len(got) != len(want) {
+		t.Fatalf("%d values, want %d", len(got), len(want))
+	}
+	for i := range want {
+		if math.Float32bits(got[i]) != math.Float32bits(want[i]) {
+			t.Fatalf("value %d changed after growing the arena", i)
+		}
+	}
+	if a.arena.Len() <= 256 {
+		t.Fatalf("arena did not grow: %d bytes", a.arena.Len())
+	}
+	shortGot, _, err := a.Forward(short, false)
+	if err != nil {
+		t.Fatalf("short forward after growth: %v", err)
+	}
+	for i := range shortWant {
+		if math.Float32bits(shortGot[i]) != math.Float32bits(shortWant[i]) {
+			t.Fatalf("short output %d changed after growth", i)
+		}
+	}
+}
+
+// TestEG2Metal_arenaGrowRefusalKeepsArena proves a refused growth returns an
+// error before encoding, keeps the old arena, and a later retry succeeds with
+// the ledger back to its starting length.
+// TestEG2Metal_longForwardAfterClose is the caller regression for the closed
+// path: a long ForwardEmbeds whose arena requirement exceeds the retained one
+// must return errTowerClosed, not dereference a released device.
+func TestEG2Metal_longForwardAfterClose(t *testing.T) {
+	m, err := embeddinggemma2.Load(eg2TinyDir)
+	if err != nil {
+		t.Fatal(err)
+	}
+	acc, err := m.NewAccelerator("metal")
+	if err != nil {
+		t.Fatal(err)
+	}
+	a := acc.(*eg2Accel)
+	// Shrink the retained arena so the long requirement exceeds it after Close.
+	a.d.ReleaseBuf(a.arena)
+	a.arena = a.d.NewBufferBytesOn(mem.LineCompanion, 256)
+	if err := acc.Close(); err != nil {
+		t.Fatal(err)
+	}
+	H := m.Config().Hidden
+	x := make([]float32, 300*H)
+	for i := range x {
+		x[i] = float32(i%17) / 17
+	}
+	if _, _, err := a.ForwardEmbeds(x, 300, false); !errors.Is(err, errTowerClosed) {
+		t.Fatalf("long ForwardEmbeds after Close: %v, want errTowerClosed", err)
+	}
+}
+
+func TestEG2Metal_arenaGrowRefusalKeepsArena(t *testing.T) {
+	m, err := embeddinggemma2.Load(eg2TinyDir)
+	if err != nil {
+		t.Fatal(err)
+	}
+	acc, err := m.NewAccelerator("metal")
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer acc.Close()
+	a := acc.(*eg2Accel)
+	ids := make([]int, 300)
+	for i := range ids {
+		ids[i] = (i*7919 + 13) % m.Config().VocabSize
+	}
+	if _, _, err := a.Forward(ids, false); err != nil { // warm rope and scratch
+		t.Fatal(err)
+	}
+	a.d.ReleaseBuf(a.arena)
+	a.arena = a.d.NewBufferBytesOn(mem.LineCompanion, 256)
+	old := a.arena
+	allocs, _ := a.d.LedgerLen()
+	eg2ArenaAllocForTest = func(int) (Buffer, bool) { return Buffer{}, false }
+	_, _, err = a.Forward(ids, false)
+	eg2ArenaAllocForTest = nil
+	if err == nil {
+		t.Fatal("refused growth did not fail the forward")
+	}
+	if a.arena.Len() != old.Len() {
+		t.Fatalf("refusal replaced the arena: %d bytes, was %d", a.arena.Len(), old.Len())
+	}
+	if _, _, err := a.Forward(ids, false); err != nil {
+		t.Fatalf("retry after a refused growth: %v", err)
+	}
+	if a.arena.Len() <= old.Len() {
+		t.Fatal("retry did not grow the arena")
+	}
+	if got, _ := a.d.LedgerLen(); got != allocs {
+		t.Fatalf("ledger length %d after grow, want %d", got, allocs)
 	}
 }
