@@ -1244,10 +1244,11 @@ func TestEG2TransposedJITFallback(t *testing.T) {
 }
 
 func TestEG2CUDA_defaultTransposedTiny(t *testing.T) {
-	if os.Getenv("GOINFER_TEST_CUDA_UUID") == "" {
+	uuid := os.Getenv("GOINFER_TEST_CUDA_UUID")
+	if uuid == "" {
 		t.Skip("set GOINFER_TEST_CUDA_UUID to the target CUDA device's GPU UUID")
 	}
-	checkEG2Transposed(t, "cuda", false, eg2TinyModel(t), [][]int{
+	checkEG2Transposed(t, "cuda:"+uuid, false, eg2TinyModel(t), [][]int{
 		{36}, {64, 64}, {127, 96}, {96, 127}, {128}, {128, 96}, {96, 128}, {96},
 	})
 }
@@ -1264,7 +1265,7 @@ func checkEG2Transposed(t *testing.T, selector string, shortTiled bool, model *e
 		}
 	})
 	a := accel.(*eg2Accel)
-	if selector == "cuda" && !strings.EqualFold(a.AttachedDevice().ID, "cuda:"+os.Getenv("GOINFER_TEST_CUDA_UUID")) {
+	if strings.HasPrefix(selector, "cuda:") && !strings.EqualFold(a.AttachedDevice().ID, selector) {
 		t.Fatalf("default CUDA attached to %q", a.AttachedDevice().ID)
 	}
 	transpose, attention := a.combinedTranspose, a.combinedAttention
