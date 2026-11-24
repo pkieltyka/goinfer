@@ -17,6 +17,16 @@ any surface may still change.
 
 Each unreleased change is a file in [`changelog.d/`](changelog.d/), collected into the release's section when it is tagged (`scripts/changelog.py release`).
 
+## [v0.6.7] — 2026-11-23
+
+### Changed
+
+- **Long CUDA embedding batches use transposed attention.** The default `cuda` selector uses the bit-exact transposed key and attention pair when a batch's longest input reaches 128 tokens, subject to the existing kernel bounds, and keeps stock attention below that floor and for every packed FP16 attach. The transposed module loads on attach, and a JIT refusal leaves stock attention in place. Short GEMM policy, selector names, shape bounds and memory accounting are unchanged. On the Google checkpoint at 8x512 on an RTX PRO 6000 Blackwell Max-Q, all ten paired runs were faster at a 4.161x median (4.092-4.185x) with byte-identical output to the stock path. [#79](https://github.com/pkieltyka/goinfer/pull/79)
+
+### Verification
+
+The same-file GGUF check is bit-identical to the stock path across 16 file and shape cells for both shipped quantizations, with same-file cosine floors of 0.99999999997667 at 768 and 0.99999999997689 at 512 and descriptive two-pair ratios of 3.939-4.500x on 8x512 and 4x2048. The root, CUDA and Vulkan modules share one release commit; Metal is outside the tag set and keeps its existing pin. [Verification record](docs/releases/v0.6.7-verification.md), [GGUF measurement](docs/measurements/gguf-transposed-attention-2026-11-24.md)
+
 ## [v0.6.6] — 2026-11-23
 
 ### Added

@@ -1,0 +1,55 @@
+{
+  "schema": 1,
+  "release": "v0.6.7",
+  "scope": ["root", "backend/cuda", "backend/vulkan"],
+  "source_commit": "da67996cfe1bdbd8b2003dd9dd0fb559f7405ee0",
+  "decision": "On 2026-11-23 Peter approved publishing v0.6.7 for the root, backend/cuda and backend/vulkan, with source-tip CI, fresh canonical module pins and asset checksum checks required. The previous-tag cold-user qualification, full CUDA and Metal device suites, broad parity sweep and Linux and Darwin quick -full runs are deferred. The selected backend pins are verified before tagging using Go's staged canonical root archive. Public standalone tag builds and fresh Go proxy and checksum database consumer builds follow publication. Metal retains its existing pin.",
+  "accepted_by": "Peter",
+  "accepted_on": "2026-11-23",
+  "required": [
+    "row 2: standalone modules exclude retired dependencies, re-read at the final pin commit",
+    "row 10: exact source-tip CI at da67996cfe1bdbd8b2003dd9dd0fb559f7405ee0",
+    "staged canonical-root verification: release_prep.py prep and check --verify-sum at the final pin commit",
+    "release asset checksum verification for the published revision",
+    "post-tag public checks: standalone-build on the three tags and GOWORK=off consumer builds using the public Go proxy and checksum database"
+  ],
+  "accepted": [],
+  "owner_decisions": [
+    {
+      "row": 3,
+      "gate": "Previous-tag cold-user report",
+      "item": "Cold-user qualification on v0.6.6",
+      "candidate_record": null,
+      "evidence": "Previous-tag cold-user qualification is deferred for this release. See docs/releases/v0.6.7-verification.md.",
+      "accepted_by": "Peter",
+      "accepted_on": "2026-11-23"
+    },
+    {
+      "row": 4,
+      "gate": "Full CUDA and Metal device suites",
+      "item": "Full device qualification on both backends",
+      "candidate_record": null,
+      "evidence": "The #79 RTX product check and the #77 CUDA same-file check cover the changed path. Metal is outside the tag set. See docs/releases/v0.6.7-verification.md.",
+      "accepted_by": "Peter",
+      "accepted_on": "2026-11-23"
+    },
+    {
+      "row": 11,
+      "gate": "Broad parity sweep",
+      "item": "Full parity qualification",
+      "candidate_record": null,
+      "evidence": "The broad parity sweep is deferred. Targeted #79 product and #77 GGUF evidence is recorded in docs/releases/v0.6.7-verification.md.",
+      "accepted_by": "Peter",
+      "accepted_on": "2026-11-23"
+    },
+    {
+      "row": 12,
+      "gate": "Linux and Darwin quick -full",
+      "item": "Full deferred-test suite on both systems",
+      "candidate_record": null,
+      "evidence": "Both quick -full runs are deferred for this release. See docs/releases/v0.6.7-verification.md.",
+      "accepted_by": "Peter",
+      "accepted_on": "2026-11-23"
+    }
+  ]
+}
