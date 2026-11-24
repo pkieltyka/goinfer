@@ -13,6 +13,7 @@ import (
 	"testing"
 
 	"github.com/pkieltyka/goinfer/backend/vulkan/internal/vk"
+	"github.com/pkieltyka/goinfer/embeddinggemma2"
 )
 
 // TestProject32QualifiedTiny proves the product default and exact bytes on the
@@ -80,8 +81,9 @@ func TestProject32QualifiedTiny(t *testing.T) {
 
 // TestProject32DeclineAndRetry uses the fake device to prove the optional
 // pipeline lifecycle: a missing feature retires the route and the same
-// projection runs stock; allocation and loss failures stay errors and are not
-// cached as declines, so a later forward retries creation.
+// projection runs stock; pipeline OOM stays an error with one creation attempt
+// per forward and no cached decline; device loss is terminal for the encoder
+// and a fresh attachment is the recovery boundary.
 func TestProject32DeclineAndRetry(t *testing.T) {
 	ids := make([]int, 40)
 	for i := range ids {
@@ -112,38 +114,96 @@ func TestProject32DeclineAndRetry(t *testing.T) {
 		}
 	})
 
-	for _, tc := range []struct {
-		name string
-		code int32
-		want error
-	}{
-		{"oom", -1, vk.ErrOutOfMemory},
-		{"device lost", -4, vk.ErrDeviceLost},
-	} {
-		t.Run(tc.name+" is not a decline and can be retried", func(t *testing.T) {
-			var fail int32
-			e, a := attachFakeVulkan(t, &vk.FakeHooksForTest{
-				CreatePipelines: func() int32 { return fail },
-			})
-			defer func() { _ = a.Close() }()
-			a.project32 = true
-			fail = tc.code
-			_, err := e.EmbedIDsBatch(batch)
-			if err == nil || !errors.Is(err, tc.want) {
-				t.Fatalf("first error %v, want %v", err, tc.want)
-			}
-			if a.project32Declined {
-				t.Fatal("a native failure was cached as a capability decline")
-			}
-			fail = 0
-			if _, err := e.EmbedIDsBatch(batch); err != nil {
-				t.Fatalf("retry after %s: %v", tc.name, err)
-			}
-			if a.pipes["project32"] == nil {
-				t.Fatalf("retry after %s did not create the pipeline", tc.name)
-			}
+	t.Run("pipeline OOM is one attempt per forward and is not a decline", func(t *testing.T) {
+		var fail int32
+		creates, submits := 0, 0
+		e, a := attachFakeVulkan(t, &vk.FakeHooksForTest{
+			CreatePipelines: func() int32 { creates++; return fail },
+			QueueSubmit:     func() int32 { submits++; return 0 },
 		})
-	}
+		defer func() { _ = a.Close() }()
+		a.project32 = true
+		fail, creates, submits = -1, 0, 0
+		for attempt := 1; attempt <= 2; attempt++ {
+			_, err := e.EmbedIDsBatch(batch)
+			if !errors.Is(err, embeddinggemma2.ErrDeviceOutOfMemory) {
+				t.Fatalf("attempt %d: error %v, want device OOM", attempt, err)
+			}
+			if errors.Is(err, embeddinggemma2.ErrBatchOutOfMemory) {
+				t.Fatalf("attempt %d: pipeline OOM became a certified batch OOM", attempt)
+			}
+			if creates != attempt {
+				t.Fatalf("attempt %d: %d pipeline attempts, want exactly one per forward", attempt, creates)
+			}
+			if submits != 0 || a.pipes["project32"] != nil || a.project32Declined {
+				t.Fatalf("attempt %d: submits=%d pipe=%v declined=%v", attempt, submits, a.pipes["project32"] != nil, a.project32Declined)
+			}
+		}
+	})
+
+	t.Run("one-shot OOM installs nothing before its error returns", func(t *testing.T) {
+		var fail int32
+		creates := 0
+		e, a := attachFakeVulkan(t, &vk.FakeHooksForTest{
+			CreatePipelines: func() int32 { creates++; return fail },
+		})
+		defer func() { _ = a.Close() }()
+		a.project32 = true
+		fail, creates = -1, 0
+		if _, err := e.EmbedIDsBatch(batch); !errors.Is(err, embeddinggemma2.ErrDeviceOutOfMemory) {
+			t.Fatalf("first error %v", err)
+		}
+		if creates != 1 || a.pipes["project32"] != nil {
+			t.Fatalf("one-shot failure: creates=%d pipe=%v", creates, a.pipes["project32"] != nil)
+		}
+		fail = 0
+		if _, err := e.EmbedIDsBatch(batch); err != nil {
+			t.Fatalf("later forward: %v", err)
+		}
+		if creates != 2 || a.pipes["project32"] == nil {
+			t.Fatalf("later forward did not retry creation: creates=%d pipe=%v", creates, a.pipes["project32"] != nil)
+		}
+	})
+
+	t.Run("device loss is terminal and a new attach recovers", func(t *testing.T) {
+		var fail int32
+		creates, submits := 0, 0
+		e, a := attachFakeVulkan(t, &vk.FakeHooksForTest{
+			CreatePipelines: func() int32 { creates++; return fail },
+			QueueSubmit:     func() int32 { submits++; return 0 },
+		})
+		defer func() { _ = a.Close() }()
+		a.project32 = true
+		fail, creates, submits = -4, 0, 0
+		_, err := e.EmbedIDsBatch(batch)
+		if !errors.Is(err, embeddinggemma2.ErrDeviceLost) {
+			t.Fatalf("first loss error %v, want ErrDeviceLost", err)
+		}
+		if errors.Is(err, embeddinggemma2.ErrBatchOutOfMemory) {
+			t.Fatal("device loss became a certified batch OOM")
+		}
+		if creates != 1 || submits != 0 || a.pipes["project32"] != nil {
+			t.Fatalf("loss: creates=%d submits=%d pipe=%v", creates, submits, a.pipes["project32"] != nil)
+		}
+		for name, rows := range map[string][][]int{"short": {{4, 5, 6, 7}}, "wide": batch} {
+			if _, err := e.EmbedIDsBatch(rows); !errors.Is(err, embeddinggemma2.ErrDeviceLost) {
+				t.Fatalf("%s forward after loss: %v, want the same loss", name, err)
+			}
+		}
+		if creates != 1 || submits != 0 {
+			t.Fatalf("after loss: creates=%d submits=%d, want no new attempts", creates, submits)
+		}
+
+		e2, a2 := attachFakeVulkan(t, &vk.FakeHooksForTest{})
+		defer func() { _ = a2.Close() }()
+		a2.project32 = true
+		if _, err := e2.EmbedIDsBatch(batch); err != nil {
+			t.Fatalf("fresh attachment after loss: %v", err)
+		}
+		if a2.pipes["project32"] == nil {
+			t.Fatal("fresh attachment did not create the pipeline")
+		}
+	})
 }
 
 // TestProject32UnqualifiedDevice pins that a non-measured product keeps the

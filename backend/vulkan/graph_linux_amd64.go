@@ -287,6 +287,9 @@ func (r *recording) dispatch(name string, units uint64, shape [3]uint32, push []
 var dispatchSeenForTest func(name string)
 
 func (r *recording) project(src, w, dst *vk.Buffer, in, out int) {
+	if r.plan.err != nil {
+		return
+	}
 	if r.f.a.project32 && !r.f.a.project32Declined && r.projectWide(src, w, dst, in, out) {
 		return
 	}
