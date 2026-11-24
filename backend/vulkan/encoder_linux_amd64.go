@@ -25,7 +25,9 @@ type encoder struct {
 	pleProj, pleNorm, finalNorm, projection, ones *vk.Buffer
 	layers                                        []layer
 	maxQ, maxKV                                   int
-	dispatchBudget                                int // descriptor sets available in one command buffer
+	dispatchBudget                                int  // descriptor sets available in one command buffer
+	project32                                     bool // device-qualified 32-row projection
+	project32Declined                             bool // optional pipeline retired for this encoder
 }
 type rotation struct {
 	dim   int
@@ -58,6 +60,34 @@ func attachWithOpener(m *embeddinggemma2.Model, openDev func() (*vk.Device, erro
 }
 func newEncoder(m *embeddinggemma2.Model, selector vk.Selector) (*encoder, error) {
 	return newEncoderWithOpener(m, func() (*vk.Device, error) { return vk.Open(selector) })
+}
+
+// ensureProject32 creates the optional wide projection pipeline on first use.
+// The caller holds a.mu. A missing driver feature retires the optional route
+// for this encoder and returns ok=false so the same projection runs stock
+// before anything is submitted. OOM, loss and unknown creation failures are
+// returned on their existing error paths.
+func (a *encoder) ensureProject32() (ok bool, err error) {
+	if a.pipes["project32"] != nil {
+		return true, nil
+	}
+	if a.project32Declined {
+		return false, nil
+	}
+	code, err := shaders.ReadFile("shaders/project32.spv")
+	if err != nil {
+		return false, err
+	}
+	pipe, err := a.device.NewPipeline(code, 3, 4*4)
+	if err != nil {
+		if project32OptionalDecline(err) {
+			a.project32Declined = true
+			return false, nil
+		}
+		return false, fmt.Errorf("vulkan: project32 pipeline: %w", err)
+	}
+	a.pipes["project32"] = pipe
+	return true, nil
 }
 
 // vulkanAttachCleanup serializes Vulkan encoder attach admission and
@@ -117,6 +147,7 @@ func newEncoderWithOpener(m *embeddinggemma2.Model, openDev func() (*vk.Device, 
 	a.device = d
 	info := d.Info()
 	a.identity = describeDevice(info)
+	a.project32 = project32Device(info.VendorID, info.DeviceID)
 	fail := func(err error) (*encoder, error) {
 		closeErr := d.Close()
 		if closeErr != nil {

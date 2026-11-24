@@ -27,6 +27,14 @@ func spirvWords(spirv []byte) ([]uint32, error) {
 func (d *Device) NewPipeline(spirv []byte, bindings int, pushBytes uint32) (_ *Pipeline, err error) {
 	d.mu.Lock()
 	defer d.mu.Unlock()
+	// A pipeline creation that reports device loss is terminal for this device:
+	// record the first native cause so later calls and Status agree, while the
+	// error itself still travels to the caller.
+	defer func() {
+		if err != nil {
+			d.poisonOnLoss(err)
+		}
+	}()
 	if err = d.usable(); err != nil {
 		return nil, err
 	}

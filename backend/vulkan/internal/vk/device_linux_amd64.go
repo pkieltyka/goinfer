@@ -98,14 +98,15 @@ func (d *Device) LiveBuffersForTest() int {
 // FakeHooksForTest configures deterministic native VkResult injections for
 // NewFakeDeviceForTest. Nil hooks succeed (0).
 type FakeHooksForTest struct {
-	MaxAllocations uint32
-	CreateBuffer   func(size uint64) int32
-	AllocateMemory func(memory Memory, size uint64) int32
-	BindMemory     func() int32
-	MapMemory      func() int32
-	QueueSubmit    func() int32
-	WaitFences     func() int32
-	DeviceWaitIdle func() int32
+	MaxAllocations  uint32
+	CreateBuffer    func(size uint64) int32
+	AllocateMemory  func(memory Memory, size uint64) int32
+	BindMemory      func() int32
+	MapMemory       func() int32
+	QueueSubmit     func() int32
+	CreatePipelines func() int32
+	WaitFences      func() int32
+	DeviceWaitIdle  func() int32
 }
 
 // NewFakeDeviceForTest constructs a CPU-only Device backed by in-memory fake
@@ -225,6 +226,11 @@ func NewFakeDeviceForTest(h *FakeHooksForTest) *Device {
 		},
 		destroyLayout: func(handle, handle, unsafe.Pointer) {},
 		createPipelines: func(_ handle, _ handle, _ uint32, _ *pipelineInfo, _ unsafe.Pointer, out *handle) result {
+			if h.CreatePipelines != nil {
+				if r := result(h.CreatePipelines()); r != success {
+					return r
+				}
+			}
 			*out = newHandle()
 			return success
 		},

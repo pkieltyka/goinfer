@@ -274,10 +274,25 @@ func (r *recording) dispatch(name string, units uint64, shape [3]uint32, push []
 		if err := c.Dispatch(r.f.a.pipes[name], buffers, push, shape); err != nil {
 			return fmt.Errorf("vulkan: %s: %w", name, err)
 		}
+		if dispatchSeenForTest != nil {
+			dispatchSeenForTest(name)
+		}
 		return nil
 	})
 }
+
+// dispatchSeenForTest, when set, is told the name of every dispatch that
+// completed successfully on the recording goroutine. Test observation seam,
+// nil in production.
+var dispatchSeenForTest func(name string)
+
 func (r *recording) project(src, w, dst *vk.Buffer, in, out int) {
+	if r.plan.err != nil {
+		return
+	}
+	if r.f.a.project32 && !r.f.a.project32Declined && r.projectWide(src, w, dst, in, out) {
+		return
+	}
 	perGroup := product(8, tile(out, 16), tile(in, 16))
 	maxRows := 8 * int(submissionWork/perGroup)
 	if maxRows == 0 {
@@ -292,6 +307,43 @@ func (r *recording) project(src, w, dst *vk.Buffer, in, out int) {
 			grid(ceilDiv(out, 16), ceilDiv(rows, 8), 1),
 			[]uint32{uint32(start), uint32(rows), uint32(out), uint32(in)}, src, w, dst)
 	}
+}
+
+// projectWide records the wide arm when this projection plans at least one
+// 32-row chunk. It returns false (without recording anything) when the shape
+// has no eligible chunk or the optional pipeline was retired, so the caller
+// runs the unchanged stock loop for that projection. A pipeline-create error
+// latches plan.err and returns true with nothing submitted.
+func (r *recording) projectWide(src, w, dst *vk.Buffer, in, out int) bool {
+	chunks, err := projectChunks(r.f.rows, in, out)
+	if err != nil {
+		if r.plan.err == nil {
+			r.plan.err = err
+		}
+		return true
+	}
+	if !chunksWide(chunks) {
+		return false
+	}
+	ok, err := r.f.a.ensureProject32()
+	if err != nil {
+		if r.plan.err == nil {
+			r.plan.err = err
+		}
+		return true
+	}
+	if !ok {
+		return false
+	}
+	for _, c := range chunks {
+		name := "project32"
+		if !c.Wide {
+			name = "project"
+		}
+		r.dispatch(name, c.Units, grid(ceilDiv(out, 16), c.Groups, 1),
+			[]uint32{uint32(c.First), uint32(c.Rows), uint32(out), uint32(in)}, src, w, dst)
+	}
+	return true
 }
 func (r *recording) norm(src, w, dst *vk.Buffer, rows, width int) {
 	eps := math.Float32bits(float32(r.f.a.cfg.RMSNormEps))
