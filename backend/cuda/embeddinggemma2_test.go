@@ -1154,24 +1154,32 @@ func TestEG2CUDA_realParity(t *testing.T) {
 			underWindow = it.IDs
 		}
 	}
-	var launches, attn int
-	attnPtr := a.ops.vit.AttentionSeg.Ptr()
+	longest := order[len(order)-1].IDs
+	var stock, transposes, transposed int
 	gpu.TraceForTest = func(e gpu.TraceEvent) {
 		if e.Op == gpu.TraceLaunch {
-			launches++
-			if e.Pipe == attnPtr {
-				attn++
+			switch e.Pipe {
+			case a.ops.vit.AttentionSeg.Ptr():
+				stock++
+			case a.combinedTranspose.Ptr():
+				transposes++
+			case a.combinedAttention.Ptr():
+				transposed++
 			}
 		}
 	}
-	_, _, err = acc.Forward(order[len(order)-1].IDs, false)
+	_, _, err = acc.Forward(longest, false)
 	gpu.TraceForTest = nil
 	if err != nil {
 		t.Fatal(err)
 	}
-	t.Logf("the %d-token forward: %d device launches, %d of them attention_seg", len(order[len(order)-1].IDs), launches, attn)
-	if attn != c.Layers {
-		t.Errorf("%d attention_seg launches, want one per layer (%d)", attn, c.Layers)
+	wantStock, wantTransposed := c.Layers, 0
+	if len(longest) >= 128 && a.combinedAttention != (Pipeline{}) {
+		wantStock, wantTransposed = 0, c.Layers
+	}
+	t.Logf("the %d-token forward: %d stock, %d transpose, %d transposed-attention launches", len(longest), stock, transposes, transposed)
+	if stock != wantStock || transposes != wantTransposed || transposed != wantTransposed {
+		t.Errorf("want %d stock and %d each transpose and transposed-attention launches", wantStock, wantTransposed)
 	}
 	for _, ids := range [][]int{order[0].IDs, underWindow, order[len(order)-1].IDs} {
 		cpuLast, cpuLayers, err := m.ForwardCPU(ids, true)
@@ -1200,7 +1208,7 @@ func TestEG2CombinedTiny(t *testing.T) {
 	if !slices.Contains(embeddinggemma2.Accelerators(), "cuda-eg2-combined") {
 		t.Skip("requires eg2_combined build tag")
 	}
-	checkCombined(t, eg2TinyModel(t), [][]int{{36}, {37}, {12, 24}, {12, 25}, {127, 10}, {64, 64}, {5, 128}, {129, 1}})
+	checkEG2Transposed(t, "cuda-eg2-combined", true, eg2TinyModel(t), [][]int{{36}, {37}, {12, 24}, {12, 25}, {127, 10}, {64, 64}, {5, 128}, {129, 1}})
 }
 
 func TestEG2CombinedReal(t *testing.T) {
@@ -1215,12 +1223,38 @@ func TestEG2CombinedReal(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	checkCombined(t, model, [][]int{{36}, {37}, {7, 127}, {128, 9}, {511, 13}, {31, 513}})
+	checkEG2Transposed(t, "cuda-eg2-combined", true, model, [][]int{{36}, {37}, {7, 127}, {128, 9}, {511, 13}, {31, 513}})
 }
 
-func checkCombined(t *testing.T, model *embeddinggemma2.Model, shapes [][]int) {
+func TestEG2TransposedJITFallback(t *testing.T) {
+	for _, tt := range []struct {
+		err  error
+		want bool
+	}{
+		{gc.ErrNoBinaryForGPU, true},
+		{gc.ErrUnsupportedPTXVersion, true},
+		{gc.ErrInvalidPTX, false},
+		{gc.ErrOutOfMemory, false},
+		{errors.New("missing kernel entry"), false},
+	} {
+		if got := eg2TransposedJITUnsupported(fmt.Errorf("load module: %w", tt.err)); got != tt.want {
+			t.Errorf("optional JIT fallback for %v = %t, want %t", tt.err, got, tt.want)
+		}
+	}
+}
+
+func TestEG2CUDA_defaultTransposedTiny(t *testing.T) {
+	if os.Getenv("GOINFER_TEST_CUDA_UUID") == "" {
+		t.Skip("set GOINFER_TEST_CUDA_UUID to the target CUDA device's GPU UUID")
+	}
+	checkEG2Transposed(t, "cuda", false, eg2TinyModel(t), [][]int{
+		{36}, {64, 64}, {127, 96}, {96, 127}, {128}, {128, 96}, {96, 128}, {96},
+	})
+}
+
+func checkEG2Transposed(t *testing.T, selector string, shortTiled bool, model *embeddinggemma2.Model, shapes [][]int) {
 	t.Helper()
-	accel, err := model.NewAccelerator("cuda-eg2-combined")
+	accel, err := model.NewAccelerator(selector)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -1230,7 +1264,13 @@ func checkCombined(t *testing.T, model *embeddinggemma2.Model, shapes [][]int) {
 		}
 	})
 	a := accel.(*eg2Accel)
+	if selector == "cuda" && !strings.EqualFold(a.AttachedDevice().ID, "cuda:"+os.Getenv("GOINFER_TEST_CUDA_UUID")) {
+		t.Fatalf("default CUDA attached to %q", a.AttachedDevice().ID)
+	}
 	transpose, attention := a.combinedTranspose, a.combinedAttention
+	if transpose == (Pipeline{}) || attention == (Pipeline{}) || a.ops.shortTiled != shortTiled {
+		t.Fatalf("%s transposed attention or short GEMM policy is unavailable", selector)
+	}
 	for _, shape := range shapes {
 		t.Run(fmt.Sprint(shape), func(t *testing.T) {
 			a.combinedTranspose, a.combinedAttention, a.ops.shortTiled = Pipeline{}, Pipeline{}, false
@@ -1246,8 +1286,8 @@ func checkCombined(t *testing.T, model *embeddinggemma2.Model, shapes [][]int) {
 				}
 				want[i] = out
 			}
-			a.combinedTranspose, a.combinedAttention, a.ops.shortTiled = transpose, attention, true
-			var tiled, transposes, attn int
+			a.combinedTranspose, a.combinedAttention, a.ops.shortTiled = transpose, attention, shortTiled
+			var tiled, transposes, attn, stock int
 			gpu.TraceForTest = func(event gpu.TraceEvent) {
 				if event.Op != gpu.TraceLaunch {
 					return
@@ -1259,6 +1299,8 @@ func checkCombined(t *testing.T, model *embeddinggemma2.Model, shapes [][]int) {
 					transposes++
 				case attention.Ptr():
 					attn++
+				case a.ops.vit.AttentionSeg.Ptr():
+					stock++
 				}
 			}
 			defer func() { gpu.TraceForTest = nil }()
@@ -1271,15 +1313,16 @@ func checkCombined(t *testing.T, model *embeddinggemma2.Model, shapes [][]int) {
 					t.Fatalf("input %d differs at %s", i, diff)
 				}
 			}
-			if (tiled > 0) != (total <= 36) {
+			if (tiled > 0) != (shortTiled && total <= 36) {
 				t.Errorf("total rows %d produced %d short tiled launches", total, tiled)
 			}
 			wantAttn := 0
 			if longest >= 128 {
 				wantAttn = model.Config().Layers
 			}
-			if attn != wantAttn || transposes != wantAttn {
-				t.Errorf("longest input %d, transposes %d attention %d, wanted %d each", longest, transposes, attn, wantAttn)
+			if attn != wantAttn || transposes != wantAttn || stock != model.Config().Layers-wantAttn {
+				t.Errorf("longest input %d: %d transpose, %d transposed attention and %d stock, want %d, %d and %d",
+					longest, transposes, attn, stock, wantAttn, wantAttn, model.Config().Layers-wantAttn)
 			}
 		})
 	}
