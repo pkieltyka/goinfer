@@ -1,0 +1,49 @@
+#version 450
+// A[rows,inner] * transpose(W[cols,inner]) with a 32-row output block.
+//
+// One 16x16 weight tile per ascending 16-K step feeds four independent 8-row
+// accumulators, so each weight load serves 32 rows instead of 8. The K order,
+// the FMA order and the accumulators per output element are the stock order;
+// only the row grouping changes. Invalid rows, columns and K are zero-filled,
+// and stores are guarded by the caller's firstRow and rows.
+layout(local_size_x=16, local_size_y=8) in;
+layout(std430,binding=0) readonly buffer A {float a[];};
+layout(std430,binding=1) readonly buffer W {float w[];};
+layout(std430,binding=2) writeonly buffer Out {float dst[];};
+layout(push_constant) uniform Shape {uint firstRow, rows, cols, inner;} p;
+shared float inputs[4][8][16];
+shared float weights[16][16];
+void main() {
+    uint x=gl_LocalInvocationID.x, y=gl_LocalInvocationID.y;
+    uint col=gl_GlobalInvocationID.x;
+    uint base=gl_WorkGroupID.y*32;
+    uint r0=base+y, r1=r0+8, r2=r0+16, r3=r0+24;
+    float s0=0.0, s1=0.0, s2=0.0, s3=0.0;
+    for (uint k0=0; k0<p.inner; k0+=16) {
+        uint k=k0+x;
+        bool ok=k<p.inner;
+        inputs[0][y][x]=ok && r0<p.rows ? a[(p.firstRow+r0)*p.inner+k] : 0.0;
+        inputs[1][y][x]=ok && r1<p.rows ? a[(p.firstRow+r1)*p.inner+k] : 0.0;
+        inputs[2][y][x]=ok && r2<p.rows ? a[(p.firstRow+r2)*p.inner+k] : 0.0;
+        inputs[3][y][x]=ok && r3<p.rows ? a[(p.firstRow+r3)*p.inner+k] : 0.0;
+        for (uint j=y; j<16; j+=8) {
+            uint n=gl_WorkGroupID.x*16+j;
+            weights[j][x]=n<p.cols && ok ? w[n*p.inner+k] : 0.0;
+        }
+        barrier();
+        for (uint j=0; j<16; ++j) {
+            float wv=weights[x][j];
+            s0=fma(inputs[0][y][j],wv,s0);
+            s1=fma(inputs[1][y][j],wv,s1);
+            s2=fma(inputs[2][y][j],wv,s2);
+            s3=fma(inputs[3][y][j],wv,s3);
+        }
+        barrier();
+    }
+    if (col<p.cols) {
+        if (r0<p.rows) dst[(p.firstRow+r0)*p.cols+col]=s0;
+        if (r1<p.rows) dst[(p.firstRow+r1)*p.cols+col]=s1;
+        if (r2<p.rows) dst[(p.firstRow+r2)*p.cols+col]=s2;
+        if (r3<p.rows) dst[(p.firstRow+r3)*p.cols+col]=s3;
+    }
+}
