@@ -450,11 +450,28 @@
    "notes": "Listed so a goinfer call to either is a census change, not a silent one."
   },
   {
+   "id": "metal-eg2-matrix-attention",
+   "gate": "EmbeddingGemma 2 matrix attention on Apple Silicon",
+   "kind": "metal-device",
+   "predicates": [
+    "metal:supportsFamily",
+    "metal:maxTotalThreadsPerThreadgroup"
+   ],
+   "selected_when": "the default Metal selector finds an eligible EG2 graph, Apple7 features, unified memory, sufficient pipeline limits, and passing full and sliding output probes",
+   "files": [
+    "goinfer/backend/metal/embeddinggemma2_matrix.go",
+    "goinfer/backend/metal/internal/gpudev/metal.go"
+   ],
+   "our_machines": "Apple M4 is the product qualification target",
+   "last_executed": [],
+   "notes": "Native results for the exact product route are recorded separately."
+  },
+  {
    "id": "metal-newer-gpus",
    "gate": "Metal on M2/M3/M4 GPU families",
    "kind": "platform",
    "predicates": [],
-   "selected_when": "every newer Mac: MSL is compiled at load by the OS, with no family query in backend/metal/, so the same kernels meet different codegen",
+   "selected_when": "each newer Mac uses the local OS compiler, which may produce different code for the same MSL",
    "files": [
     "goinfer/backend/metal/*.go"
    ],
