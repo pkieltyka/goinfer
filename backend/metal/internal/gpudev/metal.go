@@ -618,6 +618,18 @@ func (d *Device) NewBufferBytesOn(line string, n int) Buffer {
 	return d.MustBufOn(line, d.allocID(func() objc.ID { return d.id.Send(selNewBufferLen, uintptr(n), uintptr(0)) }), n, "bytes")
 }
 
+// TryNewBufferBytesOn is NewBufferBytesOn except that a native nil buffer returns
+// ok=false instead of panicking, so a caller can refuse a growth and keep its
+// current storage. A successful allocation registers on the same ledger as
+// NewBufferBytesOn.
+func (d *Device) TryNewBufferBytesOn(line string, n int) (Buffer, bool) {
+	id := d.allocID(func() objc.ID { return d.id.Send(selNewBufferLen, uintptr(n), uintptr(0)) })
+	if id == 0 {
+		return Buffer{}, false
+	}
+	return d.mustBuf(line, false, id, n, "bytes"), true
+}
+
 // NewBufferNoCopy wraps caller-owned memory in a shared MTLBuffer WITHOUT copying
 // (newBufferWithBytesNoCopy) — the resident-weights lever: alias an mmap'd .giw straight into
 // Metal instead of uploading a second GB-scale copy. ptr MUST be page-aligned and nBytes SHOULD be

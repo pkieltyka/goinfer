@@ -150,6 +150,7 @@ type eg2Accel struct {
 	ropes     map[eg2RopeKey][2]Buffer // immutable cos/sin tables, by input length, head dim and theta
 	cap       int                      // scratch rows allocated
 	scr       eg2Scratch
+	kvHeads   []int // per-layer KV heads, for scalar-arena sizing
 }
 
 type eg2Scratch struct{ x, xn, q, k, v, ctx, o, g, u, f, gg, pr, ple, out, qh, kh, vh, sc, vt, ob Buffer }
@@ -159,7 +160,155 @@ type eg2RopeKey struct {
 	theta float64
 }
 
-const eg2ArenaSlots = 1 << 14
+const eg2ArenaSlots = 1 << 14 // initial slots: 4 MiB, enough for short forwards
+
+// Text-forward scalar-arena sizing. The counts are the production tower_gemm_w32
+// command's slots, so they are a conservative upper bound over the test-only
+// 3-scalar GEMM. One slot is 256 bytes.
+const (
+	eg2ArenaOpeningSlots = 8  // prologue: PLE projection gemm
+	eg2ArenaClosingSlots = 8  // epilogue: final norm and projection
+	eg2ArenaLayerSlots   = 93 // a layer outside its attention blocks
+	eg2ArenaVTSlots      = 5  // vtBlock, per KV group per query block
+	eg2ArenaHeadSlots    = 19 // two W32 gemms (5 each), softmax (4), scatter (5)
+)
+
+// eg2ArenaAllocForTest, when set, replaces the device allocation in ensureArena
+// so a test can inject a refusal. Test seam, nil in production.
+var eg2ArenaAllocForTest func(bytes int) (Buffer, bool)
+
+func eg2ArenaCheckedAdd(a, b int64) (int64, error) {
+	if b < 0 || a > math.MaxInt64-b {
+		return 0, fmt.Errorf("metal: EmbeddingGemma 2 scalar arena size overflows")
+	}
+	return a + b, nil
+}
+
+func eg2ArenaCheckedMul(a, b int64) (int64, error) {
+	if a < 0 || b < 0 || (a != 0 && b > math.MaxInt64/a) {
+		return 0, fmt.Errorf("metal: EmbeddingGemma 2 scalar arena size overflows")
+	}
+	return a * b, nil
+}
+
+// eg2ArenaSlotsFor returns the scalar slots one text forward of T rows needs on
+// the production W32 path. keepLayers bounds a single command interval instead
+// of the whole forward: opening plus the first layer, each later layer alone,
+// or the closing segment.
+func eg2ArenaSlotsFor(c embeddinggemma2.Config, kvHeads []int, T int, keepLayers bool) (int, error) {
+	if T <= 0 {
+		return 0, fmt.Errorf("metal: EmbeddingGemma 2 scalar arena needs a positive row count, got %d", T)
+	}
+	if eg2Block <= 0 || c.Heads <= 0 || c.Layers <= 0 || len(kvHeads) != c.Layers {
+		return 0, fmt.Errorf("metal: EmbeddingGemma 2 scalar arena geometry: block %d, heads %d, layers %d, kv heads %d",
+			eg2Block, c.Heads, c.Layers, len(kvHeads))
+	}
+	blocks, err := eg2ArenaCheckedAdd(1, int64((T-1)/eg2Block))
+	if err != nil {
+		return 0, err
+	}
+	head, err := eg2ArenaCheckedMul(eg2ArenaHeadSlots, int64(c.Heads))
+	if err != nil {
+		return 0, err
+	}
+	total := int64(0)
+	opening, closing := int64(eg2ArenaOpeningSlots), int64(eg2ArenaClosingSlots)
+	var first, maxLayer int64
+	for i, kv := range kvHeads {
+		if kv <= 0 {
+			return 0, fmt.Errorf("metal: EmbeddingGemma 2 scalar arena layer %d has %d KV heads", i, kv)
+		}
+		vt, err := eg2ArenaCheckedMul(eg2ArenaVTSlots, int64(kv))
+		if err != nil {
+			return 0, err
+		}
+		perBlock, err := eg2ArenaCheckedAdd(head, vt)
+		if err != nil {
+			return 0, err
+		}
+		blocksCost, err := eg2ArenaCheckedMul(blocks, perBlock)
+		if err != nil {
+			return 0, err
+		}
+		layer, err := eg2ArenaCheckedAdd(eg2ArenaLayerSlots, blocksCost)
+		if err != nil {
+			return 0, err
+		}
+		if i == 0 {
+			first = layer
+		}
+		if layer > maxLayer {
+			maxLayer = layer
+		}
+		total, err = eg2ArenaCheckedAdd(total, layer)
+		if err != nil {
+			return 0, err
+		}
+	}
+	if !keepLayers {
+		total, err = eg2ArenaCheckedAdd(total, opening)
+		if err != nil {
+			return 0, err
+		}
+		total, err = eg2ArenaCheckedAdd(total, closing)
+		if err != nil {
+			return 0, err
+		}
+	} else {
+		openFirst, err := eg2ArenaCheckedAdd(opening, first)
+		if err != nil {
+			return 0, err
+		}
+		total = openFirst
+		if maxLayer > total {
+			total = maxLayer
+		}
+		if closing > total {
+			total = closing
+		}
+	}
+	if total > int64(math.MaxInt)/256 {
+		return 0, fmt.Errorf("metal: EmbeddingGemma 2 scalar arena needs %d slots, over the addressable range", total)
+	}
+	return int(total), nil
+}
+
+// ensureArena grows the scalar arena to slots when the current buffer is
+// smaller. It must run under the accelerator mutex before any encoding. A
+// refusal leaves the current arena in place and returns an error, so a smaller
+// forward can still run.
+func (a *eg2Ops) ensureArena(slots int) error {
+	if slots <= 0 {
+		return fmt.Errorf("metal: EmbeddingGemma 2 scalar arena needs a positive slot count, got %d", slots)
+	}
+	need64, err := eg2ArenaCheckedMul(int64(slots), 256)
+	if err != nil || need64 > int64(math.MaxInt) {
+		return fmt.Errorf("metal: EmbeddingGemma 2 scalar arena %d slots is over the addressable range", slots)
+	}
+	need := int(need64)
+	if a.arena.Len() >= need {
+		return nil
+	}
+	var next Buffer
+	var ok bool
+	if eg2ArenaAllocForTest != nil {
+		next, ok = eg2ArenaAllocForTest(need)
+	} else {
+		next, ok = a.d.TryNewBufferBytesOn(mem.LineCompanion, need)
+	}
+	if !ok || next.Len() < need {
+		if next.Len() > 0 {
+			a.d.ReleaseBuf(next)
+		}
+		return fmt.Errorf("metal: EmbeddingGemma 2 needs %d scalar slots (%d bytes); the device could not provide a larger arena", slots, need)
+	}
+	old := a.arena
+	a.arena = next
+	if old.Len() > 0 {
+		a.d.ReleaseBuf(old)
+	}
+	return nil
+}
 
 func newEG2Accel(m *embeddinggemma2.Model) (*eg2Accel, error) {
 	ops, err := newEG2Ops("", nil)
@@ -189,6 +338,7 @@ func newEG2Accel(m *embeddinggemma2.Model) (*eg2Accel, error) {
 	}
 	a.ones = up(ones)
 	for _, ly := range w.Layers {
+		a.kvHeads = append(a.kvHeads, ly.KVHeads)
 		a.layers = append(a.layers, eg2Layer{w: ly, inNorm: up(ly.InNorm), q: up(ly.Q), k: up(ly.K), v: up(ly.V), o: up(ly.O),
 			qNorm: up(ly.QNorm), kNorm: up(ly.KNorm), postAttnNorm: up(ly.PostAttnNorm), preFFNorm: up(ly.PreFFNorm),
 			gate: up(ly.Gate), up: up(ly.Up), down: up(ly.Down), postFFNorm: up(ly.PostFFNorm), pleGate: up(ly.PLEGate),
@@ -211,7 +361,7 @@ func (a *eg2Accel) Close() error {
 
 // u32 and f32 write one scalar into its own arena slot and return the slot to bind.
 func (a *eg2Ops) u32(v uint32) Buffer {
-	if a.slot >= eg2ArenaSlots {
+	if cap := a.arena.Len() / 256; a.slot >= cap {
 		panic("metal: EmbeddingGemma 2 scalar arena exhausted")
 	}
 	a.arena.U32s()[a.slot*64] = v
@@ -291,10 +441,20 @@ func (a *eg2Accel) ForwardEmbeds(x0 []float32, T int, keepLayers bool) ([]float3
 }
 
 func (a *eg2Accel) forwardEmbeds(x0 []float32, T int, keepLayers bool) ([]float32, [][]float32, error) {
+	if err := a.open(); err != nil {
+		return nil, nil, err
+	}
 	c := a.cfg
 	H, I, P, L, E := c.Hidden, c.Intermediate, c.PLEDim, c.Layers, c.EmbeddingDim
 	if T == 0 || len(x0) != T*H {
 		return nil, nil, fmt.Errorf("metal: %d input values for %d rows of %d", len(x0), T, H)
+	}
+	slots, err := eg2ArenaSlotsFor(c, a.kvHeads, T, keepLayers)
+	if err != nil {
+		return nil, nil, err
+	}
+	if err := a.ensureArena(slots); err != nil {
+		return nil, nil, err
 	}
 	if err := a.grow(T); err != nil {
 		return nil, nil, err
