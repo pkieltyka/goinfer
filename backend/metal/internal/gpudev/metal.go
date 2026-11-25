@@ -259,6 +259,21 @@ func CreateSystemDefaultDevice() (*Device, error) {
 // Name is the device's product name (e.g. "Apple M1 Pro").
 func (d *Device) Name() string { return goString(d.id.Send(selName)) }
 
+var selArchitecture = objc.RegisterName("architecture")
+
+// ArchitectureName is Metal's GPU architecture identifier, or empty when the
+// device cannot report it.
+func (d *Device) ArchitectureName() string {
+	if !respondsTo(d.id, selArchitecture) {
+		return ""
+	}
+	arch := d.id.Send(selArchitecture)
+	if arch == 0 {
+		return ""
+	}
+	return goString(arch.Send(selName))
+}
+
 // HasUnifiedMemory reports whether the device shares memory with the host.
 func (d *Device) HasUnifiedMemory() bool { return objc.Send[bool](d.id, selHasUnifiedMemory) }
 

@@ -159,6 +159,7 @@ type eg2Accel struct {
 	identity  embeddinggemma2.DeviceInfo
 	profile   string
 	matrix    eg2MatrixPipes
+	stagedFFN Pipeline
 	pleProj   Buffer // scaled by hidden^-0.5 at upload, as the CPU scales the product
 	pleNorm   Buffer
 	finalNorm Buffer
@@ -357,6 +358,13 @@ func newEG2AccelWithAttention(m *embeddinggemma2.Model, request eg2AttentionRequ
 	})
 	if err != nil {
 		return nil, err
+	}
+	// Matrix attachment already established the unified-memory Apple7 capability.
+	if a.profile == eg2MatrixProfile && eg2StagedFFNEligible(d.Name(), d.ArchitectureName(), a.profile, w.Config) {
+		a.stagedFFN, err = newEG2StagedFFN(d)
+		if err != nil {
+			return nil, err
+		}
 	}
 	a.cfg, a.model = w.Config, m
 	a.eps = float32(a.cfg.RMSNormEps)
@@ -576,6 +584,10 @@ func (a *eg2Accel) forwardEmbeds(x0 []float32, T int, keepLayers bool) ([]float3
 	if keepLayers {
 		layers = append(layers, append([]float32(nil), x...))
 	}
+	gemmFFN := a.gemm
+	if a.stagedFFN != (Pipeline{}) && eg2StagedFFNRows(T) && !a.vitGemmForTest {
+		gemmFFN = a.gemmStagedFFN
+	}
 	a.slot = 0
 	e := a.q.Begin()
 	a.gemm(e, s.x, a.pleProj, s.ple, T, L*P, H)
@@ -610,8 +622,8 @@ func (a *eg2Accel) forwardEmbeds(x0 []float32, T int, keepLayers bool) ([]float3
 		e.Dispatch(a.p.add, T*H, 256, s.x, s.o, a.u32(uint32(T*H)))
 		// MLP
 		a.rms(e, s.x, ly.preFFNorm, s.xn, T, H)
-		a.gemm(e, s.xn, ly.gate, s.g, T, I, H)
-		a.gemm(e, s.xn, ly.up, s.u, T, I, H)
+		gemmFFN(e, s.xn, ly.gate, s.g, T, I, H)
+		gemmFFN(e, s.xn, ly.up, s.u, T, I, H)
 		e.Dispatch(a.p.geluMul, T*I, 256, s.g, s.u, a.u32(uint32(T*I)))
 		a.gemm(e, s.g, ly.down, s.f, T, H, I)
 		a.rms(e, s.f, ly.postFFNorm, s.f, T, H)
