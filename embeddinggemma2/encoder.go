@@ -42,7 +42,7 @@ type Encoder struct {
 	onTower        func(tower, device string, took time.Duration) // OnTowerLoad
 }
 
-// LoadEncoder loads the model, tokenizer.json and the prompt table from an HF checkpoint directory.
+// LoadEncoder loads the text model (see Load), tokenizer.json and the prompt table from a checkpoint directory.
 func LoadEncoder(dir string) (*Encoder, error) {
 	m, err := Load(dir)
 	if err != nil {

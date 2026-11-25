@@ -75,8 +75,9 @@ type layer struct {
 // Model is a loaded EmbeddingGemma 2 text encoder. Its weights are immutable after Load or NewModel, so concurrent
 // Embed calls are safe.
 type Model struct {
-	cfg   Config
-	embed []float32 // [vocab, hidden]; nil for packed models until Weights is called
+	cfg        Config
+	mlxAffine8 bool
+	embed      []float32 // [vocab, hidden]; nil for packed models until Weights is called
 	// embedRaw is the token table as the caller gave it to NewModel, [vocab, hidden] little-endian values of
 	// embedSize bytes each (2: bfloat16, 4: float32). One row is widened per token, so the table is never copied.
 	embedRaw   []byte
@@ -98,11 +99,17 @@ func (m *Model) Dim() int { return m.cfg.EmbeddingDim }
 
 // LoadConfig reads dir/config.json and returns its text half, refusing anything that is not embedding_gemma2.
 func LoadConfig(dir string) (Config, error) {
+	cfg, _, err := readConfig(dir)
+	return cfg, err
+}
+
+func readConfig(dir string) (Config, []byte, error) {
 	raw, err := os.ReadFile(filepath.Join(dir, "config.json"))
 	if err != nil {
-		return Config{}, fmt.Errorf("embeddinggemma2: %w", err)
+		return Config{}, nil, fmt.Errorf("embeddinggemma2: %w", err)
 	}
-	return LoadConfigBytes(raw)
+	cfg, err := LoadConfigBytes(raw)
+	return cfg, raw, err
 }
 
 // LoadConfigBytes is LoadConfig for a config.json that is already in memory.
@@ -145,10 +152,15 @@ func (cfg Config) validate() error {
 	return nil
 }
 
-// Load reads the text encoder from an HF checkpoint directory (config.json + model.safetensors). The vision and audio
-// tensors in the same file are not read.
+// Load reads the text encoder from a checkpoint directory (config.json and model.safetensors).
+// It accepts dense HF weights and MLX affine 8-bit weights with 64-element groups.
+// MLX weights are reconstructed as FP32. Vision and audio tensors are ignored.
 func Load(dir string) (*Model, error) {
-	cfg, err := LoadConfig(dir)
+	cfg, raw, err := readConfig(dir)
+	if err != nil {
+		return nil, err
+	}
+	mlx, err := mlxAffine8Config(raw)
 	if err != nil {
 		return nil, err
 	}
@@ -158,14 +170,18 @@ func Load(dir string) (*Model, error) {
 	}
 	defer st.Close()
 	get := func(name string, shape ...int) ([]float32, error) {
-		v, err := st.TensorF32("language_model."+name, shape...)
+		key := "language_model." + name
+		if mlx {
+			return readMLXAffine8(st, key, shape)
+		}
+		v, err := st.TensorF32(key, shape...)
 		if err != nil {
 			return nil, fmt.Errorf("embeddinggemma2: %s: %w", name, err)
 		}
 		// An F32 tensor comes back aliasing the mapping, which Close unmaps; own a copy.
 		return append([]float32(nil), v...), nil
 	}
-	m := &Model{cfg: cfg, layers: make([]layer, cfg.Layers)}
+	m := &Model{cfg: cfg, mlxAffine8: mlx, layers: make([]layer, cfg.Layers)}
 	if m.embed, err = get("embed_tokens.weight", cfg.VocabSize, cfg.Hidden); err != nil {
 		return nil, err
 	}

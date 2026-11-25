@@ -35,6 +35,9 @@ func (e *Encoder) EnableAudio() error {
 	if e.dir == "" {
 		return fmt.Errorf("embeddinggemma2: the encoder was not loaded from a directory")
 	}
+	if e.m.mlxAffine8 {
+		return fmt.Errorf("embeddinggemma2: MLX affine checkpoints support text only")
+	}
 	raw, err := os.ReadFile(filepath.Join(e.dir, "config.json"))
 	if err != nil {
 		return fmt.Errorf("embeddinggemma2: %w", err)

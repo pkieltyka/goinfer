@@ -337,6 +337,7 @@
       "internal/app/chatapp"
     ],
     "embeddinggemma2": [
+      "decoder/quant",
       "internal/audio",
       "internal/cudaid",
       "internal/gguf",
