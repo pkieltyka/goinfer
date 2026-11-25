@@ -82,7 +82,7 @@ var embeddingGemma2Bundles = []embeddingGemma2Bundle{
 	embeddingGemma2GGUF("bf16", File{Path: "embeddinggemma-2-BF16.gguf", Size: 557950240, SHA256: "f315cbbb30dd487e44d501c8902abe88808755e43753a96beed1964f0a48aa4f"}),
 	embeddingGemma2GGUF("f16", File{Path: "embeddinggemma-2-F16.gguf", Size: 557950240, SHA256: "0d4350867eddbb94af485501a3d07e9374c47779d88f8a39cd1abd6a8e2d0901"}),
 	embeddingGemma2GGUF("q8_0", File{Path: "embeddinggemma-2-Q8_0.gguf", Size: 309855520, SHA256: "6f1bd4ac6c5df7444f9cca7ca36cafe6cfa34cd6f49fefb1e0b4be8143aed8bc"}, "cpu", "cuda", "metal", "vulkan"),
-	embeddingGemma2GGUF("ud-q6_k_xl", File{Path: "embeddinggemma-2-UD-Q6_K_XL.gguf", Size: 248812032, SHA256: "dc84f042bc3ffbe6122b3b38b2fb299d66f5f37b276c9d458db85d4a4f1e6ba3"}, "cpu", "cuda", "vulkan"),
+	embeddingGemma2GGUF("ud-q6_k_xl", File{Path: "embeddinggemma-2-UD-Q6_K_XL.gguf", Size: 248812032, SHA256: "dc84f042bc3ffbe6122b3b38b2fb299d66f5f37b276c9d458db85d4a4f1e6ba3"}, "cpu", "cuda", "metal", "vulkan"),
 	embeddingGemma2GGUF("ud-q5_k_xl", File{Path: "embeddinggemma-2-UD-Q5_K_XL.gguf", Size: 210055680, SHA256: "a9d7a3b7eb421113f05e964e10882676f10fff83811b7876d5bb983db7c7ac41"}),
 	embeddingGemma2GGUF("ud-q4_k_xl", File{Path: "embeddinggemma-2-UD-Q4_K_XL.gguf", Size: 175673856, SHA256: "ea905fd08e8061db77a0031cbb5096d459d7cfd2bdd0ad2ba66e483f16719493"}),
 }

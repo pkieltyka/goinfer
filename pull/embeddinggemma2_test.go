@@ -121,7 +121,7 @@ func TestEmbeddingGemma2Models(t *testing.T) {
 				t.Errorf("checkpoint row: %+v", model)
 			}
 		case "q8_0", "ud-q6_k_xl":
-			if model.Format != "gguf" || !slices.Contains(model.QualifiedBackends, "cpu") {
+			if model.Format != "gguf" || !slices.Equal(model.QualifiedBackends, []string{"cpu", "cuda", "metal", "vulkan"}) {
 				t.Errorf("qualified GGUF row: %+v", model)
 			}
 		default:
