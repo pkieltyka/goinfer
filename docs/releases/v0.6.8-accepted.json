@@ -1,0 +1,59 @@
+{
+  "schema": 1,
+  "release": "v0.6.8",
+  "scope": [
+    "root",
+    "backend/cuda",
+    "backend/vulkan",
+    "backend/metal"
+  ],
+  "source_commit": "246a24006b6530be343d6390aa063e7f1fc92c48",
+  "decision": "On November 24, 2026 Peter approved publishing v0.6.8 with targeted Apple M4 qualification, source CI and module and asset verification. The full CUDA and Metal device suites, broad parity sweep, Linux and Darwin full suites, and previous-tag cold-user run are deferred.",
+  "accepted_by": "Peter",
+  "accepted_on": "2026-11-24",
+  "required": [
+    "source CI",
+    "staged canonical root and standalone checks for CUDA, Vulkan and Metal",
+    "public Go proxy and checksum database checks for all four modules",
+    "release asset and checksum verification"
+  ],
+  "accepted": [],
+  "owner_decisions": [
+    {
+      "row": 3,
+      "gate": "Previous-tag cold-user run",
+      "item": "Published v0.6.7 cold-user qualification",
+      "candidate_record": null,
+      "evidence": "See docs/releases/v0.6.8-verification.md for targeted checks and release scope.",
+      "accepted_by": "Peter",
+      "accepted_on": "2026-11-24"
+    },
+    {
+      "row": 4,
+      "gate": "Full CUDA and Metal device suites",
+      "item": "Full device qualification on both backends",
+      "candidate_record": null,
+      "evidence": "See docs/releases/v0.6.8-verification.md for targeted checks and release scope.",
+      "accepted_by": "Peter",
+      "accepted_on": "2026-11-24"
+    },
+    {
+      "row": 11,
+      "gate": "Broad parity sweep",
+      "item": "Full parity qualification",
+      "candidate_record": null,
+      "evidence": "See docs/releases/v0.6.8-verification.md for targeted checks and release scope.",
+      "accepted_by": "Peter",
+      "accepted_on": "2026-11-24"
+    },
+    {
+      "row": 12,
+      "gate": "Linux and Darwin full suites",
+      "item": "Both quick -full runs",
+      "candidate_record": null,
+      "evidence": "See docs/releases/v0.6.8-verification.md for targeted checks and release scope.",
+      "accepted_by": "Peter",
+      "accepted_on": "2026-11-24"
+    }
+  ]
+}
