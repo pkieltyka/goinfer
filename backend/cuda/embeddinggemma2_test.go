@@ -30,7 +30,6 @@ import (
 	"github.com/eitamring/gocudrv/cudasys"
 	gpu "github.com/pkieltyka/goinfer/backend/cuda/internal/gpudev"
 	"github.com/pkieltyka/goinfer/embeddinggemma2"
-	coreembed "github.com/pkieltyka/goinfer/internal/modelcore/embed"
 	"github.com/pkieltyka/goinfer/tokenizer"
 )
 
@@ -1425,14 +1424,9 @@ func TestEG2GGUFCUDA(t *testing.T) {
 	}
 	for _, model := range files {
 		t.Run(model.suffix, func(t *testing.T) {
-			path := filepath.Join(*eg2GGUFDir, "embeddinggemma-2-"+model.suffix+".gguf")
-			verifyEG2GGUFHash(t, path, model.digest)
-			enc, err := embeddinggemma2.LoadGGUFEncoder(path, map[string]string{
+			enc := loadEG2TestGGUFEncoder(t, model.suffix, model.digest, map[string]string{
 				"query": "task: search result | query: ",
 			})
-			if err != nil {
-				t.Fatal(err)
-			}
 			query, err := enc.Tokenize("Where is the index stored?", "query")
 			if err != nil {
 				t.Fatal(err)
@@ -1477,6 +1471,17 @@ func TestEG2GGUFCUDA(t *testing.T) {
 			checkEG2GGUFVector(t, single, cpu[0])
 		})
 	}
+}
+
+func loadEG2TestGGUFEncoder(t *testing.T, suffix, digest string, prompts map[string]string) *embeddinggemma2.Encoder {
+	t.Helper()
+	path := filepath.Join(*eg2GGUFDir, "embeddinggemma-2-"+suffix+".gguf")
+	verifyEG2GGUFHash(t, path, digest)
+	enc, err := embeddinggemma2.LoadGGUFEncoder(path, prompts)
+	if err != nil {
+		t.Fatal(err)
+	}
+	return enc
 }
 
 func verifyEG2GGUFHash(t *testing.T, path, want string) {
@@ -4732,12 +4737,7 @@ func TestEG2SM120Native(t *testing.T) {
 	if !slices.Contains(embeddinggemma2.Accelerators(), eg2FP16Selector) || len(eg2FFNSM120) == 0 || len(eg2PackedSM120) == 0 || len(eg2FusionSM120) == 0 {
 		t.Fatal("link cuda eg2_combined eg2_fp16 for the native proof")
 	}
-	path := filepath.Join(*eg2GGUFDir, "embeddinggemma-2-Q8_0.gguf")
-	verifyEG2GGUFHash(t, path, "6f1bd4ac6c5df7444f9cca7ca36cafe6cfa34cd6f49fefb1e0b4be8143aed8bc")
-	enc, err := embeddinggemma2.LoadGGUFEncoder(path, nil)
-	if err != nil {
-		t.Fatal(err)
-	}
+	enc := loadEG2TestGGUFEncoder(t, "Q8_0", "6f1bd4ac6c5df7444f9cca7ca36cafe6cfa34cd6f49fefb1e0b4be8143aed8bc", nil)
 	tokens := [][]int{eg2GGUFIDs(11), eg2GGUFIDs(2042), eg2GGUFIDs(166)}
 	for _, tc := range []struct {
 		selector string
@@ -4862,7 +4862,7 @@ func eg2SM120CompareRows(t *testing.T, got, want [][]float32) {
 		for _, width := range []int{768, 512} {
 			x, y := got[i], want[i]
 			if width == 512 {
-				x, y = coreembed.Truncate(x, width), coreembed.Truncate(y, width)
+				x, y = eg2PoolNorm(x, 1, len(x), width), eg2PoolNorm(y, 1, len(y), width)
 			}
 			for j := range x {
 				if math.Float32bits(x[j]) != math.Float32bits(y[j]) {
