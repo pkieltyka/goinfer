@@ -1164,7 +1164,7 @@ Every import from one goinfer package to another, by repository-relative directo
 | `decoder/quant` | `internal/modelcore/embed` |  |
 | `decoder/resident` | `internal/cost`, `internal/modelcore/linalg`, `internal/runtime/adapter` |  |
 | `demo/chat` | `internal/app/chatapp` |  |
-| `embeddinggemma2` | `internal/audio`, `internal/cudaid`, `internal/gguf`, `internal/modelcore/embed`, `internal/modelcore/linalg`, `internal/vision`, `multimodal`, `tokenizer` |  |
+| `embeddinggemma2` | `decoder/quant`, `internal/audio`, `internal/cudaid`, `internal/gguf`, `internal/modelcore/embed`, `internal/modelcore/linalg`, `internal/vision`, `multimodal`, `tokenizer` |  |
 | `engine` | `constrain`, `decoder`, `internal/cost` |  |
 | `engine/enginetest` | `engine` |  |
 | `internal/app/chatapp` | `chat`, `constrain`, `decoder`, `internal/app/cliutil`, `internal/app/decidecmd`, `internal/app/fitcmd`, `internal/app/loadflags`, `internal/app/pullcmd`, `internal/batchio`, `internal/codec`, `internal/diag/hwreport`, `internal/runtime/giw`, `internal/runtime/modelload`, `internal/runtime/prequant`, `internal/vision`, `multimodal`, `pull`, `tokenizer` |  |
