@@ -196,7 +196,8 @@
       "tokenizer"
     ],
     "apps/examples/embeddinggemma2": [
-      "embeddinggemma2"
+      "embeddinggemma2",
+      "pull"
     ],
     "apps/examples/invoice": [
       "chat",
