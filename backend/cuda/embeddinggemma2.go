@@ -343,7 +343,12 @@ func newEG2AccelWithFFN(m *embeddinggemma2.Model, combined bool, fp16PTX []byte,
 	return newEG2AccelConfigured(m, combined, fp16PTX, nil, nil, open)
 }
 
-func newEG2AccelConfigured(m *embeddinggemma2.Model, combined bool, fp16PTX, packedAttnPTX, fusionPTX []byte, open func() (*Device, error)) (_ *eg2Accel, err error) {
+func newEG2AccelConfigured(m *embeddinggemma2.Model, combined bool, fp16PTX, packedAttnPTX, fusionPTX []byte, open func() (*Device, error)) (*eg2Accel, error) {
+	return newEG2AccelWithLoader(m, combined, fp16PTX, packedAttnPTX, fusionPTX, open, eg2SM120Loader)
+}
+
+func newEG2AccelWithLoader(m *embeddinggemma2.Model, combined bool, fp16PTX, packedAttnPTX, fusionPTX []byte, open func() (*Device, error),
+	moduleLoader func(cudaModuleCompile, embeddinggemma2.CUDAComputeCapability) towerModuleLoader) (_ *eg2Accel, err error) {
 	defer func() { err = classifyCUDAAttach(err) }()
 	if open == nil {
 		return nil, errors.New("cuda: EmbeddingGemma 2 nil device opener")
@@ -372,33 +377,37 @@ func newEG2AccelConfigured(m *embeddinggemma2.Model, combined bool, fp16PTX, pac
 	if cerr := drainPendingEG2CleanupLocked(); cerr != nil {
 		return nil, fmt.Errorf("cuda: EmbeddingGemma 2 previous failed attach cleanup still pending: %w", cerr)
 	}
-	ops, err := newTowerOpsOnUnclosed(open, maxN)
+	var identity embeddinggemma2.DeviceInfo
+	var capabilityErr error
+	ops, err := newTowerOpsOnUnclosed(open, maxN, func(dev *Device) towerModuleLoader {
+		adapter, queryErr := gpu.AttachedAdapter(dev)
+		identity, capabilityErr = cudaDeviceInfo(adapter), queryErr
+		return moduleLoader(dev.CompileLibrary, identity.ComputeCapability)
+	})
 	if err != nil {
 		if cerr := retireEG2AttachLocked(ops); cerr != nil {
 			return nil, errors.Join(err, cerr)
 		}
 		return nil, err
 	}
-	a := &eg2Accel{ops: ops, cfg: c, model: m}
+	a := &eg2Accel{ops: ops, cfg: c, model: m, identity: identity}
 	if err := ops.do(func() error {
 		if len(fusionPTX) != 0 {
-			fusions, err := loadEG2Fusions(ops.dev, fusionPTX)
+			fusions, err := loadEG2Fusions(ops, fusionPTX)
 			if err != nil {
 				return err
 			}
 			a.fusions = fusions
 		}
-		adapter, capabilityErr := gpu.AttachedAdapter(ops.dev)
-		a.identity = cudaDeviceInfo(adapter)
 		if len(fp16PTX) != 0 {
-			projection, gate, err := eg2FP16Pipelines(ops.dev, fp16PTX, a.fusions != nil, a.identity.ComputeCapability, capabilityErr)
+			projection, gate, err := eg2FP16Pipelines(ops, fp16PTX, a.fusions != nil, a.identity.ComputeCapability, capabilityErr)
 			if err != nil {
 				return err
 			}
 			a.ffnFP16, a.ffnGateEpilogue = projection, gate
 		}
 		if len(packedAttnPTX) != 0 {
-			lib, err := ops.dev.CompileLibrary(packedAttnPTX)
+			lib, err := ops.loadLibrary(eg2ModulePacked, packedAttnPTX)
 			if err != nil {
 				return fmt.Errorf("cuda: load EmbeddingGemma 2 packed attention: %w", err)
 			}
@@ -488,7 +497,7 @@ func (a *eg2Accel) loadTransposedAttention(optional bool) error {
 		return nil
 	}
 	if err := a.ops.do(func() error {
-		lib, err := a.ops.dev.CompileLibrary(eg2CombinedAttentionPTX)
+		lib, err := a.ops.loadLibrary(eg2ModuleTransposed, eg2CombinedAttentionPTX)
 		if err != nil {
 			if optional && eg2TransposedJITUnsupported(err) {
 				return nil
@@ -512,6 +521,11 @@ func (a *eg2Accel) loadTransposedAttention(optional bool) error {
 }
 
 func eg2TransposedJITUnsupported(err error) bool {
+	// Optional attention may only decline for the final PTX loader error.
+	// A rejected cubin must never hide an unrelated PTX failure.
+	if failure, ok := errors.AsType[*eg2ImageFallbackError](err); ok {
+		err = failure.ptx
+	}
 	return errors.Is(err, gc.ErrNoBinaryForGPU) || errors.Is(err, gc.ErrUnsupportedPTXVersion)
 }
 

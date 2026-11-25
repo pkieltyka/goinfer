@@ -217,7 +217,12 @@ type ViT struct {
 // NewViT loads ViTPTX on this device and builds every encoder pipeline. The module is
 // tracked by the Device, so ReleaseObjects frees it.
 func (d *Device) NewViT() (ViT, error) {
-	lib, err := d.CompileLibrary(ViTPTX)
+	return d.NewViTWithLoader(d.CompileLibrary)
+}
+
+// NewViTWithLoader binds the standard ViT functions using a caller's module loader.
+func (d *Device) NewViTWithLoader(load func([]byte) (Library, error)) (ViT, error) {
+	lib, err := load(ViTPTX)
 	if err != nil {
 		return ViT{}, fmt.Errorf("cuda: load ViT module: %w", err)
 	}

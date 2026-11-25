@@ -55,20 +55,20 @@ func requireEG2FP16Capability(capability embeddinggemma2.CUDAComputeCapability, 
 	return nil
 }
 
-func eg2FP16Pipelines(dev *Device, ptx []byte, fuseGate bool, capability embeddinggemma2.CUDAComputeCapability, capabilityErr error) (projection, gate Pipeline, err error) {
+func eg2FP16Pipelines(ops *towerOps, ptx []byte, fuseGate bool, capability embeddinggemma2.CUDAComputeCapability, capabilityErr error) (projection, gate Pipeline, err error) {
 	if err := requireEG2FP16Capability(capability, capabilityErr); err != nil {
 		return Pipeline{}, Pipeline{}, err
 	}
-	lib, err := dev.CompileLibrary(ptx)
+	lib, err := ops.loadLibrary(eg2ModuleFFN, ptx)
 	if err != nil {
 		return Pipeline{}, Pipeline{}, fmt.Errorf("cuda: load FP16 FFN: %w", err)
 	}
-	projection, err = dev.NewComputePipeline(lib, "eg2_ffn_fp16")
+	projection, err = ops.dev.NewComputePipeline(lib, "eg2_ffn_fp16")
 	if err != nil {
 		return Pipeline{}, Pipeline{}, err
 	}
 	if fuseGate {
-		gate, err = dev.NewComputePipeline(lib, "eg2_ffn_fp16_gate_epilogue")
+		gate, err = ops.dev.NewComputePipeline(lib, "eg2_ffn_fp16_gate_epilogue")
 		if err != nil {
 			return Pipeline{}, Pipeline{}, fmt.Errorf("cuda: load FP16 FFN gate epilogue: %w", err)
 		}

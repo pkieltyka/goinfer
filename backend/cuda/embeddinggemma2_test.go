@@ -4,6 +4,7 @@ package cuda
 
 import (
 	"bufio"
+	"bytes"
 	"crypto/sha256"
 	"encoding/binary"
 	"encoding/json"
@@ -1423,14 +1424,9 @@ func TestEG2GGUFCUDA(t *testing.T) {
 	}
 	for _, model := range files {
 		t.Run(model.suffix, func(t *testing.T) {
-			path := filepath.Join(*eg2GGUFDir, "embeddinggemma-2-"+model.suffix+".gguf")
-			verifyEG2GGUFHash(t, path, model.digest)
-			enc, err := embeddinggemma2.LoadGGUFEncoder(path, map[string]string{
+			enc := loadEG2TestGGUFEncoder(t, model.suffix, model.digest, map[string]string{
 				"query": "task: search result | query: ",
 			})
-			if err != nil {
-				t.Fatal(err)
-			}
 			query, err := enc.Tokenize("Where is the index stored?", "query")
 			if err != nil {
 				t.Fatal(err)
@@ -1475,6 +1471,17 @@ func TestEG2GGUFCUDA(t *testing.T) {
 			checkEG2GGUFVector(t, single, cpu[0])
 		})
 	}
+}
+
+func loadEG2TestGGUFEncoder(t *testing.T, suffix, digest string, prompts map[string]string) *embeddinggemma2.Encoder {
+	t.Helper()
+	path := filepath.Join(*eg2GGUFDir, "embeddinggemma-2-"+suffix+".gguf")
+	verifyEG2GGUFHash(t, path, digest)
+	enc, err := embeddinggemma2.LoadGGUFEncoder(path, prompts)
+	if err != nil {
+		t.Fatal(err)
+	}
+	return enc
 }
 
 func verifyEG2GGUFHash(t *testing.T, path, want string) {
@@ -4573,5 +4580,295 @@ func checkEG2Fusions(t *testing.T, m *embeddinggemma2.Model, inputs [][]int, kee
 			t.Logf("[%s] %d inputs, %d rows: raw and pooled bits match, kernel launches %d -> %d, D2D copies %d -> %d, allocations %d -> %d, tracked peak bytes %d -> %d",
 				arm.name, len(inputs), rows, ref.launches, fused.launches, ref.copies, fused.copies, ref.allocs, fused.allocs, ref.peak, fused.peak)
 		})
+	}
+}
+
+func TestEG2SM120Assets(t *testing.T) {
+	root := "testdata/eg2-sm120"
+	raw, err := os.ReadFile(filepath.Join(root, "manifest.json"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	var manifest struct {
+		Target  string
+		Modules []struct {
+			Unit      eg2Module
+			PTX       string
+			PTXSHA    string `json:"ptx_sha256"`
+			Cubin     string
+			CubinSHA  string `json:"cubin_sha256"`
+			CubinSize int    `json:"cubin_bytes"`
+		}
+	}
+	if err := json.Unmarshal(raw, &manifest); err != nil {
+		t.Fatal(err)
+	}
+	ptxModules := map[eg2Module][]byte{
+		eg2ModuleViT: gpu.ViTPTX, eg2ModuleBase: towerBasePTX,
+		eg2ModuleTransposed: eg2CombinedAttentionPTX, eg2ModuleFusion: eg2FusionsPTX,
+		eg2ModuleFFN: eg2FFNFP16PTX, eg2ModulePacked: eg2PackedAttnPTX,
+	}
+	if manifest.Target != "sm_120" || len(manifest.Modules) != len(ptxModules) {
+		t.Fatalf("invalid sm_120 asset inventory: %s, %d modules", manifest.Target, len(manifest.Modules))
+	}
+	for _, unit := range manifest.Modules {
+		embeddedPTX, found := ptxModules[unit.Unit]
+		if !found {
+			t.Fatalf("unknown or duplicate module %s", unit.Unit)
+		}
+		delete(ptxModules, unit.Unit)
+		ptx, err := os.ReadFile(unit.PTX)
+		if err != nil {
+			t.Fatal(err)
+		}
+		cubin, err := os.ReadFile(filepath.Join(root, unit.Cubin))
+		if err != nil {
+			t.Fatal(err)
+		}
+		linkedCubin, ptxSHA := eg2ModuleImage(unit.Unit)
+		if sum := fmt.Sprintf("%x", sha256.Sum256(ptx)); sum != unit.PTXSHA || sum != ptxSHA {
+			t.Fatalf("%s: stale PTX pin %s", unit.Unit, sum)
+		}
+		if len(cubin) != unit.CubinSize || fmt.Sprintf("%x", sha256.Sum256(cubin)) != unit.CubinSHA {
+			t.Fatalf("%s: cubin does not match its manifest", unit.Unit)
+		}
+		if (len(embeddedPTX) == 0) != (len(linkedCubin) == 0) ||
+			len(linkedCubin) != 0 && (!bytes.Equal(linkedCubin, cubin) || !bytes.Equal(embeddedPTX, ptx)) {
+			t.Fatalf("%s: incorrect linked assets", unit.Unit)
+		}
+	}
+}
+
+func TestEG2SM120ModuleLoad(t *testing.T) {
+	target := embeddinggemma2.CUDAComputeCapability{Major: 12, Minor: 0}
+	changed := append(slices.Clone(towerBasePTX), '\n')
+	other := errors.New("native driver failure")
+	for _, tt := range []struct {
+		name       string
+		capability embeddinggemma2.CUDAComputeCapability
+		unit       eg2Module
+		ptx        []byte
+		errors     []error
+		want       []error
+		useImage   bool
+		ptxOnly    bool
+	}{
+		{name: "sm120 image", capability: target, unit: eg2ModuleBase, ptx: towerBasePTX, errors: []error{nil}, useImage: true},
+		{name: "other sm major", capability: embeddinggemma2.CUDAComputeCapability{Major: 8}, unit: eg2ModuleBase, ptx: towerBasePTX, errors: []error{nil}},
+		{name: "other sm minor", capability: embeddinggemma2.CUDAComputeCapability{Major: 12, Minor: 1}, unit: eg2ModuleBase, ptx: towerBasePTX, errors: []error{nil}},
+		{name: "unknown capability", unit: eg2ModuleBase, ptx: towerBasePTX, errors: []error{nil}},
+		{name: "unregistered module", capability: target, unit: "unregistered", ptx: towerBasePTX, errors: []error{nil}},
+		{name: "unmatched PTX", capability: target, unit: eg2ModuleBase, ptx: changed, errors: []error{nil}},
+		{name: "non-EG2 shared loader", capability: target, unit: eg2ModuleViT, ptx: gpu.ViTPTX, errors: []error{nil}, ptxOnly: true},
+		{name: "invalid image retries PTX", capability: target, unit: eg2ModuleBase, ptx: towerBasePTX,
+			errors: []error{fmt.Errorf("driver module: %w", gc.ErrInvalidImage), nil}, useImage: true},
+		{name: "no binary retries PTX", capability: target, unit: eg2ModuleBase, ptx: towerBasePTX,
+			errors: []error{gc.ErrNoBinaryForGPU, nil}, useImage: true},
+		{name: "both failures retained", capability: target, unit: eg2ModuleTransposed, ptx: eg2CombinedAttentionPTX,
+			errors: []error{gc.ErrNoBinaryForGPU, gc.ErrOutOfMemory}, want: []error{gc.ErrNoBinaryForGPU, gc.ErrOutOfMemory}, useImage: true},
+		{name: "OOM does not retry", capability: target, unit: eg2ModuleBase, ptx: towerBasePTX,
+			errors: []error{gc.ErrOutOfMemory}, want: []error{gc.ErrOutOfMemory}, useImage: true},
+		{name: "context loss does not retry", capability: target, unit: eg2ModuleBase, ptx: towerBasePTX,
+			errors: []error{gc.ErrInvalidContext}, want: []error{gc.ErrInvalidContext}, useImage: true},
+		{name: "unrelated failure does not retry", capability: target, unit: eg2ModuleBase, ptx: towerBasePTX,
+			errors: []error{other}, want: []error{other}, useImage: true},
+	} {
+		t.Run(tt.name, func(t *testing.T) {
+			var calls int
+			compile := func(data []byte) (gpu.Library, error) {
+				if calls >= len(tt.errors) {
+					t.Fatalf("unexpected module load %d", calls+1)
+				}
+				expected := tt.ptx
+				if calls == 0 && tt.useImage {
+					expected, _ = eg2ModuleImage(tt.unit)
+				}
+				if len(expected) == 0 || !bytes.Equal(expected, data) {
+					t.Fatalf("wrong bytes at module load %d", calls+1)
+				}
+				err := tt.errors[calls]
+				calls++
+				return gpu.Library{}, err
+			}
+			loader := eg2SM120Loader(compile, tt.capability)
+			if tt.ptxOnly {
+				loader = towerPTXLoader(compile)
+			}
+			_, err := loader(tt.unit, tt.ptx)
+			if calls != len(tt.errors) || (err == nil) != (len(tt.want) == 0) {
+				t.Fatalf("%d calls, error %v", calls, err)
+			}
+			for _, cause := range tt.want {
+				if !errors.Is(err, cause) {
+					t.Errorf("error %v did not retain %v", err, cause)
+				}
+			}
+			if len(tt.want) == 2 && eg2TransposedJITUnsupported(err) {
+				t.Fatal("cubin rejection concealed terminal PTX OOM")
+			}
+		})
+	}
+	// The linked FP16 image is optional; a cuda-only build must load its input unchanged.
+	if image, _ := eg2ModuleImage(eg2ModuleFFN); len(image) == 0 {
+		calls := 0
+		ptx := []byte("optional PTX")
+		_, err := eg2SM120Loader(func(data []byte) (gpu.Library, error) {
+			calls++
+			if !bytes.Equal(data, ptx) {
+				t.Fatal("missing optional image changed the input bytes")
+			}
+			return gpu.Library{}, nil
+		}, target)(eg2ModuleFFN, ptx)
+		if err != nil || calls != 1 {
+			t.Fatalf("missing optional image: %d calls, %v", calls, err)
+		}
+	}
+	if !eg2TransposedJITUnsupported(&eg2ImageFallbackError{image: gc.ErrInvalidImage, ptx: gc.ErrUnsupportedPTXVersion}) {
+		t.Fatal("optional PTX unsupported outcome was lost after fallback")
+	}
+}
+
+var eg2SM120TestDevice = flag.String("eg2-sm120-device", "", "exact cuda:UUID for the EG2 sm_120 module proof")
+
+func TestEG2SM120Native(t *testing.T) {
+	if *eg2SM120TestDevice == "" || *eg2GGUFDir == "" {
+		t.Skip("set -eg2-sm120-device and -eg2-gguf-dir for the CUDA device proof")
+	}
+	if !slices.Contains(embeddinggemma2.Accelerators(), eg2FP16Selector) || len(eg2FFNSM120) == 0 || len(eg2PackedSM120) == 0 || len(eg2FusionSM120) == 0 {
+		t.Fatal("link cuda eg2_combined eg2_fp16 for the native proof")
+	}
+	enc := loadEG2TestGGUFEncoder(t, "Q8_0", "6f1bd4ac6c5df7444f9cca7ca36cafe6cfa34cd6f49fefb1e0b4be8143aed8bc", nil)
+	tokens := [][]int{eg2GGUFIDs(11), eg2GGUFIDs(2042), eg2GGUFIDs(166)}
+	for _, tc := range []struct {
+		selector string
+		units    []eg2Module
+	}{
+		{"cuda", []eg2Module{eg2ModuleViT, eg2ModuleBase, eg2ModuleTransposed}},
+		{eg2FP16Selector, []eg2Module{eg2ModuleViT, eg2ModuleBase, eg2ModuleFusion, eg2ModuleFFN, eg2ModulePacked}},
+	} {
+		t.Run(tc.selector, func(t *testing.T) {
+			fp16 := tc.selector == eg2FP16Selector
+			attach := func(loader func(cudaModuleCompile, embeddinggemma2.CUDAComputeCapability) towerModuleLoader) eg2Attacher {
+				return func(m *embeddinggemma2.Model, open func() (*Device, error)) (*eg2Accel, error) {
+					if fp16 {
+						return newEG2AccelWithLoader(m, true, eg2FFNFP16PTX, eg2PackedAttnPTX, eg2FusionsPTX, open, loader)
+					}
+					return newEG2AccelWithLoader(m, false, nil, nil, nil, open, loader)
+				}
+			}
+			var loaded []eg2Module
+			traceLoader := func(compile cudaModuleCompile, cc embeddinggemma2.CUDAComputeCapability) towerModuleLoader {
+				return func(unit eg2Module, ptx []byte) (gpu.Library, error) {
+					load := eg2SM120Loader(func(data []byte) (gpu.Library, error) {
+						image, _ := eg2ModuleImage(unit)
+						if len(image) == 0 || !bytes.Equal(image, data) {
+							return gpu.Library{}, fmt.Errorf("native proof did not pass the embedded %s cubin to CUDA", unit)
+						}
+						lib, err := compile(data)
+						if err == nil {
+							loaded = append(loaded, unit)
+						}
+						return lib, err
+					}, cc)
+					return load(unit, ptx)
+				}
+			}
+			imageProof, ptxProof := tc.selector+"-image-proof", tc.selector+"-ptx-proof"
+			embeddinggemma2.RegisterDeviceAccelerator(imageProof, "cuda", selectedEG2FactoryOn(attach(traceLoader)))
+			embeddinggemma2.RegisterDeviceAccelerator(ptxProof, "cuda", selectedEG2FactoryOn(attach(
+				func(compile cudaModuleCompile, _ embeddinggemma2.CUDAComputeCapability) towerModuleLoader {
+					return towerPTXLoader(compile)
+				})))
+			imageRows := eg2SM120NativeRows(t, enc, imageProof, tokens)
+			if !slices.Equal(loaded, tc.units) {
+				t.Fatalf("successful native loads %v, want %v", loaded, tc.units)
+			}
+			t.Logf("native image loads %v (%d), no fallback", loaded, len(loaded))
+			publicRows := eg2SM120NativeRows(t, enc, tc.selector, tokens)
+			ptxRows := eg2SM120NativeRows(t, enc, ptxProof, tokens)
+			eg2SM120CompareRows(t, publicRows, ptxRows)
+			eg2SM120CompareRows(t, imageRows, publicRows)
+			t.Logf("exact 768 and normalized 512 words through %s and same-selector PTX", tc.selector)
+		})
+	}
+}
+
+func eg2SM120NativeRows(t *testing.T, enc *embeddinggemma2.Encoder, selector string, ids [][]int) [][]float32 {
+	t.Helper()
+	acc, err := enc.UseDevice(*eg2SM120TestDevice, selector)
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer func() {
+		if err := acc.Close(); err != nil {
+			t.Error(err)
+		}
+	}()
+	if got := acc.(embeddinggemma2.AttachedDeviceReporter).AttachedDevice(); got.ID != *eg2SM120TestDevice ||
+		got.ComputeCapability != (embeddinggemma2.CUDAComputeCapability{Major: 12, Minor: 0}) {
+		t.Fatalf("wrong CUDA proof device: %+v", got)
+	}
+	fit := func(batch [][]int) {
+		lengths := make([]int, len(batch))
+		for i, ids := range batch {
+			lengths[i] = len(ids)
+		}
+		plan, err := enc.BatchMemory(lengths)
+		if err != nil {
+			t.Fatal(err)
+		}
+		memory, err := acc.(embeddinggemma2.DeviceMemoryReporter).DeviceMemory()
+		if err != nil || plan.Quality == embeddinggemma2.BatchMemoryUnknown || plan.AdditionalPeakBytes > memory.AvailableBytes {
+			t.Fatalf("cannot fit %v: plan %+v, memory %+v, %v", lengths, plan, memory, err)
+		}
+		t.Logf("%s fit %v resident=%d additional=%d free=%d", selector, lengths, plan.ResidentWeightBytes, plan.AdditionalPeakBytes, memory.AvailableBytes)
+	}
+	batch := func(ids [][]int) [][]float32 {
+		fit(ids)
+		v, err := enc.EmbedIDsBatch(ids)
+		if err != nil {
+			t.Fatal(err)
+		}
+		return v
+	}
+	single := make([][]float32, len(ids))
+	for i, input := range ids {
+		fit(ids[i : i+1])
+		single[i], err = enc.EmbedIDs(input)
+		if err != nil {
+			t.Fatal(err)
+		}
+	}
+	packed := batch(ids)
+	eg2SM120CompareRows(t, packed, single)
+	eg2SM120CompareRows(t, packed, append(batch(ids[:2]), batch(ids[2:])...))
+	reversed := slices.Clone(ids)
+	slices.Reverse(reversed)
+	reverseRows := batch(reversed)
+	slices.Reverse(reverseRows)
+	eg2SM120CompareRows(t, packed, reverseRows)
+	return packed
+}
+
+func eg2SM120CompareRows(t *testing.T, got, want [][]float32) {
+	t.Helper()
+	if len(got) != len(want) {
+		t.Fatalf("row counts %d and %d", len(got), len(want))
+	}
+	for i := range got {
+		if len(got[i]) != 768 || len(want[i]) != 768 || !eg2Finite(got[i]) || !eg2Finite(want[i]) {
+			t.Fatalf("row %d: expected two finite 768-wide vectors", i)
+		}
+		for _, width := range []int{768, 512} {
+			x, y := got[i], want[i]
+			if width == 512 {
+				x, y = eg2PoolNorm(x, 1, len(x), width), eg2PoolNorm(y, 1, len(y), width)
+			}
+			for j := range x {
+				if math.Float32bits(x[j]) != math.Float32bits(y[j]) {
+					t.Fatalf("row %d width %d coordinate %d: %08x != %08x", i, width, j, math.Float32bits(x[j]), math.Float32bits(y[j]))
+				}
+			}
+		}
 	}
 }
