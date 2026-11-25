@@ -1,15 +1,18 @@
 // Command embeddinggemma2 ranks Markdown documents by embedding similarity.
 //
 //	go run ./apps/examples/embeddinggemma2 <checkpoint-dir> <query> <doc.md> [doc.md ...]
+//	go run ./apps/examples/embeddinggemma2 --download <variant>
 package main
 
 import (
+	"context"
 	"fmt"
 	"os"
 	"slices"
 	"strings"
 
 	"github.com/pkieltyka/goinfer/embeddinggemma2"
+	"github.com/pkieltyka/goinfer/pull"
 )
 
 type match struct {
@@ -18,14 +21,29 @@ type match struct {
 }
 
 func main() {
-	if len(os.Args) < 4 {
-		fmt.Fprintln(os.Stderr, "usage: embeddinggemma2 <checkpoint-dir> <query> <doc.md> [doc.md ...]")
+	var err error
+	switch {
+	case len(os.Args) == 3 && os.Args[1] == "--download":
+		err = download(os.Args[2])
+	case len(os.Args) >= 4:
+		err = rank(os.Args[1], os.Args[2], os.Args[3:])
+	default:
+		fmt.Fprintln(os.Stderr, "usage: embeddinggemma2 --download <variant> or embeddinggemma2 <checkpoint-dir> <query> <doc.md> [doc.md ...]")
 		os.Exit(2)
 	}
-	if err := rank(os.Args[1], os.Args[2], os.Args[3:]); err != nil {
+	if err != nil {
 		fmt.Fprintln(os.Stderr, err)
 		os.Exit(1)
 	}
+}
+
+func download(variant string) error {
+	path, err := pull.DownloadEmbeddingGemma2(context.Background(), variant, nil)
+	if err != nil {
+		return err
+	}
+	fmt.Println(path)
+	return nil
 }
 
 func rank(checkpoint, query string, documents []string) error {

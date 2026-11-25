@@ -441,53 +441,30 @@ checkpoint. Both return the same verified cache directory. This checkpoint
 supports text embeddings. The loader reconstructs the affine 8-bit weights as
 FP32 for the Go CPU and Metal text graph. [Pinned MLX Community checkpoint](https://huggingface.co/mlx-community/embeddinggemma-2-8bit/tree/7505ef2f8ddef45efef6d060865f27989b3c9cec)
 
-On Apple Silicon, link the Metal module and select `metal` explicitly. This
-program also accepts `-device cpu` to use the CPU path.
+The [EmbeddingGemma 2 example](../apps/examples/embeddinggemma2/main.go)
+can download a catalog variant and print its local path.
 
 ```go
-package main
-
-import (
-    "context"
-    "flag"
-    "fmt"
-    "log"
-
-    _ "github.com/pkieltyka/goinfer/backend/metal"
-    "github.com/pkieltyka/goinfer/embeddinggemma2"
-    "github.com/pkieltyka/goinfer/pull"
-)
-
-func main() {
-    device := flag.String("device", "metal", "embedding accelerator or cpu")
-    flag.Parse()
-    dir, err := pull.DownloadEmbeddingGemma2(context.Background(), "mlx-8bit", nil)
-    if err != nil {
-        log.Fatal(err)
-    }
-    enc, err := embeddinggemma2.LoadEncoder(dir)
-    if err != nil {
-        log.Fatal(err)
-    }
-    if *device != "cpu" {
-        accelerator, err := enc.UseAccelerator(*device)
-        if err != nil {
-            log.Fatal(err)
-        }
-        defer accelerator.Close()
-    }
-    vector, err := enc.Encode("How do I look up a cached model?", true)
-    if err != nil {
-        log.Fatal(err)
-    }
-    fmt.Printf("%s: %d-dimensional embedding\n", dir, len(vector))
+func download(variant string) error {
+	path, err := pull.DownloadEmbeddingGemma2(context.Background(), variant, nil)
+	if err != nil {
+		return err
+	}
+	fmt.Println(path)
+	return nil
 }
 ```
 
-To serve the pinned copy, set `EG2_MLX_DIR` to the directory returned by the
-downloader and run this command from the repository's Go workspace.
+In a Go application, pass that path to `embeddinggemma2.LoadEncoder`. Link
+`github.com/pkieltyka/goinfer/backend/metal` on Apple Silicon and call
+`enc.UseAccelerator("metal")` to require Metal. Close the returned accelerator
+when finished. To run on the CPU, use the encoder directly after loading.
+
+To download and serve the pinned copy on Apple Silicon, run these commands
+from the repository's Go workspace.
 
 ```sh
+EG2_MLX_DIR=$(go run ./apps/examples/embeddinggemma2 --download mlx-8bit)
 CGO_ENABLED=0 go run ./backend/metal/cmd/serve --embed-model "$EG2_MLX_DIR" --backend metal --require-backend
 ```
 
