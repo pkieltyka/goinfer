@@ -1,0 +1,63 @@
+{
+  "compiler": "ptxas-12.9.86",
+  "wheel_name": "nvidia_cuda_nvcc_cu12-12.9.86-py3-none-manylinux2010_x86_64.manylinux_2_12_x86_64.whl",
+  "wheel_sha256": "5d6a0d32fdc7ea39917c20065614ae93add6f577d840233237ff08e9a38f58f0",
+  "ptxas_member": "nvidia/cuda_nvcc/bin/ptxas",
+  "ptxas_sha256": "983b0e9283855979f42cebfd80d43f9b6e786eb84f03f7570bf941c4d3a3c461",
+  "ptxas_flags": [
+    "-arch=sm_120",
+    "-O3",
+    "-v"
+  ],
+  "target": "sm_120",
+  "modules": [
+    {
+      "unit": "vit",
+      "ptx": "internal/gpudev/testdata/vit.ptx",
+      "ptx_sha256": "6b2f57e7360a574530e90e5c137975af6bf918e921fbbdfbb659430415f43b8d",
+      "cubin": "vit.sm120.cubin",
+      "cubin_sha256": "615d6a7738f404f83f9480ebbc19023b030989f0e3aa6f2b99c3c3228f37449b",
+      "cubin_bytes": 483184
+    },
+    {
+      "unit": "base",
+      "ptx": "testdata/tower_base.ptx",
+      "ptx_sha256": "7ee3fdb069e37cd3a1f00364ac1ae8ade5f346de1af92f91ce51d7e51904c4c6",
+      "cubin": "base.sm120.cubin",
+      "cubin_sha256": "55f647fb589b54f3f917a1894158475331c2d21efeecc15f8439aa5673d4a9b1",
+      "cubin_bytes": 171304
+    },
+    {
+      "unit": "transposed",
+      "ptx": "testdata/eg2_transposed_experiment.ptx",
+      "ptx_sha256": "b965898a6eed3233e7cef13298e8d29517d9efbd6e50d2b7faffdda6cfa181a4",
+      "cubin": "transposed.sm120.cubin",
+      "cubin_sha256": "1b61c884935704fdcdc19075134f6f0232e400af0355b1881fd37851f6b6814f",
+      "cubin_bytes": 31440
+    },
+    {
+      "unit": "fusion",
+      "ptx": "testdata/eg2_fusions.ptx",
+      "ptx_sha256": "446e34045eeafac5e229894d90f429379d0d4c8c1768c56515e1ae6210198c62",
+      "cubin": "fusion.sm120.cubin",
+      "cubin_sha256": "93693f491ba1483c6969d5bab67845e7645aa03627e7604c2b1a541fac55c714",
+      "cubin_bytes": 21176
+    },
+    {
+      "unit": "ffn",
+      "ptx": "testdata/eg2_ffn_fp16.ptx",
+      "ptx_sha256": "4211568d2b58019d7375bbec6a6e4f2560f2640a4d4808929bbfde352ccdd358",
+      "cubin": "ffn.sm120.cubin",
+      "cubin_sha256": "91dc9d7b53111a8c0ad9575c3067f29225b782fce24a40e591c2cedf8c0948a0",
+      "cubin_bytes": 113056
+    },
+    {
+      "unit": "packed",
+      "ptx": "testdata/eg2_packed_attn.ptx",
+      "ptx_sha256": "d0ea4dac4c894d51c7df5e5632c69a7303a1b99dfb41e63d2d24ac3412ec01fa",
+      "cubin": "packed.sm120.cubin",
+      "cubin_sha256": "26f456727fdcda465cc31f3f3846e33ae281eb29913fab881acd4186e363d7d4",
+      "cubin_bytes": 567232
+    }
+  ]
+}

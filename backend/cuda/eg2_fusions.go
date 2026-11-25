@@ -15,16 +15,16 @@ type eg2Fusions struct {
 
 var eg2FusionsPTX []byte
 
-func loadEG2Fusions(dev *Device, ptx []byte) (*eg2Fusions, error) {
-	lib, err := dev.CompileLibrary(ptx)
+func loadEG2Fusions(ops *towerOps, ptx []byte) (*eg2Fusions, error) {
+	lib, err := ops.loadLibrary(eg2ModuleFusion, ptx)
 	if err != nil {
 		return nil, fmt.Errorf("cuda: load EmbeddingGemma 2 activation fusions: %w", err)
 	}
-	ffn, err := dev.NewComputePipeline(lib, "eg2_gelu_mul")
+	ffn, err := ops.dev.NewComputePipeline(lib, "eg2_gelu_mul")
 	if err != nil {
 		return nil, err
 	}
-	ple, err := dev.NewComputePipeline(lib, "eg2_gelu_mul_ple")
+	ple, err := ops.dev.NewComputePipeline(lib, "eg2_gelu_mul_ple")
 	if err != nil {
 		return nil, err
 	}

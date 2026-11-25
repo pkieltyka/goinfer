@@ -7,4 +7,10 @@ import _ "embed"
 //go:embed testdata/eg2_fusions.ptx
 var embeddedEG2FusionsPTX []byte
 
-func init() { eg2FusionsPTX = embeddedEG2FusionsPTX }
+//go:embed testdata/eg2-sm120/fusion.sm120.cubin
+var embeddedEG2FusionSM120 []byte
+
+func init() {
+	eg2FusionsPTX = embeddedEG2FusionsPTX
+	eg2FusionSM120 = embeddedEG2FusionSM120
+}

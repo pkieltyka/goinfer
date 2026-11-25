@@ -27,6 +27,8 @@ type towerOps struct {
 	q   Queue
 	vit gpu.ViT
 
+	loadLibrary towerModuleLoader
+
 	posAdd, clamp, clampCopy, ropeAxial, ropeHalf, mul, scale Pipeline
 
 	zeroBias Buffer // zeros, as long as the widest bias-free projection: lets gemm run the register-blocked bias kernel at any M
@@ -48,7 +50,7 @@ func newTowerOps(maxN int) (*towerOps, error) {
 
 // newTowerOpsOn creates towerOps using an explicit non-nil device opener on the executor goroutine.
 func newTowerOpsOn(open func() (*Device, error), maxN int) (t *towerOps, err error) {
-	t, err = newTowerOpsOnUnclosed(open, maxN)
+	t, err = newTowerOpsOnUnclosed(open, maxN, nil)
 	if err != nil {
 		if t != nil {
 			t.close()
@@ -61,7 +63,7 @@ func newTowerOpsOn(open func() (*Device, error), maxN int) (t *towerOps, err err
 // newTowerOpsOnUnclosed builds towerOps without running unchecked t.close() on
 // failure, returning the partial *towerOps alongside the error so EG2's
 // serialized attach path owns checked rollback.
-func newTowerOpsOnUnclosed(open func() (*Device, error), maxN int) (t *towerOps, err error) {
+func newTowerOpsOnUnclosed(open func() (*Device, error), maxN int, moduleLoader func(*Device) towerModuleLoader) (t *towerOps, err error) {
 	if open == nil {
 		return nil, errors.New("cuda tower: nil device opener")
 	}
@@ -79,10 +81,17 @@ func newTowerOpsOnUnclosed(open func() (*Device, error), maxN int) (t *towerOps,
 			return e
 		}
 		t.q = t.dev.NewCommandQueue()
-		if t.vit, e = t.dev.NewViT(); e != nil {
+		if moduleLoader == nil {
+			t.loadLibrary = towerPTXLoader(t.dev.CompileLibrary)
+		} else {
+			t.loadLibrary = moduleLoader(t.dev)
+		}
+		if t.vit, e = t.dev.NewViTWithLoader(func(ptx []byte) (gpu.Library, error) {
+			return t.loadLibrary(eg2ModuleViT, ptx)
+		}); e != nil {
 			return fmt.Errorf("cuda tower: aikit's ViT kernels: %w", e)
 		}
-		lib, e := t.dev.CompileLibrary(towerBasePTX)
+		lib, e := t.loadLibrary(eg2ModuleBase, towerBasePTX)
 		if e != nil {
 			return fmt.Errorf("cuda tower: compile tower_base: %w", e)
 		}

@@ -485,21 +485,21 @@ func (d *Device) LedgerLen() (allocs, objs int) {
 
 // ---- modules + pipelines ----
 
-// Library is a loaded PTX module — the CUDA counterpart of an MTLLibrary.
+// Library is a loaded CUDA module — the CUDA counterpart of an MTLLibrary.
 type Library struct{ m *gc.Module }
 
-// CompileLibrary hands `ptx` to the driver's JIT (cuModuleLoadData) and returns the
-// module. It is the CUDA counterpart of metal.go's CompileLibrary, with the one
+// CompileLibrary loads a PTX or native image with cuModuleLoadData and returns
+// the module. The driver JITs PTX when needed. It is the CUDA counterpart of metal.go's CompileLibrary, with the one
 // unavoidable signature change: Metal compiles MSL *source* at run time, whereas
 // the cgo-free CUDA path ships PTX built ahead of time (build_ptx.sh → NVRTC →
 // embedded with go:embed) so the runtime needs no CUDA toolkit — only libcuda.
 // That also means
 // there is no languageVersion landmine to defuse on this side.
-func (d *Device) CompileLibrary(ptx []byte) (Library, error) {
+func (d *Device) CompileLibrary(image []byte) (Library, error) {
 	if d.cx == nil {
 		return Library{}, fmt.Errorf("cuda: CompileLibrary on a released device")
 	}
-	m, err := d.cx.LoadModule(ptx)
+	m, err := d.cx.LoadModule(image)
 	if err != nil {
 		return Library{}, fmt.Errorf("cuda: LoadModule: %w", err)
 	}
