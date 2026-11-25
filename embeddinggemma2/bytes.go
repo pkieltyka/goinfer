@@ -130,10 +130,10 @@ func (m *Model) rawRow(id int, scale float32, dst []float32) {
 	}
 }
 
-// embedF32 is the token table as one float32 slice, [vocab, hidden]. A model from Load has it already; a model with
-// packed weights widens its stored table on the first call and keeps the result.
+// embedF32 returns the token table as one float32 slice, [vocab, hidden].
+// Packed models widen their table on the first call and keep the result.
 func (m *Model) embedF32() []float32 {
-	if m.embedRaw == nil && m.embedGGUF == nil {
+	if m.embedRaw == nil && m.embedGGUF == nil && m.embedAffine == nil {
 		return m.embed
 	}
 	m.embedOnce.Do(func() {
@@ -141,9 +141,14 @@ func (m *Model) embedF32() []float32 {
 		e := make([]float32, m.cfg.VocabSize*H)
 		for id := range m.cfg.VocabSize {
 			row := e[id*H : (id+1)*H]
-			if m.embedGGUF != nil {
+			switch {
+			case m.embedAffine != nil:
+				if err := m.embedAffine.row(id, row); err != nil {
+					panic(err)
+				}
+			case m.embedGGUF != nil:
 				m.embedGGUF.DecodeRow(id, row)
-			} else {
+			default:
 				m.rawRow(id, 1, row)
 			}
 		}

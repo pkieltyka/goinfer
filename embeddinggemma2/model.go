@@ -80,15 +80,16 @@ type Model struct {
 	embed      []float32 // [vocab, hidden]; nil for packed models until Weights is called
 	// embedRaw is the token table as the caller gave it to NewModel, [vocab, hidden] little-endian values of
 	// embedSize bytes each (2: bfloat16, 4: float32). One row is widened per token, so the table is never copied.
-	embedRaw   []byte
-	embedSize  int
-	embedGGUF  *gguf.PackedRows
-	embedOnce  sync.Once // widens the packed table for Weights
-	pleProj    []float32 // [layers*ple, hidden]
-	pleNorm    []float32 // [ple]
-	layers     []layer
-	finalNorm  []float32
-	projection []float32 // [embedding_dim, hidden]
+	embedRaw    []byte
+	embedSize   int
+	embedGGUF   *gguf.PackedRows
+	embedAffine *mlxAffineTable // packed MLX affine-8 token table
+	embedOnce   sync.Once       // widens the packed table for Weights
+	pleProj     []float32       // [layers*ple, hidden]
+	pleNorm     []float32       // [ple]
+	layers      []layer
+	finalNorm   []float32
+	projection  []float32 // [embedding_dim, hidden]
 }
 
 // Config returns the loaded text config.
@@ -182,7 +183,12 @@ func Load(dir string) (*Model, error) {
 		return append([]float32(nil), v...), nil
 	}
 	m := &Model{cfg: cfg, mlxAffine8: mlx, layers: make([]layer, cfg.Layers)}
-	if m.embed, err = get("embed_tokens.weight", cfg.VocabSize, cfg.Hidden); err != nil {
+	if mlx {
+		if m.embedAffine, err = readMLXAffine8Table(st, "language_model.embed_tokens.weight",
+			[]int{cfg.VocabSize, cfg.Hidden}); err != nil {
+			return nil, err
+		}
+	} else if m.embed, err = get("embed_tokens.weight", cfg.VocabSize, cfg.Hidden); err != nil {
 		return nil, err
 	}
 	refs, scalars, err := m.plan()
@@ -331,6 +337,16 @@ func (m *Model) EmbedTokens(ids []int) ([]float32, error) {
 	for t, id := range ids {
 		if id < 0 || id >= c.VocabSize {
 			return nil, fmt.Errorf("embeddinggemma2: token id %d out of range [0, %d)", id, c.VocabSize)
+		}
+		if m.embedAffine != nil {
+			row := x[t*H : (t+1)*H]
+			if err := m.embedAffine.row(id, row); err != nil {
+				return nil, err
+			}
+			for j := range row {
+				row[j] *= scale
+			}
+			continue
 		}
 		if m.embedGGUF != nil {
 			row := x[t*H : (t+1)*H]
