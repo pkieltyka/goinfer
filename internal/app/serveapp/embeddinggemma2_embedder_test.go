@@ -4,6 +4,8 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"os"
+	"path/filepath"
 	"sort"
 	"strings"
 	"testing"
@@ -163,6 +165,32 @@ func TestIsEmbeddingGemma2(t *testing.T) {
 	}
 	if isEmbeddingGemma2(t.TempDir()) {
 		t.Error("an empty directory is recognised")
+	}
+}
+
+func TestLoadEncoderDispatchesMLXCheckpoint(t *testing.T) {
+	raw, err := os.ReadFile("../../../testdata/embeddinggemma2-tiny/config.json")
+	if err != nil {
+		t.Fatal(err)
+	}
+	var cfg map[string]json.RawMessage
+	if err := json.Unmarshal(raw, &cfg); err != nil {
+		t.Fatal(err)
+	}
+	// The pinned MLX format requires two agreeing descriptions. The EG2
+	// loader refuses a missing one before opening the weights.
+	cfg["quantization"] = json.RawMessage(`{"bits":8,"group_size":64,"mode":"affine"}`)
+	raw, err = json.Marshal(cfg)
+	if err != nil {
+		t.Fatal(err)
+	}
+	dir := t.TempDir()
+	if err := os.WriteFile(filepath.Join(dir, "config.json"), raw, 0o600); err != nil {
+		t.Fatal(err)
+	}
+	s := &server{}
+	if err := s.loadEncoder(config{embedPath: dir}); err == nil || !strings.Contains(err.Error(), "missing MLX quantization_config") {
+		t.Fatalf("serve did not route the MLX directory to the EG2 loader: %v", err)
 	}
 }
 

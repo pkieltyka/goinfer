@@ -421,12 +421,81 @@ Import `github.com/pkieltyka/goinfer/pull` and call
 `pull.DownloadEmbeddingGemma2(ctx, "google", nil)` to fetch the original checkpoint.
 Pass the returned directory to `embeddinggemma2.LoadEncoder`.
 
+`pull.EmbeddingGemma2Models()` lists the canonical download selectors, pinned
+repositories and revisions, file formats, and text backends exercised for each
+checkpoint. An empty `QualifiedBackends` means the variant is download-only for
+this encoder. `SuggestedAccelerator` is an optional selector for applications
+to use when the caller hasn't chosen a device.
+
 For an Unsloth text GGUF, pass `"Q8_0"` or `"UD-Q6_K_XL"` and give the returned
 file path to `embeddinggemma2.LoadGGUFEncoder`. The downloader also offers
 `"BF16"`, `"F16"`, `"UD-Q5_K_XL"` and `"UD-Q4_K_XL"` for use with compatible
 loaders. The model revisions and file digests are pinned. A verified copy in the
 goinfer user model cache can be opened offline. The optional third argument
 receives downloaded and total byte counts.
+
+### MLX Community EmbeddingGemma 2 on Apple Silicon
+
+Use `"mlx-8bit"` or its alias `"mlx8"` to download the pinned MLX Community
+checkpoint. Both return the same verified cache directory. This checkpoint
+supports text embeddings. The loader reconstructs the affine 8-bit weights as
+FP32 for the Go CPU and Metal text graph. [Pinned MLX Community checkpoint](https://huggingface.co/mlx-community/embeddinggemma-2-8bit/tree/7505ef2f8ddef45efef6d060865f27989b3c9cec)
+
+On Apple Silicon, link the Metal module and select `metal` explicitly. This
+program also accepts `-device cpu` to use the CPU path.
+
+```go
+package main
+
+import (
+    "context"
+    "flag"
+    "fmt"
+    "log"
+
+    _ "github.com/pkieltyka/goinfer/backend/metal"
+    "github.com/pkieltyka/goinfer/embeddinggemma2"
+    "github.com/pkieltyka/goinfer/pull"
+)
+
+func main() {
+    device := flag.String("device", "metal", "embedding accelerator or cpu")
+    flag.Parse()
+    dir, err := pull.DownloadEmbeddingGemma2(context.Background(), "mlx-8bit", nil)
+    if err != nil {
+        log.Fatal(err)
+    }
+    enc, err := embeddinggemma2.LoadEncoder(dir)
+    if err != nil {
+        log.Fatal(err)
+    }
+    if *device != "cpu" {
+        accelerator, err := enc.UseAccelerator(*device)
+        if err != nil {
+            log.Fatal(err)
+        }
+        defer accelerator.Close()
+    }
+    vector, err := enc.Encode("How do I look up a cached model?", true)
+    if err != nil {
+        log.Fatal(err)
+    }
+    fmt.Printf("%s: %d-dimensional embedding\n", dir, len(vector))
+}
+```
+
+To serve the pinned copy, set `EG2_MLX_DIR` to the directory returned by the
+downloader and run this command from the repository's Go workspace.
+
+```sh
+CGO_ENABLED=0 go run ./backend/metal/cmd/serve --embed-model "$EG2_MLX_DIR" --backend metal --require-backend
+```
+
+Use `--backend cpu` for CPU serving. `--require-backend` makes a Metal
+attachment failure a startup error. Requests to load image or audio input
+from this checkpoint are refused. The general `hf:<owner>/<repo>:safetensors`
+reference resolves the current Hub checkpoint. Use the downloaded directory
+when reproducibility requires the exact catalog revision.
 
 ### EmbeddingGemma 2 text GGUF
 
