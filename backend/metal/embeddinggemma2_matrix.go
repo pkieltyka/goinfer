@@ -18,6 +18,7 @@ const (
 	eg2AttentionDefault eg2AttentionRequest = iota
 	eg2AttentionStock
 	eg2AttentionMatrix
+	eg2AttentionBatch
 )
 
 const (

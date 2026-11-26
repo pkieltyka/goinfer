@@ -415,6 +415,29 @@ has the same bits as `EmbedIDs` on that input. This applies when splitting
 or reordering admitted batches. Vulkan keeps attention within each sequence
 and bounds the estimated GPU work per native submission.
 
+### Native Metal document batches
+
+On the base Apple M4, link `github.com/pkieltyka/goinfer/backend/metal`
+and call `encoder.UseAccelerator("metal-eg2-batch")` to enable native text
+batching on the compatible combined graph. Use `EmbedIDsBatch` with prepared
+IDs in document order. A multi-document call accepts two to four documents
+and at most 2,748 total token positions. A singleton retains the model's
+normal context limit. The Metal inventory reports the default selector.
+An attachment reports `TextBatching` for the selected path through
+`AttachedDeviceReporter`. Applications that use the existing `"metal"`
+selector continue to run singletons.
+
+Use `encoder.BatchMemory(lengths)` on the attachment to check admission and
+estimate additional device buffer bytes from its current state. The Metal
+estimate rounds each new standalone buffer up to a host page and includes
+the overlap with retained scratch, scalar storage and position tables during
+growth. `ResidentWeightBytes` reports the actual charge for uploaded model
+weights. The estimate excludes host storage and driver-private memory,
+makes no allocation and reserves no memory. A multi-document shape outside
+the documented limits returns `ErrUnsupportedBatchShape`; callers can
+choose smaller groups. As with other backends, split and retry an OOM only
+when it matches `ErrBatchOutOfMemory`.
+
 ### Download EmbeddingGemma 2
 
 Import `github.com/pkieltyka/goinfer/pull` and call
