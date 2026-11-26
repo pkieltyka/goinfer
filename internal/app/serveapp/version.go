@@ -21,8 +21,6 @@ var injectedVersion string
 // into this binary, which is not the list --backend accepts: a binary that links no backend runs `--backend metal` on the
 // CPU, with only a warning line that scrolls past before the banner. The line can be read without loading a model, and
 // the release workflow greps it to prove each asset carries the backend for its platform.
-func buildVersion() string { return cliutil.VersionString(injectedVersion) }
-
 func versionReport(prog string) string {
 	var b strings.Builder
 	fmt.Fprintf(&b, "%s %s\n", cliutil.BinaryName(prog), buildVersion())
@@ -31,6 +29,8 @@ func versionReport(prog string) string {
 	fmt.Fprintf(&b, "go: %s %s/%s\n", runtime.Version(), runtime.GOOS, runtime.GOARCH)
 	return b.String()
 }
+
+func buildVersion() string { return cliutil.VersionString(injectedVersion) }
 
 // isVersionArg matches the forms a user actually types. `version` (no dashes) is included
 // because `serve check` and `serve pull` are subcommands, so a bare word is the shape this

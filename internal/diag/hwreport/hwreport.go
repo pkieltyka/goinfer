@@ -95,27 +95,26 @@ func buildLine(version string) string {
 	if !ok {
 		return runtime.Version() + " " + runtime.GOOS + "/" + runtime.GOARCH
 	}
-	rev, dirty := "", false
+	rev, dirty := "", ""
 	for _, s := range bi.Settings {
 		switch s.Key {
 		case "vcs.revision":
 			rev = s.Value
-			if len(rev) > 12 {
-				rev = rev[:12]
+			if len(rev) > 8 {
+				rev = rev[:8]
 			}
 		case "vcs.modified":
-			dirty = s.Value == "true"
+			if s.Value == "true" {
+				dirty = "+dirty"
+			}
 		}
 	}
-	if dirty && rev != "" {
-		rev += "-dirty"
-	}
 	v := bi.Main.Version
-	if v == "" {
-		v = "(unknown)"
+	if v == "" || v == "(devel)" {
+		v = "devel"
 	}
-	if rev != "" && !strings.Contains(v, strings.TrimSuffix(rev, "-dirty")) {
-		v += " (" + rev + ")"
+	if rev != "" {
+		v += " (" + rev + dirty + ")"
 	}
 	return fmt.Sprintf("%s, %s, %s/%s", v, runtime.Version(), runtime.GOOS, runtime.GOARCH)
 }

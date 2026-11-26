@@ -31,8 +31,6 @@ var injectedVersion string
 var embeddedTier, embeddedQuant string
 
 // versionReport is what `goinfer-chat --version` (or `-v`) prints.
-func buildVersion() string { return cliutil.VersionString(injectedVersion) }
-
 func versionReport(prog string) string {
 	var b strings.Builder
 	fmt.Fprintf(&b, "%s %s\n", cliutil.BinaryName(prog), buildVersion())
@@ -56,6 +54,8 @@ func versionReport(prog string) string {
 	}
 	return b.String()
 }
+
+func buildVersion() string { return cliutil.VersionString(injectedVersion) }
 
 // isVersionArg matches the forms a user actually types — see internal/serveapp/version.go's
 // twin; kept in sync deliberately rather than shared, so a change to one binary's dispatch does
