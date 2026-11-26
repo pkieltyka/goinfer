@@ -42,7 +42,7 @@ func init() {
 
 const eg2TG = 128
 
-type eg2Pipes struct{ geluMul, geluMulPLE, add, addScale, rope, headMajor, vtBlock, softmax, scatter Pipeline }
+type eg2Pipes struct{ geluMul, geluMulPLE, add, addScale, rmsAdd, rmsAddScale, rope, headMajor, vtBlock, softmax, scatter Pipeline }
 
 // eg2Block is how many query rows one attention block takes. A var only so a test can make blocks smaller than the
 // tiny fixture's inputs and the sliding window.
@@ -378,6 +378,9 @@ func newEG2AccelWithAttention(m *embeddinggemma2.Model, request eg2AttentionRequ
 	if request == eg2AttentionBatch && !eg2BatchGeometry(a.stagedFFN != (Pipeline{}), w) {
 		return nil, fmt.Errorf("%w: Metal batching requires the base Apple M4 combined text graph", embeddinggemma2.ErrUnsupportedSelector)
 	}
+	if request == eg2AttentionBatch {
+		a.p.rmsAdd, a.p.rmsAddScale, _ = newEG2RMS(d, a.vit.RMSNorm.StaticThreadgroupMemoryLength())
+	}
 	a.cfg, a.model = w.Config, m
 	a.eps = float32(a.cfg.RMSNormEps)
 	up := func(v []float32) Buffer {
@@ -557,6 +560,16 @@ func (a *eg2Ops) rmsEps(e *Encoder, x, w, out Buffer, rows, dim int, eps float32
 	e.Dispatch(a.vit.RMSNorm, rows*256, 256, x, w, out, a.u32(uint32(rows)), a.u32(uint32(dim)), a.f32(eps))
 }
 
+func (a *eg2Ops) rmsAdd(e *Encoder, x, w, residual Buffer, rows, dim int) {
+	e.Dispatch(a.p.rmsAdd, rows*256, 256, x, w, residual,
+		a.u32(uint32(rows)), a.u32(uint32(dim)), a.f32(a.eps))
+}
+
+func (a *eg2Ops) rmsAddScale(e *Encoder, x, w, residual Buffer, rows, dim int, scalar float32) {
+	e.Dispatch(a.p.rmsAddScale, rows*256, 256, x, w, residual,
+		a.u32(uint32(rows)), a.u32(uint32(dim)), a.f32(a.eps), a.f32(scalar))
+}
+
 // Forward runs the encoder over ids (see embeddinggemma2.Accelerator): the embedding gather on the host, then
 // ForwardEmbeds.
 func (a *eg2Accel) Forward(ids []int, keepLayers bool) ([]float32, [][]float32, error) {
@@ -636,6 +649,7 @@ func (a *eg2Accel) encodeTextRows(T int, keepLayers bool, batch *eg2BatchPlan, t
 	e := a.q.Begin()
 	a.gemm(e, s.x, a.pleProj, s.ple, T, L*P, H)
 	a.rms(e, s.ple, a.pleNorm, s.ple, T*L, P)
+	fusedRMS := batch != nil && a.p.rmsAdd != (Pipeline{}) && a.p.rmsAddScale != (Pipeline{})
 	fuseFFN := false
 	if batch != nil && a.stagedFFNGeGLU != (Pipeline{}) {
 		fuseFFN = true
@@ -684,8 +698,12 @@ func (a *eg2Accel) encodeTextRows(T int, keepLayers bool, batch *eg2BatchPlan, t
 			}
 		}
 		a.gemm(e, s.ctx, ly.o, s.o, T, H, qd)
-		a.rms(e, s.o, ly.postAttnNorm, s.o, T, H)
-		e.Dispatch(a.p.add, T*H, 256, s.x, s.o, a.u32(uint32(T*H)))
+		if fusedRMS {
+			a.rmsAdd(e, s.o, ly.postAttnNorm, s.x, T, H)
+		} else {
+			a.rms(e, s.o, ly.postAttnNorm, s.o, T, H)
+			e.Dispatch(a.p.add, T*H, 256, s.x, s.o, a.u32(uint32(T*H)))
+		}
 		// MLP
 		a.rms(e, s.x, ly.preFFNorm, s.xn, T, H)
 		fused := fuseFFN
@@ -712,14 +730,22 @@ func (a *eg2Accel) encodeTextRows(T int, keepLayers bool, batch *eg2BatchPlan, t
 			e.Dispatch(a.p.geluMul, T*I, 256, s.g, s.u, a.u32(uint32(T*I)))
 		}
 		a.gemm(e, s.g, ly.down, s.f, T, H, I)
-		a.rms(e, s.f, ly.postFFNorm, s.f, T, H)
-		e.Dispatch(a.p.add, T*H, 256, s.x, s.f, a.u32(uint32(T*H)))
+		if fusedRMS {
+			a.rmsAdd(e, s.f, ly.postFFNorm, s.x, T, H)
+		} else {
+			a.rms(e, s.f, ly.postFFNorm, s.f, T, H)
+			e.Dispatch(a.p.add, T*H, 256, s.x, s.f, a.u32(uint32(T*H)))
+		}
 		// PLE block, then the layer scalar
 		a.gemm(e, s.x, ly.pleGate, s.gg, T, P, H)
 		e.Dispatch(a.p.geluMulPLE, T*P, 256, s.gg, s.ple, a.u32(uint32(T*P)), a.u32(uint32(P)), a.u32(uint32(L)), a.u32(uint32(li)))
 		a.gemm(e, s.gg, ly.pleProj, s.pr, T, H, P)
-		a.rms(e, s.pr, ly.plePostNorm, s.pr, T, H)
-		e.Dispatch(a.p.addScale, T*H, 256, s.x, s.pr, a.u32(uint32(T*H)), a.f32(ly.w.LayerScalar))
+		if fusedRMS {
+			a.rmsAddScale(e, s.pr, ly.plePostNorm, s.x, T, H, ly.w.LayerScalar)
+		} else {
+			a.rms(e, s.pr, ly.plePostNorm, s.pr, T, H)
+			e.Dispatch(a.p.addScale, T*H, 256, s.x, s.pr, a.u32(uint32(T*H)), a.f32(ly.w.LayerScalar))
+		}
 		if keepLayers { // a command buffer per layer, so the host can read the layer's output
 			e.End()
 			if err := e.Err(); err != nil {

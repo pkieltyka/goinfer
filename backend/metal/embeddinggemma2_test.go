@@ -3,10 +3,13 @@
 package metal
 
 import (
+	"crypto/sha256"
+	"encoding/binary"
 	"encoding/json"
 	"errors"
 	"flag"
 	"fmt"
+	"io"
 	"maps"
 	"math"
 	"os"
@@ -19,6 +22,21 @@ import (
 )
 
 const eg2TinyDir = "../../testdata/embeddinggemma2-tiny"
+
+func eg2DigestF32(rows [][]float32, normalized bool) string {
+	h := sha256.New()
+	var b [4]byte
+	for _, v := range rows {
+		if normalized {
+			v = eg2Normalized512(v)
+		}
+		for _, f := range v {
+			binary.LittleEndian.PutUint32(b[:], math.Float32bits(f))
+			h.Write(b[:])
+		}
+	}
+	return fmt.Sprintf("%x", h.Sum(nil))
+}
 
 func eg2Cos(a, b []float32) float64 {
 	var dot, na, nb float64
@@ -810,6 +828,113 @@ func TestEG2BatchMetalAllocationRollback(t *testing.T) {
 
 var eg2BatchGGUFTest = flag.String("eg2-batch-test-gguf", "", "local EmbeddingGemma 2 Q8_0 GGUF for Metal batch parity")
 var eg2BatchMLXTest = flag.String("eg2-batch-test-mlx", "", "local EmbeddingGemma 2 MLX8 checkpoint for Metal batch parity")
+var eg2BatchRMSFixture = flag.String("eg2-batch-test-fixture", "", "pinned prepared-219-ids.jsonl for the RMS replacement trace")
+
+// eg2ReadRMSFixture reads the frozen prepared-ID corpus for the replacement trace.
+func eg2ReadRMSFixture(t *testing.T) [][]int {
+	t.Helper()
+	f, err := os.Open(*eg2BatchRMSFixture)
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer f.Close()
+	var ids [][]int
+	positions := 0
+	dec := json.NewDecoder(f)
+	for {
+		var row struct {
+			IDs []int `json:"ids"`
+		}
+		if err := dec.Decode(&row); err != nil {
+			if err == io.EOF {
+				break
+			}
+			t.Fatal(err)
+		}
+		positions += len(row.IDs)
+		ids = append(ids, row.IDs)
+	}
+	if len(ids) != 219 || positions != 110157 {
+		t.Fatalf("fixture: %d documents, %d positions", len(ids), positions)
+	}
+	return ids
+}
+
+// TestEG2BatchMetalRMSReplacementTrace is the off-clock replacement witness for the
+// fused residual sites: one 219-document B4 replay on the explicit batch attachment
+// must show 2,640 plain + 1,320 scaled fused RMS calls, 1,968 GeGLU up, 1,320 PLE
+// activations, 55 commands and 41,044 total dispatches (the released baseline is
+// 45,004), with the published vectors.
+func TestEG2BatchMetalRMSReplacementTrace(t *testing.T) {
+	if *eg2BatchRMSFixture == "" {
+		t.Skip("set -eg2-batch-test-fixture")
+	}
+	ids := eg2ReadRMSFixture(t)
+	groups := make([][][]int, 0, 55)
+	for i := 0; i < len(ids); i += 4 {
+		end := min(i+4, len(ids))
+		groups = append(groups, ids[i:end])
+	}
+	if len(groups) != 55 || len(groups[54]) != 3 {
+		t.Fatalf("wrong groups: %d", len(groups))
+	}
+	for _, tc := range []struct {
+		name, path string
+		load       func(string) (*embeddinggemma2.Encoder, error)
+		raw, norm  string
+	}{
+		{"q8", *eg2BatchGGUFTest, func(path string) (*embeddinggemma2.Encoder, error) {
+			return embeddinggemma2.LoadGGUFEncoder(path, nil)
+		}, "754952f8d9e8e54d5754b9b5764bfcb2d6fd3db0f743b0c9f51c9ec86c1c45d7",
+			"ed74cd5b2f46d3add8f337ab23a0b074a4acec766a0e2a8391bb70df5d8bfd9e"},
+		{"mlx", *eg2BatchMLXTest, embeddinggemma2.LoadEncoder,
+			"fab76bbfcdb18da676a47a8c25e50918588d6dc53d2a7f8dd6bfb71ee17e8e6d",
+			"5fb18b80ed39e504963e9e10392dba644089442f6e6b9db8a0a8fe5fdf34bc2b"},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			if tc.path == "" {
+				t.Skip("set the checkpoint flag")
+			}
+			enc, err := tc.load(tc.path)
+			if err != nil {
+				t.Fatal(err)
+			}
+			acc, err := enc.UseAccelerator("metal-eg2-batch")
+			if err != nil {
+				t.Fatal(err)
+			}
+			t.Cleanup(func() { _ = acc.Close() })
+			a := acc.(*eg2BatchAccel)
+			if a.p.rmsAdd == (Pipeline{}) || a.p.rmsAddScale == (Pipeline{}) {
+				t.Fatal("fused RMS pipelines missing")
+			}
+			var out [][]float32
+			c := eg2RouteCounts(a.eg2Accel, func() {
+				for _, g := range groups {
+					v, err := enc.EmbedIDsBatch(g)
+					if err != nil {
+						t.Fatal(err)
+					}
+					out = append(out, v...)
+				}
+			})
+			if c.Total != 41044 || c.RMSAdd != 2640 || c.RMSAddScale != 1320 ||
+				c.GateUp != 1968 || c.Fused != 1968 || c.GeluMul != 0 || c.PLE != 1320 ||
+				c.Add != 0 || c.AddScale != 0 || c.Commands != 55 {
+				t.Fatalf("replacement census %+v", c)
+			}
+			if len(out) != 219 {
+				t.Fatalf("%d documents", len(out))
+			}
+			if got := eg2DigestF32(out, false); got != tc.raw {
+				t.Fatalf("768 digest %s, want %s", got, tc.raw)
+			}
+			if got := eg2DigestF32(out, true); got != tc.norm {
+				t.Fatalf("512 digest %s, want %s", got, tc.norm)
+			}
+		})
+	}
+}
 
 func TestEG2BatchMetalPublic(t *testing.T) {
 	for _, tc := range []struct {
@@ -832,28 +957,43 @@ func TestEG2BatchMetalPublic(t *testing.T) {
 	}
 }
 
+// eg2RouteCensus is one call's dispatch census across the product pipelines.
+type eg2RouteCensus struct {
+	GateUp, Fused, GeluMul, PLE, RMSAdd, RMSAddScale, Add, AddScale, Total, Commands int
+}
+
 // eg2RouteCounts traces dispatches on one Metal attachment's pipelines.
-func eg2RouteCounts(ops *eg2Accel, call func()) (gateUp, fused, geluMul, ple, commands int) {
+func eg2RouteCounts(ops *eg2Accel, call func()) eg2RouteCensus {
+	var c eg2RouteCensus
 	gpu.TraceForTest = func(ev gpu.TraceEvent) {
 		switch ev.Op {
 		case gpu.TraceDispatch:
+			c.Total++
 			switch ev.Pipe {
 			case ops.stagedFFN:
-				gateUp++
+				c.GateUp++
 			case ops.stagedFFNGeGLU:
-				fused++
+				c.Fused++
 			case ops.p.geluMul:
-				geluMul++
+				c.GeluMul++
 			case ops.p.geluMulPLE:
-				ple++
+				c.PLE++
+			case ops.p.rmsAdd:
+				c.RMSAdd++
+			case ops.p.rmsAddScale:
+				c.RMSAddScale++
+			case ops.p.add:
+				c.Add++
+			case ops.p.addScale:
+				c.AddScale++
 			}
 		case gpu.TraceCommit:
-			commands++
+			c.Commands++
 		}
 	}
 	defer func() { gpu.TraceForTest = nil }()
 	call()
-	return
+	return c
 }
 
 // eg2BatchGeGLURoutes checks the product route on the explicit batch attachment:
@@ -863,9 +1003,10 @@ func eg2RouteCounts(ops *eg2Accel, call func()) (gateUp, fused, geluMul, ple, co
 // no-plan route.
 func eg2BatchGeGLURoutes(t *testing.T, enc *embeddinggemma2.Encoder, a *eg2BatchAccel, in [][]int, refs [][]float32) {
 	t.Helper()
-	if a.stagedFFN == (Pipeline{}) || a.stagedFFNGeGLU == (Pipeline{}) {
-		t.Fatalf("batch attachment lacks staged pipelines: gate/up=%v fused=%v",
-			a.stagedFFN != (Pipeline{}), a.stagedFFNGeGLU != (Pipeline{}))
+	if a.stagedFFN == (Pipeline{}) || a.stagedFFNGeGLU == (Pipeline{}) || a.p.rmsAdd == (Pipeline{}) || a.p.rmsAddScale == (Pipeline{}) {
+		t.Fatalf("batch attachment lacks staged/RMS pipelines: gate/up=%v fused=%v rms=%v/%v",
+			a.stagedFFN != (Pipeline{}), a.stagedFFNGeGLU != (Pipeline{}),
+			a.p.rmsAdd != (Pipeline{}), a.p.rmsAddScale != (Pipeline{}))
 	}
 	if a.stagedFFNGeGLU.ThreadExecutionWidth() != 32 ||
 		a.stagedFFNGeGLU.MaxTotalThreadsPerThreadgroup() < eg2StagedThreads ||
@@ -873,6 +1014,12 @@ func eg2BatchGeGLURoutes(t *testing.T, enc *embeddinggemma2.Encoder, a *eg2Batch
 		t.Fatalf("fused pipeline limits: width=%d threads=%d tg=%d",
 			a.stagedFFNGeGLU.ThreadExecutionWidth(), a.stagedFFNGeGLU.MaxTotalThreadsPerThreadgroup(),
 			a.stagedFFNGeGLU.StaticThreadgroupMemoryLength())
+	}
+	stockTG := a.vit.RMSNorm.StaticThreadgroupMemoryLength()
+	if stockTG <= 0 || a.p.rmsAdd.StaticThreadgroupMemoryLength() <= 0 || a.p.rmsAddScale.StaticThreadgroupMemoryLength() <= 0 ||
+		a.p.rmsAdd.StaticThreadgroupMemoryLength() > stockTG || a.p.rmsAddScale.StaticThreadgroupMemoryLength() > stockTG {
+		t.Fatalf("RMS static TG plain/scaled %d/%d exceeds stock %d", a.p.rmsAdd.StaticThreadgroupMemoryLength(),
+			a.p.rmsAddScale.StaticThreadgroupMemoryLength(), stockTG)
 	}
 	check := func(label string, got, want []float32) {
 		t.Helper()
@@ -888,16 +1035,17 @@ func eg2BatchGeGLURoutes(t *testing.T, enc *embeddinggemma2.Encoder, a *eg2Batch
 	runPlan := func(label string, docs [][]int, refIdx []int, wantGateUp, wantFused, wantGelu int) {
 		t.Helper()
 		var got [][]float32
-		gateUp, fused, geluMul, ple, commands := eg2RouteCounts(a.eg2Accel, func() {
+		c := eg2RouteCounts(a.eg2Accel, func() {
 			var err error
 			got, err = enc.EmbedIDsBatch(docs)
 			if err != nil {
 				t.Fatal(err)
 			}
 		})
-		if gateUp != wantGateUp || fused != wantFused || geluMul != wantGelu || ple != 24 || commands != 1 {
-			t.Fatalf("%s: gate/up=%d fused=%d gelu=%d ple=%d commands=%d, want %d/%d/%d/24/1",
-				label, gateUp, fused, geluMul, ple, commands, wantGateUp, wantFused, wantGelu)
+		if c.GateUp != wantGateUp || c.Fused != wantFused || c.GeluMul != wantGelu || c.PLE != 24 ||
+			c.RMSAdd != 48 || c.RMSAddScale != 24 || c.Add != 0 || c.AddScale != 0 || c.Commands != 1 {
+			t.Fatalf("%s: census %+v, want gate/up=%d fused=%d gelu=%d rms=48/24 add=0/0 commands=1",
+				label, c, wantGateUp, wantFused, wantGelu)
 		}
 		for i := range refIdx {
 			check(fmt.Sprintf("%s doc %d", label, i), got[i], refs[refIdx[i]])
@@ -912,26 +1060,27 @@ func eg2BatchGeGLURoutes(t *testing.T, enc *embeddinggemma2.Encoder, a *eg2Batch
 	runPlan("unstaged [30]", [][]int{in[0]}, []int{0}, 0, 0, 24)
 	// Explicit singleton EmbedIDs takes the same one-document plan on this selector.
 	var one []float32
-	gateUp, fused, geluMul, ple, commands := eg2RouteCounts(a.eg2Accel, func() {
+	c := eg2RouteCounts(a.eg2Accel, func() {
 		v, err := enc.EmbedIDs(in[1])
 		if err != nil {
 			t.Fatal(err)
 		}
 		one = v
 	})
-	if gateUp != 24 || fused != 24 || geluMul != 0 || ple != 24 || commands != 1 {
-		t.Fatalf("explicit singleton: gate/up=%d fused=%d gelu=%d ple=%d commands=%d",
-			gateUp, fused, geluMul, ple, commands)
+	if c.GateUp != 24 || c.Fused != 24 || c.GeluMul != 0 || c.PLE != 24 ||
+		c.RMSAdd != 48 || c.RMSAddScale != 24 || c.Add != 0 || c.AddScale != 0 || c.Commands != 1 {
+		t.Fatalf("explicit singleton: %+v", c)
 	}
 	check("explicit singleton", one, refs[1])
 	// keepLayers enters with batch=nil and must keep the released no-plan route.
-	_, kFused, kGelu, kPle, _ := eg2RouteCounts(a.eg2Accel, func() {
+	kc := eg2RouteCounts(a.eg2Accel, func() {
 		if _, _, err := a.Forward(in[1], true); err != nil {
 			t.Fatal(err)
 		}
 	})
-	if kFused != 0 || kGelu != 24 || kPle != 24 {
-		t.Fatalf("keepLayers route: fused=%d gelu=%d ple=%d", kFused, kGelu, kPle)
+	if kc.Fused != 0 || kc.GeluMul != 24 || kc.PLE != 24 || kc.RMSAdd != 0 || kc.RMSAddScale != 0 ||
+		kc.Add != 48 || kc.AddScale != 24 {
+		t.Fatalf("keepLayers route: %+v", kc)
 	}
 }
 
@@ -982,13 +1131,14 @@ func eg2CheckBatchPublic(t *testing.T, enc *embeddinggemma2.Encoder) {
 	if !ok {
 		t.Fatalf("legacy selector returned %T", legacy)
 	}
-	_, lFused, lGelu, lPle, lCommands := eg2RouteCounts(legacyOps, func() {
+	lc := eg2RouteCounts(legacyOps, func() {
 		if _, err := enc.EmbedIDs(in[1]); err != nil {
 			t.Fatal(err)
 		}
 	})
-	if lFused != 0 || lGelu != 24 || lPle != 24 || lCommands != 1 {
-		t.Fatalf("legacy fallback: fused=%d gelu=%d ple=%d commands=%d", lFused, lGelu, lPle, lCommands)
+	if lc.Fused != 0 || lc.GeluMul != 24 || lc.PLE != 24 || lc.RMSAdd != 0 || lc.RMSAddScale != 0 ||
+		lc.Add != 48 || lc.AddScale != 24 || lc.Commands != 1 || legacyOps.p.rmsAdd != (Pipeline{}) {
+		t.Fatalf("legacy fallback: %+v rms=%v", lc, legacyOps.p.rmsAdd != (Pipeline{}))
 	}
 	if err := legacy.Close(); err != nil {
 		t.Fatal(err)
@@ -1042,22 +1192,50 @@ func eg2CheckBatchPublic(t *testing.T, enc *embeddinggemma2.Encoder) {
 		}
 		check("public one-document batch", one[0], refs[i])
 	}
-	for _, order := range [][]int{
-		{3, 4, 5, 1}, {1, 5, 4, 3}, {3, 4, 5, 2}, {3, 4}, {5, 1}, {3, 3, 1},
-		{0, 1}, {1, 0}, {1, 6}, {6, 1}, {1, 7}, {7, 1},
+	// One packed call takes 48 plain + 24 scaled fused residual dispatches and
+	// 24 PLE activations; the released norm+add pairs are gone. The exact total
+	// is 4 + 24*(16 + 3*documents + 2*FFN_runs + standalone_GeGLU_per_layer):
+	// adjacent staged documents merge into one run while the combined rows stay
+	// in [31,2042], and any unstaged document adds a run and a standalone GeGLU.
+	for _, tc := range []struct {
+		order      []int
+		dispatches int
+	}{
+		{[]int{3, 4, 5, 1}, 772}, // 2 staged runs
+		{[]int{1, 5, 4, 3}, 772}, // 2 staged runs
+		{[]int{3, 4, 5, 2}, 772}, // 2 staged runs
+		{[]int{3, 4}, 580},       // 1 staged run
+		{[]int{5, 1}, 580},       // 1 staged run
+		{[]int{3, 3, 1}, 652},    // 1 staged run, 3 documents
+		{[]int{0, 1}, 652},       // mixed: 1 staged + 1 unstaged run, standalone GeGLU
+		{[]int{1, 0}, 652},       // mixed: 1 staged + 1 unstaged run, standalone GeGLU
+		{[]int{1, 6}, 628},       // 2 staged runs (2042 + 31 exceeds 2042 rows)
+		{[]int{6, 1}, 628},       // 2 staged runs
+		{[]int{1, 7}, 652},       // mixed: staged + unstaged run, standalone GeGLU
+		{[]int{7, 1}, 652},       // mixed: staged + unstaged run, standalone GeGLU
 	} {
+		order := tc.order
 		group := make([][]int, len(order))
 		for i, idx := range order {
 			group[i] = in[idx]
 		}
 		before, submits0, waits0 := a.d.Activity()
-		got, err := enc.EmbedIDsBatch(group)
-		if err != nil {
-			t.Fatal(err)
-		}
+		var got [][]float32
+		c := eg2RouteCounts(a.eg2Accel, func() {
+			var err error
+			got, err = enc.EmbedIDsBatch(group)
+			if err != nil {
+				t.Fatal(err)
+			}
+		})
 		after, submits1, waits1 := a.d.Activity()
-		if submits1-submits0 != 1 || waits1-waits0 != 1 || after-before <= 604 {
-			t.Fatalf("packed call %v activity: %d dispatches, %d submits, %d waits", order, after-before, submits1-submits0, waits1-waits0)
+		if c.RMSAdd != 48 || c.RMSAddScale != 24 || c.PLE != 24 ||
+			c.Add != 0 || c.AddScale != 0 || c.Commands != 1 {
+			t.Fatalf("packed call %v census %+v", order, c)
+		}
+		if submits1-submits0 != 1 || waits1-waits0 != 1 || after-before != int64(tc.dispatches) {
+			t.Fatalf("packed call %v activity: %d dispatches, want %d, %d submits, %d waits, census %+v",
+				order, after-before, tc.dispatches, submits1-submits0, waits1-waits0, c)
 		}
 		raw, err := a.ForwardBatch(group)
 		if err != nil {
