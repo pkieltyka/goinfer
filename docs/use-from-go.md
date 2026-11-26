@@ -56,13 +56,17 @@ to load it into memory without the `.giw`. Go test binaries load directly unless
 otherwise, so a test suite does not write files beside its fixtures.
 
 The `.giw` sidecar filename is keyed by the effective weight precision. For `int4` models under
-1B parameters, `goinfer-chat` and `goinfer-serve` default to an int4 embedding/LM-head table
-(`EmbedInt4: true, EmbedInt4Default: true`), writing an `.int4.e4h.<arch>.v*.giw` sidecar, while
-a library call with `decoder.Options{Quant: "int4"}` leaves `EmbedInt4` at its zero value (the
-int8 head) and writes a separate `.int4.<arch>.v*.giw` sidecar. Both are valid caches; pass
-`decoder.Options{Quant: "int4", EmbedInt4: true, EmbedInt4Default: true}` (or pass
-`--embed-int4=false` to the CLI) when you want a Go program and the CLI binaries to share one
-sidecar.
+1B parameters on CPU and CUDA, `goinfer-chat` and `goinfer-serve` default to an int4
+embedding/LM-head table (`EmbedInt4: true, EmbedInt4Default: true`), writing an
+`.int4.e4h.<arch>.v*.giw` sidecar; on Metal (and on models of 1B parameters or more), the CLI
+defaults `--embed-int4` off and keeps the int8 head. A library call with
+`decoder.Options{Quant: "int4"}` leaves `EmbedInt4` at its zero value (`false`, the int8 head) and
+writes a separate `.int4.<arch>.v*.giw` sidecar. Both are valid caches. To share one sidecar
+between the CLI and a Go program on the same backend, match both sides' head precision: either use
+the CLI default on CPU/CUDA with `decoder.Options{Quant: "int4", EmbedInt4: true,
+EmbedInt4Default: true}` (shares `.int4.e4h.`), or keep Go at `decoder.Options{Quant: "int4"}`
+with `--embed-int4=false` on the CLI (shares `.int4.`, which is already the CLI default on Metal
+and at 1B+).
 
 The tokenizer comes from the same file. `PreTokenizerDecline` names a pre-tokenizer the
 checkpoint declares and goinfer does not implement. Text can then split into different tokens
