@@ -27,13 +27,15 @@ import (
 type Options struct {
 	// FitModel, when set, adds goinfer-chat's fit decisions for that model (residency, slots, context).
 	FitModel string
+	// Version, when set, is the formatted build identity (e.g. from cliutil.VersionString) printed on the goinfer: line.
+	Version string
 }
 
 // Write prints the report. It runs the startup self-tests (the CPU one, and each linked GPU backend's) so the block says what they found on THIS machine.
 func Write(w io.Writer, o Options) {
 	fmt.Fprintln(w, "goinfer hardware report. Nothing here is sent anywhere: paste it into a bug report if you want to.")
 	fmt.Fprintln(w)
-	fmt.Fprintf(w, "goinfer: %s\n", buildLine())
+	fmt.Fprintf(w, "goinfer: %s\n", buildLine(o.Version))
 	fmt.Fprintf(w, "os: %s\n", osLine())
 	fmt.Fprintf(w, "cpu: %s; %d logical CPUs\n", cpuModel(), runtime.NumCPU())
 	k := linalg.ActiveKernels()
@@ -66,7 +68,7 @@ func Write(w io.Writer, o Options) {
 }
 
 // Run implements `<program> check --hardware [--fit MODEL]` for a binary with no server to drive (goinfer-chat). It returns the exit code.
-func Run(args []string, program string) int {
+func Run(args []string, program, version string) int {
 	fs := flag.NewFlagSet("check", flag.ContinueOnError)
 	hardware := fs.Bool("hardware", false, "print the hardware report (nothing is sent anywhere)")
 	fit := fs.String("fit", "", "with --hardware: add the fit decisions for this model (a path or reference)")
@@ -81,11 +83,14 @@ func Run(args []string, program string) int {
 	if *noSelfTest {
 		decoder.SkipSelfTests()
 	}
-	Write(os.Stdout, Options{FitModel: *fit})
+	Write(os.Stdout, Options{FitModel: *fit, Version: version})
 	return 0
 }
 
-func buildLine() string {
+func buildLine(version string) string {
+	if version != "" {
+		return fmt.Sprintf("%s, %s, %s/%s", version, runtime.Version(), runtime.GOOS, runtime.GOARCH)
+	}
 	bi, ok := debug.ReadBuildInfo()
 	if !ok {
 		return runtime.Version() + " " + runtime.GOOS + "/" + runtime.GOARCH

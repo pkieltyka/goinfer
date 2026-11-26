@@ -447,11 +447,11 @@ func modelFromOptions(w *Weights, be Backend, opts Options) *Model {
 		kvSnaps: newKVSnapStore(opts.KVHostBytes), extraBytes: opts.ExtraResidentBytes + recurrentSpecReserve(w.arch, opts.Drafter)}
 }
 
-// Load loads a model from dir, which is a checkpoint directory (config.json and its safetensors shards), a.
-// gguf file, or a prequantized .giw bundle, for any supported family. opts chooses the backend, the
+// Load loads a model from dir, which is a checkpoint directory (config.json and its safetensors shards), a
+// .gguf file, or a prequantized .giw bundle, for any supported family. opts chooses the backend, the
 // weight quantization and the rest. "cpu" is always available. "cuda", "metal" and "webgpu" become
 // available when their module is imported: github.com/pkieltyka/goinfer/backend/cuda (built with -tags cuda),
-// ../backend/metal (on darwin) and .../backend/webgpu (built with -tags gpu). As Options.Backend says, a name not compiled
+// .../backend/metal (on darwin) and .../backend/webgpu (built with -tags gpu). As Options.Backend says, a name not compiled
 // into the binary falls back to cpu. A model that would not fit this machine's memory is refused with an
 // error wrapping ErrWontFitResident.
 func Load(dir string, opts Options) (*Model, error) {
@@ -956,7 +956,7 @@ func (m *Model) embedToken(id int, dst []float32) {
 // Generate is a raw completion primitive: it continues prompt verbatim and knows nothing about chat turns, roles, or a
 // checkpoint's template, so encoding a user message with no formatting makes an instruct-tuned model degenerate into
 // repetition. Rendering a template is the caller's job: see github.com/pkieltyka/goinfer/chat (chat.Detect resolves a
-// checkpoint's own template from its tokenizer metadata) and examples/embed/main.go for the whole sequence.
+// checkpoint's own template from its tokenizer metadata) and apps/examples/embed/main.go for the whole sequence.
 //
 // Sampling is greedy at Temperature 0, else temperature/top-k/top-p (see Sampler). A SamplingParams.LogitProcessor, if set,
 // masks each step's logits before sampling, the seam for constrained/structured decoding.

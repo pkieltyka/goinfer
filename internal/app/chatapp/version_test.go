@@ -113,3 +113,51 @@ func TestVersionReport_namesTheBinaryWithoutItsExtension(t *testing.T) {
 		}
 	}
 }
+
+// TestChatVersionAndHardwareReport_agreeWithInjectedVersion pins that `check --hardware` reports
+// the same version and revision as `--version` when release -ldflags inject injectedVersion.
+func TestChatVersionAndHardwareReport_agreeWithInjectedVersion(t *testing.T) {
+	if testing.Short() {
+		t.Skip("builds a binary")
+	}
+	if _, err := exec.LookPath("go"); err != nil {
+		t.Skip("no go toolchain")
+	}
+	bin := filepath.Join(t.TempDir(), "goinfer-chat")
+	if runtime.GOOS == "windows" {
+		bin += ".exe"
+	}
+	const wantTag = "v9.8.7"
+	build := exec.Command("go", "build",
+		"-ldflags", "-X github.com/pkieltyka/goinfer/internal/app/chatapp.injectedVersion="+wantTag,
+		"-o", bin, "github.com/pkieltyka/goinfer/demo/chat")
+	build.Dir = ".."
+	if out, err := build.CombinedOutput(); err != nil {
+		t.Skipf("cannot build demo/chat here: %v\n%s", err, out)
+	}
+
+	vOut, err := exec.Command(bin, "--version").CombinedOutput()
+	if err != nil {
+		t.Fatalf("%s --version: %v\n%s", bin, err, vOut)
+	}
+	vFirst, _, _ := strings.Cut(string(vOut), "\n")
+	wantIdent, ok := strings.CutPrefix(strings.TrimSpace(vFirst), "goinfer-chat ")
+	if !ok || !strings.HasPrefix(wantIdent, wantTag) {
+		t.Fatalf("--version first line = %q, want prefix \"goinfer-chat %s\"", vFirst, wantTag)
+	}
+
+	hwOut, err := exec.Command(bin, "check", "--hardware", "--no-selftest").CombinedOutput()
+	if err != nil {
+		t.Fatalf("%s check --hardware: %v\n%s", bin, err, hwOut)
+	}
+	var gotIdent string
+	for line := range strings.SplitSeq(string(hwOut), "\n") {
+		if rest, ok := strings.CutPrefix(line, "goinfer: "); ok {
+			gotIdent, _, _ = strings.Cut(rest, ", ")
+			break
+		}
+	}
+	if gotIdent != wantIdent {
+		t.Errorf("check --hardware goinfer ident = %q, want %q (matching --version)\nfull report:\n%s", gotIdent, wantIdent, hwOut)
+	}
+}

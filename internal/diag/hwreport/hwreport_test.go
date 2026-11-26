@@ -57,7 +57,15 @@ func TestWrite_leaksNothingIdentifying(t *testing.T) {
 
 // `check` without --hardware is a usage error, not a silent success.
 func TestRun_requiresHardware(t *testing.T) {
-	if code := Run(nil, "goinfer-chat"); code != 2 {
+	if code := Run(nil, "goinfer-chat", ""); code != 2 {
 		t.Errorf("check with no --hardware exited %d, want 2", code)
+	}
+}
+
+func TestWrite_usesInjectedVersion(t *testing.T) {
+	var b bytes.Buffer
+	Write(&b, Options{Version: "v9.8.7"})
+	if !strings.Contains(b.String(), "\ngoinfer: v9.8.7") {
+		t.Errorf("report does not use injected version v9.8.7:\n%s", b.String())
 	}
 }
