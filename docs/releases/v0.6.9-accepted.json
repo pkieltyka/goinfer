@@ -1,0 +1,59 @@
+{
+  "schema": 1,
+  "release": "v0.6.9",
+  "scope": [
+    "root",
+    "backend/cuda",
+    "backend/vulkan",
+    "backend/metal"
+  ],
+  "source_commit": "976b4f41f06822d01328535c455d6ec83eb7c9bb",
+  "decision": "On November 26, 2026 Peter approved publishing v0.6.9 with four release verification rows deferred. The decision covers the v0.6.8 cold-user run, full CUDA and Metal device suites, broad parity sweep, and Linux and Darwin quick-full suites. Exact source CI, canonical module pins, public Go proxy verification for all four modules, and release assets and checksums remain required.",
+  "accepted_by": "Peter",
+  "accepted_on": "2026-11-26",
+  "required": [
+    "source CI",
+    "staged canonical root and standalone checks for CUDA, Vulkan and Metal",
+    "public Go proxy and checksum database checks for all four modules",
+    "release asset and checksum verification"
+  ],
+  "accepted": [],
+  "owner_decisions": [
+    {
+      "row": 3,
+      "gate": "Previous-tag cold-user run",
+      "item": "Published v0.6.8 cold-user qualification",
+      "candidate_record": null,
+      "evidence": "See docs/releases/v0.6.9-verification.md for exact source preflight and targeted checks.",
+      "accepted_by": "Peter",
+      "accepted_on": "2026-11-26"
+    },
+    {
+      "row": 4,
+      "gate": "Full CUDA and Metal device suites",
+      "item": "Full device qualification on both backends",
+      "candidate_record": null,
+      "evidence": "See docs/releases/v0.6.9-verification.md for exact source preflight and targeted checks.",
+      "accepted_by": "Peter",
+      "accepted_on": "2026-11-26"
+    },
+    {
+      "row": 11,
+      "gate": "Broad parity sweep",
+      "item": "Full parity qualification",
+      "candidate_record": null,
+      "evidence": "See docs/releases/v0.6.9-verification.md for exact source preflight and targeted checks.",
+      "accepted_by": "Peter",
+      "accepted_on": "2026-11-26"
+    },
+    {
+      "row": 12,
+      "gate": "Linux and Darwin full suites",
+      "item": "Both quick -full runs",
+      "candidate_record": null,
+      "evidence": "See docs/releases/v0.6.9-verification.md for exact source preflight and targeted checks.",
+      "accepted_by": "Peter",
+      "accepted_on": "2026-11-26"
+    }
+  ]
+}

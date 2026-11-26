@@ -17,6 +17,24 @@ any surface may still change.
 
 Each unreleased change is a file in [`changelog.d/`](changelog.d/), collected into the release's section when it is tagged (`scripts/changelog.py release`).
 
+## [v0.6.9] — 2026-11-26
+
+### Added
+
+- **MLX Community EmbeddingGemma 2 text embeddings.** Load the pinned affine 8-bit checkpoint with `embeddinggemma2.LoadEncoder` and use the Go CPU path or the existing Metal selector. `pull.DownloadEmbeddingGemma2` accepts `mlx-8bit` and `mlx8`, verifies the four pinned files, and reuses the verified cache offline. `pull.EmbeddingGemma2Models` describes the Google, Unsloth, and MLX catalog, including backend qualification. The MLX format supports text embeddings. [#95](https://github.com/pkieltyka/goinfer/pull/95), [#96](https://github.com/pkieltyka/goinfer/pull/96)
+- **Opt-in four-document Metal batches.** On the base Apple M4, select `metal-eg2-batch` from Go and pass prepared IDs to `EmbedIDsBatch`. A multi-document call accepts up to four documents and 2,748 total positions. `BatchMemory` estimates additional device-buffer bytes from the retained state and reports resident weights separately. On the frozen 219-document corpus, Q8_0 and MLX8 were respectively 1.0853× and 1.0828× faster by median paired public wall time, with 10 of 10 wins and bit-identical 768- and normalized 512-dimensional outputs for each format. [#99](https://github.com/pkieltyka/goinfer/pull/99)
+
+### Changed
+
+- **Precompiled CUDA kernels on SM 12.0.** EmbeddingGemma 2 uses matching precompiled images on compute capability 12.0. Other devices use PTX, and a typed image incompatibility retries the affected module with its PTX. Both CUDA selectors matched their PTX output bits on the tested Blackwell GPU. [#93](https://github.com/pkieltyka/goinfer/pull/93)
+- **Pack MLX token embeddings until needed.** The loader retains affine token rows and decodes the rows a forward uses. Logical token-table storage falls from 512 MiB to 144 MiB. Calling `Weights()` explicitly also materializes and retains the full FP32 table. [#97](https://github.com/pkieltyka/goinfer/pull/97)
+- **Stage the FP32 gate and up projections on the base Apple M4.** The existing combined route uses a staged tile on the qualified dense graph for lengths 31–2,042. It preserves the reduction order and output words. The Q8_0 corpus replay measured about 2.55% higher throughput with an equivalent research overlay, and the exact product path passed native parity. [#98](https://github.com/pkieltyka/goinfer/pull/98)
+
+### Module scope
+
+The root, CUDA, Vulkan, and Metal modules are released together. The Vulkan release aligns its root-module pin. The Go Metal path is cgo-free.
+The source preflight reported 8 of 12 checks done. Peter approved deferring four release-wide checks for this tag. [Verification record](docs/releases/v0.6.9-verification.md)
+
 ## [v0.6.8] — 2026-11-24
 
 ### Changed
