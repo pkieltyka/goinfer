@@ -891,6 +891,29 @@ func eg2CheckBatchPublic(t *testing.T, enc *embeddinggemma2.Encoder) {
 	if got, err := enc.BatchMemory([]int{31, 36}); err != nil || got.ResidentWeightBytes != expectWeight || expectWeight <= 0 {
 		t.Fatalf("weight estimate %+v, want %d, error %v", got, expectWeight, err)
 	}
+	// Refuse the last new RoPE buffer after the rest of the workspace
+	// exists, then retry via the same live encoder and its real weights.
+	beforeRetry := eg2AllocatedBytes(a.d)
+	ropeAllocations := 0
+	failRoPE := func(kind eg2BatchBufferKind, size int, data []float32) (Buffer, bool) {
+		if kind == eg2BatchRoPE {
+			ropeAllocations++
+			if ropeAllocations == 4 {
+				return Buffer{}, false
+			}
+		}
+		return a.allocateBatchBuffer(kind, size, data)
+	}
+	out, err := a.forwardBatch([][]int{in[1], in[3]}, failRoPE)
+	if out != nil || !errors.Is(err, embeddinggemma2.ErrBatchOutOfMemory) ||
+		ropeAllocations != 4 || eg2AllocatedBytes(a.d) != beforeRetry {
+		t.Fatalf("pre-submit RoPE refusal: outputs %d, allocated %d, error %v", len(out), eg2AllocatedBytes(a.d), err)
+	}
+	retried, err := enc.EmbedIDsBatch([][]int{in[1]})
+	if err != nil {
+		t.Fatalf("public retry after rollback: %v", err)
+	}
+	check("public retry after rollback", retried[0], refs[1])
 	for i, ids := range in {
 		got, err := enc.EmbedIDs(ids)
 		if err != nil {
@@ -949,4 +972,18 @@ func eg2Normalized512(v []float32) []float32 {
 		out[i] = float32(float64(x) / norm)
 	}
 	return out
+}
+
+func TestEG2BatchSelectorRejectsTiny(t *testing.T) {
+	m, err := embeddinggemma2.Load(eg2TinyDir)
+	if err != nil {
+		t.Fatal(err)
+	}
+	acc, err := m.NewAccelerator("metal-eg2-batch")
+	if acc != nil {
+		_ = acc.Close()
+	}
+	if acc != nil || !errors.Is(err, embeddinggemma2.ErrUnsupportedSelector) {
+		t.Fatalf("batch selector on the tiny graph: %v, %v", acc, err)
+	}
 }
