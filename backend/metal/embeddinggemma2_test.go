@@ -832,6 +832,109 @@ func TestEG2BatchMetalPublic(t *testing.T) {
 	}
 }
 
+// eg2RouteCounts traces dispatches on one Metal attachment's pipelines.
+func eg2RouteCounts(ops *eg2Accel, call func()) (gateUp, fused, geluMul, ple, commands int) {
+	gpu.TraceForTest = func(ev gpu.TraceEvent) {
+		switch ev.Op {
+		case gpu.TraceDispatch:
+			switch ev.Pipe {
+			case ops.stagedFFN:
+				gateUp++
+			case ops.stagedFFNGeGLU:
+				fused++
+			case ops.p.geluMul:
+				geluMul++
+			case ops.p.geluMulPLE:
+				ple++
+			}
+		case gpu.TraceCommit:
+			commands++
+		}
+	}
+	defer func() { gpu.TraceForTest = nil }()
+	call()
+	return
+}
+
+// eg2BatchGeGLURoutes checks the product route on the explicit batch attachment:
+// a fully staged plan fuses (24 gate + 24 fused up, no standalone activation), a
+// mixed plan keeps the released gate/up + 24 activations, and both explicit
+// singleton APIs take the one-document plan while keepLayers stays on the legacy
+// no-plan route.
+func eg2BatchGeGLURoutes(t *testing.T, enc *embeddinggemma2.Encoder, a *eg2BatchAccel, in [][]int, refs [][]float32) {
+	t.Helper()
+	if a.stagedFFN == (Pipeline{}) || a.stagedFFNGeGLU == (Pipeline{}) {
+		t.Fatalf("batch attachment lacks staged pipelines: gate/up=%v fused=%v",
+			a.stagedFFN != (Pipeline{}), a.stagedFFNGeGLU != (Pipeline{}))
+	}
+	if a.stagedFFNGeGLU.ThreadExecutionWidth() != 32 ||
+		a.stagedFFNGeGLU.MaxTotalThreadsPerThreadgroup() < eg2StagedThreads ||
+		a.stagedFFNGeGLU.StaticThreadgroupMemoryLength() != eg2StagedTGBytes {
+		t.Fatalf("fused pipeline limits: width=%d threads=%d tg=%d",
+			a.stagedFFNGeGLU.ThreadExecutionWidth(), a.stagedFFNGeGLU.MaxTotalThreadsPerThreadgroup(),
+			a.stagedFFNGeGLU.StaticThreadgroupMemoryLength())
+	}
+	check := func(label string, got, want []float32) {
+		t.Helper()
+		if len(got) != len(want) {
+			t.Fatalf("%s: %d words, want %d", label, len(got), len(want))
+		}
+		for i := range want {
+			if math.Float32bits(got[i]) != math.Float32bits(want[i]) {
+				t.Fatalf("%s: first differing word %d", label, i)
+			}
+		}
+	}
+	runPlan := func(label string, docs [][]int, refIdx []int, wantGateUp, wantFused, wantGelu int) {
+		t.Helper()
+		var got [][]float32
+		gateUp, fused, geluMul, ple, commands := eg2RouteCounts(a.eg2Accel, func() {
+			var err error
+			got, err = enc.EmbedIDsBatch(docs)
+			if err != nil {
+				t.Fatal(err)
+			}
+		})
+		if gateUp != wantGateUp || fused != wantFused || geluMul != wantGelu || ple != 24 || commands != 1 {
+			t.Fatalf("%s: gate/up=%d fused=%d gelu=%d ple=%d commands=%d, want %d/%d/%d/24/1",
+				label, gateUp, fused, geluMul, ple, commands, wantGateUp, wantFused, wantGelu)
+		}
+		for i := range refIdx {
+			check(fmt.Sprintf("%s doc %d", label, i), got[i], refs[refIdx[i]])
+		}
+	}
+	// in: [0]=30, [1]=31, [3]=524, [6]=2042, [7]=2043.
+	runPlan("fully staged [31 524]", [][]int{in[1], in[3]}, []int{1, 3}, 24, 24, 0)
+	runPlan("mixed [30 31]", [][]int{in[0], in[1]}, []int{0, 1}, 48, 0, 24)
+	runPlan("staged [31]", [][]int{in[1]}, []int{1}, 24, 24, 0)
+	runPlan("staged [2042]", [][]int{in[6]}, []int{6}, 24, 24, 0)
+	runPlan("unstaged [2043]", [][]int{in[7]}, []int{7}, 0, 0, 24)
+	runPlan("unstaged [30]", [][]int{in[0]}, []int{0}, 0, 0, 24)
+	// Explicit singleton EmbedIDs takes the same one-document plan on this selector.
+	var one []float32
+	gateUp, fused, geluMul, ple, commands := eg2RouteCounts(a.eg2Accel, func() {
+		v, err := enc.EmbedIDs(in[1])
+		if err != nil {
+			t.Fatal(err)
+		}
+		one = v
+	})
+	if gateUp != 24 || fused != 24 || geluMul != 0 || ple != 24 || commands != 1 {
+		t.Fatalf("explicit singleton: gate/up=%d fused=%d gelu=%d ple=%d commands=%d",
+			gateUp, fused, geluMul, ple, commands)
+	}
+	check("explicit singleton", one, refs[1])
+	// keepLayers enters with batch=nil and must keep the released no-plan route.
+	_, kFused, kGelu, kPle, _ := eg2RouteCounts(a.eg2Accel, func() {
+		if _, _, err := a.Forward(in[1], true); err != nil {
+			t.Fatal(err)
+		}
+	})
+	if kFused != 0 || kGelu != 24 || kPle != 24 {
+		t.Fatalf("keepLayers route: fused=%d gelu=%d ple=%d", kFused, kGelu, kPle)
+	}
+}
+
 func eg2CheckBatchPublic(t *testing.T, enc *embeddinggemma2.Encoder) {
 	t.Helper()
 	// Ragged tails, W32/staged boundaries, repeated and same-length
@@ -875,6 +978,18 @@ func eg2CheckBatchPublic(t *testing.T, enc *embeddinggemma2.Encoder) {
 			t.Fatal(err)
 		}
 	}
+	legacyOps, ok := legacy.(*eg2Accel)
+	if !ok {
+		t.Fatalf("legacy selector returned %T", legacy)
+	}
+	_, lFused, lGelu, lPle, lCommands := eg2RouteCounts(legacyOps, func() {
+		if _, err := enc.EmbedIDs(in[1]); err != nil {
+			t.Fatal(err)
+		}
+	})
+	if lFused != 0 || lGelu != 24 || lPle != 24 || lCommands != 1 {
+		t.Fatalf("legacy fallback: fused=%d gelu=%d ple=%d commands=%d", lFused, lGelu, lPle, lCommands)
+	}
 	if err := legacy.Close(); err != nil {
 		t.Fatal(err)
 	}
@@ -914,6 +1029,7 @@ func eg2CheckBatchPublic(t *testing.T, enc *embeddinggemma2.Encoder) {
 		t.Fatalf("public retry after rollback: %v", err)
 	}
 	check("public retry after rollback", retried[0], refs[1])
+	eg2BatchGeGLURoutes(t, enc, a, in, refs)
 	for i, ids := range in {
 		got, err := enc.EmbedIDs(ids)
 		if err != nil {
