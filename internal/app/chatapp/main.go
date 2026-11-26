@@ -177,7 +177,7 @@ func Main() {
 	}
 	// `check --hardware`: the block a hardware bug report needs. Chat has no server to drive, so `check` here is only that.
 	if len(os.Args) > 1 && os.Args[1] == "check" {
-		os.Exit(hwreport.Run(os.Args[2:], filepath.Base(os.Args[0])))
+		os.Exit(hwreport.Run(os.Args[2:], filepath.Base(os.Args[0]), buildVersion()))
 	}
 	// `decide` / `decisions-calibrate` — decisions by label-token
 	// scoring (one prefill per line, a distribution over the line's options) and the per-kind temperature fit.

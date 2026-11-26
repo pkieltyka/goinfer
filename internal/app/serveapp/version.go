@@ -23,19 +23,14 @@ var injectedVersion string
 // the release workflow greps it to prove each asset carries the backend for its platform.
 func versionReport(prog string) string {
 	var b strings.Builder
-	version, revision := cliutil.BuildIdent(injectedVersion)
-	fmt.Fprintf(&b, "%s %s", cliutil.BinaryName(prog), version)
-	// A pseudo-version already carries the commit ("v0.16.1-0.2026…-e57fef116b97"), so the
-	// parenthetical would just repeat it back.
-	if revision != "" && !strings.Contains(version, strings.TrimSuffix(revision, "-dirty")) {
-		fmt.Fprintf(&b, " (%s)", revision)
-	}
-	b.WriteString("\n")
+	fmt.Fprintf(&b, "%s %s\n", cliutil.BinaryName(prog), buildVersion())
 	// Space-separated, one line, lowercase: greppable from a shell without jq.
 	fmt.Fprintf(&b, "backends: %s\n", strings.Join(decoder.CompiledBackends(), " "))
 	fmt.Fprintf(&b, "go: %s %s/%s\n", runtime.Version(), runtime.GOOS, runtime.GOARCH)
 	return b.String()
 }
+
+func buildVersion() string { return cliutil.VersionString(injectedVersion) }
 
 // isVersionArg matches the forms a user actually types. `version` (no dashes) is included
 // because `serve check` and `serve pull` are subcommands, so a bare word is the shape this

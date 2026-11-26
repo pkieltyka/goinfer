@@ -690,7 +690,7 @@ func Main() {
 	// an embedded server, so it exercises whatever is actually serving with the flags its
 	// operator chose — which is what a harness meets.
 	if len(os.Args) > 1 && os.Args[1] == "check" {
-		os.Exit(servecheck.Run(os.Args[2:], filepath.Base(os.Args[0])))
+		os.Exit(servecheck.Run(os.Args[2:], filepath.Base(os.Args[0]), buildVersion()))
 	}
 	if len(os.Args) > 1 && os.Args[1] == "connect" {
 		os.Exit(connect.Run(os.Args[2:], filepath.Base(os.Args[0]), os.Stdout))

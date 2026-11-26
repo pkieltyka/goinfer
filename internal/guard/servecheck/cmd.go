@@ -25,7 +25,8 @@ Exits non-zero if any row fails, so it works as a smoke test in a script.
 `
 
 // Run implements `serve check`. args excludes the program name and the "check" word.
-func Run(args []string, self string) int {
+// version, when non-empty, is the formatted build identity printed by `check --hardware`.
+func Run(args []string, self, version string) int {
 	fs := flag.NewFlagSet("check", flag.ContinueOnError)
 	fs.Usage = func() { fmt.Fprintf(os.Stderr, usage, self, self); fs.PrintDefaults() }
 	apiKey := fs.String("api-key", os.Getenv("GOINFER_API_KEY"), "bearer token, if the server was started with -api-key")
@@ -42,7 +43,7 @@ func Run(args []string, self string) int {
 		if *noSelfTest {
 			decoder.SkipSelfTests()
 		}
-		hwreport.Write(os.Stdout, hwreport.Options{FitModel: *fit})
+		hwreport.Write(os.Stdout, hwreport.Options{FitModel: *fit, Version: version})
 		return 0
 	}
 	base := "http://127.0.0.1:8080"
