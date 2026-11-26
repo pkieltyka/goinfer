@@ -161,23 +161,24 @@ func (o *eg2Ops) closeDevice() {
 type eg2Accel struct {
 	mu sync.Mutex
 	eg2Ops
-	cfg         embeddinggemma2.Config
-	model       *embeddinggemma2.Model
-	identity    embeddinggemma2.DeviceInfo
-	profile     string
-	matrix      eg2MatrixPipes
-	stagedFFN   Pipeline
-	pleProj     Buffer // scaled by hidden^-0.5 at upload, as the CPU scales the product
-	pleNorm     Buffer
-	finalNorm   Buffer
-	proj        Buffer
-	ones        Buffer // the unweighted v norm
-	layers      []eg2Layer
-	ropes       map[eg2RopeKey][2]Buffer // immutable cos/sin tables, by input length, head dim and theta
-	cap         int                      // scratch rows allocated
-	scr         eg2Scratch
-	kvHeads     []int // per-layer KV heads, for scalar-arena sizing
-	weightBytes int64 // actual device charges for the batch selector's uploaded model tensors
+	cfg            embeddinggemma2.Config
+	model          *embeddinggemma2.Model
+	identity       embeddinggemma2.DeviceInfo
+	profile        string
+	matrix         eg2MatrixPipes
+	stagedFFN      Pipeline
+	stagedFFNGeGLU Pipeline
+	pleProj        Buffer // scaled by hidden^-0.5 at upload, as the CPU scales the product
+	pleNorm        Buffer
+	finalNorm      Buffer
+	proj           Buffer
+	ones           Buffer // the unweighted v norm
+	layers         []eg2Layer
+	ropes          map[eg2RopeKey][2]Buffer // immutable cos/sin tables, by input length, head dim and theta
+	cap            int                      // scratch rows allocated
+	scr            eg2Scratch
+	kvHeads        []int // per-layer KV heads, for scalar-arena sizing
+	weightBytes    int64 // actual device charges for the batch selector's uploaded model tensors
 }
 
 type eg2Scratch struct{ x, xn, q, k, v, ctx, o, g, u, f, gg, pr, ple, out, qh, kh, vh, sc, vt, ob Buffer }
@@ -369,7 +370,7 @@ func newEG2AccelWithAttention(m *embeddinggemma2.Model, request eg2AttentionRequ
 	}
 	// Matrix attachment already established the unified-memory Apple7 capability.
 	if a.profile == eg2MatrixProfile && eg2StagedFFNEligible(d.Name(), d.ArchitectureName(), a.profile, w.Config) {
-		a.stagedFFN, err = newEG2StagedFFN(d)
+		a.stagedFFN, a.stagedFFNGeGLU, err = newEG2StagedFFN(d, request == eg2AttentionBatch)
 		if err != nil {
 			return nil, err
 		}
@@ -635,6 +636,16 @@ func (a *eg2Accel) encodeTextRows(T int, keepLayers bool, batch *eg2BatchPlan, t
 	e := a.q.Begin()
 	a.gemm(e, s.x, a.pleProj, s.ple, T, L*P, H)
 	a.rms(e, s.ple, a.pleNorm, s.ple, T*L, P)
+	fuseFFN := false
+	if batch != nil && a.stagedFFNGeGLU != (Pipeline{}) {
+		fuseFFN = true
+		for _, run := range batch.runs[:batch.runCount] {
+			if !run.staged {
+				fuseFFN = false
+				break
+			}
+		}
+	}
 	for li := range a.layers {
 		ly := &a.layers[li]
 		hd, nKV := ly.w.HeadDim, ly.w.KVHeads
@@ -677,6 +688,7 @@ func (a *eg2Accel) encodeTextRows(T int, keepLayers bool, batch *eg2BatchPlan, t
 		e.Dispatch(a.p.add, T*H, 256, s.x, s.o, a.u32(uint32(T*H)))
 		// MLP
 		a.rms(e, s.x, ly.preFFNorm, s.xn, T, H)
+		fused := fuseFFN
 		if batch == nil {
 			gemmFFN(e, s.xn, ly.gate, s.g, T, I, H)
 			gemmFFN(e, s.xn, ly.up, s.u, T, I, H)
@@ -687,11 +699,18 @@ func (a *eg2Accel) encodeTextRows(T int, keepLayers bool, batch *eg2BatchPlan, t
 					gemm = a.gemmStagedFFN
 				}
 				xn := s.xn.At(4 * run.start * H)
-				gemm(e, xn, ly.gate, s.g.At(4*run.start*I), run.rows, I, H)
-				gemm(e, xn, ly.up, s.u.At(4*run.start*I), run.rows, I, H)
+				gate := s.g.At(4 * run.start * I)
+				gemm(e, xn, ly.gate, gate, run.rows, I, H)
+				if fused {
+					a.gemmStagedFFNUpGeGLU(e, xn, ly.up, gate, run.rows, I, H)
+				} else {
+					gemm(e, xn, ly.up, s.u.At(4*run.start*I), run.rows, I, H)
+				}
 			}
 		}
-		e.Dispatch(a.p.geluMul, T*I, 256, s.g, s.u, a.u32(uint32(T*I)))
+		if !fused {
+			e.Dispatch(a.p.geluMul, T*I, 256, s.g, s.u, a.u32(uint32(T*I)))
+		}
 		a.gemm(e, s.g, ly.down, s.f, T, H, I)
 		a.rms(e, s.f, ly.postFFNorm, s.f, T, H)
 		e.Dispatch(a.p.add, T*H, 256, s.x, s.f, a.u32(uint32(T*H)))
