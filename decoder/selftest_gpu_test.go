@@ -3,6 +3,7 @@ package decoder
 import (
 	"bytes"
 	"encoding/json"
+	"errors"
 	"math"
 	"os"
 	"path/filepath"
@@ -294,8 +295,305 @@ func TestGPUProbe_anUnmeasuredBackendIsNotProbed(t *testing.T) {
 		}
 	}
 	// The report path says so instead of staying silent.
-	if r := probeStandalone(name); r.Status != SelfTestSkipped || !strings.Contains(r.Note, "no self-test for this backend yet") {
+	if r, _ := probeStandalone(name); r.Status != SelfTestSkipped || !strings.Contains(r.Note, "no self-test for this backend yet") {
 		t.Errorf("standalone probe of an unmeasured backend: %s", r.Summary())
+	}
+}
+
+// deviceState is the mutable answer a fake standalone device check gives across calls.
+type deviceState struct {
+	mu  sync.Mutex
+	err error
+}
+
+func (s *deviceState) set(err error) { s.mu.Lock(); s.err = err; s.mu.Unlock() }
+func (s *deviceState) get() error {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	return s.err
+}
+
+// standaloneFake is a temporary backend whose standalone device check reads state and counts its own
+// calls; countingBuild counts every fixture build, so a skipped check is visible as 0 builds.
+type standaloneFake struct {
+	*countingBuild
+	hooks *atomic.Int64
+	state *deviceState
+}
+
+func (f *standaloneFake) SelfTestDeviceError() error {
+	f.hooks.Add(1)
+	return f.state.get()
+}
+
+func registerStandaloneFake(name string, builds, hooks *atomic.Int64, state *deviceState) {
+	RegisterBackend(name, func() (Backend, error) {
+		cpu, e := NewBackend("cpu")
+		if e != nil {
+			return nil, e
+		}
+		be := &fakeNamedResidency{name: name}
+		be.Backend = cpu
+		return &standaloneFake{countingBuild: &countingBuild{fakeNamedResidency: be, n: builds}, hooks: hooks, state: state}, nil
+	})
+}
+
+// A device the standalone check cannot open is skipped before any fixture is loaded: four fixture loads would
+// only repeat the same decline. The original driver error is kept in the note, and the temporary backend is
+// still created (NewBackend per standalone call) and closed.
+func TestGPUProbe_standaloneSkipsFixturesWhenTheDeviceIsUnavailable(t *testing.T) {
+	t.Cleanup(resetSelfTestCaches)
+	resetSelfTestCaches()
+	const name = "fake-unavailable-gpu"
+	probeMeasured[name] = true
+	t.Cleanup(func() { delete(probeMeasured, name) })
+	var builds, hooks atomic.Int64
+	registerStandaloneFake(name, &builds, &hooks, &deviceState{err: errors.New("libcuda.so.1: cannot open shared object file: No such file or directory")})
+	r, override := probeStandalone(name)
+	if r.Status != SelfTestSkipped || !override || !strings.Contains(r.Note, "libcuda.so.1") {
+		t.Fatalf("standalone probe of an unavailable device: %s", r.Summary())
+	}
+	if n := builds.Load(); n != 0 {
+		t.Errorf("%d fixture builds on an unavailable device; want 0", n)
+	}
+	if n := hooks.Load(); n != 1 {
+		t.Errorf("standalone device check ran %d times; want 1", n)
+	}
+	for _, got := range SelfTestResults() {
+		if got.Backend == name {
+			t.Errorf("an availability-only skip was stored in the health-visible results: %s", got.Summary())
+		}
+	}
+	// The public report carries the observation for this invocation; the process snapshot does not.
+	var report *SelfTestResult
+	for _, got := range RunSelfTests() {
+		if got.Backend == name {
+			got := got
+			report = &got
+		}
+	}
+	if report == nil || report.Status != SelfTestSkipped || !strings.Contains(report.Note, "libcuda.so.1") {
+		t.Errorf("RunSelfTests report %+v; want the unavailable-device skip", report)
+	}
+	for _, got := range SelfTestResults() {
+		if got.Backend == name {
+			t.Errorf("RunSelfTests stored the availability skip globally: %s", got.Summary())
+		}
+	}
+}
+
+// A device that opens still runs every fixture, and a genuine mismatch still declines: the availability check
+// must not turn a healthy but disagreeing GPU into a skip.
+func TestGPUProbe_standaloneRunsEveryFixtureAndStillDeclinesAMismatch(t *testing.T) {
+	t.Cleanup(resetSelfTestCaches)
+	resetSelfTestCaches()
+	const name = "fake-healthy-but-wrong-gpu"
+	probeMeasured[name] = true
+	t.Cleanup(func() { delete(probeMeasured, name) })
+	var builds, hooks atomic.Int64
+	registerStandaloneFake(name, &builds, &hooks, &deviceState{})
+	r, override := probeStandalone(name)
+	if r.Status != SelfTestDeclined || !override {
+		t.Fatalf("a wrong resident on an open device: %s; want declined", r.Summary())
+	}
+	if n := builds.Load(); n != int64(len(selfTestFixtures)) {
+		t.Errorf("%d fixture builds on a reachable device; want %d", n, len(selfTestFixtures))
+	}
+	if n := hooks.Load(); n != 1 {
+		t.Errorf("standalone device check ran %d times; want 1", n)
+	}
+}
+
+// A model load uses the in-load probe, never the standalone device check: the optional seam must not open a
+// second context on that path.
+func TestGPUProbe_modelLoadDoesNotUseTheStandaloneDeviceCheck(t *testing.T) {
+	t.Cleanup(resetSelfTestCaches)
+	resetSelfTestCaches()
+	const name = "fake-loaded-model-gpu"
+	probeMeasured[name] = true
+	t.Cleanup(func() { delete(probeMeasured, name) })
+	var builds, hooks atomic.Int64
+	registerStandaloneFake(name, &builds, &hooks, &deviceState{err: errors.New("must not be consulted by a load")})
+	m, err := Load(tinyFixture(t), Options{Backend: name, Quant: "int4"})
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer m.Close()
+	if n := hooks.Load(); n != 0 {
+		t.Errorf("standalone device check ran %d times during a model load; want 0", n)
+	}
+	if n := builds.Load(); n != int64(len(selfTestFixtures)) {
+		t.Errorf("model load ran %d fixture builds; want %d", n, len(selfTestFixtures))
+	}
+}
+
+// The report's self-test list keeps the CPU test when a linked GPU has no device: skipping the GPU fixtures must
+// not skip the work this process can still do.
+func TestRunSelfTests_keepsCPUTestedWhenAGPUIsUnavailable(t *testing.T) {
+	t.Cleanup(resetSelfTestCaches)
+	resetSelfTestCaches()
+	const name = "fake-unavailable-cpu-control"
+	probeMeasured[name] = true
+	t.Cleanup(func() { delete(probeMeasured, name) })
+	var builds, hooks atomic.Int64
+	registerStandaloneFake(name, &builds, &hooks, &deviceState{err: errors.New("no CUDA device")})
+	cpuOK, gpuSkipped := false, false
+	for _, r := range RunSelfTests() {
+		switch r.Backend {
+		case "cpu":
+			cpuOK = r.Status == SelfTestPass || r.Status == SelfTestRepaired
+		case name:
+			gpuSkipped = r.Status == SelfTestSkipped && strings.Contains(r.Note, "no CUDA device")
+		}
+	}
+	if !cpuOK {
+		t.Error("the CPU self-test did not run or did not pass beside an unavailable GPU")
+	}
+	if !gpuSkipped {
+		t.Error("the unavailable GPU was not recorded as skipped with its original reason")
+	}
+	if n := builds.Load(); n != 0 {
+		t.Errorf("%d fixture builds beside an unavailable GPU; want 0", n)
+	}
+}
+
+// A device that is reachable, then unavailable, then reachable again must report the cached numerical
+// result each time it is reachable: the unavailable skip overwrites the display, and recovery restores it
+// without re-running fixtures or announcing the result twice.
+func TestRunSelfTests_restoresACachedResultWhenTheDeviceReturns(t *testing.T) {
+	t.Cleanup(resetSelfTestCaches)
+	resetSelfTestCaches()
+	const name = "fake-recovered-gpu"
+	probeMeasured[name] = true
+	t.Cleanup(func() { delete(probeMeasured, name) })
+	var builds, hooks atomic.Int64
+	state := &deviceState{}
+	registerStandaloneFake(name, &builds, &hooks, state)
+	result := func() SelfTestResult {
+		t.Helper()
+		for _, r := range RunSelfTests() {
+			if r.Backend == name {
+				return r
+			}
+		}
+		t.Fatal("no result recorded for the fake backend")
+		return SelfTestResult{}
+	}
+	health := func() SelfTestResult {
+		t.Helper()
+		for _, r := range SelfTestResults() {
+			if r.Backend == name {
+				return r
+			}
+		}
+		return SelfTestResult{}
+	}
+	if r := result(); r.Status != SelfTestDeclined {
+		t.Fatalf("reachable/wrong first: %s; want declined", r.Summary())
+	}
+	if r := health(); r.Status != SelfTestDeclined {
+		t.Fatalf("first health-visible result: %s; want declined", r.Summary())
+	}
+	if n := builds.Load(); n != int64(len(selfTestFixtures)) {
+		t.Fatalf("first reachable check built %d fixtures; want %d", n, len(selfTestFixtures))
+	}
+	state.set(errors.New("no CUDA device"))
+	if r := result(); r.Status != SelfTestSkipped || !strings.Contains(r.Note, "no CUDA device") {
+		t.Fatalf("unavailable second: %s; want skipped with the device error", r.Summary())
+	}
+	if r := health(); r.Status != SelfTestDeclined || len(r.Mismatches) == 0 {
+		t.Fatalf("health-visible result while missing: %s; the numerical decline and its details must survive", r.Summary())
+	}
+	if n := builds.Load(); n != int64(len(selfTestFixtures)) {
+		t.Errorf("unavailable check built %d fixtures; want no new build", n-int64(len(selfTestFixtures)))
+	}
+	// A real load after the skip reads the numerical cache; it must not republish the availability skip
+	// or overwrite the health-visible decline.
+	m, err := Load(tinyFixture(t), Options{Backend: name, Quant: "int4"})
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer m.Close()
+	if r := health(); r.Status != SelfTestDeclined || len(r.Mismatches) == 0 {
+		t.Fatalf("health-visible result after the load: %s; want the numerical decline", r.Summary())
+	}
+	if n := builds.Load(); n != int64(len(selfTestFixtures)) {
+		t.Errorf("the cached load built %d fixtures; want none", n-int64(len(selfTestFixtures)))
+	}
+	state.set(nil)
+	if r := result(); r.Status != SelfTestDeclined {
+		t.Fatalf("reachable again: %s; want the cached declined result restored", r.Summary())
+	}
+	if r := health(); r.Status != SelfTestDeclined {
+		t.Fatalf("health-visible result after recovery: %s; want declined", r.Summary())
+	}
+	if n := builds.Load(); n != int64(len(selfTestFixtures)) {
+		t.Errorf("recovery built %d fixtures; want no rerun", n-int64(len(selfTestFixtures)))
+	}
+	if n := hooks.Load(); n != 3 {
+		t.Errorf("standalone device check ran %d times over three reports; want 3", n)
+	}
+}
+
+// A newer numerical result for another quant wins in the process snapshot: an availability skip is only a
+// report-local overlay and must never replace it, whether the device is missing or returns.
+func TestRunSelfTests_keepsANewerQuantResultOverAvailability(t *testing.T) {
+	t.Cleanup(resetSelfTestCaches)
+	resetSelfTestCaches()
+	const name = "fake-newer-quant-gpu"
+	probeMeasured[name] = true
+	t.Cleanup(func() { delete(probeMeasured, name) })
+	var builds, hooks atomic.Int64
+	state := &deviceState{}
+	registerStandaloneFake(name, &builds, &hooks, state)
+	// A cached int4 pass exists, and the newest real result is an int8int8 decline.
+	gpuProbeMu.Lock()
+	gpuProbeCache[name+"/int4"] = SelfTestResult{Backend: name, Status: SelfTestPass}
+	gpuProbeMu.Unlock()
+	prevWarn := selfTestWarn
+	selfTestWarn = func(string) {}
+	t.Cleanup(func() { selfTestWarn = prevWarn })
+	RecordSelfTest(SelfTestResult{Backend: name, Status: SelfTestDeclined, Note: "int8int8 decline", Mismatches: []string{"int8int8: observed 1, allowed 0"}})
+	snapshot := func() SelfTestResult {
+		t.Helper()
+		for _, r := range SelfTestResults() {
+			if r.Backend == name {
+				return r
+			}
+		}
+		return SelfTestResult{}
+	}
+	report := func() SelfTestResult {
+		t.Helper()
+		for _, r := range RunSelfTests() {
+			if r.Backend == name {
+				return r
+			}
+		}
+		return SelfTestResult{}
+	}
+	if r := report(); r.Status != SelfTestPass {
+		t.Fatalf("report with device present: %s; the report follows the standalone int4 check", r.Summary())
+	}
+	if r := snapshot(); r.Status != SelfTestDeclined || !strings.Contains(r.Note, "int8int8 decline") || len(r.Mismatches) == 0 {
+		t.Fatalf("snapshot with device present: %s; want the newer int8int8 decline and its detail", r.Summary())
+	}
+	state.set(errors.New("no CUDA device"))
+	if r := report(); r.Status != SelfTestSkipped {
+		t.Fatalf("report with device missing: %s; want the report-local skip", r.Summary())
+	}
+	if r := snapshot(); r.Status != SelfTestDeclined || !strings.Contains(r.Note, "int8int8 decline") || len(r.Mismatches) == 0 {
+		t.Fatalf("snapshot with device missing: %s; the newer quant result and detail must survive", r.Summary())
+	}
+	state.set(nil)
+	if r := report(); r.Status != SelfTestPass {
+		t.Fatalf("report after recovery: %s; the report follows the standalone int4 check", r.Summary())
+	}
+	if r := snapshot(); r.Status != SelfTestDeclined || !strings.Contains(r.Note, "int8int8 decline") || len(r.Mismatches) == 0 {
+		t.Fatalf("snapshot after recovery: %s; the newer quant result and detail must survive", r.Summary())
+	}
+	if n := builds.Load(); n != 0 {
+		t.Errorf("%d fixture builds; the cached int4 result and the newer result need none", n)
 	}
 }
 
@@ -343,7 +641,7 @@ func TestGPUProbe_normalizesTheBackendNameAndHonoursIneligibility(t *testing.T) 
 	if rec == nil || rec.Status != SelfTestSkipped || !strings.Contains(rec.Note, "software adapter") {
 		t.Errorf("recorded %+v; want skipped with the adapter reason", rec)
 	}
-	if r := probeStandalone(reg); r.Status != SelfTestSkipped || !strings.Contains(r.Note, "software adapter") {
+	if r, _ := probeStandalone(reg); r.Status != SelfTestSkipped || !strings.Contains(r.Note, "software adapter") {
 		t.Errorf("standalone probe of an ineligible backend: %s", r.Summary())
 	}
 }

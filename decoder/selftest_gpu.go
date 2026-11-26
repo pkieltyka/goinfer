@@ -104,26 +104,47 @@ func probeBackendCached(backend, quant string) SelfTestResult {
 	return r
 }
 
+// standaloneSelfTest is implemented by a backend that can report the device-open error for the standalone
+// self-test without loading a model. It is separate from selfTestEligibility: loaded models consult that one
+// too, and it must not open a second device context on that path.
+type standaloneSelfTest interface {
+	SelfTestDeviceError() error
+}
+
 // probeStandalone runs the probe for a backend with no real model loaded, for `check --hardware`: it creates the device context itself, so it costs more than the in-load probe, and says so.
-func probeStandalone(backend string) SelfTestResult {
+func probeStandalone(backend string) (SelfTestResult, bool) {
 	if SelfTestsSkipped() {
-		return SelfTestResult{Backend: backend, Status: SelfTestSkipped}
+		return SelfTestResult{Backend: backend, Status: SelfTestSkipped}, false
 	}
 	if !probeMeasured[backend] {
 		r := SelfTestResult{Backend: backend, Status: SelfTestSkipped, Note: "no self-test for this backend yet: its kernels are not checked"}
 		RecordSelfTest(r)
-		return r
+		return r, false
 	}
-	if be, err := NewBackend(backend); err == nil {
+	be, err := NewBackend(backend)
+	override := false
+	if err == nil {
+		// An unavailable or hidden device cannot check anything: loading the four fixtures would only repeat the
+		// same load decline four times. A backend that can open a device only for this path reports its own typed
+		// error; a reachable device keeps every fixture. A constructor error on any other backend keeps its
+		// existing path below.
+		if e, ok := be.(standaloneSelfTest); ok {
+			override = true
+			if err := e.SelfTestDeviceError(); err != nil {
+				_ = be.Close()
+				return SelfTestResult{Backend: backend, Status: SelfTestSkipped,
+					Note: "no usable device: " + err.Error()}, true
+			}
+		}
 		why, skip := probeIneligible(be)
 		_ = be.Close()
 		if skip {
 			r := SelfTestResult{Backend: backend, Status: SelfTestSkipped, Note: why}
 			RecordSelfTest(r)
-			return r
+			return r, override
 		}
 	}
-	return probeBackendCached(backend, "int4")
+	return probeBackendCached(backend, "int4"), override
 }
 
 func probeBackend(backend, quant string) SelfTestResult {
