@@ -84,6 +84,16 @@ func BuildIdent(injected string) (version, revision string) {
 	return version, revision
 }
 
+// VersionString formats the build identity as "<version>" or "<version> (<revision>)", omitting the
+// parenthetical when version already contains the commit hash (such as a pseudo-version).
+func VersionString(injected string) string {
+	version, revision := BuildIdent(injected)
+	if revision != "" && !strings.Contains(version, strings.TrimSuffix(revision, "-dirty")) {
+		return version + " (" + revision + ")"
+	}
+	return version
+}
+
 // BinaryName is prog, a binary's file name, without a Windows .exe extension in any case: the name --version's first line
 // gives, which a client that pins goinfer's version parses.
 func BinaryName(prog string) string {

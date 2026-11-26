@@ -21,7 +21,7 @@ func TestRun_zeroModelsReportsSkippedNotFullyPassed(t *testing.T) {
 	defer srv.Close()
 
 	out := captureStdout(t, func() {
-		code := Run([]string{srv.URL}, "goinfer")
+		code := Run([]string{srv.URL}, "goinfer", "")
 		if code != 0 {
 			t.Errorf("Run returned %d, want 0 — a skip is not a failure", code)
 		}

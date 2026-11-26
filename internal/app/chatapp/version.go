@@ -31,14 +31,11 @@ var injectedVersion string
 var embeddedTier, embeddedQuant string
 
 // versionReport is what `goinfer-chat --version` (or `-v`) prints.
+func buildVersion() string { return cliutil.VersionString(injectedVersion) }
+
 func versionReport(prog string) string {
 	var b strings.Builder
-	version, revision := cliutil.BuildIdent(injectedVersion)
-	fmt.Fprintf(&b, "%s %s", cliutil.BinaryName(prog), version)
-	if revision != "" && !strings.Contains(version, strings.TrimSuffix(revision, "-dirty")) {
-		fmt.Fprintf(&b, " (%s)", revision)
-	}
-	b.WriteString("\n")
+	fmt.Fprintf(&b, "%s %s\n", cliutil.BinaryName(prog), buildVersion())
 	fmt.Fprintf(&b, "backends: %s\n", strings.Join(decoder.CompiledBackends(), " "))
 	fmt.Fprintf(&b, "go: %s %s/%s\n", runtime.Version(), runtime.GOOS, runtime.GOARCH)
 	if hasEmbeddedModel {
