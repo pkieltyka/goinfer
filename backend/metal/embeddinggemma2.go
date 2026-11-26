@@ -30,6 +30,13 @@ func init() {
 	embeddinggemma2.RegisterAccelerator("metal-eg2-combined", func(m *embeddinggemma2.Model) (embeddinggemma2.Accelerator, error) {
 		return newEG2AccelWithAttention(m, eg2AttentionMatrix)
 	})
+	embeddinggemma2.RegisterAccelerator("metal-eg2-batch", func(m *embeddinggemma2.Model) (embeddinggemma2.Accelerator, error) {
+		a, err := newEG2AccelWithAttention(m, eg2AttentionBatch)
+		if err != nil {
+			return nil, err
+		}
+		return &eg2BatchAccel{eg2Accel: a}, nil
+	})
 	embeddinggemma2.RegisterDeviceProber("metal", probeMetalDevice)
 }
 
@@ -154,22 +161,23 @@ func (o *eg2Ops) closeDevice() {
 type eg2Accel struct {
 	mu sync.Mutex
 	eg2Ops
-	cfg       embeddinggemma2.Config
-	model     *embeddinggemma2.Model
-	identity  embeddinggemma2.DeviceInfo
-	profile   string
-	matrix    eg2MatrixPipes
-	stagedFFN Pipeline
-	pleProj   Buffer // scaled by hidden^-0.5 at upload, as the CPU scales the product
-	pleNorm   Buffer
-	finalNorm Buffer
-	proj      Buffer
-	ones      Buffer // the unweighted v norm
-	layers    []eg2Layer
-	ropes     map[eg2RopeKey][2]Buffer // immutable cos/sin tables, by input length, head dim and theta
-	cap       int                      // scratch rows allocated
-	scr       eg2Scratch
-	kvHeads   []int // per-layer KV heads, for scalar-arena sizing
+	cfg         embeddinggemma2.Config
+	model       *embeddinggemma2.Model
+	identity    embeddinggemma2.DeviceInfo
+	profile     string
+	matrix      eg2MatrixPipes
+	stagedFFN   Pipeline
+	pleProj     Buffer // scaled by hidden^-0.5 at upload, as the CPU scales the product
+	pleNorm     Buffer
+	finalNorm   Buffer
+	proj        Buffer
+	ones        Buffer // the unweighted v norm
+	layers      []eg2Layer
+	ropes       map[eg2RopeKey][2]Buffer // immutable cos/sin tables, by input length, head dim and theta
+	cap         int                      // scratch rows allocated
+	scr         eg2Scratch
+	kvHeads     []int // per-layer KV heads, for scalar-arena sizing
+	weightBytes int64 // actual device charges for the batch selector's uploaded model tensors
 }
 
 type eg2Scratch struct{ x, xn, q, k, v, ctx, o, g, u, f, gg, pr, ple, out, qh, kh, vh, sc, vt, ob Buffer }
@@ -366,6 +374,9 @@ func newEG2AccelWithAttention(m *embeddinggemma2.Model, request eg2AttentionRequ
 			return nil, err
 		}
 	}
+	if request == eg2AttentionBatch && !eg2BatchGeometry(a.stagedFFN != (Pipeline{}), w) {
+		return nil, fmt.Errorf("%w: Metal batching requires the base Apple M4 combined text graph", embeddinggemma2.ErrUnsupportedSelector)
+	}
 	a.cfg, a.model = w.Config, m
 	a.eps = float32(a.cfg.RMSNormEps)
 	up := func(v []float32) Buffer {
@@ -375,6 +386,9 @@ func newEG2AccelWithAttention(m *embeddinggemma2.Model, request eg2AttentionRequ
 		b, ok := gpu.TryNewBufferOfOn(d, mem.LineCompanion, v)
 		if !ok {
 			err = fmt.Errorf("%w: Metal EG2 weight upload (%d float32 values)", embeddinggemma2.ErrDeviceOutOfMemory, len(v))
+		}
+		if request == eg2AttentionBatch {
+			a.weightBytes += b.AllocatedBytes()
 		}
 		return b
 	}
@@ -389,6 +403,9 @@ func newEG2AccelWithAttention(m *embeddinggemma2.Model, request eg2AttentionRequ
 		ones[i] = 1
 	}
 	a.ones = up(ones)
+	if request == eg2AttentionBatch {
+		a.weightBytes -= a.ones.AllocatedBytes()
+	}
 	for _, ly := range w.Layers {
 		a.kvHeads = append(a.kvHeads, ly.KVHeads)
 		a.layers = append(a.layers, eg2Layer{w: ly, inNorm: up(ly.InNorm), q: up(ly.Q), k: up(ly.K), v: up(ly.V), o: up(ly.O),
@@ -462,18 +479,12 @@ func (a *eg2Ops) u32(v uint32) Buffer {
 }
 func (a *eg2Ops) f32(v float32) Buffer { return a.u32(math.Float32bits(v)) }
 
-// grow sizes the scratch for T rows, releasing what it replaces.
-func (a *eg2Accel) grow(T int) error {
-	if err := a.open(); err != nil {
-		return err
-	}
-	if T <= a.cap {
-		return nil
-	}
-	s := &a.scr
-	a.release(&s.x, &s.xn, &s.q, &s.k, &s.v, &s.ctx, &s.o, &s.g, &s.u, &s.f, &s.gg, &s.pr, &s.ple, &s.out, &s.qh, &s.kh,
-		&s.vh, &s.sc, &s.vt, &s.ob)
-	a.cap = 0
+func (s *eg2Scratch) buffers() [20]*Buffer {
+	return [20]*Buffer{&s.x, &s.xn, &s.q, &s.k, &s.v, &s.ctx, &s.o, &s.g, &s.u, &s.f,
+		&s.gg, &s.pr, &s.ple, &s.out, &s.qh, &s.kh, &s.vh, &s.sc, &s.vt, &s.ob}
+}
+
+func (a *eg2Accel) scratchWords(rows int) [20]int {
 	c := a.cfg
 	maxQD, maxKVD, maxHD := 0, 0, 0
 	for _, ly := range a.layers {
@@ -481,28 +492,47 @@ func (a *eg2Accel) grow(T int) error {
 		maxKVD = max(maxKVD, ly.w.KVHeads*ly.w.HeadDim)
 		maxHD = max(maxHD, ly.w.HeadDim)
 	}
-	var err error
-	alloc := func(rows, cols int) Buffer {
-		if err != nil {
-			return Buffer{}
-		}
-		buffer, ok := a.d.TryNewBufferLenOn(mem.LineCompanion, rows*cols)
+	h, i, p, d := rows*c.Hidden, rows*c.Intermediate, rows*c.PLEDim, rows*c.EmbeddingDim
+	q, kv, hd := rows*maxQD, rows*maxKVD, rows*maxHD
+	block := min(eg2Block, rows)
+	return [20]int{h, h, q, kv, kv, q, h, i, i, h, p, h, p * c.Layers, d, q, kv, kv, block * rows, hd, block * maxHD}
+}
+
+func (a *eg2Accel) releaseScratch(s *eg2Scratch) {
+	bufs := s.buffers()
+	a.release(bufs[:]...)
+}
+
+func (a *eg2Accel) newScratch(words [20]int, alloc func(int) (Buffer, bool)) (eg2Scratch, error) {
+	var s eg2Scratch
+	for i, b := range s.buffers() {
+		var ok bool
+		*b, ok = alloc(words[i])
 		if !ok {
-			err = fmt.Errorf("%w: Metal EG2 scratch for %d rows by %d columns", embeddinggemma2.ErrDeviceOutOfMemory, rows, cols)
+			a.releaseScratch(&s)
+			return eg2Scratch{}, fmt.Errorf("%w: Metal text scratch buffer of %d float32 values", embeddinggemma2.ErrDeviceOutOfMemory, words[i])
 		}
-		return buffer
 	}
-	n := func(cols int) Buffer { return alloc(T, cols) }
-	a.scr = eg2Scratch{x: n(c.Hidden), xn: n(c.Hidden), q: n(maxQD), k: n(maxKVD), v: n(maxKVD), ctx: n(maxQD),
-		o: n(c.Hidden), g: n(c.Intermediate), u: n(c.Intermediate), f: n(c.Hidden), gg: n(c.PLEDim), pr: n(c.Hidden),
-		ple: n(c.Layers * c.PLEDim), out: n(c.EmbeddingDim), qh: n(maxQD), kh: n(maxKVD), vh: n(maxKVD),
-		sc: alloc(min(eg2Block, T), T), vt: n(maxHD), ob: alloc(min(eg2Block, T), maxHD)}
-	if err != nil {
-		a.release(&s.x, &s.xn, &s.q, &s.k, &s.v, &s.ctx, &s.o, &s.g, &s.u, &s.f, &s.gg, &s.pr, &s.ple, &s.out, &s.qh, &s.kh,
-			&s.vh, &s.sc, &s.vt, &s.ob)
+	return s, nil
+}
+
+// grow sizes singleton scratch for T rows, releasing what it replaces.
+func (a *eg2Accel) grow(T int) error {
+	if err := a.open(); err != nil {
 		return err
 	}
-	a.cap = T
+	if T <= a.cap {
+		return nil
+	}
+	a.releaseScratch(&a.scr)
+	a.cap = 0
+	next, err := a.newScratch(a.scratchWords(T), func(words int) (Buffer, bool) {
+		return a.d.TryNewBufferLenOn(mem.LineCompanion, words)
+	})
+	if err != nil {
+		return err
+	}
+	a.scr, a.cap = next, T
 	return nil
 }
 
@@ -558,7 +588,7 @@ func (a *eg2Accel) forwardEmbeds(x0 []float32, T int, keepLayers bool) ([]float3
 		return nil, nil, err
 	}
 	c := a.cfg
-	H, I, P, L, E := c.Hidden, c.Intermediate, c.PLEDim, c.Layers, c.EmbeddingDim
+	H, E := c.Hidden, c.EmbeddingDim
 	if T <= 0 || H <= 0 || len(x0)/H != T || len(x0)%H != 0 {
 		return nil, nil, fmt.Errorf("metal: %d input values for %d rows of %d", len(x0), T, H)
 	}
@@ -580,9 +610,22 @@ func (a *eg2Accel) forwardEmbeds(x0 []float32, T int, keepLayers bool) ([]float3
 	s := &a.scr
 	x := s.x.Floats()[:T*H]
 	copy(x, x0)
+	layers, err := a.encodeTextRows(T, keepLayers, nil, nil)
+	if err != nil {
+		return nil, nil, err
+	}
+	return append([]float32(nil), s.out.Floats()[:T*E]...), layers, nil
+}
+
+// encodeTextRows records the common row-local graph. A packed plan changes
+// only the RoPE and attention spans and the per-document gate/up routing.
+func (a *eg2Accel) encodeTextRows(T int, keepLayers bool, batch *eg2BatchPlan, tables *[eg2RopeCacheLimit][2]Buffer) ([][]float32, error) {
+	c := a.cfg
+	H, I, P, L, E := c.Hidden, c.Intermediate, c.PLEDim, c.Layers, c.EmbeddingDim
+	s := &a.scr
 	var layers [][]float32
 	if keepLayers {
-		layers = append(layers, append([]float32(nil), x...))
+		layers = append(layers, append([]float32(nil), s.x.Floats()[:T*H]...))
 	}
 	gemmFFN := a.gemm
 	if a.stagedFFN != (Pipeline{}) && eg2StagedFFNRows(T) && !a.vitGemmForTest {
@@ -604,26 +647,50 @@ func (a *eg2Accel) forwardEmbeds(x0 []float32, T int, keepLayers bool) ([]float3
 		a.rms(e, s.q, ly.qNorm, s.q, T*c.Heads, hd)
 		a.rms(e, s.k, ly.kNorm, s.k, T*nKV, hd)
 		a.rms(e, s.v, a.ones, s.v, T*nKV, hd)
-		cb, sb := a.ropeTables(T, hd, ly.w.RopeTheta)
-		e.Dispatch(a.p.rope, T*c.Heads*hd/2, 64, s.q, cb, sb, a.u32(uint32(c.Heads)), a.u32(uint32(hd)), a.u32(uint32(T*c.Heads*hd/2)))
-		e.Dispatch(a.p.rope, T*nKV*hd/2, 64, s.k, cb, sb, a.u32(uint32(nKV)), a.u32(uint32(hd)), a.u32(uint32(T*nKV*hd/2)))
-		if a.profile == eg2MatrixProfile {
-			a.dispatchEG2Matrix(e, a.matrix, s.q, s.k, s.v, s.ctx, T, ly.w.Full)
-		} else {
-			win := uint32(c.SlidingWindow)
-			if ly.w.Full {
-				win = 0
+		if batch != nil {
+			pair := tables[batch.layerRope[li]]
+			for _, doc := range batch.docs[:batch.docCount] {
+				q, ctx := s.q.At(4*doc.start*qd), s.ctx.At(4*doc.start*qd)
+				k, v := s.k.At(4*doc.start*kvd), s.v.At(4*doc.start*kvd)
+				a.encodeRoPE(e, q, pair, doc.rows, c.Heads, hd)
+				a.encodeRoPE(e, k, pair, doc.rows, nKV, hd)
+				a.dispatchEG2Matrix(e, a.matrix, q, k, v, ctx, doc.rows, ly.w.Full)
 			}
-			a.attention(e, eg2AttnBufs{q: s.q, k: s.k, v: s.v, qh: s.qh, kh: s.kh, vh: s.vh, sc: s.sc, vt: s.vt, ob: s.ob, ctx: s.ctx},
-				T, c.Heads, hd, nKV, win)
+		} else {
+			cb, sb := a.ropeTables(T, hd, ly.w.RopeTheta)
+			pair := [2]Buffer{cb, sb}
+			a.encodeRoPE(e, s.q, pair, T, c.Heads, hd)
+			a.encodeRoPE(e, s.k, pair, T, nKV, hd)
+			if a.profile == eg2MatrixProfile {
+				a.dispatchEG2Matrix(e, a.matrix, s.q, s.k, s.v, s.ctx, T, ly.w.Full)
+			} else {
+				win := uint32(c.SlidingWindow)
+				if ly.w.Full {
+					win = 0
+				}
+				a.attention(e, eg2AttnBufs{q: s.q, k: s.k, v: s.v, qh: s.qh, kh: s.kh, vh: s.vh, sc: s.sc, vt: s.vt, ob: s.ob, ctx: s.ctx},
+					T, c.Heads, hd, nKV, win)
+			}
 		}
 		a.gemm(e, s.ctx, ly.o, s.o, T, H, qd)
 		a.rms(e, s.o, ly.postAttnNorm, s.o, T, H)
 		e.Dispatch(a.p.add, T*H, 256, s.x, s.o, a.u32(uint32(T*H)))
 		// MLP
 		a.rms(e, s.x, ly.preFFNorm, s.xn, T, H)
-		gemmFFN(e, s.xn, ly.gate, s.g, T, I, H)
-		gemmFFN(e, s.xn, ly.up, s.u, T, I, H)
+		if batch == nil {
+			gemmFFN(e, s.xn, ly.gate, s.g, T, I, H)
+			gemmFFN(e, s.xn, ly.up, s.u, T, I, H)
+		} else {
+			for _, run := range batch.runs[:batch.runCount] {
+				gemm := a.gemm
+				if run.staged {
+					gemm = a.gemmStagedFFN
+				}
+				xn := s.xn.At(4 * run.start * H)
+				gemm(e, xn, ly.gate, s.g.At(4*run.start*I), run.rows, I, H)
+				gemm(e, xn, ly.up, s.u.At(4*run.start*I), run.rows, I, H)
+			}
+		}
 		e.Dispatch(a.p.geluMul, T*I, 256, s.g, s.u, a.u32(uint32(T*I)))
 		a.gemm(e, s.g, ly.down, s.f, T, H, I)
 		a.rms(e, s.f, ly.postFFNorm, s.f, T, H)
@@ -637,7 +704,7 @@ func (a *eg2Accel) forwardEmbeds(x0 []float32, T int, keepLayers bool) ([]float3
 		if keepLayers { // a command buffer per layer, so the host can read the layer's output
 			e.End()
 			if err := e.Err(); err != nil {
-				return nil, nil, err
+				return nil, err
 			}
 			layers = append(layers, append([]float32(nil), s.x.Floats()[:T*H]...))
 			a.slot = 0
@@ -648,9 +715,14 @@ func (a *eg2Accel) forwardEmbeds(x0 []float32, T int, keepLayers bool) ([]float3
 	a.gemm(e, s.xn, a.proj, s.out, T, E, H)
 	e.End()
 	if err := e.Err(); err != nil {
-		return nil, nil, err
+		return nil, err
 	}
-	return append([]float32(nil), s.out.Floats()[:T*E]...), layers, nil
+	return layers, nil
+}
+
+func (a *eg2Accel) encodeRoPE(e *Encoder, x Buffer, pair [2]Buffer, rows, heads, hd int) {
+	pairs := rows * heads * hd / 2
+	e.Dispatch(a.p.rope, pairs, 64, x, pair[0], pair[1], a.u32(uint32(heads)), a.u32(uint32(hd)), a.u32(uint32(pairs)))
 }
 
 // attention is one layer's bidirectional grouped-query attention over b.q/b.k/b.v into b.ctx, as matmuls: q, k and v
@@ -694,7 +766,7 @@ func (a *eg2Accel) ropeTables(T, hd int, theta float64) (Buffer, Buffer) {
 	if b, ok := a.ropes[k]; ok {
 		return b[0], b[1]
 	}
-	if len(a.ropes) >= 16 {
+	if len(a.ropes) >= eg2RopeCacheLimit {
 		for k, b := range a.ropes {
 			a.release(&b[0], &b[1])
 			delete(a.ropes, k)

@@ -503,6 +503,14 @@ func (b Buffer) At(byteOff int) Buffer { b.off = uintptr(byteOff); return b }
 // mirrors cuda.go's Buffer.Len so a consumer can guard on an empty/optional buffer.
 func (b Buffer) Len() int { return b.n }
 
+// AllocatedBytes reports the device's charge for this buffer's backing resource.
+func (b Buffer) AllocatedBytes() int64 {
+	if b.id == 0 {
+		return 0
+	}
+	return int64(objc.Send[uintptr](b.id, selAllocatedSize))
+}
+
 // NewCommandQueue creates the command queue (built once, reused per token in the real backend).
 func (d *Device) NewCommandQueue() Queue {
 	q := d.id.Send(selNewCommandQueue)

@@ -32,7 +32,7 @@ type DeviceInfo struct {
 	VendorID, ProductID uint32 // PCI vendor and product IDs, zero when unknown
 	MemoryKind          MemoryKind
 	Memory              DeviceMemory // total when known; available bytes when requested and supported
-	TextBatching        bool         // the default selector supports native EmbedIDsBatch
+	TextBatching        bool         // native EmbedIDsBatch on the reported attachment or inventory default
 	ComputeCapability   CUDAComputeCapability
 }
 
