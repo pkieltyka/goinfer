@@ -207,7 +207,8 @@ The prefill report shares `prefillStaticDecline` with `prefillCore` rather than 
 conditions, so the startup line cannot drift from the decline it describes. The residency
 decline keeps its **reason** (`Model.ResidentDecline`) — module not built in, no usable device,
 ineligible arch — because those three are fixed by three different actions and are otherwise
-indistinguishable from outside.
+indistinguishable from outside. On NixOS, a `libcuda.so.1` loader failure that hides the driver
+from a plain binary is covered in [cuda-loader-path.md](cuda-loader-path.md).
 
 MoE specifics: the router runs on-GPU and stays **f32** while the experts are int4. That is
 deliberate — the router's output steers a *discrete* choice, so a quantization error near a
