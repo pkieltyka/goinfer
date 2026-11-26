@@ -61,10 +61,15 @@ func RegisterSelfTest(name string, fn func() SelfTestResult) {
 	selfTestFns[name] = fn
 }
 
-// RunSelfTests runs the CPU self-test (once per process) and every registered backend's, records the results, and returns them all sorted by backend. It is what `check --hardware` calls; a model
-// load runs the CPU test itself and each backend runs its own at BuildResident.
+// RunSelfTests runs the CPU self-test (once per process) and every registered backend's, and returns a
+// sorted one-row-per-backend snapshot. A linked GPU backend without its own callback gets the shared
+// standalone probe's result overlaid on this snapshot only: a device the probe cannot open contributes a
+// report-local skipped row for this invocation, and a reachable device contributes its cached int4 result.
+// Neither is written to SelfTestResults (the /health input) or to either quant's cached numerical result.
+// A first-time numerical measurement is still recorded normally, with its warning.
 func RunSelfTests() []SelfTestResult {
 	ensureCPUSelfTest()
+	var standalone map[string]SelfTestResult
 	if !SelfTestsSkipped() {
 		selfTestFnMu.RLock()
 		fns := make(map[string]func() SelfTestResult, len(selfTestFns))
@@ -76,9 +81,25 @@ func RunSelfTests() []SelfTestResult {
 		// Every linked GPU backend runs the shared resident probe (selftest_gpu.go) unless it registered its own.
 		for _, b := range RegisteredBackends() {
 			if _, own := fns[b]; b != "cpu" && !own {
-				probeStandalone(b)
+				if r, override := probeStandalone(b); override {
+					if standalone == nil {
+						standalone = make(map[string]SelfTestResult)
+					}
+					standalone[b] = r
+				}
 			}
 		}
 	}
-	return SelfTestResults()
+	results := SelfTestResults()
+	for i := range results {
+		if r, ok := standalone[results[i].Backend]; ok {
+			results[i] = r
+			delete(standalone, results[i].Backend)
+		}
+	}
+	for _, r := range standalone {
+		results = append(results, r)
+	}
+	sort.Slice(results, func(i, j int) bool { return results[i].Backend < results[j].Backend })
+	return results
 }
