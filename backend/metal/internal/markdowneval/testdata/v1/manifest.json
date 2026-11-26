@@ -1,0 +1,388 @@
+{
+  "version": 1,
+  "corpus_sha256": "b25615b9b1d809a1d4535c38c6802369a4395b741e353c233dfcd51ae50b8a45",
+  "groups": [
+    [
+      "ferry-spare",
+      "rain-ingest",
+      "seed-intake",
+      "pump-service"
+    ],
+    [
+      "tide-cache",
+      "rain-calibration",
+      "locker-tamper",
+      "buoy-lease"
+    ],
+    [
+      "tide-surge",
+      "weather-replay",
+      "seed-hold",
+      "pump-display"
+    ],
+    [
+      "locker-release",
+      "ferry-restock",
+      "buoy-scale"
+    ]
+  ],
+  "queries": [
+    {
+      "id": "q01",
+      "text": "Where can dispatch pick up a charged handset during a ferry crossing?",
+      "relevant": [
+        "ferry-spare"
+      ],
+      "distractors": [
+        "ferry-restock"
+      ]
+    },
+    {
+      "id": "q02",
+      "text": "When should the technician adjust the span screw on a tipping-bucket rain gauge?",
+      "relevant": [
+        "rain-calibration"
+      ],
+      "distractors": [
+        "rain-ingest"
+      ]
+    },
+    {
+      "id": "q03",
+      "text": "After a seed cooler warmed for an unknown time, what must happen before the lot goes back into planting stock?",
+      "relevant": [
+        "seed-hold"
+      ],
+      "distractors": [
+        "seed-intake"
+      ]
+    },
+    {
+      "id": "q04",
+      "text": "Which checks are required before lifting the silt basket out of the drainage pump?",
+      "relevant": [
+        "pump-service"
+      ],
+      "distractors": [
+        "pump-display"
+      ]
+    },
+    {
+      "id": "q05",
+      "text": "The pier board still shows yesterday's tide revision. How can the watch put today's correction on it?",
+      "relevant": [
+        "tide-cache"
+      ],
+      "distractors": [
+        "tide-surge"
+      ]
+    },
+    {
+      "id": "q06",
+      "text": "The buoy lamp is back after a brownout. When may the backup transmitter claim the uplink?",
+      "relevant": [
+        "buoy-lease"
+      ],
+      "distractors": [
+        "buoy-scale"
+      ]
+    },
+    {
+      "id": "q07",
+      "text": "What has to be signed before a rescue kit can be offered to the next crew?",
+      "relevant": [
+        "locker-release"
+      ],
+      "distractors": [
+        "locker-tamper"
+      ]
+    },
+    {
+      "id": "q08",
+      "text": "When filling gaps from a marsh recorder, what should happen to a conflicting value for an already accepted minute?",
+      "relevant": [
+        "weather-replay"
+      ],
+      "distractors": [
+        "rain-ingest"
+      ]
+    }
+  ],
+  "checkpoints": {
+    "q8_0": {
+      "repo": "unsloth/embeddinggemma-2-GGUF",
+      "revision": "031f0d4b35536f69ab3509d4893c923264fcf253",
+      "files": [
+        {
+          "name": "embeddinggemma-2-Q8_0.gguf",
+          "size": 309855520,
+          "sha256": "6f1bd4ac6c5df7444f9cca7ca36cafe6cfa34cd6f49fefb1e0b4be8143aed8bc"
+        }
+      ],
+      "documents": [
+        {
+          "id": "ferry-spare",
+          "tokens": 25,
+          "sha256": "cd233d8766309ad2ed69a79755631b0c18ec5ce110333c64b3a4dcc4c99459fe"
+        },
+        {
+          "id": "rain-ingest",
+          "tokens": 99,
+          "sha256": "b2c2f25cc765074a55b7c536a8233193ecbeb709c062560c4a4f5498bbfbd69a"
+        },
+        {
+          "id": "seed-intake",
+          "tokens": 139,
+          "sha256": "c102adf14f573eae2b3d7a76f0e4f41e253a228890398c876a7ba4861e630d72"
+        },
+        {
+          "id": "pump-service",
+          "tokens": 125,
+          "sha256": "722ade0196f5372061d35ffa19b01a3e0329c6c62d1baf19a9b337373db522a1"
+        },
+        {
+          "id": "tide-cache",
+          "tokens": 242,
+          "sha256": "6f3fd765d7e191d412ff766134906d5f09098c1c6213490932eeae8c0d25ef56"
+        },
+        {
+          "id": "rain-calibration",
+          "tokens": 128,
+          "sha256": "368da251b71b6402f9a241c60bbaca46e1829c257b3e4b20bb495d54f633cfab"
+        },
+        {
+          "id": "locker-tamper",
+          "tokens": 97,
+          "sha256": "8d7cf9fe9a77b5b3765299c3d4563760f73ee9653a1b4b2506937b95de3f8d24"
+        },
+        {
+          "id": "buoy-lease",
+          "tokens": 556,
+          "sha256": "d216cd5ebf25dbc217cffdfac29a14b50af3acb71ac40b5e2e16bd751614adc6"
+        },
+        {
+          "id": "tide-surge",
+          "tokens": 138,
+          "sha256": "2c2456fb6c31f9c0c0d96f9053a7021d684a12bad2d06d8970bf788cc097a1ce"
+        },
+        {
+          "id": "weather-replay",
+          "tokens": 1027,
+          "sha256": "3338656c0ff2763f4faa5a57e8eec381b03faf420def7a63cb8dff72775031a2"
+        },
+        {
+          "id": "seed-hold",
+          "tokens": 147,
+          "sha256": "bdf65ae6f96e98ceb71122e195686402d0984fe56c20af24f878417b5367ccbf"
+        },
+        {
+          "id": "pump-display",
+          "tokens": 116,
+          "sha256": "f212755df0059cc15e3cd81e8e1449d0513c792902ff5bf3db26c2ef3d9617f8"
+        },
+        {
+          "id": "locker-release",
+          "tokens": 145,
+          "sha256": "ac8101902a20aa802b7d6caaab26b75b1fd633a8e4148c38c9e40724cfa7b55a"
+        },
+        {
+          "id": "ferry-restock",
+          "tokens": 139,
+          "sha256": "6eed9c6cede7a4d542a8d550b60ba82839b47d318097118f0cd99ccf013510bb"
+        },
+        {
+          "id": "buoy-scale",
+          "tokens": 246,
+          "sha256": "273ab22c4ea435200b081c2d2137ab2c8f00565552db2e931c76e635cd36baa1"
+        }
+      ],
+      "queries": [
+        {
+          "id": "q01",
+          "tokens": 22,
+          "sha256": "1c49103eec27f98d3d960513d276522033df7fe6e5f61d1ef947a1dc38a7cd83"
+        },
+        {
+          "id": "q02",
+          "tokens": 25,
+          "sha256": "5281a3a23d953a0c1d98d77a94c2836c1ee759f61a68c176c52165885cb9410c"
+        },
+        {
+          "id": "q03",
+          "tokens": 31,
+          "sha256": "d557a62b3bd52a2c641624fe0c28fddcba7fa5f890d9f40be2334073232f1fb7"
+        },
+        {
+          "id": "q04",
+          "tokens": 24,
+          "sha256": "21c616a0925aa5fcd815681015b91dc909f8b39413c466adaf13a0e532105f49"
+        },
+        {
+          "id": "q05",
+          "tokens": 32,
+          "sha256": "e8123fc16cc6eaf6e75dde83bc075bec270489c9e4948629f1e01e5305420b8f"
+        },
+        {
+          "id": "q06",
+          "tokens": 28,
+          "sha256": "2073ea8b874d068741a71420ee22140161770030511d0d57cb09eb99f02c5044"
+        },
+        {
+          "id": "q07",
+          "tokens": 26,
+          "sha256": "3e37b691a6b3fdf422d1a6f1aa53e16f366a00ebad951fb31b66c6c68e37a306"
+        },
+        {
+          "id": "q08",
+          "tokens": 30,
+          "sha256": "e428dc9523fbe23e6a1cee1ad9207d66aa3366df3c009b9865be02bf45d16685"
+        }
+      ]
+    },
+    "mlx8": {
+      "repo": "mlx-community/embeddinggemma-2-8bit",
+      "revision": "7505ef2f8ddef45efef6d060865f27989b3c9cec",
+      "files": [
+        {
+          "name": "config.json",
+          "size": 5463,
+          "sha256": "35e55812554bf172f9321f5c6a25d58810432db9eeeb38094723a04e8d3dd9af"
+        },
+        {
+          "name": "config_sentence_transformers.json",
+          "size": 1565,
+          "sha256": "031e56a498d33c349ab489a21885bcfe25b4fcba841149dc99e1e90d4a7c28f5"
+        },
+        {
+          "name": "model.safetensors",
+          "size": 1234238431,
+          "sha256": "6b7e97f9687ad422ab3625a1cdf6002892187d7dd04d01b2a09253fa1e5d4cfd"
+        },
+        {
+          "name": "tokenizer.json",
+          "size": 32170510,
+          "sha256": "4d777ef5bdc1aa36227abdfb77c3e49e7b9c892d16e1b6bda41c393504828be4"
+        }
+      ],
+      "documents": [
+        {
+          "id": "ferry-spare",
+          "tokens": 25,
+          "sha256": "cd233d8766309ad2ed69a79755631b0c18ec5ce110333c64b3a4dcc4c99459fe"
+        },
+        {
+          "id": "rain-ingest",
+          "tokens": 99,
+          "sha256": "b2c2f25cc765074a55b7c536a8233193ecbeb709c062560c4a4f5498bbfbd69a"
+        },
+        {
+          "id": "seed-intake",
+          "tokens": 139,
+          "sha256": "c102adf14f573eae2b3d7a76f0e4f41e253a228890398c876a7ba4861e630d72"
+        },
+        {
+          "id": "pump-service",
+          "tokens": 125,
+          "sha256": "722ade0196f5372061d35ffa19b01a3e0329c6c62d1baf19a9b337373db522a1"
+        },
+        {
+          "id": "tide-cache",
+          "tokens": 242,
+          "sha256": "6f3fd765d7e191d412ff766134906d5f09098c1c6213490932eeae8c0d25ef56"
+        },
+        {
+          "id": "rain-calibration",
+          "tokens": 128,
+          "sha256": "368da251b71b6402f9a241c60bbaca46e1829c257b3e4b20bb495d54f633cfab"
+        },
+        {
+          "id": "locker-tamper",
+          "tokens": 97,
+          "sha256": "8d7cf9fe9a77b5b3765299c3d4563760f73ee9653a1b4b2506937b95de3f8d24"
+        },
+        {
+          "id": "buoy-lease",
+          "tokens": 556,
+          "sha256": "d216cd5ebf25dbc217cffdfac29a14b50af3acb71ac40b5e2e16bd751614adc6"
+        },
+        {
+          "id": "tide-surge",
+          "tokens": 138,
+          "sha256": "2c2456fb6c31f9c0c0d96f9053a7021d684a12bad2d06d8970bf788cc097a1ce"
+        },
+        {
+          "id": "weather-replay",
+          "tokens": 1027,
+          "sha256": "3338656c0ff2763f4faa5a57e8eec381b03faf420def7a63cb8dff72775031a2"
+        },
+        {
+          "id": "seed-hold",
+          "tokens": 147,
+          "sha256": "bdf65ae6f96e98ceb71122e195686402d0984fe56c20af24f878417b5367ccbf"
+        },
+        {
+          "id": "pump-display",
+          "tokens": 116,
+          "sha256": "f212755df0059cc15e3cd81e8e1449d0513c792902ff5bf3db26c2ef3d9617f8"
+        },
+        {
+          "id": "locker-release",
+          "tokens": 145,
+          "sha256": "ac8101902a20aa802b7d6caaab26b75b1fd633a8e4148c38c9e40724cfa7b55a"
+        },
+        {
+          "id": "ferry-restock",
+          "tokens": 139,
+          "sha256": "6eed9c6cede7a4d542a8d550b60ba82839b47d318097118f0cd99ccf013510bb"
+        },
+        {
+          "id": "buoy-scale",
+          "tokens": 246,
+          "sha256": "273ab22c4ea435200b081c2d2137ab2c8f00565552db2e931c76e635cd36baa1"
+        }
+      ],
+      "queries": [
+        {
+          "id": "q01",
+          "tokens": 22,
+          "sha256": "1c49103eec27f98d3d960513d276522033df7fe6e5f61d1ef947a1dc38a7cd83"
+        },
+        {
+          "id": "q02",
+          "tokens": 25,
+          "sha256": "5281a3a23d953a0c1d98d77a94c2836c1ee759f61a68c176c52165885cb9410c"
+        },
+        {
+          "id": "q03",
+          "tokens": 31,
+          "sha256": "d557a62b3bd52a2c641624fe0c28fddcba7fa5f890d9f40be2334073232f1fb7"
+        },
+        {
+          "id": "q04",
+          "tokens": 24,
+          "sha256": "21c616a0925aa5fcd815681015b91dc909f8b39413c466adaf13a0e532105f49"
+        },
+        {
+          "id": "q05",
+          "tokens": 32,
+          "sha256": "e8123fc16cc6eaf6e75dde83bc075bec270489c9e4948629f1e01e5305420b8f"
+        },
+        {
+          "id": "q06",
+          "tokens": 28,
+          "sha256": "2073ea8b874d068741a71420ee22140161770030511d0d57cb09eb99f02c5044"
+        },
+        {
+          "id": "q07",
+          "tokens": 26,
+          "sha256": "3e37b691a6b3fdf422d1a6f1aa53e16f366a00ebad951fb31b66c6c68e37a306"
+        },
+        {
+          "id": "q08",
+          "tokens": 30,
+          "sha256": "e428dc9523fbe23e6a1cee1ad9207d66aa3366df3c009b9865be02bf45d16685"
+        }
+      ]
+    }
+  }
+}

@@ -615,6 +615,7 @@
     ],
     "backend/metal": [
       "backend/metal/internal/gpudev",
+      "backend/metal/internal/markdowneval",
       "backend/metal/kernels",
       "chat",
       "constrain",

@@ -13,10 +13,14 @@ import (
 	"maps"
 	"math"
 	"os"
+	"path/filepath"
+	"runtime"
 	"slices"
 	"testing"
+	"time"
 
 	gpu "github.com/pkieltyka/goinfer/backend/metal/internal/gpudev"
+	"github.com/pkieltyka/goinfer/backend/metal/internal/markdowneval"
 	"github.com/pkieltyka/goinfer/embeddinggemma2"
 	"github.com/pkieltyka/goinfer/internal/runtime/mem"
 )
@@ -1279,5 +1283,278 @@ func TestEG2BatchSelectorRejectsTiny(t *testing.T) {
 	}
 	if acc != nil || !errors.Is(err, embeddinggemma2.ErrUnsupportedSelector) {
 		t.Fatalf("batch selector on the tiny graph: %v, %v", acc, err)
+	}
+}
+
+var eg2MarkdownEval = flag.Bool("eg2-markdown-eval", false, "run the labeled Markdown fixture on pinned local checkpoints")
+
+func TestEG2MetalMarkdownEval(t *testing.T) {
+	if !*eg2MarkdownEval {
+		t.Skip("enable -eg2-markdown-eval with both local checkpoint flags")
+	}
+	if *eg2BatchGGUFTest == "" || *eg2BatchMLXTest == "" {
+		t.Fatal("set both -eg2-batch-test-gguf and -eg2-batch-test-mlx")
+	}
+	fixture, err := markdowneval.Load()
+	if err != nil {
+		t.Fatal(err)
+	}
+	t.Logf("fixture v%d corpus_sha256=%s", fixture.Version, fixture.CorpusSHA)
+	prompts := map[string]string{
+		"query":    "task: search result | query: ",
+		"document": "title: none | text: ",
+	}
+	for _, model := range []struct {
+		kind, path string
+		directory  bool
+		load       func(string) (*embeddinggemma2.Encoder, error)
+	}{
+		{"q8_0", *eg2BatchGGUFTest, false, func(path string) (*embeddinggemma2.Encoder, error) {
+			return embeddinggemma2.LoadGGUFEncoder(path, prompts)
+		}},
+		{"mlx8", *eg2BatchMLXTest, true, embeddinggemma2.LoadEncoder},
+	} {
+		t.Run(model.kind, func(t *testing.T) {
+			pin := fixture.Checkpoints[model.kind]
+			verifyMarkdownModel(t, model.path, model.directory, pin)
+			enc, load := markdownMeasure(t, func() (*embeddinggemma2.Encoder, error) { return model.load(model.path) })
+			for _, role := range []string{"document", "query"} {
+				if got, err := enc.PromptText(role); err != nil || got != prompts[role] {
+					t.Fatalf("%s prompt %q, want %q: %v", role, got, prompts[role], err)
+				}
+			}
+			queries := make([]markdowneval.Passage, len(fixture.Queries))
+			for i, q := range fixture.Queries {
+				queries[i] = markdowneval.Passage{ID: q.ID, Text: q.Text}
+			}
+			docIDs, docPrep := markdownPrepare(t, enc, fixture.Passages, pin.Documents, "document")
+			queryIDs, queryPrep := markdownPrepare(t, enc, queries, pin.Queries, "query")
+			const selector = "metal-eg2-batch"
+			acc, attach := markdownMeasure(t, func() (embeddinggemma2.Accelerator, error) {
+				return enc.UseAccelerator(selector)
+			})
+			t.Cleanup(func() {
+				if err := acc.Close(); err != nil {
+					t.Error(err)
+				}
+			})
+			a, ok := acc.(*eg2BatchAccel)
+			if !ok || acc.Name() != "metal" || !a.AttachedDevice().TextBatching || a.AttachedProfile() != eg2MatrixProfile {
+				t.Fatalf("%s did not attach the combined Metal batch route: %T (%s)", selector, acc, acc.Name())
+			}
+			dev := a.AttachedDevice()
+			t.Logf("selector=%s backend=%s device=%q architecture=%q profile=%s text_batching=%t",
+				selector, dev.Backend, dev.Name, a.d.ArchitectureName(), a.AttachedProfile(), dev.TextBatching)
+
+			one, singleton := markdownSingletons(t, enc, docIDs)
+			query, queryTime := markdownSingletons(t, enc, queryIDs)
+			order := make([]int, len(docIDs))
+			for i := range order {
+				order[i] = i
+			}
+			packed, batch := markdownBatches(t, enc, a, docIDs, fixture.Groups, order, "packed")
+			rotated := append(slices.Clone(order[1:]), order[0])
+			reordered, _ := markdownBatches(t, enc, a, docIDs, fixture.Groups, rotated, "reordered")
+			repeated, _ := markdownBatches(t, enc, a, docIDs, fixture.Groups, order, "repeat")
+			for i, passage := range fixture.Passages {
+				for _, run := range []struct {
+					name string
+					rows [][]float32
+				}{{"packed", packed}, {"reordered", reordered}, {"repeat", repeated}} {
+					markdownExact(t, passage.ID, run.name, one[i], run.rows[i])
+				}
+			}
+			t.Logf("equal document vectors at both widths across singleton, packed, reorder and repeat sha768=%s sha512=%s",
+				eg2DigestF32(one, false), eg2DigestF32(one, true))
+			for _, phase := range []struct {
+				name string
+				data markdownObservation
+			}{
+				{"load", load}, {"attach", attach}, {"prepare-documents", docPrep}, {"prepare-queries", queryPrep},
+				{"embed-singletons", singleton}, {"embed-batches", batch}, {"embed-queries", queryTime},
+			} {
+				t.Logf("phase=%s wall_ns=%d go_total_alloc_delta_bytes=%d", phase.name, phase.data.wall.Nanoseconds(), phase.data.alloc)
+			}
+			markdownRank(t, fixture, one, query)
+		})
+	}
+}
+
+func verifyMarkdownModel(t *testing.T, path string, directory bool, pin markdowneval.Checkpoint) {
+	t.Helper()
+	t.Logf("model=%s revision=%s", pin.Repo, pin.Revision)
+	for _, blob := range pin.Files {
+		filename := path
+		if directory {
+			filename = filepath.Join(path, blob.Name)
+		}
+		got, err := markdownFileDigest(filename, blob.Size)
+		if err != nil || got != blob.SHA256 {
+			t.Fatalf("%s: SHA-256 %s, want %s: %v", blob.Name, got, blob.SHA256, err)
+		}
+		t.Logf("checkpoint_file=%s bytes=%d sha256=%s", blob.Name, blob.Size, got)
+	}
+}
+
+func markdownFileDigest(path string, size int64) (string, error) {
+	f, err := os.Open(path)
+	if err != nil {
+		return "", err
+	}
+	defer f.Close()
+	fi, err := f.Stat()
+	if err != nil {
+		return "", err
+	}
+	if !fi.Mode().IsRegular() || fi.Size() != size {
+		return "", fmt.Errorf("expected a regular file of %d bytes", size)
+	}
+	h := sha256.New()
+	if n, err := io.Copy(h, f); err != nil || n != size {
+		return "", fmt.Errorf("hashed %d bytes, want %d: %v", n, size, err)
+	}
+	return fmt.Sprintf("%x", h.Sum(nil)), nil
+}
+
+type markdownObservation struct {
+	wall  time.Duration
+	alloc uint64
+}
+
+func markdownMeasure[T any](t *testing.T, f func() (T, error)) (T, markdownObservation) {
+	t.Helper()
+	var before, after runtime.MemStats
+	runtime.ReadMemStats(&before)
+	start := time.Now()
+	v, err := f()
+	wall := time.Since(start)
+	runtime.ReadMemStats(&after)
+	if err != nil {
+		t.Fatal(err)
+	}
+	return v, markdownObservation{wall: wall, alloc: after.TotalAlloc - before.TotalAlloc}
+}
+
+func markdownPrepare(t *testing.T, enc *embeddinggemma2.Encoder, texts []markdowneval.Passage, pins []markdowneval.InputPin, role string) ([][]int, markdownObservation) {
+	t.Helper()
+	rows, observed := markdownMeasure(t, func() ([][]int, error) {
+		rows := make([][]int, len(texts))
+		for i, text := range texts {
+			var err error
+			rows[i], err = enc.Tokenize(text.Text, role)
+			if err != nil {
+				return nil, fmt.Errorf("%s %s: %w", role, text.ID, err)
+			}
+		}
+		return rows, nil
+	})
+	for i, row := range rows {
+		digest := markdowneval.IDsDigest(row)
+		p := pins[i]
+		if p.ID != texts[i].ID || p.Tokens != len(row) || p.SHA256 != digest {
+			t.Fatalf("%s %s: prepared %d IDs with SHA-256 %s, want %+v", role, texts[i].ID, len(row), digest, p)
+		}
+		t.Logf("prepared role=%s id=%s tokens=%d ids_sha256=%s", role, p.ID, p.Tokens, digest)
+	}
+	return rows, observed
+}
+
+func markdownSingletons(t *testing.T, enc *embeddinggemma2.Encoder, ids [][]int) ([][]float32, markdownObservation) {
+	t.Helper()
+	return markdownMeasure(t, func() ([][]float32, error) {
+		out := make([][]float32, len(ids))
+		for i, row := range ids {
+			var err error
+			out[i], err = enc.EmbedIDs(row)
+			if err != nil {
+				return nil, fmt.Errorf("singleton %d: %w", i, err)
+			}
+		}
+		return out, nil
+	})
+}
+
+func markdownBatches(t *testing.T, enc *embeddinggemma2.Encoder, a *eg2BatchAccel, ids [][]int, groups [][]string, order []int, layout string) ([][]float32, markdownObservation) {
+	t.Helper()
+	out := make([][]float32, len(ids))
+	var observed markdownObservation
+	start := 0
+	for group, members := range groups {
+		indexes := order[start : start+len(members)]
+		batch, lengths := make([][]int, len(indexes)), make([]int, len(indexes))
+		rows := 0
+		for i, index := range indexes {
+			batch[i] = ids[index]
+			lengths[i] = len(batch[i])
+			rows += lengths[i]
+		}
+		estimate, err := enc.BatchMemory(lengths)
+		if err != nil || estimate.Quality == embeddinggemma2.BatchMemoryUnknown {
+			t.Fatalf("%s group %d: BatchMemory(%v): %+v %v", layout, group, lengths, estimate, err)
+		}
+		_, s0, w0 := a.d.Activity()
+		got, m := markdownMeasure(t, func() ([][]float32, error) { return enc.EmbedIDsBatch(batch) })
+		_, s1, w1 := a.d.Activity()
+		if len(got) != len(indexes) || s1-s0 != 1 || w1-w0 != 1 {
+			t.Fatalf("%s group %d: outputs=%d submits=%d waits=%d", layout, group, len(got), s1-s0, w1-w0)
+		}
+		for i, index := range indexes {
+			out[index] = got[i]
+		}
+		t.Logf("layout=%s group=%d indexes=%v lengths=%v tokens=%d submits=1 waits=1 estimate=%s additional_peak_bytes=%d resident_weight_bytes=%d",
+			layout, group, indexes, lengths, rows, estimate.Quality, estimate.AdditionalPeakBytes, estimate.ResidentWeightBytes)
+		start += len(members)
+		observed.wall += m.wall
+		observed.alloc += m.alloc
+	}
+	return out, observed
+}
+
+func markdownExact(t *testing.T, id, layout string, want, got []float32) {
+	t.Helper()
+	for _, v := range [][]float32{want, got} {
+		if err := markdowneval.CheckVector(v, 768); err != nil {
+			t.Fatalf("%s %s: %v", id, layout, err)
+		}
+	}
+	for _, pair := range [][2][]float32{{want, got}, {eg2Normalized512(want), eg2Normalized512(got)}} {
+		width := len(pair[0])
+		for _, v := range pair {
+			if err := markdowneval.CheckVector(v, width); err != nil {
+				t.Fatalf("%s %s width %d: %v", id, layout, width, err)
+			}
+		}
+		for j, f := range pair[0] {
+			if math.Float32bits(f) != math.Float32bits(pair[1][j]) {
+				t.Fatalf("%s %s width %d word %d: got %08x, want %08x", id, layout, width, j, math.Float32bits(pair[1][j]), math.Float32bits(f))
+			}
+		}
+	}
+}
+
+func markdownRank(t *testing.T, fixture markdowneval.Fixture, docs, queries [][]float32) {
+	t.Helper()
+	for _, width := range []int{768, 512} {
+		ranks, err := fixture.Rank(docs, queries, width)
+		if err != nil {
+			t.Fatal(err)
+		}
+		for _, rank := range ranks {
+			data, err := json.Marshal(rank)
+			if err != nil {
+				t.Fatal(err)
+			}
+			t.Logf("labeled_ranking width=%d %s", width, data)
+		}
+		if width == 768 {
+			normalize := func(vectors [][]float32) [][]float32 {
+				result := make([][]float32, len(vectors))
+				for i, row := range vectors {
+					result[i] = eg2Normalized512(row)
+				}
+				return result
+			}
+			docs, queries = normalize(docs), normalize(queries)
+		}
 	}
 }
