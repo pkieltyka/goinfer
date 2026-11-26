@@ -127,7 +127,8 @@ chmod +x goinfer-serve
 ```
 
 Each release carries `checksums.txt` and a build attestation for every asset. To check that a binary was built by this
-repo's release workflow from that tag, run `gh attestation verify goinfer-serve --repo pkieltyka/goinfer`.
+repo's release workflow from that tag, run `gh attestation verify goinfer-serve --repo pkieltyka/goinfer` (add `--format json`
+when capturing output in a non-interactive log, where `gh` otherwise exits 0 silently).
 
 ```bash
 # model included — nothing else to fetch

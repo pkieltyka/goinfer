@@ -55,6 +55,15 @@ that cannot be written to is refused with an error that says so; set `Options{Di
 to load it into memory without the `.giw`. Go test binaries load directly unless a test asks
 otherwise, so a test suite does not write files beside its fixtures.
 
+The `.giw` sidecar filename is keyed by the effective weight precision. For `int4` models under
+1B parameters, `goinfer-chat` and `goinfer-serve` default to an int4 embedding/LM-head table
+(`EmbedInt4: true, EmbedInt4Default: true`), writing an `.int4.e4h.<arch>.v*.giw` sidecar, while
+a library call with `decoder.Options{Quant: "int4"}` leaves `EmbedInt4` at its zero value (the
+int8 head) and writes a separate `.int4.<arch>.v*.giw` sidecar. Both are valid caches; pass
+`decoder.Options{Quant: "int4", EmbedInt4: true, EmbedInt4Default: true}` (or pass
+`--embed-int4=false` to the CLI) when you want a Go program and the CLI binaries to share one
+sidecar.
+
 The tokenizer comes from the same file. `PreTokenizerDecline` names a pre-tokenizer the
 checkpoint declares and goinfer does not implement. Text can then split into different tokens
 than the reference tokenizer would produce, and the example says so rather than staying quiet:

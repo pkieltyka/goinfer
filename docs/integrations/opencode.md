@@ -9,7 +9,14 @@ does not have to reconstruct it, and it now carries a real, measured success, no
 
 With the server running, `goinfer-serve connect opencode` prints this file with the window the server really serves
 (`limit.context`, without which opencode never compacts); `-write` creates or patches `./opencode.json`, and
-`connect opencode -undo` restores what was there.
+`connect opencode -undo` restores what was there. Both `check` and `connect` take a non-default server URL
+positionally after any flags (there is no `--url` flag):
+
+```bash
+# Non-default port examples: flags precede the positional [url] (default http://127.0.0.1:8080).
+goinfer-serve check -long-prompt 256 http://127.0.0.1:18080
+goinfer-serve connect opencode http://127.0.0.1:18080       # prints config only; add -write to patch
+```
 
 `connect` also sets `small_model`, the model opencode names its sessions with, to the server's fast alias (`<model>-fast`: the same
 weights, thinking off, nothing else different) and lists the alias under the provider with the main model's limits. opencode uses
@@ -45,6 +52,11 @@ tools, harness-scale ......  ok    call get_weather({"city": "Paris"}) among 12 
 A `skip` here means stop and pick a different checkpoint — don't spend the wall-clock finding
 out from opencode itself. An `ok` means proceed; it has predicted every real outcome measured so
 far, including the one success below.
+
+**Client troubleshooting.** If `opencode run` hangs before any request appears in `goinfer-serve -log-requests`
+(observed with opencode `2.4.1` stalling in its internal `serve --stdio` child under an isolated `HOME`),
+verify the endpoint directly with `curl` or a Python OpenAI client (for example `uv run --with openai` on a
+host whose system Python lacks `openai`) before debugging `goinfer-serve`.
 
 ## The working configuration, measured
 

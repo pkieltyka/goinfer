@@ -54,8 +54,8 @@ type Options struct {
 	// rounded to binary16, half the bytes; the generic loop, Architecture.kvF16OK, else f32) or "i8" (per-(position,
 	// KV-head) symmetric int8, 4x smaller; declined where Architecture.kvInt8OK says no). The lossy two are opt-in.
 	KVQuant string
-	// StreamWeights enables on-demand weight residency (idea #2): for an mmap-backed.
-	// giw MoE model, expert weights are paged out of the mapping under a RAM budget
+	// StreamWeights enables on-demand weight residency (idea #2): for an mmap-backed
+	// .giw MoE model, expert weights are paged out of the mapping under a RAM budget
 	// (WeightCacheBytes) instead of all held resident. Bit-exact (read-only re-fault);
 	// trades RAM for cold-miss fault latency. No-op for non-MoE / non-.giw models.
 	StreamWeights bool
