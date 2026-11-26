@@ -325,17 +325,17 @@ EXCLUDED = {
     "TestIdentity_determinismCatchesANondeterministicDumper": "git clone of the tree",
     "TestIdentityGiw_bytesCommentOnlyChangeIsIdentical": "git clone of the tree",
     "TestIdentityGiw_headerChangeIsDifferentBytesAndIdenticalLogits": "git clone of the tree",
-    # The quality_scan-tagged scans (internal/guard/qualityscan) run nightly by design, never in the day loop.
-    "TestQualityScan_readsEveryModule": "nightly quality scan",
-    "TestQualityScan_testSwitchAssignmentsRatchet": "nightly quality scan",
-    "TestQualityScan_heavyGateReadsRatchet": "nightly quality scan",
-    "TestQualityScan_receiverUnpackingRatchet": "nightly quality scan",
-    "TestQualityScan_functionLengthRatchet": "nightly quality scan",
-    "TestQualityScan_noSameNameForwardingShims": "nightly quality scan",
-    "TestQualityScan_noRunsOfBoolLiteralArguments": "nightly quality scan",
-    "TestQualityScan_committedFixtureLoadsFailNotSkip": "nightly quality scan",
-    "TestQualityScan_userStringsCarryNoTrackerIDs": "nightly quality scan",
-    "TestQualityScan_memorySizesUseTheGiBFormatter": "nightly quality scan",
+    # The quality_scan-tagged scans (internal/guard/qualityscan) run by hand, never in the day loop.
+    "TestQualityScan_readsEveryModule": "manual quality scan",
+    "TestQualityScan_testSwitchAssignmentsRatchet": "manual quality scan",
+    "TestQualityScan_heavyGateReadsRatchet": "manual quality scan",
+    "TestQualityScan_receiverUnpackingRatchet": "manual quality scan",
+    "TestQualityScan_functionLengthRatchet": "manual quality scan",
+    "TestQualityScan_noSameNameForwardingShims": "manual quality scan",
+    "TestQualityScan_noRunsOfBoolLiteralArguments": "manual quality scan",
+    "TestQualityScan_committedFixtureLoadsFailNotSkip": "manual quality scan",
+    "TestQualityScan_userStringsCarryNoTrackerIDs": "manual quality scan",
+    "TestQualityScan_memorySizesUseTheGiBFormatter": "manual quality scan",
 }
 
 
