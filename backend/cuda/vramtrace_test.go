@@ -45,7 +45,7 @@ func TestMain(m *testing.M) {
 	}
 	// MM3 (G-MM3a-2, G-MM3a-3): a test's own buffers lease on the test line, and every device the run releases must have had
 	// nothing unplanned and must close to zero. Installed after the VRAM sampler's device, which stays open for the whole run.
-	vramLedgerGuard = tower.InstallLedgerGuard()
+	vramLedgerGuard = tower.InstallLedgerGuard(os.Stderr)
 	code := m.Run()
 	stop()
 	os.Exit(vramLedgerGuard.Check(code))

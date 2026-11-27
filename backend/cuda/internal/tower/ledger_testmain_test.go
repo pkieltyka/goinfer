@@ -1,4 +1,4 @@
-//go:build cuda
+//go:build cuda && goinfer_testhooks
 
 package tower
 
@@ -8,6 +8,6 @@ import (
 )
 
 func TestMain(m *testing.M) {
-	guard := InstallLedgerGuard()
+	guard := InstallLedgerGuard(os.Stderr)
 	os.Exit(guard.Check(m.Run()))
 }

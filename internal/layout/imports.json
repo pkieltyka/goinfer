@@ -635,12 +635,16 @@
     "backend/cuda/eg2": [
       "backend/cuda/internal/gpudev",
       "backend/cuda/internal/launchgeom",
+      "backend/cuda/internal/ptxtest",
       "backend/cuda/internal/tower",
       "embeddinggemma2",
+      "internal/runtime/mem",
+      "internal/testgate",
       "tokenizer"
     ],
     "backend/cuda/internal/tower": [
-      "backend/cuda/internal/gpudev"
+      "backend/cuda/internal/gpudev",
+      "backend/cuda/internal/ptxtest"
     ],
     "backend/cuda/internal/wpack": [
       "internal/modelcore/linalg"

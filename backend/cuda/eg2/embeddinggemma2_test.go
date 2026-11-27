@@ -31,6 +31,8 @@ import (
 	gpu "github.com/pkieltyka/goinfer/backend/cuda/internal/gpudev"
 	"github.com/pkieltyka/goinfer/backend/cuda/internal/tower"
 	"github.com/pkieltyka/goinfer/embeddinggemma2"
+	"github.com/pkieltyka/goinfer/internal/runtime/mem"
+	"github.com/pkieltyka/goinfer/internal/testgate"
 	"github.com/pkieltyka/goinfer/tokenizer"
 )
 
@@ -2844,7 +2846,16 @@ type eg2RecordingLeaser struct {
 }
 
 func (l *eg2RecordingLeaser) Lease(onDevice bool, line string, requested, charged int64) func() {
-	rel := l.Ledger.Lease(onDevice, line, requested, charged)
+	releaseLedger := l.Ledger.Lease(onDevice, line, requested, charged)
+	releaseObserved := l.observe(onDevice, charged)
+	return func() {
+		releaseLedger()
+		releaseObserved()
+	}
+}
+
+// observe records an allocation already accounted for by the installed ledger.
+func (l *eg2RecordingLeaser) observe(onDevice bool, charged int64) func() {
 	l.mu.Lock()
 	if onDevice {
 		l.devAllocs++
@@ -2860,7 +2871,6 @@ func (l *eg2RecordingLeaser) Lease(onDevice bool, line string, requested, charge
 	var once sync.Once
 	return func() {
 		once.Do(func() {
-			rel()
 			l.mu.Lock()
 			if onDevice {
 				l.devReleases++
@@ -2871,6 +2881,32 @@ func (l *eg2RecordingLeaser) Lease(onDevice bool, line string, requested, charge
 			}
 			l.mu.Unlock()
 		})
+	}
+}
+
+func TestEG2RecordingLeaser_observesOneRealLease(t *testing.T) {
+	rec := &eg2RecordingLeaser{}
+	calls := 0
+	testgate.SetForTest(t, &tower.LeaseSeenForTest, func(device bool, line string, requested int64, release func()) func() {
+		calls++
+		if calls != 1 {
+			t.Fatal("ledger hook re-entered")
+		}
+		observed := rec.observe(device, requested)
+		return func() {
+			release()
+			observed()
+		}
+	})
+	var ledger tower.Ledger
+	release := ledger.Lease(true, string(mem.LineTest), 4096, 4096)
+	if calls != 1 || ledger.Usage().Leases != 1 || rec.devAllocs != 1 || rec.devLive != 4096 || rec.Usage().Leases != 0 {
+		t.Fatalf("hook calls=%d, ledger=%+v, observer allocations=%d, observer live=%d",
+			calls, ledger.Usage(), rec.devAllocs, rec.devLive)
+	}
+	release()
+	if ledger.Usage().Leases != 0 || rec.devLive != 0 || rec.devReleases != 1 {
+		t.Fatal("release failed to clear the real ledger and observer")
 	}
 }
 
@@ -3550,7 +3586,7 @@ func TestEG2FP16Encoder(t *testing.T) {
 		if origHook != nil {
 			release = origHook(onDevice, line, requested, release)
 		}
-		recordRelease := rec.Lease(onDevice, line, requested, gpu.ChargedBytes(requested))
+		recordRelease := rec.observe(onDevice, gpu.ChargedBytes(requested))
 		return func() {
 			release()
 			recordRelease()
@@ -3915,7 +3951,7 @@ func TestEG2FP16PackedAttnContract(t *testing.T) {
 		if origHook != nil {
 			release = origHook(onDevice, line, requested, release)
 		}
-		recordRelease := rec.Lease(onDevice, line, requested, gpu.ChargedBytes(requested))
+		recordRelease := rec.observe(onDevice, gpu.ChargedBytes(requested))
 		return func() {
 			release()
 			recordRelease()
@@ -4416,7 +4452,7 @@ func checkEG2Fusions(t *testing.T, m *embeddinggemma2.Model, inputs [][]int, kee
 					if old != nil {
 						release = old(onDevice, line, requested, release)
 					}
-					recordRelease := rec.Lease(onDevice, line, requested, gpu.ChargedBytes(requested))
+					recordRelease := rec.observe(onDevice, gpu.ChargedBytes(requested))
 					return func() { release(); recordRelease() }
 				}
 				defer func() { tower.LeaseSeenForTest = old }()
