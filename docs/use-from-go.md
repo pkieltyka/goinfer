@@ -315,8 +315,18 @@ batch cannot change device or profile. The caller owns the route fingerprint and
 should refuse a mismatch before writing its first vector. A target's
 `MaxAdditionalBytes` cap is optional, and a pointer to zero is a real cap. A
 target refused by a batch estimate returns `ErrSelectionFit` under
-`ErrDeviceUnavailable`; a native OOM is never retried as another route. See the
-[embeddinggemma2select example](../apps/examples/embeddinggemma2select/main.go).
+`ErrDeviceUnavailable`; a native OOM is never retried as another route.
+
+The [embeddinggemma2select example](../apps/examples/embeddinggemma2select/main.go)
+links no GPU backend, so its executable route is `cpu`. An application that
+imports a backend can pass that selector instead; for example, a Metal build adds
+`import _ "github.com/pkieltyka/goinfer/backend/metal"`, while CUDA and Vulkan
+builds use their own package and build tags. Keep the physical attachment out of
+the persisted numerical fingerprint: record the model/tokenizer/prompt/
+preprocessing pin, selector, verified numerical profile, width and normalization,
+and store the device ID or driver separately as provenance. A Metal registry ID
+is boot-scoped, so including it in the fingerprint would force needless
+rebuilds.
 
 
 Each CUDA row also carries the device's native compute capability in
