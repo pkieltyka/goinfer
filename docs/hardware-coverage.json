@@ -849,6 +849,22 @@
    "notes": "Cross-build only."
   },
   {
+   "id": "metal-registry-id",
+   "gate": "Metal boot-scoped device identity for explicit attachment",
+   "kind": "metal-device",
+   "predicates": [
+    "metal:registryID"
+   ],
+   "selected_when": "Metal inventory assigns an exact boot-scoped ID to a uniquely identified device and explicit UseDevice resolves that ID on the opened handle",
+   "files": [
+    "goinfer/backend/metal/internal/gpudev/metal.go",
+    "goinfer/backend/metal/eg2_inventory.go"
+   ],
+   "our_machines": "Apple M4 with 24 GiB unified memory (single adapter); non-default multi-device selection needs another host",
+   "last_executed": [],
+   "notes": "Registry IDs are boot-scoped. No native multi-device record yet; M4 exercises single-adapter semantics only."
+  },
+  {
    "id": "cuda-hwinfo-report",
    "gate": "CUDA device facts and attached-context memory reporting",
    "kind": "cuda-device",

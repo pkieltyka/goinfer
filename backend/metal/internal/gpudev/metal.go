@@ -29,7 +29,10 @@ import (
 // >=3.1 is safe; bump to match features used.
 const MSL3_1 uint = (3 << 16) | 1
 
-var mtlCreateSystemDefaultDevice func() uintptr
+var (
+	mtlCreateSystemDefaultDevice func() uintptr
+	mtlCopyAllDevices            func() uintptr
+)
 
 // loadMetal resolves the framework once, on the first device request.
 var loadMetal = sync.OnceValue(func() error {
@@ -42,6 +45,11 @@ var loadMetal = sync.OnceValue(func() error {
 		return errors.Join(fmt.Errorf("metal: find MTLCreateSystemDefaultDevice: %w", err), purego.Dlclose(h))
 	}
 	purego.RegisterFunc(&mtlCreateSystemDefaultDevice, symbol)
+	symbol, err = purego.Dlsym(h, "MTLCopyAllDevices")
+	if err != nil {
+		return errors.Join(fmt.Errorf("metal: find MTLCopyAllDevices: %w", err), purego.Dlclose(h))
+	}
+	purego.RegisterFunc(&mtlCopyAllDevices, symbol)
 	return nil
 })
 
@@ -57,6 +65,10 @@ var (
 	selUTF8String         = objc.RegisterName("UTF8String")
 	selLocalizedDesc      = objc.RegisterName("localizedDescription")
 	selName               = objc.RegisterName("name")
+	selCount              = objc.RegisterName("count")
+	selObjectAtIndex      = objc.RegisterName("objectAtIndex:")
+	selRetain             = objc.RegisterName("retain")
+	selRegistryID         = objc.RegisterName("registryID")
 	selHasUnifiedMemory   = objc.RegisterName("hasUnifiedMemory")
 	selMaxTgMem           = objc.RegisterName("maxThreadgroupMemoryLength") // device tile-memory limit (bytes)
 	selThreadExecWidth    = objc.RegisterName("threadExecutionWidth")       // pipeline SIMD-group width
@@ -239,6 +251,69 @@ func (d *Device) ReleaseObjects() {
 
 var ErrNoDevice = errors.New("metal: no system default device")
 
+// DeviceFact is one visible device's identity, read while the MTLCopyAllDevices
+// array owns the members. It carries no retained handle.
+type DeviceFact struct {
+	Name       string
+	Unified    bool
+	RegistryID uint64
+}
+
+// AllDeviceFacts reads every visible device's identity from borrowed array
+// members and releases the +1 array. It retains no device.
+func AllDeviceFacts() ([]DeviceFact, error) {
+	if err := loadMetal(); err != nil {
+		return nil, err
+	}
+	arr := objc.ID(mtlCopyAllDevices())
+	if arr == 0 {
+		return nil, ErrNoDevice
+	}
+	defer arr.Send(selRelease)
+	n := int(objc.Send[uintptr](arr, selCount))
+	out := make([]DeviceFact, 0, n)
+	for i := 0; i < n; i++ {
+		id := objc.Send[objc.ID](arr, selObjectAtIndex, uintptr(i))
+		if id == 0 {
+			continue
+		}
+		d := &Device{id: id}
+		out = append(out, DeviceFact{Name: d.Name(), Unified: d.HasUnifiedMemory(), RegistryID: d.RegistryID()})
+	}
+	if len(out) == 0 {
+		return nil, ErrNoDevice
+	}
+	return out, nil
+}
+
+// RetainDevice retains exactly one member of a fresh MTLCopyAllDevices array
+// and releases the +1 array. The returned wrapper owns its own +1 and is
+// released with ReleaseObjects like a CreateSystemDefaultDevice wrapper.
+func RetainDevice(index int) (*Device, error) {
+	if err := loadMetal(); err != nil {
+		return nil, err
+	}
+	arr := objc.ID(mtlCopyAllDevices())
+	if arr == 0 {
+		return nil, ErrNoDevice
+	}
+	defer arr.Send(selRelease)
+	n := int(objc.Send[uintptr](arr, selCount))
+	if index < 0 || index >= n {
+		return nil, ErrNoDevice
+	}
+	id := objc.Send[objc.ID](arr, selObjectAtIndex, uintptr(index))
+	if id == 0 {
+		return nil, ErrNoDevice
+	}
+	id.Send(selRetain)
+	d := &Device{id: id}
+	if NewLeaser != nil {
+		d.leaser = NewLeaser()
+	}
+	return d, nil
+}
+
 // CreateSystemDefaultDevice reaches Metal cgo-free (MTLCreateSystemDefaultDevice is a
 // plain C export in Metal.framework).
 func CreateSystemDefaultDevice() (*Device, error) {
@@ -258,6 +333,16 @@ func CreateSystemDefaultDevice() (*Device, error) {
 
 // Name is the device's product name (e.g. "Apple M1 Pro").
 func (d *Device) Name() string { return goString(d.id.Send(selName)) }
+
+// RegistryID is the driver's boot-scoped physical-device identifier, or zero
+// when the device cannot report one. It is not a serial number and is not
+// promised across an OS reinstall or a reboot.
+func (d *Device) RegistryID() uint64 {
+	if d == nil || d.id == 0 || !respondsTo(d.id, selRegistryID) {
+		return 0
+	}
+	return objc.Send[uint64](d.id, selRegistryID)
+}
 
 var selArchitecture = objc.RegisterName("architecture")
 

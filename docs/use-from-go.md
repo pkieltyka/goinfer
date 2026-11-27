@@ -356,10 +356,13 @@ and [FP16 FFN qualification](measurements/eg2-fp16-ffn-2026-11-22.md)
 | --- | --- | --- |
 | CUDA | The driver's GPU UUID follows the card across slot and ordinal changes. The ordinal alias follows the visible CUDA order. Rows with missing or duplicate UUIDs have no ID or alias. | `"cuda"` opens ordinal 0. |
 | Vulkan | The UUID identifies a visible adapter. Under RADV it encodes the PCI address and can change with the slot or bus numbering. The ordinal alias follows the current Vulkan inventory. | `"vulkan"` requires a unique eligible card. |
-| Metal | Discovery describes the system default device without an ID or alias. | `"metal"` selects the system default device. |
+| Metal | The boot-scoped registry ID (`metal:<registryID>@<boot-session>`) identifies a uniquely discovered device; the ordinal alias follows the current Metal inventory. Rows with a missing or duplicate registry ID have no ID or alias. | `"metal"` selects the system default device. |
 
-Metal discovery and attachment cover the system default device only. Enumerating
-additional Metal devices and selecting one explicitly remain open work.
+Metal discovery lists every visible device. An explicit attachment takes the exact
+boot-scoped ID and verifies it on the opened device; the ordinal alias is for the
+current inventory only. A token from a different boot is rejected. `Devices` with
+the ordinary options performs this discovery; a bare `UseAccelerator("metal")`
+still selects the system default and reports the legacy blank ID/alias.
 
 Passing `ProbeOptions{IncludeMemory: true}` requests headroom as well as known capacity.
 CUDA reads capacity without retaining a context. The available-byte query temporarily

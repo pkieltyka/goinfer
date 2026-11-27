@@ -26,7 +26,7 @@ type CUDAComputeCapability struct {
 
 // DeviceInfo describes one device a linked backend can attach.
 type DeviceInfo struct {
-	ID, Alias           string // backend-qualified; both empty when the device has no usable persistent identifier
+	ID, Alias           string // backend-qualified; both empty when the device has no usable identifier. ID is stable within the backend's documented scope (CUDA UUID; Metal boot session); Alias is current-order only.
 	Backend             string // device namespace and default selector
 	Name                string
 	VendorID, ProductID uint32 // PCI vendor and product IDs, zero when unknown

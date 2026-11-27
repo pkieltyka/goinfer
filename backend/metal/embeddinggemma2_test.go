@@ -23,6 +23,7 @@ import (
 	"github.com/pkieltyka/goinfer/backend/metal/internal/markdowneval"
 	"github.com/pkieltyka/goinfer/embeddinggemma2"
 	"github.com/pkieltyka/goinfer/internal/runtime/mem"
+	"github.com/pkieltyka/goinfer/tokenizer"
 )
 
 const eg2TinyDir = "../../testdata/embeddinggemma2-tiny"
@@ -157,6 +158,147 @@ func TestMetalInventoryMemory(t *testing.T) {
 	physicalRAM = func() (uint64, error) { return 0, errors.New("unreadable") }
 	if got := describeMetalDevice("GPU", true, true).Memory; got != (embeddinggemma2.DeviceMemory{}) {
 		t.Fatalf("unavailable physical RAM should be unknown: %+v", got)
+	}
+}
+
+func TestMetalDeviceRowsIdentityAndToken(t *testing.T) {
+	facts := []gpu.DeviceFact{
+		{Name: "Apple M4", Unified: true, RegistryID: 11},
+		{Name: "Apple M4", Unified: true, RegistryID: 22}, // duplicate display name, unique ID
+		{Name: "Duplicate", Unified: true, RegistryID: 22},
+		{Name: "Unidentified", Unified: true, RegistryID: 0},
+	}
+	rows := metalDeviceRows(facts, "boot-A", false)
+	if rows[0].ID != "metal:11@boot-A" || rows[0].Alias != "metal:0" || rows[1].ID != "" || rows[1].Alias != "" ||
+		rows[2].ID != "" || rows[2].Alias != "" || rows[3].ID != "" || rows[3].Alias != "" {
+		t.Fatalf("rows = %+v", rows)
+	}
+	reordered := metalDeviceRows([]gpu.DeviceFact{facts[1], facts[0]}, "boot-A", false)
+	if reordered[0].ID != "metal:22@boot-A" || reordered[0].Alias != "metal:0" ||
+		reordered[1].ID != "metal:11@boot-A" || reordered[1].Alias != "metal:1" {
+		t.Fatalf("reordered rows = %+v", reordered)
+	}
+	for _, tok := range []string{"0", "3", "11@boot-A"} {
+		if _, err := parseMetalToken(tok); err != nil {
+			t.Errorf("parseMetalToken(%q): %v", tok, err)
+		}
+	}
+	for _, tok := range []string{"", "x", "@boot-A", "11@", "0@boot-A"} {
+		if _, err := parseMetalToken(tok); err == nil {
+			t.Errorf("parseMetalToken(%q) accepted a malformed token", tok)
+		}
+	}
+}
+
+// TestMetalAttachedDeviceMemory is the native memory-reporter qualification
+// for the system-default Metal attachment. It uses the real probe/reporter
+// (not a synthetic describe call), asserts only host-derived bounds, and keeps
+// the legacy blank device ID contract. #86's exact 24-GiB figures stay in the
+// qualification record rather than being enforced across M4s.
+func TestMetalAttachedDeviceMemory(t *testing.T) {
+	rows, failures := embeddinggemma2.Devices(embeddinggemma2.ProbeOptions{})
+	if len(failures) != 0 {
+		t.Fatalf("native Metal discovery: %+v", failures)
+	}
+	foundMetal := false
+	for _, row := range rows {
+		foundMetal = foundMetal || row.Backend == "metal"
+	}
+	if !foundMetal {
+		t.Fatal("native Metal discovery returned no row")
+	}
+	m, err := embeddinggemma2.Load(eg2TinyDir)
+	if err != nil {
+		t.Fatal(err)
+	}
+	tok, err := tokenizer.LoadJSONBytes([]byte(`{"model":{"type":"BPE","vocab":{"<pad>":0,"<eos>":1,"<bos>":2,"<unk>":3},"merges":[]}}`))
+	if err != nil {
+		t.Fatal(err)
+	}
+	enc, err := embeddinggemma2.NewEncoder(m, tok, nil)
+	if err != nil {
+		t.Fatal(err)
+	}
+	acc, err := enc.UseAccelerator("metal")
+	if err != nil {
+		t.Fatal(err)
+	}
+	t.Cleanup(func() { _ = acc.Close() })
+	report, ok := acc.(embeddinggemma2.AttachedDeviceReporter)
+	if !ok {
+		t.Fatal("legacy attachment cannot report its device")
+	}
+	attached := report.AttachedDevice()
+	if attached.ID != "" || attached.Alias != "" || attached.Backend != "metal" {
+		t.Fatalf("legacy attachment identity = %+v; want blank ID/alias", attached)
+	}
+	ram, ramErr := physicalRAM()
+	if ramErr == nil && ram > 0 {
+		if attached.MemoryKind == embeddinggemma2.MemoryShared && attached.Memory.TotalBytes != int64(ram) {
+			t.Errorf("attached total memory %d, want host total %d", attached.Memory.TotalBytes, ram)
+		}
+		if attached.MemoryKind == embeddinggemma2.MemoryDedicated && attached.Memory.TotalBytes != 0 {
+			t.Errorf("dedicated attachment reported total %d without a verified device probe", attached.Memory.TotalBytes)
+		}
+	}
+	reporter, ok := acc.(embeddinggemma2.DeviceMemoryReporter)
+	if !ok {
+		t.Fatal("legacy attachment cannot report memory")
+	}
+	reading, err := reporter.DeviceMemory()
+	if err != nil {
+		t.Fatal(err)
+	}
+	if reading.TotalBytes < 0 || reading.AvailableBytes < 0 || reading.AvailableBytes > reading.TotalBytes {
+		t.Fatalf("attached memory bounds: %+v", reading)
+	}
+	if ramErr != nil {
+		if reading.Basis != embeddinggemma2.MemoryUnknown || reading.AvailableBytes != 0 {
+			t.Fatalf("unreadable host RAM should be unknown memory: %+v", reading)
+		}
+	} else if attached.MemoryKind == embeddinggemma2.MemoryShared {
+		if reading.Basis != embeddinggemma2.MemoryEstimated || reading.TotalBytes <= 0 ||
+			reading.AvailableBytes < 0 || reading.AvailableBytes > reading.TotalBytes {
+			t.Fatalf("shared attached memory = %+v", reading)
+		}
+	} else if reading.Basis != embeddinggemma2.MemoryUnknown || reading.AvailableBytes != 0 {
+		t.Fatalf("dedicated/unknown attached memory = %+v", reading)
+	}
+	prev := enc.Accelerator()
+	if _, err := enc.UseDevice("metal:11@stale-boot", "metal"); !errors.Is(err, embeddinggemma2.ErrNoDevice) {
+		t.Fatalf("stale exact-ID error = %v", err)
+	}
+	if enc.Accelerator() != prev {
+		t.Fatal("failed explicit selection changed the working attachment")
+	}
+	if err := acc.Close(); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := reporter.DeviceMemory(); err == nil {
+		t.Fatal("DeviceMemory after Close returned no error")
+	}
+	// If this host exposes a valid boot-scoped row, attach it explicitly and
+	// prove the reported identity and memory from the actual selected handle.
+	for _, row := range rows {
+		if row.Backend != "metal" || row.ID == "" {
+			continue
+		}
+		explicit, err := enc.UseDevice(row.ID, "metal")
+		if err != nil {
+			t.Fatalf("explicit %q: %v", row.ID, err)
+		}
+		explicitReport := explicit.(embeddinggemma2.AttachedDeviceReporter).AttachedDevice()
+		if explicitReport.ID != row.ID || explicitReport.Alias != row.Alias {
+			t.Fatalf("explicit attached %+v, inventory %+v", explicitReport, row)
+		}
+		explicitMemory, err := explicit.(embeddinggemma2.DeviceMemoryReporter).DeviceMemory()
+		if err != nil || explicitMemory.AvailableBytes < 0 || explicitMemory.AvailableBytes > explicitMemory.TotalBytes {
+			t.Fatalf("explicit memory %+v, %v", explicitMemory, err)
+		}
+		if err := explicit.Close(); err != nil {
+			t.Fatal(err)
+		}
+		break
 	}
 }
 
