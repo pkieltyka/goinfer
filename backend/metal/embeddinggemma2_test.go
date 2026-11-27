@@ -13,9 +13,12 @@ import (
 	"maps"
 	"math"
 	"os"
+	"os/exec"
 	"path/filepath"
 	"runtime"
 	"slices"
+	"strconv"
+	"strings"
 	"testing"
 	"time"
 
@@ -23,6 +26,8 @@ import (
 	"github.com/pkieltyka/goinfer/backend/metal/internal/markdowneval"
 	"github.com/pkieltyka/goinfer/embeddinggemma2"
 	"github.com/pkieltyka/goinfer/internal/runtime/mem"
+	"github.com/pkieltyka/goinfer/internal/runtime/mem/probe"
+	"github.com/pkieltyka/goinfer/tokenizer"
 )
 
 const eg2TinyDir = "../../testdata/embeddinggemma2-tiny"
@@ -160,6 +165,287 @@ func TestMetalInventoryMemory(t *testing.T) {
 	}
 }
 
+func TestMetalDeviceRowsIdentityAndToken(t *testing.T) {
+	facts := []gpu.DeviceFact{
+		{Name: "Apple M4", Unified: true, RegistryID: 11},
+		{Name: "Apple M4", Unified: true, RegistryID: 22}, // duplicate display name, unique ID
+		{Name: "Duplicate", Unified: true, RegistryID: 22},
+		{Name: "Unidentified", Unified: true, RegistryID: 0},
+	}
+	rows := metalDeviceRows(facts, "boot-A", false)
+	if rows[0].ID != "metal:11@boot-A" || rows[0].Alias != "metal:0" || rows[1].ID != "" || rows[1].Alias != "" ||
+		rows[2].ID != "" || rows[2].Alias != "" || rows[3].ID != "" || rows[3].Alias != "" {
+		t.Fatalf("rows = %+v", rows)
+	}
+	reordered := metalDeviceRows([]gpu.DeviceFact{facts[1], facts[0]}, "boot-A", false)
+	if reordered[0].ID != "metal:22@boot-A" || reordered[0].Alias != "metal:0" ||
+		reordered[1].ID != "metal:11@boot-A" || reordered[1].Alias != "metal:1" {
+		t.Fatalf("reordered rows = %+v", reordered)
+	}
+	for _, tok := range []string{"0", "3", "11@boot-A"} {
+		if _, err := parseMetalToken(tok); err != nil {
+			t.Errorf("parseMetalToken(%q): %v", tok, err)
+		}
+	}
+	for _, tok := range []string{"", "x", "@boot-A", "11@", "0@boot-A"} {
+		if _, err := parseMetalToken(tok); err == nil {
+			t.Errorf("parseMetalToken(%q) accepted a malformed token", tok)
+		}
+	}
+	selectToken := func(tok string, boot string) (int, error) {
+		parsed, err := parseMetalToken(tok)
+		if err != nil {
+			t.Fatal(err)
+		}
+		return selectMetalIndex(facts, boot, parsed)
+	}
+	if i, err := selectToken("0", "boot-A"); err != nil || i != 0 {
+		t.Fatalf("unique alias: %d, %v", i, err)
+	}
+	if _, err := selectToken("1", "boot-A"); !errors.Is(err, embeddinggemma2.ErrAmbiguousDevice) {
+		t.Fatalf("duplicate alias error = %v", err)
+	}
+	if _, err := selectToken("3", "boot-A"); !errors.Is(err, embeddinggemma2.ErrNoDevice) {
+		t.Fatalf("zero-ID alias error = %v", err)
+	}
+	if _, err := selectToken("0", ""); !errors.Is(err, embeddinggemma2.ErrNoDevice) {
+		t.Fatalf("alias without boot marker error = %v", err)
+	}
+	if i, err := selectToken("11@boot-A", "boot-A"); err != nil || i != 0 {
+		t.Fatalf("exact ID: %d, %v", i, err)
+	}
+	if _, err := selectToken("11@boot-A", "boot-B"); !errors.Is(err, embeddinggemma2.ErrNoDevice) {
+		t.Fatalf("stale exact ID error = %v", err)
+	}
+}
+
+// TestMetalAttachedDeviceMemory is the native memory-reporter qualification
+// for the system-default Metal attachment. It uses the real probe/reporter
+// (not a synthetic describe call), asserts only host-derived bounds, and keeps
+// the legacy blank device ID contract. #86's exact 24-GiB figures stay in the
+// qualification record rather than being enforced across M4s.
+func TestMetalAttachedDeviceMemory(t *testing.T) {
+	legacyRows, legacyFailures := embeddinggemma2.Devices(embeddinggemma2.ProbeOptions{IncludeMemory: true})
+	if len(legacyFailures) != 0 {
+		t.Fatalf("legacy Metal discovery: %+v", legacyFailures)
+	}
+	var legacyMetal []embeddinggemma2.DeviceInfo
+	for _, row := range legacyRows {
+		if row.Backend == "metal" {
+			legacyMetal = append(legacyMetal, row)
+		}
+	}
+	if len(legacyMetal) != 1 {
+		t.Fatalf("legacy Metal discovery returned %d rows, want one system-default row", len(legacyMetal))
+	}
+	legacyRow := legacyMetal[0]
+	if legacyRow.ID != "" || legacyRow.Alias != "" {
+		t.Fatalf("legacy Metal row has identity: %+v", legacyRow)
+	}
+	rows, failures := embeddinggemma2.AllDevices(embeddinggemma2.ProbeOptions{IncludeMemory: true})
+	if len(failures) != 0 {
+		t.Fatalf("native Metal discovery: %+v", failures)
+	}
+	var usable *embeddinggemma2.DeviceInfo
+	for i := range rows {
+		if rows[i].Backend == "metal" && rows[i].ID != "" && rows[i].Alias != "" {
+			usable = &rows[i]
+			break
+		}
+	}
+	if usable == nil {
+		t.Fatalf("native Metal inventory exposes no addressable row: %+v", rows)
+	}
+	m, err := embeddinggemma2.Load(eg2TinyDir)
+	if err != nil {
+		t.Fatal(err)
+	}
+	tok, err := tokenizer.LoadJSONBytes([]byte(`{"model":{"type":"BPE","vocab":{"<pad>":0,"<eos>":1,"<bos>":2,"<unk>":3},"merges":[]}}`))
+	if err != nil {
+		t.Fatal(err)
+	}
+	enc, err := embeddinggemma2.NewEncoder(m, tok, nil)
+	if err != nil {
+		t.Fatal(err)
+	}
+	ids := []int{1, 2, 3}
+	if m.Config().VocabSize <= 3 {
+		t.Fatalf("tiny fixture vocabulary %d cannot hold the forward input", m.Config().VocabSize)
+	}
+	cpuVector, err := enc.EmbedIDs(ids)
+	if err != nil {
+		t.Fatalf("CPU EmbedIDs: %v", err)
+	}
+	acc, err := enc.UseAccelerator("metal")
+	if err != nil {
+		t.Fatal(err)
+	}
+	t.Cleanup(func() { _ = acc.Close() })
+	report, ok := acc.(embeddinggemma2.AttachedDeviceReporter)
+	if !ok {
+		t.Fatal("legacy attachment cannot report its device")
+	}
+	attached := report.AttachedDevice()
+	if attached.ID != "" || attached.Alias != "" || attached.Backend != "metal" {
+		t.Fatalf("legacy attachment identity = %+v; want blank ID/alias", attached)
+	}
+	if attached.MemoryKind != legacyRow.MemoryKind || attached.Memory.TotalBytes != legacyRow.Memory.TotalBytes {
+		t.Fatalf("legacy attachment memory %+v, legacy inventory %+v", attached.Memory, legacyRow.Memory)
+	}
+	ram, ramErr := physicalRAM()
+	if ramErr == nil && ram > 0 {
+		if legacyRow.MemoryKind == embeddinggemma2.MemoryShared && legacyRow.Memory.TotalBytes != int64(ram) {
+			t.Errorf("legacy inventory total memory %d, want host total %d", legacyRow.Memory.TotalBytes, ram)
+		}
+		if legacyRow.MemoryKind == embeddinggemma2.MemoryDedicated && legacyRow.Memory.TotalBytes != 0 {
+			t.Errorf("dedicated legacy row reported total %d without a verified device probe", legacyRow.Memory.TotalBytes)
+		}
+	}
+	reporter, ok := acc.(embeddinggemma2.DeviceMemoryReporter)
+	if !ok {
+		t.Fatal("legacy attachment cannot report memory")
+	}
+	reading, err := reporter.DeviceMemory()
+	if err != nil {
+		t.Fatal(err)
+	}
+	if reading.TotalBytes != legacyRow.Memory.TotalBytes || reading.Basis != legacyRow.Memory.Basis ||
+		reading.AvailableBytes < 0 || reading.AvailableBytes > reading.TotalBytes {
+		t.Fatalf("legacy attached memory %+v, legacy inventory %+v", reading, legacyRow.Memory)
+	}
+	if ramErr != nil {
+		if reading.Basis != embeddinggemma2.MemoryUnknown || reading.AvailableBytes != 0 {
+			t.Fatalf("unreadable host RAM should be unknown memory: %+v", reading)
+		}
+	} else if legacyRow.MemoryKind == embeddinggemma2.MemoryShared {
+		if reading.Basis != embeddinggemma2.MemoryEstimated || reading.TotalBytes <= 0 ||
+			reading.AvailableBytes < 0 || reading.AvailableBytes > reading.TotalBytes {
+			t.Fatalf("shared legacy attached memory = %+v", reading)
+		}
+	} else if reading.Basis != embeddinggemma2.MemoryUnknown || reading.AvailableBytes != 0 {
+		t.Fatalf("dedicated/unknown legacy attached memory = %+v", reading)
+	}
+	prev := enc.Accelerator()
+	if _, err := enc.UseDevice("metal:11@stale-boot", "metal"); !errors.Is(err, embeddinggemma2.ErrNoDevice) {
+		t.Fatalf("stale exact-ID error = %v", err)
+	}
+	if enc.Accelerator() != prev {
+		t.Fatal("failed explicit selection changed the working attachment")
+	}
+	// A refusal leaves the previous attachment usable, not merely equal.
+	if _, err := enc.EmbedIDs(ids); err != nil {
+		t.Fatalf("forward after refused selection: %v", err)
+	}
+	// A selection reason survives the public UseDevice call and is not folded
+	// into the sibling runtime-unavailable category.
+	const ambiguousSel, runtimeSel = "metal-test-ambiguous", "metal-test-runtime"
+	embeddinggemma2.RegisterDeviceAccelerator(ambiguousSel, "metal", func(*embeddinggemma2.Model, string) (embeddinggemma2.Accelerator, error) {
+		_, err := acquireMetalDevice(func() (*Device, error) {
+			return nil, fmt.Errorf("%w: test duplicate registry ID", embeddinggemma2.ErrAmbiguousDevice)
+		})
+		return nil, err
+	})
+	embeddinggemma2.RegisterDeviceAccelerator(runtimeSel, "metal", func(*embeddinggemma2.Model, string) (embeddinggemma2.Accelerator, error) {
+		_, err := acquireMetalDevice(func() (*Device, error) { return nil, errors.New("framework missing") })
+		return nil, err
+	})
+	if _, err := enc.UseDevice("metal:0", ambiguousSel); !errors.Is(err, embeddinggemma2.ErrAmbiguousDevice) ||
+		!errors.Is(err, embeddinggemma2.ErrDeviceUnavailable) || errors.Is(err, embeddinggemma2.ErrBackendUnavailable) {
+		t.Fatalf("ambiguous selection error = %v", err)
+	}
+	if _, err := enc.UseDevice("metal:0", runtimeSel); !errors.Is(err, embeddinggemma2.ErrBackendUnavailable) {
+		t.Fatalf("runtime selection error = %v", err)
+	}
+	if enc.Accelerator() != prev {
+		t.Fatal("typed selection failures changed the working attachment")
+	}
+	if _, err := enc.EmbedIDs(ids); err != nil {
+		t.Fatalf("forward after typed refusals: %v", err)
+	}
+	if err := acc.Close(); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := reporter.DeviceMemory(); err == nil {
+		t.Fatal("DeviceMemory after Close returned no error")
+	}
+
+	selectedRegistry, boot, ok := strings.Cut(strings.TrimPrefix(usable.ID, "metal:"), "@")
+	if !ok || boot == "" {
+		t.Fatalf("selected ID %q has no boot marker", usable.ID)
+	}
+	wantRegistry, err := strconv.ParseUint(selectedRegistry, 10, 64)
+	if err != nil || wantRegistry == 0 {
+		t.Fatalf("selected ID %q has no registry ID: %v", usable.ID, err)
+	}
+	// The published exact ID and its current-order alias must both attach the
+	// same physical device, report the selected inventory row, and run a real
+	// forward on that retained handle.
+	for _, token := range []string{usable.ID, usable.Alias} {
+		explicit, err := enc.UseDevice(token, "metal")
+		if err != nil {
+			t.Fatalf("explicit %q: %v", token, err)
+		}
+		t.Cleanup(func() { _ = explicit.Close() })
+		explicitReport, ok := explicit.(embeddinggemma2.AttachedDeviceReporter)
+		if !ok {
+			t.Fatalf("%q attachment cannot report its device", token)
+		}
+		identity := explicitReport.AttachedDevice()
+		if identity.ID != usable.ID || identity.Alias != usable.Alias || identity.Backend != "metal" ||
+			identity.MemoryKind != usable.MemoryKind || identity.Memory.TotalBytes != usable.Memory.TotalBytes {
+			t.Fatalf("%q attached %+v, inventory %+v", token, identity, *usable)
+		}
+		a, ok := explicit.(*eg2Accel)
+		if !ok || a.d == nil {
+			t.Fatalf("%q attachment is not the selected Metal handle", token)
+		}
+		if a.d.RegistryID() != wantRegistry {
+			t.Fatalf("%q attached registry ID %d, inventory %q", token, a.d.RegistryID(), usable.ID)
+		}
+		explicitMemory, ok := explicit.(embeddinggemma2.DeviceMemoryReporter)
+		if !ok {
+			t.Fatalf("%q attachment cannot report memory", token)
+		}
+		memory, err := explicitMemory.DeviceMemory()
+		if err != nil {
+			t.Fatalf("%q memory: %v", token, err)
+		}
+		if memory.TotalBytes != usable.Memory.TotalBytes || memory.Basis != usable.Memory.Basis ||
+			memory.AvailableBytes < 0 || memory.AvailableBytes > memory.TotalBytes {
+			t.Fatalf("%q memory %+v, inventory %+v", token, memory, usable.Memory)
+		}
+		d0, s0, w0 := a.d.Activity()
+		vector, err := enc.EmbedIDs(ids)
+		if err != nil {
+			t.Fatalf("%q EmbedIDs: %v", token, err)
+		}
+		d1, s1, w1 := a.d.Activity()
+		if d1 <= d0 || s1 <= s0 || w1 <= w0 {
+			t.Fatalf("%q activity dispatches %d->%d, submits %d->%d, waits %d->%d; want all to increase",
+				token, d0, d1, s0, s1, w0, w1)
+		}
+		var norm float64
+		for _, v := range vector {
+			if math.IsNaN(float64(v)) || math.IsInf(float64(v), 0) {
+				t.Fatalf("%q EmbedIDs returned a non-finite value", token)
+			}
+			norm += float64(v) * float64(v)
+		}
+		if math.Abs(norm-1) > 1e-4 {
+			t.Fatalf("%q EmbedIDs norm %v, want unit length", token, norm)
+		}
+		if cosine := eg2Cos(vector, cpuVector); cosine < 0.9999 {
+			t.Fatalf("%q EmbedIDs matches CPU at cosine %.9f", token, cosine)
+		}
+		if err := explicit.Close(); err != nil {
+			t.Fatal(err)
+		}
+		if _, err := explicitMemory.DeviceMemory(); err == nil {
+			t.Fatalf("%q DeviceMemory after Close returned no error", token)
+		}
+	}
+}
+
 func TestMetalInventoryAndAttachAcquisitionErrors(t *testing.T) {
 	for _, tt := range []struct{ native, category error }{
 		{gpu.ErrNoDevice, embeddinggemma2.ErrNoDevice},
@@ -170,7 +456,8 @@ func TestMetalInventoryAndAttachAcquisitionErrors(t *testing.T) {
 		if ops.d != nil || !errors.Is(err, tt.category) || !errors.Is(err, tt.native) {
 			t.Fatalf("attach %v: %+v, %v", tt.native, ops.d, err)
 		}
-		rows, err := probeMetalDeviceOn(open, embeddinggemma2.ProbeOptions{})
+		list := func() ([]gpu.DeviceFact, error) { return nil, tt.native }
+		rows, err := probeMetalDevicesOn(list, embeddinggemma2.ProbeOptions{})
 		if len(rows) != 0 ||
 			tt.category == embeddinggemma2.ErrNoDevice && err != nil ||
 			tt.category == embeddinggemma2.ErrBackendUnavailable && (!errors.Is(err, tt.category) || !errors.Is(err, tt.native)) {
@@ -1556,5 +1843,387 @@ func markdownRank(t *testing.T, fixture markdowneval.Fixture, docs, queries [][]
 			}
 			docs, queries = normalize(docs), normalize(queries)
 		}
+	}
+}
+
+var eg2ReplayDir = flag.String("eg2-replay-fixture", "", "directory containing the owned Markdown replay fixture")
+var eg2ReplayOut = flag.String("eg2-replay-out", "", "existing output directory for replay receipts and vectors")
+
+type markdownReplayModel struct {
+	kind, path string
+	directory  bool
+	load       func(string) (*embeddinggemma2.Encoder, error)
+}
+
+func markdownReplayModels() []markdownReplayModel {
+	return []markdownReplayModel{
+		{"q8_0", *eg2BatchGGUFTest, false, func(path string) (*embeddinggemma2.Encoder, error) {
+			return embeddinggemma2.LoadGGUFEncoder(path, map[string]string{"document": "title: none | text: "})
+		}},
+		{"mlx8", *eg2BatchMLXTest, true, embeddinggemma2.LoadEncoder},
+	}
+}
+
+type markdownReplayCase struct {
+	enc    *embeddinggemma2.Encoder
+	acc    *eg2BatchAccel
+	ids    [][]int
+	groups [][][]int
+	phases []markdownObservation
+}
+
+func markdownLoadReplay(t *testing.T, fixture markdowneval.Replay, model markdownReplayModel, pin markdowneval.Checkpoint) markdownReplayCase {
+	t.Helper()
+	verifyMarkdownModel(t, model.path, model.directory, pin)
+	enc, load := markdownMeasure(t, func() (*embeddinggemma2.Encoder, error) { return model.load(model.path) })
+	if prompt, err := enc.PromptText("document"); err != nil || prompt != "title: none | text: " {
+		t.Fatalf("document prompt %q: %v", prompt, err)
+	}
+	ids, prepare := markdownPrepare(t, enc, fixture.Passages, fixture.Prepared[model.kind].Documents, "document")
+	acc, attach := markdownMeasure(t, func() (embeddinggemma2.Accelerator, error) {
+		return enc.UseAccelerator("metal-eg2-batch")
+	})
+	t.Cleanup(func() {
+		if err := acc.Close(); err != nil {
+			t.Error(err)
+		}
+	})
+	a, ok := acc.(*eg2BatchAccel)
+	if !ok || !a.AttachedDevice().TextBatching || a.AttachedProfile() != eg2MatrixProfile {
+		t.Fatalf("expected explicit combined Metal batch attachment, got %T", acc)
+	}
+	device := a.AttachedDevice()
+	t.Logf("selector=metal-eg2-batch backend=%s device=%q architecture=%q profile=%s",
+		device.Backend, device.Name, a.d.ArchitectureName(), a.AttachedProfile())
+	groups := make([][][]int, 0, len(fixture.Groups))
+	offset := 0
+	for _, group := range fixture.Groups {
+		groups = append(groups, ids[offset:offset+len(group)])
+		offset += len(group)
+	}
+	return markdownReplayCase{enc: enc, acc: a, ids: ids, groups: groups, phases: []markdownObservation{load, prepare, attach}}
+}
+
+type markdownReplayRun struct {
+	Start  int  `json:"start"`
+	Rows   int  `json:"rows"`
+	Staged bool `json:"staged"`
+}
+
+type markdownReplayFit struct {
+	Group          int                 `json:"group"`
+	Lengths        []int               `json:"lengths"`
+	Rows           int                 `json:"rows"`
+	Runs           []markdownReplayRun `json:"ffn_runs"`
+	Estimate       string              `json:"estimate"`
+	AdditionalPeak int64               `json:"estimated_additional_peak_bytes"`
+	ResidentWeight int64               `json:"resident_weight_bytes"`
+	AllocatedAfter int64               `json:"tracked_bytes_after"`
+	Dispatches     int64               `json:"dispatches"`
+	StagedGateUp   int64               `json:"staged_gate_up"`
+	FusedUp        int64               `json:"fused_up"`
+	GeGLU          int64               `json:"standalone_geglu"`
+	RMSAdd         int64               `json:"rms_add"`
+	RMSAddScale    int64               `json:"rms_add_scale"`
+	PLE            int64               `json:"ple_activation"`
+}
+
+func (c markdownReplayCase) proveGroup(t *testing.T, index int, expectedRows int) ([][]float32, markdownReplayFit) {
+	t.Helper()
+	group := c.groups[index]
+	lengths := make([]int, len(group))
+	for i, ids := range group {
+		lengths[i] = len(ids)
+	}
+	estimate, err := c.enc.BatchMemory(lengths)
+	if err != nil || estimate.Quality == embeddinggemma2.BatchMemoryUnknown {
+		t.Fatalf("group %d BatchMemory %v: %+v %v", index, lengths, estimate, err)
+	}
+	c.acc.mu.Lock()
+	plan, err := c.acc.planBatch(lengths)
+	c.acc.mu.Unlock()
+	if err != nil || plan.rows != expectedRows {
+		t.Fatalf("group %d plan has %d rows, want %d: %v", index, plan.rows, expectedRows, err)
+	}
+	fit := markdownReplayFit{Group: index, Lengths: lengths, Rows: plan.rows, Estimate: estimate.Quality.String(),
+		AdditionalPeak: estimate.AdditionalPeakBytes, ResidentWeight: estimate.ResidentWeightBytes}
+	for _, run := range plan.runs[:plan.runCount] {
+		fit.Runs = append(fit.Runs, markdownReplayRun{run.start, run.rows, run.staged})
+	}
+	var tracked int64
+	d0, s0, w0 := c.acc.d.Activity()
+	c.acc.d.SetDispatchHook(func(pipe Pipeline) {
+		tracked++
+		switch pipe {
+		case c.acc.stagedFFN:
+			fit.StagedGateUp++
+		case c.acc.stagedFFNGeGLU:
+			fit.FusedUp++
+		case c.acc.p.geluMul:
+			fit.GeGLU++
+		case c.acc.p.rmsAdd:
+			fit.RMSAdd++
+		case c.acc.p.rmsAddScale:
+			fit.RMSAddScale++
+		case c.acc.p.geluMulPLE:
+			fit.PLE++
+		}
+	})
+	out, err := c.enc.EmbedIDsBatch(group)
+	c.acc.d.SetDispatchHook(nil)
+	d1, s1, w1 := c.acc.d.Activity()
+	if err != nil || len(out) != len(group) || s1-s0 != 1 || w1-w0 != 1 || d1-d0 <= 0 || d1-d0 != tracked {
+		t.Fatalf("group %d: forward outputs=%d dispatches=%d submits=%d waits=%d: %v", index, len(out), d1-d0, s1-s0, w1-w0, err)
+	}
+	fit.Dispatches, fit.AllocatedAfter = d1-d0, eg2AllocatedBytes(c.acc.d)
+	var staged int64
+	for _, run := range fit.Runs {
+		if run.Staged {
+			staged++
+		}
+	}
+	layers := int64(c.acc.cfg.Layers)
+	stagedUp, fusedUp, geglu := staged*layers, int64(0), layers
+	if staged == int64(len(fit.Runs)) {
+		fusedUp, geglu = stagedUp, 0
+		stagedUp = 0
+	}
+	if fit.StagedGateUp != staged*layers+stagedUp || fit.FusedUp != fusedUp || fit.GeGLU != geglu ||
+		fit.RMSAdd != 2*layers || fit.RMSAddScale != layers || fit.PLE != layers {
+		t.Fatalf("group %d has unexpected fused or fallback route: %+v", index, fit)
+	}
+	return out, fit
+}
+
+func (c markdownReplayCase) clearRopes() {
+	c.acc.mu.Lock()
+	defer c.acc.mu.Unlock()
+	for key, pair := range c.acc.ropes {
+		c.acc.release(&pair[0], &pair[1])
+		delete(c.acc.ropes, key)
+	}
+}
+
+type markdownReplayCell struct {
+	WallNS             int64   `json:"wall_ns"`
+	PositionsPerSecond float64 `json:"positions_per_second"`
+	Dispatches         int64   `json:"dispatches"`
+	Commands           int64   `json:"completed_commands"`
+	TrackedBytesAfter  int64   `json:"tracked_bytes_after"`
+}
+
+func (c markdownReplayCase) replay(t *testing.T, positions int, dispatches int64) ([][]float32, markdownReplayCell) {
+	t.Helper()
+	results := make([][][]float32, len(c.groups))
+	d0, s0, w0 := c.acc.d.Activity()
+	start := time.Now()
+	for i, group := range c.groups {
+		var err error
+		results[i], err = c.enc.EmbedIDsBatch(group)
+		if err != nil {
+			t.Fatalf("replay group %d: %v", i, err)
+		}
+	}
+	elapsed := time.Since(start)
+	d1, s1, w1 := c.acc.d.Activity()
+	if d1-d0 != dispatches || s1-s0 != int64(len(c.groups)) || w1-w0 != s1-s0 {
+		t.Fatalf("replay activity dispatches=%d submits=%d waits=%d", d1-d0, s1-s0, w1-w0)
+	}
+	return slices.Concat(results...), markdownReplayCell{WallNS: elapsed.Nanoseconds(), PositionsPerSecond: float64(positions) / elapsed.Seconds(),
+		Dispatches: d1 - d0, Commands: w1 - w0, TrackedBytesAfter: eg2AllocatedBytes(c.acc.d)}
+}
+
+func (c markdownReplayCase) verifySentinels(t *testing.T, f markdowneval.Replay, oracle [][]float32) {
+	t.Helper()
+	for _, g := range []int{14, 21} {
+		first := g * 4
+		cases := []struct {
+			name    string
+			indexes []int
+		}{
+			{"rotated", []int{first + 3, first, first + 1, first + 2}},
+			{"split-first", []int{first, first + 1}},
+			{"split-second", []int{first + 2, first + 3}},
+			{"changed-neighbour", []int{first, first + 1, first + 2, 0}},
+		}
+		for _, tc := range cases {
+			batch := make([][]int, len(tc.indexes))
+			for i, index := range tc.indexes {
+				batch[i] = c.ids[index]
+			}
+			out, err := c.enc.EmbedIDsBatch(batch)
+			if err != nil || len(out) != len(batch) {
+				t.Fatalf("group %d %s: outputs=%d: %v", g, tc.name, len(out), err)
+			}
+			for i, index := range tc.indexes {
+				markdownExact(t, f.Passages[index].ID, tc.name, oracle[index], out[i])
+			}
+		}
+	}
+}
+
+func markdownReplayWrite(t *testing.T, dir, name string, data []byte) {
+	t.Helper()
+	f, err := os.OpenFile(filepath.Join(dir, name), os.O_WRONLY|os.O_CREATE|os.O_EXCL, 0o644)
+	if err != nil {
+		t.Fatal(err)
+	}
+	_, writeErr := f.Write(data)
+	if err := f.Close(); writeErr != nil || err != nil {
+		t.Fatalf("write %s: %v; close: %v", name, writeErr, err)
+	}
+}
+
+func markdownReplayJSON(t *testing.T, dir, name string, value any) {
+	t.Helper()
+	data, err := json.MarshalIndent(value, "", "  ")
+	if err != nil {
+		t.Fatal(err)
+	}
+	markdownReplayWrite(t, dir, name, append(data, '\n'))
+}
+
+func markdownReplayVectors(t *testing.T, dir, prefix string, fixture markdowneval.Replay, vectors [][]float32) {
+	t.Helper()
+	type row struct {
+		ID     string `json:"id"`
+		SHA768 string `json:"sha768"`
+		SHA512 string `json:"sha512"`
+	}
+	var rows []row
+	var full, cut []byte
+	for i, v := range vectors {
+		v768, v512 := f32ToBytes(v), f32ToBytes(eg2Normalized512(v))
+		full, cut = append(full, v768...), append(cut, v512...)
+		rows = append(rows, row{fixture.Passages[i].ID, fmt.Sprintf("%x", sha256.Sum256(v768)), fmt.Sprintf("%x", sha256.Sum256(v512))})
+	}
+	markdownReplayWrite(t, dir, prefix+"-768.f32", full)
+	markdownReplayWrite(t, dir, prefix+"-512.f32", cut)
+	markdownReplayJSON(t, dir, prefix+"-digests.json", struct {
+		Rows   []row  `json:"rows"`
+		SHA768 string `json:"sha768"`
+		SHA512 string `json:"sha512"`
+	}{rows, fmt.Sprintf("%x", sha256.Sum256(full)), fmt.Sprintf("%x", sha256.Sum256(cut))})
+}
+
+type markdownReplayPaging struct {
+	swap     int64
+	swapouts uint64
+}
+
+func markdownReplayGuard(t *testing.T, phase string, before *markdownReplayPaging) markdownReplayPaging {
+	t.Helper()
+	if lock := os.Getenv("GOINFER_TIMING_LOCK"); lock == "" || strings.HasPrefix(lock, "sh-") {
+		t.Fatal("an exclusive timing lease is required")
+	}
+	load := cellLoad1(t)
+	mem, memOK := probe.Read()
+	task, taskOK := probe.ReadTask(os.Getpid())
+	swap, swapOK := probe.SwapUsed()
+	command := func(path string, args ...string) string {
+		raw, err := exec.Command(path, args...).Output()
+		if err != nil {
+			t.Fatal(err)
+		}
+		return string(raw)
+	}
+	var swapouts uint64
+	var parsed bool
+	for line := range strings.SplitSeq(command("/usr/bin/vm_stat"), "\n") {
+		if rest, ok := strings.CutPrefix(line, "Swapouts:"); ok {
+			var err error
+			swapouts, err = strconv.ParseUint(strings.TrimSuffix(strings.TrimSpace(rest), "."), 10, 64)
+			parsed = err == nil
+			break
+		}
+	}
+	thermal := command("/usr/bin/pmset", "-g", "therm")
+	t.Logf("guard=%s load1=%g reclaimable=%d swap=%d swapouts=%d compressed=%d compressed_peak=%d thermal=%q",
+		phase, load, mem.Reclaimable, swap, swapouts, task.Compressed, task.CompressedPeak, strings.TrimSpace(thermal))
+	if !(load >= 0 && load <= 5) || !memOK || mem.Reclaimable < 8<<30 || !taskOK ||
+		task.Compressed != 0 || task.CompressedPeak != 0 || !swapOK || !parsed ||
+		!strings.Contains(thermal, "No thermal warning level has been recorded") ||
+		!strings.Contains(thermal, "No performance warning level has been recorded") ||
+		!strings.Contains(thermal, "No CPU power status has been recorded") ||
+		(before != nil && (swap > before.swap || swapouts != before.swapouts)) {
+		t.Fatalf("host guard refused %s", phase)
+	}
+	return markdownReplayPaging{swap, swapouts}
+}
+
+func TestEG2MetalMarkdownReplay(t *testing.T) {
+	if *eg2ReplayDir == "" {
+		t.Skip("enable -eg2-replay-fixture with the owned Markdown replay directory")
+	}
+	if *eg2BatchGGUFTest == "" || *eg2BatchMLXTest == "" || *eg2ReplayOut == "" {
+		t.Fatal("set both checkpoint flags and -eg2-replay-out")
+	}
+	fixture, err := markdowneval.LoadReplay(*eg2ReplayDir)
+	if err != nil {
+		t.Fatal(err)
+	}
+	pins, err := markdowneval.Load()
+	if err != nil {
+		t.Fatal(err)
+	}
+	before := markdownReplayGuard(t, "start", nil)
+	for _, model := range markdownReplayModels() {
+		t.Run(model.kind, func(t *testing.T) {
+			markdownReplayGuard(t, "before-load", &before)
+			dir := filepath.Join(*eg2ReplayOut, model.kind)
+			if err := os.Mkdir(dir, 0o755); err != nil {
+				t.Fatal(err)
+			}
+			c := markdownLoadReplay(t, fixture, model, pins.Checkpoints[model.kind])
+			oracle, _ := markdownSingletons(t, c.enc, c.ids)
+			lengths := fixture.Prepared[model.kind].GroupTokens
+			var fits []markdownReplayFit
+			var packed [][]float32
+			var dispatches int64
+			var positions, largest int
+			for g, rows := range lengths {
+				positions += rows
+				if rows > lengths[largest] {
+					largest = g
+				}
+				out, fit := c.proveGroup(t, g, rows)
+				fits = append(fits, fit)
+				dispatches += fit.Dispatches
+				packed = append(packed, out...)
+			}
+			for i, passage := range fixture.Passages {
+				markdownExact(t, passage.ID, "packed", oracle[i], packed[i])
+			}
+			c.verifySentinels(t, fixture, oracle)
+			markdownReplayVectors(t, dir, "singleton", fixture, oracle)
+			markdownReplayVectors(t, dir, "packed", fixture, packed)
+			markdownReplayJSON(t, dir, "groups.json", fits)
+
+			c.clearRopes()
+			c.proveGroup(t, largest, lengths[largest])
+			var cells []markdownReplayCell
+			for i := range 3 {
+				c.clearRopes()
+				markdownReplayGuard(t, fmt.Sprintf("before-replay-%d", i), &before)
+				got, cell := c.replay(t, positions, dispatches)
+				markdownReplayGuard(t, fmt.Sprintf("after-replay-%d", i), &before)
+				for j, passage := range fixture.Passages {
+					markdownExact(t, passage.ID, fmt.Sprintf("replay %d", i), oracle[j], got[j])
+				}
+				cells = append(cells, cell)
+				t.Logf("replay=%d positions=%d wall_ns=%d completed_commands=%d", i, positions, cell.WallNS, cell.Commands)
+			}
+			for i, name := range []string{"load", "prepare", "attach"} {
+				m := c.phases[i]
+				t.Logf("phase=%s wall_ns=%d go_total_alloc_delta_bytes=%d", name, m.wall.Nanoseconds(), m.alloc)
+			}
+			var ns []int64
+			for _, cell := range cells {
+				ns = append(ns, cell.WallNS)
+			}
+			slices.Sort(ns)
+			t.Logf("replays=%d median_wall_ns=%d wall_range_ns=%d", len(ns), ns[1], ns[2]-ns[0])
+			markdownReplayJSON(t, dir, "cells.json", cells)
+		})
 	}
 }

@@ -26,7 +26,7 @@ type CUDAComputeCapability struct {
 
 // DeviceInfo describes one device a linked backend can attach.
 type DeviceInfo struct {
-	ID, Alias           string // backend-qualified; both empty when the device has no usable persistent identifier
+	ID, Alias           string // backend-qualified; both empty when the device has no usable identifier. ID is stable within the backend's documented scope (CUDA UUID; Metal boot session); Alias is current-order only.
 	Backend             string // device namespace and default selector
 	Name                string
 	VendorID, ProductID uint32 // PCI vendor and product IDs, zero when unknown
@@ -49,6 +49,7 @@ type AttachedDeviceReporter interface {
 }
 
 var deviceProbes = map[string]func(ProbeOptions) ([]DeviceInfo, error){}
+var deviceInventoryProbes = map[string]func(ProbeOptions) ([]DeviceInfo, error){}
 
 type deviceFactory struct {
 	backend  string
@@ -65,12 +66,49 @@ func RegisterDeviceProber(backend string, probe func(ProbeOptions) ([]DeviceInfo
 	deviceProbes[backend] = probe
 }
 
+// RegisterDeviceInventoryProber registers a backend's addressable inventory.
+// AllDevices consults it; Devices keeps the registered legacy prober.
+func RegisterDeviceInventoryProber(backend string, probe func(ProbeOptions) ([]DeviceInfo, error)) {
+	accelMu.Lock()
+	defer accelMu.Unlock()
+	deviceInventoryProbes[backend] = probe
+}
+
 // Devices asks every registered prober, in backend-name order. It returns
 // successful rows and any per-backend failures, including rows from a partial probe.
+// A backend may keep this legacy/default inventory separate from its explicit
+// addressable inventory; use AllDevices for the latter.
 func Devices(opts ProbeOptions) ([]DeviceInfo, []ProbeFailure) {
+	return devicesThrough(snapshotProbes(false), opts)
+}
+
+// AllDevices asks every backend for its addressable inventory, with
+// backend-qualified IDs and aliases where it supports them. A backend without
+// a separate inventory prober contributes its legacy rows. This is additive:
+// Devices and ProbeOptions keep their existing shape and default behavior.
+func AllDevices(opts ProbeOptions) ([]DeviceInfo, []ProbeFailure) {
+	return devicesThrough(snapshotProbes(true), opts)
+}
+
+// snapshotProbes copies the registered callbacks while holding the registry
+// lock, so a concurrent Register call cannot race the iteration. Callers invoke
+// the callbacks after the lock is released.
+func snapshotProbes(includeInventory bool) map[string]func(ProbeOptions) ([]DeviceInfo, error) {
 	accelMu.Lock()
+	defer accelMu.Unlock()
 	probes := maps.Clone(deviceProbes)
-	accelMu.Unlock()
+	if probes == nil {
+		probes = make(map[string]func(ProbeOptions) ([]DeviceInfo, error), len(deviceInventoryProbes))
+	}
+	if includeInventory {
+		for name, probe := range deviceInventoryProbes {
+			probes[name] = probe
+		}
+	}
+	return probes
+}
+
+func devicesThrough(probes map[string]func(ProbeOptions) ([]DeviceInfo, error), opts ProbeOptions) ([]DeviceInfo, []ProbeFailure) {
 	var devices []DeviceInfo
 	var failures []ProbeFailure
 	for _, name := range slices.Sorted(maps.Keys(probes)) {
