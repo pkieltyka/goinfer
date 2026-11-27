@@ -6,7 +6,14 @@ import (
 	"fmt"
 
 	gpu "github.com/pkieltyka/goinfer/backend/cuda/internal/gpudev"
+	"github.com/pkieltyka/goinfer/backend/cuda/internal/tower"
 	"github.com/pkieltyka/goinfer/internal/vision"
+)
+
+var (
+	i32  = gpu.ArgValue[int32]
+	f32v = gpu.ArgValue[float32]
+	i64  = gpu.ArgValue[int64]
 )
 
 // towerRegs are a tower walker's activation buffers, by vision.TowerReg: x is the residual stream, mid and mid2 are
@@ -146,7 +153,7 @@ func (a *gridTower) walkBlock(prog vision.TowerBlock, b *gridBlock, r *towerRegs
 				return fmt.Errorf("op %d (%s): registers %d and %d differ in width", i, op.Kind, op.In, op.Out)
 			}
 			n := rows * width(op.Out)
-			o.Cls(clsElem)
+			o.Cls(tower.ClsElem)
 			o.Launch(o.ViT.SiLUMul, gpu.Grid1D(n, 256), Arg(out), Arg(in), i32(int32(n)))
 		default:
 			return fmt.Errorf("op %d: kind %s not implemented on CUDA", i, op.Kind)

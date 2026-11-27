@@ -8,6 +8,7 @@ import (
 	"sync"
 
 	gpu "github.com/pkieltyka/goinfer/backend/cuda/internal/gpudev"
+	"github.com/pkieltyka/goinfer/backend/cuda/internal/tower"
 	"github.com/pkieltyka/goinfer/internal/vision"
 	"github.com/pkieltyka/goinfer/multimodal"
 )
@@ -51,7 +52,7 @@ type g4Defect struct {
 // g4Tower is the tower on CUDA. One image at a time (mu): its scratch is per call.
 type g4Tower struct {
 	mu    sync.Mutex
-	ops   *towerOps
+	ops   *tower.Ops
 	cfg   vision.Gemma4EncoderConfig
 	theta float64
 
@@ -70,7 +71,7 @@ func newG4Tower(enc *vision.Gemma4Encoder) (tw *g4Tower, err error) {
 		return nil, fmt.Errorf("cuda: Gemma 4 tower %d heads of %d over hidden %d: the kernels need heads*hd = hidden, hd a multiple of 4",
 			c.NumAttentionHeads, c.HeadDim, c.HiddenSize)
 	}
-	ops, err := newTowerOps(max(c.HiddenSize, c.IntermediateSize))
+	ops, err := tower.New(max(c.HiddenSize, c.IntermediateSize))
 	if err != nil {
 		return nil, err
 	}

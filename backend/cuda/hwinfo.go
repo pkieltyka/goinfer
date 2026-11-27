@@ -6,12 +6,13 @@ import (
 	"fmt"
 
 	gc "github.com/eitamring/gocudrv/cuda"
+	"github.com/pkieltyka/goinfer/backend/cuda/internal/tower"
 	"github.com/pkieltyka/goinfer/decoder"
 )
 
 // ptxTargetMajor and ptxTargetMinor are the minimum compute capability for
 // the default CUDA kernels. A newer card uses the driver's forward JIT.
-const ptxTargetMajor, ptxTargetMinor = 7, 5
+const ptxTargetMajor, ptxTargetMinor = tower.PTXTargetMajor, tower.PTXTargetMinor
 
 func init() { decoder.RegisterHardwareInfo("cuda", cudaHardwareInfo) }
 

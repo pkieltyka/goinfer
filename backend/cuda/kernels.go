@@ -238,13 +238,6 @@ var attnFusedBMPTX []byte
 //go:embed testdata/attn_fused_vit.ptx
 var attnFusedVitPTX []byte
 
-// towerBasePTX: tower_pos_add / tower_clamp / tower_clamp_copy / tower_rope_axial / tower_mul / tower_scale, the CUDA
-// vision-tower base's own kernels, used alongside the device layer's ViT kernels.
-// Built at NVRTC 12.9.86.
-//
-//go:embed testdata/tower_base.ptx
-var towerBasePTX []byte
-
 // gemmMMAPTX: gemm_w4a8_mma, the L3 tensor-core int4xint8 GEMM with group scales.
 //
 //go:embed testdata/gemm_w4a8_mma.ptx

@@ -21,7 +21,7 @@
     },
     {
       "unit": "base",
-      "ptx": "testdata/tower_base.ptx",
+      "ptx": "internal/tower/testdata/tower_base.ptx",
       "ptx_sha256": "7ee3fdb069e37cd3a1f00364ac1ae8ade5f346de1af92f91ce51d7e51904c4c6",
       "cubin": "base.sm120.cubin",
       "cubin_sha256": "55f647fb589b54f3f917a1894158475331c2d21efeecc15f8439aa5673d4a9b1",

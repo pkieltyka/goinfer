@@ -12,11 +12,22 @@ import (
 	"testing"
 	"time"
 
+	"github.com/pkieltyka/goinfer/backend/cuda/internal/tower"
 	"github.com/pkieltyka/goinfer/internal/vision"
 	"github.com/pkieltyka/goinfer/multimodal"
 
 	"github.com/pkieltyka/goinfer/internal/testgate"
 )
+
+func newTestTower(t *testing.T, maxN int) *tower.Ops {
+	t.Helper()
+	ops, err := tower.New(maxN)
+	if err != nil {
+		t.Skipf("no CUDA device for the tower base: %v", err)
+	}
+	t.Cleanup(ops.Close)
+	return ops
+}
 
 // G-S2b and G-S2c on the committed tiny towers, CUDA twin of metal/grid_vision_test.go: the CUDA tower plus aikit's
 // FinishHidden against aikit's CPU Forward, every merged token at cosine >= 0.9999, at three grid sizes and a two-image batch (two attention segments); and each
@@ -337,14 +348,14 @@ func TestGridVisionCUDA_real(t *testing.T) {
 // dims 8 and 16 fall back to aikit's attention). The unplanted tower meets the bar, and each kernel defect alone breaks it. At real size the same is checked in siglip_vision_test.go.
 func TestGridVisionCUDA_fusedAttentionKernelDefects(t *testing.T) {
 	c := gridGlmCase(t)
-	defer func() { towerAttnDefect = 0 }()
+	defer func() { tower.AttnDefect = 0 }()
 	if w := c.worstOver(t, 11); w < 0.9999 {
 		t.Fatalf("the unplanted GLM-OCR tiny tower with the fused kernel reads %.9f, under the bar", w)
 	}
 	for d, name := range map[int]string{1: "no rescale when the running max moves", 2: "key mask one past the segment", 3: "V tile read one key late"} {
-		towerAttnDefect = d
+		tower.AttnDefect = d
 		w := c.worstOver(t, 11)
-		towerAttnDefect = 0
+		tower.AttnDefect = 0
 		fmt.Fprintf(os.Stderr, "[S17 lever A] GLM-OCR tiny tower, kernel defect (%d) %s: worst token cosine %.6f\n", d, name, w)
 		if w >= 0.9999 {
 			t.Errorf("kernel defect (%d) %s left the tiny GLM-OCR tower at %.9f: the fixture cannot see it", d, name, w)

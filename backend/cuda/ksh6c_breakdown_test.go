@@ -13,6 +13,7 @@ import (
 	"sync"
 	"testing"
 
+	"github.com/pkieltyka/goinfer/backend/cuda/internal/tower"
 	"github.com/pkieltyka/goinfer/decoder"
 )
 
@@ -205,7 +206,7 @@ func TestKV3R_allocSequence(t *testing.T) {
 		log = append(log, fmt.Sprintf("S\t%s\t%d", s, free()))
 		mu.Unlock()
 	}
-	leaseSeenForTest = func(onDevice bool, line string, requested int64, release func()) func() {
+	tower.LeaseSeenForTest = func(onDevice bool, line string, requested int64, release func()) func() {
 		mu.Lock()
 		id := n
 		n++
@@ -233,7 +234,7 @@ func TestKV3R_allocSequence(t *testing.T) {
 	kvPoolsDoneForTest = func() { mark("kvpools") }
 	postPoolDoneForTest = func() { mark("postpool") }
 	restore := func() {
-		leaseSeenForTest, cudaFreeVRAM, kvPoolsDoneForTest, postPoolDoneForTest = nil, saved, nil, nil
+		tower.LeaseSeenForTest, cudaFreeVRAM, kvPoolsDoneForTest, postPoolDoneForTest = nil, saved, nil, nil
 	}
 	defer restore()
 	mark("start")

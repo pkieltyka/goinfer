@@ -11,6 +11,7 @@ import (
 	"testing"
 	"time"
 
+	"github.com/pkieltyka/goinfer/backend/cuda/internal/tower"
 	"github.com/pkieltyka/goinfer/internal/vision"
 	"github.com/pkieltyka/goinfer/multimodal"
 )
@@ -27,7 +28,7 @@ func medianDur(d []time.Duration) time.Duration {
 	return c[len(c)/2]
 }
 
-func s17Profile(t *testing.T, name string, ops *towerOps, fwd func() ([]float32, error)) {
+func s17Profile(t *testing.T, name string, ops *tower.Ops, fwd func() ([]float32, error)) {
 	t.Helper()
 	if _, err := fwd(); err != nil { // warm-up
 		t.Fatal(err)
@@ -44,7 +45,7 @@ func s17Profile(t *testing.T, name string, ops *towerOps, fwd func() ([]float32,
 		ref = out
 	}
 	var profWalls []time.Duration
-	var per [nTowerClass][]time.Duration
+	var per [tower.NClass][]time.Duration
 	var gf, af float64
 	same := true
 	for range 3 {
@@ -73,7 +74,7 @@ func s17Profile(t *testing.T, name string, ops *towerOps, fwd func() ([]float32,
 	}
 	wall, pwall := medianDur(walls), medianDur(profWalls)
 	var sum time.Duration
-	med := make([]time.Duration, nTowerClass)
+	med := make([]time.Duration, tower.NClass)
 	spread := 0.0
 	for c := range per {
 		med[c] = medianDur(per[c])
@@ -89,13 +90,13 @@ func s17Profile(t *testing.T, name string, ops *towerOps, fwd func() ([]float32,
 	for c := range med {
 		share := float64(med[c]) / float64(sum) * 100
 		rate := ""
-		switch towerClass(c) {
-		case clsGEMM:
+		switch tower.Class(c) {
+		case tower.ClsGEMM:
 			rate = fmt.Sprintf(", %.2f TFLOPS (%.0f%% of the fp32 peak)", gf/med[c].Seconds()/1e12, gf/med[c].Seconds()/1e12/s17PeakTFLOPS*100)
-		case clsAttn:
+		case tower.ClsAttn:
 			rate = fmt.Sprintf(", %.2f TFLOPS (%.0f%% of the fp32 peak)", af/med[c].Seconds()/1e12, af/med[c].Seconds()/1e12/s17PeakTFLOPS*100)
 		}
-		fmt.Fprintf(os.Stderr, "[S17 CUDA step 0] %s:   %-11s %7.3fs  %5.1f%%%s\n", name, towerClassNames[c], med[c].Seconds(), share, rate)
+		fmt.Fprintf(os.Stderr, "[S17 CUDA step 0] %s:   %-11s %7.3fs  %5.1f%%%s\n", name, tower.ClassNames[c], med[c].Seconds(), share, rate)
 	}
 	if !same {
 		t.Errorf("%s: the profiled output differs from the unprofiled one (the hook changed the numerics)", name)
@@ -237,13 +238,13 @@ func TestS17LeverA_wholeTower(t *testing.T) {
 		}
 		return d
 	}
-	defer func() { towerAttnAikit = false }()
-	ab := func(name string, ops *towerOps, fwd func() ([]float32, error)) {
+	defer func() { tower.AttnAikit = false }()
+	ab := func(name string, ops *tower.Ops, fwd func() ([]float32, error)) {
 		t.Helper()
 		for r := 1; r <= rounds+1; r++ { // round 1 is the warm-up of both arms
 			var tf, ta time.Duration
 			for _, own := range []bool{true, false} {
-				towerAttnAikit = !own
+				tower.AttnAikit = !own
 				t0 := time.Now()
 				if _, err := fwd(); err != nil {
 					t.Fatal(err)
@@ -254,7 +255,7 @@ func TestS17LeverA_wholeTower(t *testing.T) {
 					ta = time.Since(t0)
 				}
 			}
-			towerAttnAikit = false
+			tower.AttnAikit = false
 			if r > 1 {
 				fmt.Fprintf(os.Stderr, "[S17 lever A A/B] %s round %d: fused %.3fs | aikit %.3fs | %.2fx\n", name, r-1, tf.Seconds(), ta.Seconds(), ta.Seconds()/tf.Seconds())
 			}

@@ -7,6 +7,7 @@ import (
 	"fmt"
 	"math"
 
+	"github.com/pkieltyka/goinfer/backend/cuda/internal/tower"
 	"github.com/pkieltyka/goinfer/backend/cuda/internal/wpack"
 	"github.com/pkieltyka/goinfer/embeddinggemma2"
 )
@@ -55,7 +56,7 @@ func requireEG2FP16Capability(capability embeddinggemma2.CUDAComputeCapability, 
 	return nil
 }
 
-func eg2FP16Pipelines(ops *towerOps, ptx []byte, fuseGate bool, capability embeddinggemma2.CUDAComputeCapability, capabilityErr error) (projection, gate Pipeline, err error) {
+func eg2FP16Pipelines(ops *tower.Ops, ptx []byte, fuseGate bool, capability embeddinggemma2.CUDAComputeCapability, capabilityErr error) (projection, gate Pipeline, err error) {
 	if err := requireEG2FP16Capability(capability, capabilityErr); err != nil {
 		return Pipeline{}, Pipeline{}, err
 	}
@@ -89,7 +90,7 @@ func (a *eg2Accel) ffnGEMM(x, w, out, invalidInput Buffer, m, n, k int) {
 		o.GEMM(x, w, out, m, n, k)
 		return
 	}
-	o.Cls(clsGEMM)
+	o.Cls(tower.ClsGEMM)
 	o.ProfGEMM(m, n, k)
 	o.Launch(a.ffnFP16, eg2FP16Grid(m, n),
 		Arg(x), Arg(w), Arg(out), Arg(invalidInput), i32(int32(m)), i32(int32(n)), i32(int32(k)))
@@ -105,7 +106,7 @@ func (a *eg2Accel) ffnGateUp(x, gateWeights, upWeights, gate, up, invalidInput B
 	// The gate epilogue reads the completed up projection on the same queue.
 	a.ffnGEMM(x, upWeights, up, invalidInput, m, n, k)
 	o := a.ops
-	o.Cls(clsGEMM)
+	o.Cls(tower.ClsGEMM)
 	o.ProfGEMM(m, n, k)
 	o.Launch(a.ffnGateEpilogue, eg2FP16Grid(m, n),
 		Arg(x), Arg(gateWeights), Arg(gate), Arg(up), Arg(invalidInput), i32(int32(m)), i32(int32(n)), i32(int32(k)))

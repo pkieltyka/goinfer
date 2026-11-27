@@ -14,6 +14,7 @@ import (
 	"github.com/eitamring/gocudrv/cudasys"
 	gpu "github.com/pkieltyka/goinfer/backend/cuda/internal/gpudev"
 	"github.com/pkieltyka/goinfer/backend/cuda/internal/launchgeom"
+	"github.com/pkieltyka/goinfer/backend/cuda/internal/tower"
 	"github.com/pkieltyka/goinfer/embeddinggemma2"
 	"github.com/pkieltyka/goinfer/internal/runtime/mem"
 )
@@ -79,7 +80,7 @@ type eg2Defect struct {
 // eg2Accel is the CUDA accelerator. One forward at a time (mu); towerOps runs every device call on its executor.
 type eg2Accel struct {
 	mu       sync.Mutex
-	ops      *towerOps
+	ops      *tower.Ops
 	closed   bool
 	cfg      embeddinggemma2.Config
 	model    *embeddinggemma2.Model
@@ -280,10 +281,10 @@ func newEG2Accel(m *embeddinggemma2.Model, combined bool) (*eg2Accel, error) {
 // independent; standalone vision towers are unaffected.
 var eg2AttachCleanup struct {
 	mu      sync.Mutex
-	pending *towerOps
+	pending *tower.Ops
 }
 
-func retireEG2AttachLocked(ops *towerOps) error {
+func retireEG2AttachLocked(ops *tower.Ops) error {
 	if ops == nil {
 		return nil
 	}
@@ -379,7 +380,7 @@ func newEG2AccelWithLoader(m *embeddinggemma2.Model, combined bool, fp16PTX, pac
 	}
 	var identity embeddinggemma2.DeviceInfo
 	var capabilityErr error
-	ops, err := newTowerOpsOnUnclosed(open, maxN, func(dev *Device) towerModuleLoader {
+	ops, err := tower.NewOnUnclosed(open, maxN, func(dev *Device) towerModuleLoader {
 		adapter, queryErr := gpu.AttachedAdapter(dev)
 		identity, capabilityErr = cudaDeviceInfo(adapter), queryErr
 		return moduleLoader(dev.CompileLibrary, identity.ComputeCapability)
@@ -1312,7 +1313,7 @@ func (a *eg2Accel) forwardRows(x0 []float32, lens []int, keepLayers bool) ([]flo
 					// radii such as 2^32 preserve full-segment visibility instead of wrapping.
 					win = maxT
 				}
-				o.Cls(clsAttn)
+				o.Cls(tower.ClsAttn)
 				o.Launch(a.packedAttn[hd], LaunchConfig{
 					GridX: uint32(nH), GridY: uint32(td.nTiles), GridZ: 1,
 					BlockX: spec.BlockX, BlockY: 1, BlockZ: 1, SharedMemBytes: spec.SharedMem,
@@ -1336,7 +1337,7 @@ func (a *eg2Accel) forwardRows(x0 []float32, lens []int, keepLayers bool) ([]flo
 				if ly.w.Full {
 					lo, hi, maxSeg = fuLoB, fuHiB, maxT
 				}
-				o.Cls(clsAttn)
+				o.Cls(tower.ClsAttn)
 				grid := gpu.SegAttentionGrid(T, nH, maxSeg)
 				if transposed {
 					o.Launch(a.combinedAttention, grid, Arg(q), Arg(qkv), Arg(v), Arg(ctx), Arg(lo), Arg(hi),

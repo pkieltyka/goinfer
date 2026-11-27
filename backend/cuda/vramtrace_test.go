@@ -5,6 +5,7 @@ package cuda
 import (
 	"fmt"
 	gpu "github.com/pkieltyka/goinfer/backend/cuda/internal/gpudev"
+	"github.com/pkieltyka/goinfer/backend/cuda/internal/tower"
 	"github.com/pkieltyka/goinfer/internal/runtime/mem"
 	"os"
 	"runtime"
@@ -49,7 +50,7 @@ func TestMain(m *testing.M) {
 	gpu.UnlinedLine = mem.LineTest
 	gpu.ReleasedForTest = recordReleased
 	gpu.NewLeaser = trackOpen(gpu.NewLeaser) // after the VRAM sampler's device, which stays open for the whole run
-	unplannedForTest = recordUnplanned
+	tower.UnplannedForTest = recordUnplanned
 	code := m.Run()
 	stop()
 	if bad := ledgerBreaks(); len(bad) > 0 {

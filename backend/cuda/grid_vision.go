@@ -7,6 +7,7 @@ import (
 	"sync"
 
 	gpu "github.com/pkieltyka/goinfer/backend/cuda/internal/gpudev"
+	"github.com/pkieltyka/goinfer/backend/cuda/internal/tower"
 	"github.com/pkieltyka/goinfer/internal/vision"
 	"github.com/pkieltyka/goinfer/multimodal"
 )
@@ -65,7 +66,7 @@ type gridDefect struct {
 
 type gridTower struct {
 	mu                  sync.Mutex
-	ops                 *towerOps
+	ops                 *tower.Ops
 	kind                gridKind
 	hidden, inter       int
 	heads, hd, patchDim int
@@ -91,7 +92,7 @@ func newGridTower(kind gridKind, hidden, inter, heads, patchDim int, eps float64
 	if heads <= 0 || hidden%heads != 0 || (hidden/heads)%2 != 0 {
 		return nil, fmt.Errorf("cuda: vision tower hidden %d over %d heads: the kernels need an even head_dim dividing hidden", hidden, heads)
 	}
-	ops, err := newTowerOps(max(hidden, inter))
+	ops, err := tower.New(max(hidden, inter))
 	if err != nil {
 		return nil, err
 	}

@@ -12,7 +12,7 @@ package cuda
 
 import (
 	gpu "github.com/pkieltyka/goinfer/backend/cuda/internal/gpudev"
-	"github.com/pkieltyka/goinfer/internal/runtime/mem"
+	"github.com/pkieltyka/goinfer/backend/cuda/internal/tower"
 )
 
 type (
@@ -38,32 +38,5 @@ var (
 	GridOne                   = gpu.GridOne
 )
 
-// Every device created in a process that links this package leases its allocations to a mem.Ledger, whichever package
-// creates it.
-func init() { gpu.NewLeaser = func() gpu.Leaser { return &deviceLedger{} } }
-
-// deviceLedger is a device's mem.Ledger: device buffers on VRAM, pinned host memory on HostAnon.
-type deviceLedger struct{ mem.Ledger }
-
-// unplannedForTest, when set, is called with each lease on no plan line and the ledger it lands on, on the allocating
-// goroutine, so a test can name the call site of an unplanned byte. A test seam, nil in production.
-var unplannedForTest func(l *deviceLedger, line string, charged int64)
-
-// leaseSeenForTest, when set, is told of every lease (the ledger's own release func comes back wrapped), on the allocating goroutine:
-// a test records the order of a build's allocations and frees through it. A test seam, nil in production.
-var leaseSeenForTest func(onDevice bool, line string, requested int64, release func()) func()
-
-func (l *deviceLedger) Lease(onDevice bool, line string, requested, charged int64) func() {
-	tier := mem.HostAnon
-	if onDevice {
-		tier = mem.VRAM
-	}
-	if unplannedForTest != nil && !mem.LineID(line).Known() {
-		unplannedForTest(l, line, charged)
-	}
-	release := l.Reserve(tier, mem.LineID(line), requested, charged).Release
-	if leaseSeenForTest != nil {
-		return leaseSeenForTest(onDevice, line, requested, release)
-	}
-	return release
-}
+// deviceLedger aliases tower.Ledger; tower's init registers gpudev.NewLeaser.
+type deviceLedger = tower.Ledger

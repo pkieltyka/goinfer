@@ -21,7 +21,9 @@ import (
 func TestAudioGeluErf_bitsMatchContract(t *testing.T) {
 	ops := newTestTower(t, 16)
 	var pm Pipeline
-	ops.mustRun(t, func() {})
+	if err := ops.Do(func() error { defer ops.ReleaseScratch(); return ops.Finish() }); err != nil {
+		t.Fatal(err)
+	}
 	if err := ops.Do(func() error {
 		lib, e := ops.Dev.CompileLibrary(audioEncoderPTX)
 		if e != nil {

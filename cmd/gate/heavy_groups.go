@@ -29,7 +29,7 @@ type heavyFamily struct {
 	re    *regexp.Regexp
 }
 
-// heavyGroupLabels is every heavy-tier process's label: each heavyFamilies group, once, then kernels.
+// heavyGroupLabels is every heavy-tier process's label: each heavyFamilies group, once, then kernels and tower.
 func heavyGroupLabels() []string {
 	var out []string
 	for _, f := range heavyFamilies {
@@ -37,7 +37,7 @@ func heavyGroupLabels() []string {
 			out = append(out, f.Group)
 		}
 	}
-	return append(out, "kernels")
+	return append(out, "kernels", "tower")
 }
 
 // heavySmallGroup is the shared group: tiny fixtures and checkpoints of about 1.5B parameters or less.
@@ -360,6 +360,19 @@ func runCUDAHeavy(argv []string, w io.Writer) int {
 	if err != nil {
 		fmt.Fprintf(w, "gate cuda-heavy: %v\n", err)
 		return 1
+	}
+	for _, extra := range []struct {
+		label, pkg string
+	}{
+		{"tower", cudaTowerPkg},
+	} {
+		extraTests, err := listCUDATests(extra.pkg)
+		if err != nil || len(extraTests) == 0 {
+			fmt.Fprintf(w, "gate cuda-heavy: `go test -list` found no tests in %s (%v)\n", extra.pkg, err)
+			return 1
+		}
+		groups = append(groups, heavyGroup{Label: extra.label, Tests: extraTests, Pkg: extra.pkg})
+		listed = append(listed, extraTests...)
 	}
 	fmt.Fprintf(w, "%d test(s) in ./cuda/, %d main-group process(es):\n", len(listed), len(groups))
 	for _, h := range groups {

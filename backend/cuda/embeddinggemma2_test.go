@@ -29,6 +29,7 @@ import (
 	"github.com/eitamring/gocudrv/cudaresult"
 	"github.com/eitamring/gocudrv/cudasys"
 	gpu "github.com/pkieltyka/goinfer/backend/cuda/internal/gpudev"
+	"github.com/pkieltyka/goinfer/backend/cuda/internal/tower"
 	"github.com/pkieltyka/goinfer/embeddinggemma2"
 	"github.com/pkieltyka/goinfer/tokenizer"
 )
@@ -1895,7 +1896,7 @@ func TestEG2CUDA_RetryOOM_ClassificationContract(t *testing.T) {
 		}}
 		stuckDev := &Device{}
 		stuckDev.TrackObj(obj)
-		stuckOps := &towerOps{Dev: stuckDev, ReqCh: make(chan func() error), AckCh: make(chan error)}
+		stuckOps := &tower.Ops{Dev: stuckDev, ReqCh: make(chan func() error), AckCh: make(chan error)}
 		go func() {
 			for j := range stuckOps.ReqCh {
 				stuckOps.AckCh <- runJob(j)
@@ -2007,7 +2008,7 @@ func TestEG2CUDA_RetryOOM_ClassificationContract(t *testing.T) {
 			}
 			return nil
 		}})
-		ops := &towerOps{Dev: dev, ReqCh: make(chan func() error), AckCh: make(chan error)}
+		ops := &tower.Ops{Dev: dev, ReqCh: make(chan func() error), AckCh: make(chan error)}
 		go func() {
 			for j := range ops.ReqCh {
 				ops.AckCh <- runJob(j)
@@ -3540,9 +3541,9 @@ func TestEG2FP16Encoder(t *testing.T) {
 	device := eg2FP16TestAdapter(t)
 	m := eg2TinyModel(t)
 	rec := &eg2RecordingLeaser{}
-	origHook := leaseSeenForTest
-	t.Cleanup(func() { leaseSeenForTest = origHook })
-	leaseSeenForTest = func(onDevice bool, line string, requested int64, release func()) func() {
+	origHook := tower.LeaseSeenForTest
+	t.Cleanup(func() { tower.LeaseSeenForTest = origHook })
+	tower.LeaseSeenForTest = func(onDevice bool, line string, requested int64, release func()) func() {
 		if origHook != nil {
 			release = origHook(onDevice, line, requested, release)
 		}
@@ -3905,9 +3906,9 @@ func TestEG2FP16PackedAttnContract(t *testing.T) {
 	adapter := eg2FP16TestAdapter(t)
 	m := eg2TinyModel(t)
 	rec := &eg2RecordingLeaser{}
-	origHook := leaseSeenForTest
-	t.Cleanup(func() { leaseSeenForTest = origHook })
-	leaseSeenForTest = func(onDevice bool, line string, requested int64, release func()) func() {
+	origHook := tower.LeaseSeenForTest
+	t.Cleanup(func() { tower.LeaseSeenForTest = origHook })
+	tower.LeaseSeenForTest = func(onDevice bool, line string, requested int64, release func()) func() {
 		if origHook != nil {
 			release = origHook(onDevice, line, requested, release)
 		}
@@ -4407,15 +4408,15 @@ func checkEG2Fusions(t *testing.T, m *embeddinggemma2.Model, inputs [][]int, kee
 			run := func(ptx []byte) evidence {
 				t.Helper()
 				rec := &eg2RecordingLeaser{}
-				old := leaseSeenForTest
-				leaseSeenForTest = func(onDevice bool, line string, requested int64, release func()) func() {
+				old := tower.LeaseSeenForTest
+				tower.LeaseSeenForTest = func(onDevice bool, line string, requested int64, release func()) func() {
 					if old != nil {
 						release = old(onDevice, line, requested, release)
 					}
 					recordRelease := rec.Lease(onDevice, line, requested, gpu.ChargedBytes(requested))
 					return func() { release(); recordRelease() }
 				}
-				defer func() { leaseSeenForTest = old }()
+				defer func() { tower.LeaseSeenForTest = old }()
 				a, err := newEG2AccelConfigured(m, true, arm.fp16PTX, arm.packedPTX, ptx, func() (*Device, error) {
 					return gpu.CreateSelectedDevice(device)
 				})
@@ -4604,7 +4605,7 @@ func TestEG2SM120Assets(t *testing.T) {
 		t.Fatal(err)
 	}
 	ptxModules := map[eg2Module][]byte{
-		eg2ModuleViT: gpu.ViTPTX, eg2ModuleBase: towerBasePTX,
+		eg2ModuleViT: gpu.ViTPTX, eg2ModuleBase: tower.BasePTX,
 		eg2ModuleTransposed: eg2CombinedAttentionPTX, eg2ModuleFusion: eg2FusionsPTX,
 		eg2ModuleFFN: eg2FFNFP16PTX, eg2ModulePacked: eg2PackedAttnPTX,
 	}
@@ -4641,7 +4642,7 @@ func TestEG2SM120Assets(t *testing.T) {
 
 func TestEG2SM120ModuleLoad(t *testing.T) {
 	target := embeddinggemma2.CUDAComputeCapability{Major: 12, Minor: 0}
-	changed := append(slices.Clone(towerBasePTX), '\n')
+	changed := append(slices.Clone(tower.BasePTX), '\n')
 	other := errors.New("native driver failure")
 	for _, tt := range []struct {
 		name       string
@@ -4653,24 +4654,24 @@ func TestEG2SM120ModuleLoad(t *testing.T) {
 		useImage   bool
 		ptxOnly    bool
 	}{
-		{name: "sm120 image", capability: target, unit: eg2ModuleBase, ptx: towerBasePTX, errors: []error{nil}, useImage: true},
-		{name: "other sm major", capability: embeddinggemma2.CUDAComputeCapability{Major: 8}, unit: eg2ModuleBase, ptx: towerBasePTX, errors: []error{nil}},
-		{name: "other sm minor", capability: embeddinggemma2.CUDAComputeCapability{Major: 12, Minor: 1}, unit: eg2ModuleBase, ptx: towerBasePTX, errors: []error{nil}},
-		{name: "unknown capability", unit: eg2ModuleBase, ptx: towerBasePTX, errors: []error{nil}},
-		{name: "unregistered module", capability: target, unit: "unregistered", ptx: towerBasePTX, errors: []error{nil}},
+		{name: "sm120 image", capability: target, unit: eg2ModuleBase, ptx: tower.BasePTX, errors: []error{nil}, useImage: true},
+		{name: "other sm major", capability: embeddinggemma2.CUDAComputeCapability{Major: 8}, unit: eg2ModuleBase, ptx: tower.BasePTX, errors: []error{nil}},
+		{name: "other sm minor", capability: embeddinggemma2.CUDAComputeCapability{Major: 12, Minor: 1}, unit: eg2ModuleBase, ptx: tower.BasePTX, errors: []error{nil}},
+		{name: "unknown capability", unit: eg2ModuleBase, ptx: tower.BasePTX, errors: []error{nil}},
+		{name: "unregistered module", capability: target, unit: "unregistered", ptx: tower.BasePTX, errors: []error{nil}},
 		{name: "unmatched PTX", capability: target, unit: eg2ModuleBase, ptx: changed, errors: []error{nil}},
 		{name: "non-EG2 shared loader", capability: target, unit: eg2ModuleViT, ptx: gpu.ViTPTX, errors: []error{nil}, ptxOnly: true},
-		{name: "invalid image retries PTX", capability: target, unit: eg2ModuleBase, ptx: towerBasePTX,
+		{name: "invalid image retries PTX", capability: target, unit: eg2ModuleBase, ptx: tower.BasePTX,
 			errors: []error{fmt.Errorf("driver module: %w", gc.ErrInvalidImage), nil}, useImage: true},
-		{name: "no binary retries PTX", capability: target, unit: eg2ModuleBase, ptx: towerBasePTX,
+		{name: "no binary retries PTX", capability: target, unit: eg2ModuleBase, ptx: tower.BasePTX,
 			errors: []error{gc.ErrNoBinaryForGPU, nil}, useImage: true},
 		{name: "both failures retained", capability: target, unit: eg2ModuleTransposed, ptx: eg2CombinedAttentionPTX,
 			errors: []error{gc.ErrNoBinaryForGPU, gc.ErrOutOfMemory}, want: []error{gc.ErrNoBinaryForGPU, gc.ErrOutOfMemory}, useImage: true},
-		{name: "OOM does not retry", capability: target, unit: eg2ModuleBase, ptx: towerBasePTX,
+		{name: "OOM does not retry", capability: target, unit: eg2ModuleBase, ptx: tower.BasePTX,
 			errors: []error{gc.ErrOutOfMemory}, want: []error{gc.ErrOutOfMemory}, useImage: true},
-		{name: "context loss does not retry", capability: target, unit: eg2ModuleBase, ptx: towerBasePTX,
+		{name: "context loss does not retry", capability: target, unit: eg2ModuleBase, ptx: tower.BasePTX,
 			errors: []error{gc.ErrInvalidContext}, want: []error{gc.ErrInvalidContext}, useImage: true},
-		{name: "unrelated failure does not retry", capability: target, unit: eg2ModuleBase, ptx: towerBasePTX,
+		{name: "unrelated failure does not retry", capability: target, unit: eg2ModuleBase, ptx: tower.BasePTX,
 			errors: []error{other}, want: []error{other}, useImage: true},
 	} {
 		t.Run(tt.name, func(t *testing.T) {

@@ -35,9 +35,9 @@ func TestEG2FusionsArithmetic(t *testing.T) {
 			t.Error(err)
 		}
 	})
-	pipe := func(file, name string) gpu.Pipeline {
+	pipe := func(path, name string) gpu.Pipeline {
 		t.Helper()
-		ptx, err := os.ReadFile("../testdata/" + file)
+		ptx, err := os.ReadFile(path)
 		if err != nil {
 			t.Fatal(err)
 		}
@@ -55,9 +55,9 @@ func TestEG2FusionsArithmetic(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	mul := pipe("tower_base.ptx", "tower_mul")
-	fused := pipe("eg2_fusions.ptx", "eg2_gelu_mul")
-	fusedPLE := pipe("eg2_fusions.ptx", "eg2_gelu_mul_ple")
+	mul := pipe("../internal/tower/testdata/tower_base.ptx", "tower_mul")
+	fused := pipe("../testdata/eg2_fusions.ptx", "eg2_gelu_mul")
+	fusedPLE := pipe("../testdata/eg2_fusions.ptx", "eg2_gelu_mul_ple")
 	const rows, layers, channels = 33, 4, 17
 	const n = rows * channels
 	grid := gpu.Grid1D(n, 256)
