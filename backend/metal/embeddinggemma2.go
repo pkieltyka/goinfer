@@ -38,6 +38,7 @@ func init() {
 		return &eg2BatchAccel{eg2Accel: a}, nil
 	})
 	embeddinggemma2.RegisterDeviceProber("metal", probeMetalDevice)
+	embeddinggemma2.RegisterDeviceInventoryProber("metal", probeMetalDevices)
 }
 
 const eg2TG = 128

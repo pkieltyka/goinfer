@@ -49,6 +49,7 @@ type AttachedDeviceReporter interface {
 }
 
 var deviceProbes = map[string]func(ProbeOptions) ([]DeviceInfo, error){}
+var deviceInventoryProbes = map[string]func(ProbeOptions) ([]DeviceInfo, error){}
 
 type deviceFactory struct {
 	backend  string
@@ -65,12 +66,37 @@ func RegisterDeviceProber(backend string, probe func(ProbeOptions) ([]DeviceInfo
 	deviceProbes[backend] = probe
 }
 
+// RegisterDeviceInventoryProber registers a backend's addressable inventory.
+// AllDevices consults it; Devices keeps the registered legacy prober.
+func RegisterDeviceInventoryProber(backend string, probe func(ProbeOptions) ([]DeviceInfo, error)) {
+	accelMu.Lock()
+	defer accelMu.Unlock()
+	deviceInventoryProbes[backend] = probe
+}
+
 // Devices asks every registered prober, in backend-name order. It returns
 // successful rows and any per-backend failures, including rows from a partial probe.
+// A backend may keep this legacy/default inventory separate from its explicit
+// addressable inventory; use AllDevices for the latter.
 func Devices(opts ProbeOptions) ([]DeviceInfo, []ProbeFailure) {
+	return devicesThrough(deviceProbes, opts)
+}
+
+// AllDevices asks every backend for its addressable inventory, with
+// backend-qualified IDs and aliases where it supports them. A backend without
+// a separate inventory prober contributes its legacy rows. This is additive:
+// Devices and ProbeOptions keep their existing shape and default behavior.
+func AllDevices(opts ProbeOptions) ([]DeviceInfo, []ProbeFailure) {
 	accelMu.Lock()
 	probes := maps.Clone(deviceProbes)
+	for name, probe := range deviceInventoryProbes {
+		probes[name] = probe
+	}
 	accelMu.Unlock()
+	return devicesThrough(probes, opts)
+}
+
+func devicesThrough(probes map[string]func(ProbeOptions) ([]DeviceInfo, error), opts ProbeOptions) ([]DeviceInfo, []ProbeFailure) {
 	var devices []DeviceInfo
 	var failures []ProbeFailure
 	for _, name := range slices.Sorted(maps.Keys(probes)) {

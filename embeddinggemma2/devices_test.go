@@ -208,3 +208,67 @@ func TestDeviceRunnableSelectors(t *testing.T) {
 		t.Fatalf("overwritten factories retained support: %v", got)
 	}
 }
+
+// TestAllDevicesAddsAddressableInventory covers the additive inventory entry
+// point against fake co-linked probers: Devices keeps the legacy blank row,
+// AllDevices replaces that backend's callback with its expanded inventory in
+// native order, and both keep another backend's partial rows and error.
+func TestAllDevicesAddsAddressableInventory(t *testing.T) {
+	const metalName, other = "fake-metal", "fake-other"
+	failure := errors.New("adapter query failed")
+	legacy := DeviceInfo{Backend: metalName, Name: "System default"}
+	physical := []DeviceInfo{
+		{ID: metalName + ":111@boot-A", Alias: metalName + ":0", Backend: metalName, Name: "GPU A"},
+		{ID: metalName + ":222@boot-A", Alias: metalName + ":1", Backend: metalName, Name: "GPU B"},
+	}
+	otherRow := DeviceInfo{ID: other + ":abc", Backend: other, Name: "Other", ProductID: 1234}
+	var legacyCalls, expandedCalls, otherCalls int
+	RegisterDeviceProber(metalName, func(opts ProbeOptions) ([]DeviceInfo, error) {
+		legacyCalls++
+		if !opts.IncludeMemory {
+			t.Error("legacy probe did not receive IncludeMemory")
+		}
+		return []DeviceInfo{legacy}, nil
+	})
+	RegisterDeviceInventoryProber(metalName, func(opts ProbeOptions) ([]DeviceInfo, error) {
+		expandedCalls++
+		if !opts.IncludeMemory {
+			t.Error("expanded probe did not receive IncludeMemory")
+		}
+		return physical, nil
+	})
+	RegisterDeviceProber(other, func(ProbeOptions) ([]DeviceInfo, error) {
+		otherCalls++
+		return []DeviceInfo{otherRow}, failure
+	})
+	t.Cleanup(func() {
+		accelMu.Lock()
+		delete(deviceProbes, metalName)
+		delete(deviceInventoryProbes, metalName)
+		delete(deviceProbes, other)
+		accelMu.Unlock()
+	})
+
+	rows, failures := Devices(ProbeOptions{IncludeMemory: true})
+	if legacyCalls != 1 || expandedCalls != 0 || otherCalls != 1 {
+		t.Fatalf("Devices calls legacy %d, expanded %d, other %d", legacyCalls, expandedCalls, otherCalls)
+	}
+	if !slices.Equal(rows, []DeviceInfo{legacy, otherRow}) ||
+		len(failures) != 1 || failures[0].Backend != other || !errors.Is(failures[0].Err, failure) {
+		t.Fatalf("Devices rows %+v, failures %+v", rows, failures)
+	}
+
+	all, allFailures := AllDevices(ProbeOptions{IncludeMemory: true})
+	if legacyCalls != 1 || expandedCalls != 1 || otherCalls != 2 {
+		t.Fatalf("AllDevices calls legacy %d, expanded %d, other %d", legacyCalls, expandedCalls, otherCalls)
+	}
+	if !slices.Equal(all, []DeviceInfo{physical[0], physical[1], otherRow}) ||
+		len(allFailures) != 1 || allFailures[0].Backend != other || !errors.Is(allFailures[0].Err, failure) {
+		t.Fatalf("AllDevices rows %+v, failures %+v", all, allFailures)
+	}
+	for _, row := range all {
+		if row.Backend == metalName && (row.ID == "" || row.Alias == "") {
+			t.Fatalf("expanded inventory kept a synthetic default row: %+v", row)
+		}
+	}
+}

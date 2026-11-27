@@ -30,6 +30,7 @@ import (
 const MSL3_1 uint = (3 << 16) | 1
 
 var (
+	metalLib                     uintptr
 	mtlCreateSystemDefaultDevice func() uintptr
 	mtlCopyAllDevices            func() uintptr
 )
@@ -45,9 +46,19 @@ var loadMetal = sync.OnceValue(func() error {
 		return errors.Join(fmt.Errorf("metal: find MTLCreateSystemDefaultDevice: %w", err), purego.Dlclose(h))
 	}
 	purego.RegisterFunc(&mtlCreateSystemDefaultDevice, symbol)
-	symbol, err = purego.Dlsym(h, "MTLCopyAllDevices")
+	metalLib = h
+	return nil
+})
+
+// loadMetalCopy resolves the enumeration symbol only on the expanded inventory
+// path, so bare/default Metal discovery keeps its old single-symbol dependency.
+var loadMetalCopy = sync.OnceValue(func() error {
+	if err := loadMetal(); err != nil {
+		return err
+	}
+	symbol, err := purego.Dlsym(metalLib, "MTLCopyAllDevices")
 	if err != nil {
-		return errors.Join(fmt.Errorf("metal: find MTLCopyAllDevices: %w", err), purego.Dlclose(h))
+		return fmt.Errorf("metal: find MTLCopyAllDevices: %w", err)
 	}
 	purego.RegisterFunc(&mtlCopyAllDevices, symbol)
 	return nil
@@ -259,38 +270,43 @@ type DeviceFact struct {
 	RegistryID uint64
 }
 
-// AllDeviceFacts reads every visible device's identity from borrowed array
-// members and releases the +1 array. It retains no device.
-func AllDeviceFacts() ([]DeviceFact, error) {
-	if err := loadMetal(); err != nil {
-		return nil, err
-	}
-	arr := objc.ID(mtlCopyAllDevices())
-	if arr == 0 {
-		return nil, ErrNoDevice
-	}
-	defer arr.Send(selRelease)
+// readDeviceSnapshot reads the identity of every member of one owned
+// MTLCopyAllDevices array. It returns the facts and the borrowed member IDs;
+// the caller must not use the IDs after releasing the array.
+func readDeviceSnapshot(arr objc.ID) ([]DeviceFact, []objc.ID) {
 	n := int(objc.Send[uintptr](arr, selCount))
-	out := make([]DeviceFact, 0, n)
+	facts := make([]DeviceFact, 0, n)
+	ids := make([]objc.ID, 0, n)
 	for i := 0; i < n; i++ {
 		id := objc.Send[objc.ID](arr, selObjectAtIndex, uintptr(i))
 		if id == 0 {
 			continue
 		}
 		d := &Device{id: id}
-		out = append(out, DeviceFact{Name: d.Name(), Unified: d.HasUnifiedMemory(), RegistryID: d.RegistryID()})
+		facts = append(facts, DeviceFact{Name: d.Name(), Unified: d.HasUnifiedMemory(), RegistryID: d.RegistryID()})
+		ids = append(ids, id)
 	}
-	if len(out) == 0 {
-		return nil, ErrNoDevice
-	}
-	return out, nil
+	return facts, ids
 }
 
-// RetainDevice retains exactly one member of a fresh MTLCopyAllDevices array
-// and releases the +1 array. The returned wrapper owns its own +1 and is
-// released with ReleaseObjects like a CreateSystemDefaultDevice wrapper.
-func RetainDevice(index int) (*Device, error) {
-	if err := loadMetal(); err != nil {
+// selectAndRetain asks choose which member to keep, then retains exactly that
+// borrowed member once. A selection error or an out-of-range answer retains
+// nothing. It is separate from the Metal calls so tests can count retains.
+func selectAndRetain(facts []DeviceFact, ids []objc.ID, choose func([]DeviceFact) (int, error), retain func(objc.ID) objc.ID) (objc.ID, DeviceFact, error) {
+	index, err := choose(facts)
+	if err != nil {
+		return 0, DeviceFact{}, err
+	}
+	if index < 0 || index >= len(ids) || len(facts) != len(ids) {
+		return 0, DeviceFact{}, ErrNoDevice
+	}
+	return retain(ids[index]), facts[index], nil
+}
+
+// AllDeviceFacts reads every visible device's identity from borrowed array
+// members and releases the +1 array. It retains no device.
+func AllDeviceFacts() ([]DeviceFact, error) {
+	if err := loadMetalCopy(); err != nil {
 		return nil, err
 	}
 	arr := objc.ID(mtlCopyAllDevices())
@@ -298,20 +314,42 @@ func RetainDevice(index int) (*Device, error) {
 		return nil, ErrNoDevice
 	}
 	defer arr.Send(selRelease)
-	n := int(objc.Send[uintptr](arr, selCount))
-	if index < 0 || index >= n {
+	facts, _ := readDeviceSnapshot(arr)
+	if len(facts) == 0 {
 		return nil, ErrNoDevice
 	}
-	id := objc.Send[objc.ID](arr, selObjectAtIndex, uintptr(index))
-	if id == 0 {
-		return nil, ErrNoDevice
+	return facts, nil
+}
+
+// SelectDevice reads one owned MTLCopyAllDevices array, presents its borrowed
+// members as facts to choose, and retains only the selected member before
+// releasing that same array. The returned fact and device are from one
+// snapshot, so an ordinal and identity cannot disagree across two calls.
+func SelectDevice(choose func([]DeviceFact) (int, error)) (*Device, DeviceFact, error) {
+	if err := loadMetalCopy(); err != nil {
+		return nil, DeviceFact{}, err
 	}
-	id.Send(selRetain)
+	arr := objc.ID(mtlCopyAllDevices())
+	if arr == 0 {
+		return nil, DeviceFact{}, ErrNoDevice
+	}
+	defer arr.Send(selRelease)
+	facts, ids := readDeviceSnapshot(arr)
+	if len(facts) == 0 {
+		return nil, DeviceFact{}, ErrNoDevice
+	}
+	id, fact, err := selectAndRetain(facts, ids, choose, func(id objc.ID) objc.ID {
+		id.Send(selRetain)
+		return id
+	})
+	if err != nil {
+		return nil, DeviceFact{}, err
+	}
 	d := &Device{id: id}
 	if NewLeaser != nil {
 		d.leaser = NewLeaser()
 	}
-	return d, nil
+	return d, fact, nil
 }
 
 // CreateSystemDefaultDevice reaches Metal cgo-free (MTLCreateSystemDefaultDevice is a

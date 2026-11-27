@@ -87,3 +87,22 @@ func rank(checkpoint, query string, documents []string) error {
 	}
 	return nil
 }
+
+// attachFirstMetal attaches the first addressable Metal device from the full
+// inventory. Store the exact boot-scoped ID; the alias is current-order only.
+func attachFirstMetal(encoder *embeddinggemma2.Encoder) (embeddinggemma2.Accelerator, error) {
+	rows, failures := embeddinggemma2.AllDevices(embeddinggemma2.ProbeOptions{IncludeMemory: true})
+	for _, failure := range failures {
+		fmt.Fprintf(os.Stderr, "%s: %v\n", failure.Backend, failure.Err)
+	}
+	for _, row := range rows {
+		if row.Backend == "metal" && row.ID != "" {
+			acc, err := encoder.UseDevice(row.ID, "metal-eg2-batch")
+			if err != nil {
+				return nil, err
+			}
+			return acc, nil
+		}
+	}
+	return nil, fmt.Errorf("no addressable Metal device")
+}

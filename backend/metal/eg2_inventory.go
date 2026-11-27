@@ -16,6 +16,12 @@ import (
 )
 
 func probeMetalDevice(opts embeddinggemma2.ProbeOptions) ([]embeddinggemma2.DeviceInfo, error) {
+	return probeMetalDeviceOn(CreateSystemDefaultDevice, opts)
+}
+
+// probeMetalDevices is the additive addressable inventory registered with
+// AllDevices. probeMetalDevice stays the legacy system-default row.
+func probeMetalDevices(opts embeddinggemma2.ProbeOptions) ([]embeddinggemma2.DeviceInfo, error) {
 	return probeMetalDevicesOn(gpu.AllDeviceFacts, opts)
 }
 
@@ -32,17 +38,21 @@ func init() {
 
 func acquireMetalDevice(open func() (*Device, error)) (*Device, error) {
 	device, err := open()
+	if err == nil {
+		return device, nil
+	}
 	if errors.Is(err, gpu.ErrNoDevice) {
 		return nil, fmt.Errorf("%w: %w", embeddinggemma2.ErrNoDevice, err)
 	}
-	if err != nil {
-		return nil, fmt.Errorf("%w: %w", embeddinggemma2.ErrBackendUnavailable, err)
+	// An explicit selection already names its reason (no device, several
+	// matches, or a malformed token). Keep it instead of collapsing it into the
+	// sibling runtime-unavailable category.
+	if errors.Is(err, embeddinggemma2.ErrDeviceUnavailable) {
+		return nil, err
 	}
-	return device, nil
+	return nil, fmt.Errorf("%w: %w", embeddinggemma2.ErrBackendUnavailable, err)
 }
 
-// probeMetalDeviceOn keeps the legacy single-default probe seam used by the
-// acquisition-error tests. The public probe enumerates every visible device.
 func probeMetalDeviceOn(open func() (*Device, error), opts embeddinggemma2.ProbeOptions) ([]embeddinggemma2.DeviceInfo, error) {
 	device, err := acquireMetalDevice(open)
 	if errors.Is(err, embeddinggemma2.ErrNoDevice) {
@@ -153,46 +163,80 @@ func parseMetalToken(token string) (metalToken, error) {
 	return metalToken{ordinal: idx}, nil
 }
 
-// openMetalDevice resolves one token against the current facts and retains
-// only the selected member. The selected wrapper is owned by the accelerator
-// or released by the caller.
-func openMetalDevice(tok metalToken) (*Device, string, error) {
-	facts, err := gpu.AllDeviceFacts()
+// metalAttach is the identity resolved from the same array snapshot that
+// supplied the retained device. Callers must not recompute the boot marker.
+type metalAttach struct {
+	id    string
+	alias string
+}
+
+// openMetalDevice resolves one token against one owned array snapshot and
+// retains only the selected member. Numeric aliases are refused for a zero or
+// duplicate registry ID and when the boot marker is missing.
+func openMetalDevice(tok metalToken) (*Device, metalAttach, error) {
+	boot := metalBootSession()
+	selectedIndex := -1
+	selected, fact, err := gpu.SelectDevice(func(facts []gpu.DeviceFact) (int, error) {
+		index, err := selectMetalIndex(facts, boot, tok)
+		selectedIndex = index
+		return index, err
+	})
 	if errors.Is(err, gpu.ErrNoDevice) {
-		return nil, "", fmt.Errorf("%w: %w", embeddinggemma2.ErrNoDevice, err)
+		return nil, metalAttach{}, fmt.Errorf("%w: %w", embeddinggemma2.ErrNoDevice, err)
 	}
 	if err != nil {
-		return nil, "", fmt.Errorf("%w: %w", embeddinggemma2.ErrBackendUnavailable, err)
+		return nil, metalAttach{}, err
 	}
-	selectedIndex := -1
-	if tok.exact {
-		if tok.boot == "" || tok.boot != metalBootSession() {
-			return nil, "", fmt.Errorf("%w: Metal device token belongs to a different boot", embeddinggemma2.ErrNoDevice)
+	if fact.RegistryID == 0 || selected.RegistryID() != fact.RegistryID {
+		selected.ReleaseObjects()
+		return nil, metalAttach{}, fmt.Errorf("%w: Metal device changed between inventory and retain", embeddinggemma2.ErrNoDevice)
+	}
+	return selected, metalAttach{
+		id:    fmt.Sprintf("metal:%d@%s", fact.RegistryID, boot),
+		alias: fmt.Sprintf("metal:%d", selectedIndex),
+	}, nil
+}
+
+func selectMetalIndex(facts []gpu.DeviceFact, boot string, tok metalToken) (int, error) {
+	counts := make(map[uint64]int)
+	for _, f := range facts {
+		if f.RegistryID != 0 {
+			counts[f.RegistryID]++
 		}
+	}
+	if tok.exact {
+		if boot == "" || tok.boot != boot {
+			return -1, fmt.Errorf("%w: Metal device token belongs to a different boot", embeddinggemma2.ErrNoDevice)
+		}
+		selected := -1
 		for i, f := range facts {
 			if f.RegistryID != tok.registryID {
 				continue
 			}
-			if selectedIndex >= 0 {
-				return nil, "", fmt.Errorf("%w: several Metal devices report registry ID %d", embeddinggemma2.ErrAmbiguousDevice, tok.registryID)
+			if selected >= 0 {
+				return -1, fmt.Errorf("%w: several Metal devices report registry ID %d", embeddinggemma2.ErrAmbiguousDevice, tok.registryID)
 			}
-			selectedIndex = i
+			selected = i
 		}
-	} else if tok.ordinal >= 0 && tok.ordinal < len(facts) {
-		selectedIndex = tok.ordinal
+		if selected < 0 {
+			return -1, fmt.Errorf("%w: no Metal device matches %q", embeddinggemma2.ErrNoDevice, tokenString(tok))
+		}
+		return selected, nil
 	}
-	if selectedIndex < 0 {
-		return nil, "", fmt.Errorf("%w: no Metal device matches %q", embeddinggemma2.ErrNoDevice, tokenString(tok))
+	if boot == "" {
+		return -1, fmt.Errorf("%w: Metal boot session is unavailable", embeddinggemma2.ErrNoDevice)
 	}
-	selected, err := gpu.RetainDevice(selectedIndex)
-	if err != nil {
-		return nil, "", fmt.Errorf("%w: retain Metal device: %v", embeddinggemma2.ErrNoDevice, err)
+	if tok.ordinal < 0 || tok.ordinal >= len(facts) {
+		return -1, fmt.Errorf("%w: no Metal device matches %q", embeddinggemma2.ErrNoDevice, tokenString(tok))
 	}
-	if facts[selectedIndex].RegistryID == 0 || selected.RegistryID() != facts[selectedIndex].RegistryID {
-		selected.ReleaseObjects()
-		return nil, "", fmt.Errorf("%w: Metal device changed between inventory and retain", embeddinggemma2.ErrNoDevice)
+	f := facts[tok.ordinal]
+	if f.RegistryID == 0 {
+		return -1, fmt.Errorf("%w: Metal row %d has no registry ID", embeddinggemma2.ErrNoDevice, tok.ordinal)
 	}
-	return selected, fmt.Sprintf("%d", selectedIndex), nil
+	if counts[f.RegistryID] != 1 {
+		return -1, fmt.Errorf("%w: Metal registry ID %d is duplicated", embeddinggemma2.ErrAmbiguousDevice, f.RegistryID)
+	}
+	return tok.ordinal, nil
 }
 
 func tokenString(tok metalToken) string {
@@ -208,22 +252,18 @@ func metalDeviceFactory(request eg2AttentionRequest, batch bool) func(*embedding
 		if err != nil {
 			return nil, err
 		}
-		alias := ""
+		var attached metalAttach
 		open := func() (*Device, error) {
 			var openErr error
 			var d *Device
-			d, alias, openErr = openMetalDevice(tok)
+			d, attached, openErr = openMetalDevice(tok)
 			return d, openErr
 		}
 		a, err := newEG2AccelWithAttentionOn(m, request, open)
 		if err != nil {
 			return nil, err
 		}
-		id := ""
-		if reg := a.d.RegistryID(); reg != 0 {
-			id = fmt.Sprintf("metal:%d@%s", reg, metalBootSession())
-		}
-		a.identity = describeMetalDeviceAt(a.d.Name(), id, "metal:"+alias, a.d.HasUnifiedMemory(), false)
+		a.identity = describeMetalDeviceAt(a.d.Name(), attached.id, attached.alias, a.d.HasUnifiedMemory(), false)
 		if batch {
 			return &eg2BatchAccel{eg2Accel: a}, nil
 		}
