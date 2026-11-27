@@ -13,6 +13,9 @@ cross-compile it like anything else. No Python, no llama.cpp, no C toolchain, no
 - **One static binary** — and, if you want, the model baked into it.
 - **44 model families**, each behind a HuggingFace logit-parity gate.
 - **CPU, CUDA and Metal** for generation, plus **Vulkan** for EmbeddingGemma 2 text, all cgo-free.
+- **Multimodal embeddings** — EmbeddingGemma 2 embeds text, images and audio in the same vector space with a full,
+  compatible checkpoint. The tested GGUF and MLX routes are text-only, and pbrain currently indexes text.
+  [Server embedding inputs](docs/server.md).
 - **Runs offline** — no telemetry, no update check, no account. The one thing that reaches the network is fetching a
   model when you ask for one, from HuggingFace: `pull`, an `hf:` or `demo:` model reference, or the web UI's search and
   download. A model already on disk, or baked into the binary, needs no network at all.
