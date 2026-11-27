@@ -312,8 +312,9 @@ selectors and profiles, resolves an explicit device ID or current alias through
 `TextSession` pinned to the winning route and a report of every attempt; the
 session's `First` field holds the first group's full-width vectors once. A later
 batch cannot change device or profile. The caller owns the route fingerprint and
-should refuse a mismatch before writing its first vector. A target's
-`MaxAdditionalBytes` cap is optional, and a pointer to zero is a real cap. A
+should refuse a mismatch before writing its first vector. The selection-wide
+`MaxAdditionalBytes` cap is optional and applies to every target; a pointer to
+zero is a real cap. A
 target refused by a batch estimate returns `ErrSelectionFit` under
 `ErrDeviceUnavailable`; a native OOM is never retried as another route.
 
