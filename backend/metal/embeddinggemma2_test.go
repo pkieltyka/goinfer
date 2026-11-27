@@ -13,9 +13,12 @@ import (
 	"maps"
 	"math"
 	"os"
+	"os/exec"
 	"path/filepath"
 	"runtime"
 	"slices"
+	"strconv"
+	"strings"
 	"testing"
 	"time"
 
@@ -23,6 +26,7 @@ import (
 	"github.com/pkieltyka/goinfer/backend/metal/internal/markdowneval"
 	"github.com/pkieltyka/goinfer/embeddinggemma2"
 	"github.com/pkieltyka/goinfer/internal/runtime/mem"
+	"github.com/pkieltyka/goinfer/internal/runtime/mem/probe"
 )
 
 const eg2TinyDir = "../../testdata/embeddinggemma2-tiny"
@@ -1556,5 +1560,387 @@ func markdownRank(t *testing.T, fixture markdowneval.Fixture, docs, queries [][]
 			}
 			docs, queries = normalize(docs), normalize(queries)
 		}
+	}
+}
+
+var eg2ReplayDir = flag.String("eg2-replay-fixture", "", "directory containing the owned Markdown replay fixture")
+var eg2ReplayOut = flag.String("eg2-replay-out", "", "existing output directory for replay receipts and vectors")
+
+type markdownReplayModel struct {
+	kind, path string
+	directory  bool
+	load       func(string) (*embeddinggemma2.Encoder, error)
+}
+
+func markdownReplayModels() []markdownReplayModel {
+	return []markdownReplayModel{
+		{"q8_0", *eg2BatchGGUFTest, false, func(path string) (*embeddinggemma2.Encoder, error) {
+			return embeddinggemma2.LoadGGUFEncoder(path, map[string]string{"document": "title: none | text: "})
+		}},
+		{"mlx8", *eg2BatchMLXTest, true, embeddinggemma2.LoadEncoder},
+	}
+}
+
+type markdownReplayCase struct {
+	enc    *embeddinggemma2.Encoder
+	acc    *eg2BatchAccel
+	ids    [][]int
+	groups [][][]int
+	phases []markdownObservation
+}
+
+func markdownLoadReplay(t *testing.T, fixture markdowneval.Replay, model markdownReplayModel, pin markdowneval.Checkpoint) markdownReplayCase {
+	t.Helper()
+	verifyMarkdownModel(t, model.path, model.directory, pin)
+	enc, load := markdownMeasure(t, func() (*embeddinggemma2.Encoder, error) { return model.load(model.path) })
+	if prompt, err := enc.PromptText("document"); err != nil || prompt != "title: none | text: " {
+		t.Fatalf("document prompt %q: %v", prompt, err)
+	}
+	ids, prepare := markdownPrepare(t, enc, fixture.Passages, fixture.Prepared[model.kind].Documents, "document")
+	acc, attach := markdownMeasure(t, func() (embeddinggemma2.Accelerator, error) {
+		return enc.UseAccelerator("metal-eg2-batch")
+	})
+	t.Cleanup(func() {
+		if err := acc.Close(); err != nil {
+			t.Error(err)
+		}
+	})
+	a, ok := acc.(*eg2BatchAccel)
+	if !ok || !a.AttachedDevice().TextBatching || a.AttachedProfile() != eg2MatrixProfile {
+		t.Fatalf("expected explicit combined Metal batch attachment, got %T", acc)
+	}
+	device := a.AttachedDevice()
+	t.Logf("selector=metal-eg2-batch backend=%s device=%q architecture=%q profile=%s",
+		device.Backend, device.Name, a.d.ArchitectureName(), a.AttachedProfile())
+	groups := make([][][]int, 0, len(fixture.Groups))
+	offset := 0
+	for _, group := range fixture.Groups {
+		groups = append(groups, ids[offset:offset+len(group)])
+		offset += len(group)
+	}
+	return markdownReplayCase{enc: enc, acc: a, ids: ids, groups: groups, phases: []markdownObservation{load, prepare, attach}}
+}
+
+type markdownReplayRun struct {
+	Start  int  `json:"start"`
+	Rows   int  `json:"rows"`
+	Staged bool `json:"staged"`
+}
+
+type markdownReplayFit struct {
+	Group          int                 `json:"group"`
+	Lengths        []int               `json:"lengths"`
+	Rows           int                 `json:"rows"`
+	Runs           []markdownReplayRun `json:"ffn_runs"`
+	Estimate       string              `json:"estimate"`
+	AdditionalPeak int64               `json:"estimated_additional_peak_bytes"`
+	ResidentWeight int64               `json:"resident_weight_bytes"`
+	AllocatedAfter int64               `json:"tracked_bytes_after"`
+	Dispatches     int64               `json:"dispatches"`
+	StagedGateUp   int64               `json:"staged_gate_up"`
+	FusedUp        int64               `json:"fused_up"`
+	GeGLU          int64               `json:"standalone_geglu"`
+	RMSAdd         int64               `json:"rms_add"`
+	RMSAddScale    int64               `json:"rms_add_scale"`
+	PLE            int64               `json:"ple_activation"`
+}
+
+func (c markdownReplayCase) proveGroup(t *testing.T, index int, expectedRows int) ([][]float32, markdownReplayFit) {
+	t.Helper()
+	group := c.groups[index]
+	lengths := make([]int, len(group))
+	for i, ids := range group {
+		lengths[i] = len(ids)
+	}
+	estimate, err := c.enc.BatchMemory(lengths)
+	if err != nil || estimate.Quality == embeddinggemma2.BatchMemoryUnknown {
+		t.Fatalf("group %d BatchMemory %v: %+v %v", index, lengths, estimate, err)
+	}
+	c.acc.mu.Lock()
+	plan, err := c.acc.planBatch(lengths)
+	c.acc.mu.Unlock()
+	if err != nil || plan.rows != expectedRows {
+		t.Fatalf("group %d plan has %d rows, want %d: %v", index, plan.rows, expectedRows, err)
+	}
+	fit := markdownReplayFit{Group: index, Lengths: lengths, Rows: plan.rows, Estimate: estimate.Quality.String(),
+		AdditionalPeak: estimate.AdditionalPeakBytes, ResidentWeight: estimate.ResidentWeightBytes}
+	for _, run := range plan.runs[:plan.runCount] {
+		fit.Runs = append(fit.Runs, markdownReplayRun{run.start, run.rows, run.staged})
+	}
+	var tracked int64
+	d0, s0, w0 := c.acc.d.Activity()
+	c.acc.d.SetDispatchHook(func(pipe Pipeline) {
+		tracked++
+		switch pipe {
+		case c.acc.stagedFFN:
+			fit.StagedGateUp++
+		case c.acc.stagedFFNGeGLU:
+			fit.FusedUp++
+		case c.acc.p.geluMul:
+			fit.GeGLU++
+		case c.acc.p.rmsAdd:
+			fit.RMSAdd++
+		case c.acc.p.rmsAddScale:
+			fit.RMSAddScale++
+		case c.acc.p.geluMulPLE:
+			fit.PLE++
+		}
+	})
+	out, err := c.enc.EmbedIDsBatch(group)
+	c.acc.d.SetDispatchHook(nil)
+	d1, s1, w1 := c.acc.d.Activity()
+	if err != nil || len(out) != len(group) || s1-s0 != 1 || w1-w0 != 1 || d1-d0 <= 0 || d1-d0 != tracked {
+		t.Fatalf("group %d: forward outputs=%d dispatches=%d submits=%d waits=%d: %v", index, len(out), d1-d0, s1-s0, w1-w0, err)
+	}
+	fit.Dispatches, fit.AllocatedAfter = d1-d0, eg2AllocatedBytes(c.acc.d)
+	var staged int64
+	for _, run := range fit.Runs {
+		if run.Staged {
+			staged++
+		}
+	}
+	layers := int64(c.acc.cfg.Layers)
+	stagedUp, fusedUp, geglu := staged*layers, int64(0), layers
+	if staged == int64(len(fit.Runs)) {
+		fusedUp, geglu = stagedUp, 0
+		stagedUp = 0
+	}
+	if fit.StagedGateUp != staged*layers+stagedUp || fit.FusedUp != fusedUp || fit.GeGLU != geglu ||
+		fit.RMSAdd != 2*layers || fit.RMSAddScale != layers || fit.PLE != layers {
+		t.Fatalf("group %d has unexpected fused or fallback route: %+v", index, fit)
+	}
+	return out, fit
+}
+
+func (c markdownReplayCase) clearRopes() {
+	c.acc.mu.Lock()
+	defer c.acc.mu.Unlock()
+	for key, pair := range c.acc.ropes {
+		c.acc.release(&pair[0], &pair[1])
+		delete(c.acc.ropes, key)
+	}
+}
+
+type markdownReplayCell struct {
+	WallNS             int64   `json:"wall_ns"`
+	PositionsPerSecond float64 `json:"positions_per_second"`
+	Dispatches         int64   `json:"dispatches"`
+	Commands           int64   `json:"completed_commands"`
+	TrackedBytesAfter  int64   `json:"tracked_bytes_after"`
+}
+
+func (c markdownReplayCase) replay(t *testing.T, positions int, dispatches int64) ([][]float32, markdownReplayCell) {
+	t.Helper()
+	results := make([][][]float32, len(c.groups))
+	d0, s0, w0 := c.acc.d.Activity()
+	start := time.Now()
+	for i, group := range c.groups {
+		var err error
+		results[i], err = c.enc.EmbedIDsBatch(group)
+		if err != nil {
+			t.Fatalf("replay group %d: %v", i, err)
+		}
+	}
+	elapsed := time.Since(start)
+	d1, s1, w1 := c.acc.d.Activity()
+	if d1-d0 != dispatches || s1-s0 != int64(len(c.groups)) || w1-w0 != s1-s0 {
+		t.Fatalf("replay activity dispatches=%d submits=%d waits=%d", d1-d0, s1-s0, w1-w0)
+	}
+	return slices.Concat(results...), markdownReplayCell{WallNS: elapsed.Nanoseconds(), PositionsPerSecond: float64(positions) / elapsed.Seconds(),
+		Dispatches: d1 - d0, Commands: w1 - w0, TrackedBytesAfter: eg2AllocatedBytes(c.acc.d)}
+}
+
+func (c markdownReplayCase) verifySentinels(t *testing.T, f markdowneval.Replay, oracle [][]float32) {
+	t.Helper()
+	for _, g := range []int{14, 21} {
+		first := g * 4
+		cases := []struct {
+			name    string
+			indexes []int
+		}{
+			{"rotated", []int{first + 3, first, first + 1, first + 2}},
+			{"split-first", []int{first, first + 1}},
+			{"split-second", []int{first + 2, first + 3}},
+			{"changed-neighbour", []int{first, first + 1, first + 2, 0}},
+		}
+		for _, tc := range cases {
+			batch := make([][]int, len(tc.indexes))
+			for i, index := range tc.indexes {
+				batch[i] = c.ids[index]
+			}
+			out, err := c.enc.EmbedIDsBatch(batch)
+			if err != nil || len(out) != len(batch) {
+				t.Fatalf("group %d %s: outputs=%d: %v", g, tc.name, len(out), err)
+			}
+			for i, index := range tc.indexes {
+				markdownExact(t, f.Passages[index].ID, tc.name, oracle[index], out[i])
+			}
+		}
+	}
+}
+
+func markdownReplayWrite(t *testing.T, dir, name string, data []byte) {
+	t.Helper()
+	f, err := os.OpenFile(filepath.Join(dir, name), os.O_WRONLY|os.O_CREATE|os.O_EXCL, 0o644)
+	if err != nil {
+		t.Fatal(err)
+	}
+	_, writeErr := f.Write(data)
+	if err := f.Close(); writeErr != nil || err != nil {
+		t.Fatalf("write %s: %v; close: %v", name, writeErr, err)
+	}
+}
+
+func markdownReplayJSON(t *testing.T, dir, name string, value any) {
+	t.Helper()
+	data, err := json.MarshalIndent(value, "", "  ")
+	if err != nil {
+		t.Fatal(err)
+	}
+	markdownReplayWrite(t, dir, name, append(data, '\n'))
+}
+
+func markdownReplayVectors(t *testing.T, dir, prefix string, fixture markdowneval.Replay, vectors [][]float32) {
+	t.Helper()
+	type row struct {
+		ID     string `json:"id"`
+		SHA768 string `json:"sha768"`
+		SHA512 string `json:"sha512"`
+	}
+	var rows []row
+	var full, cut []byte
+	for i, v := range vectors {
+		v768, v512 := f32ToBytes(v), f32ToBytes(eg2Normalized512(v))
+		full, cut = append(full, v768...), append(cut, v512...)
+		rows = append(rows, row{fixture.Passages[i].ID, fmt.Sprintf("%x", sha256.Sum256(v768)), fmt.Sprintf("%x", sha256.Sum256(v512))})
+	}
+	markdownReplayWrite(t, dir, prefix+"-768.f32", full)
+	markdownReplayWrite(t, dir, prefix+"-512.f32", cut)
+	markdownReplayJSON(t, dir, prefix+"-digests.json", struct {
+		Rows   []row  `json:"rows"`
+		SHA768 string `json:"sha768"`
+		SHA512 string `json:"sha512"`
+	}{rows, fmt.Sprintf("%x", sha256.Sum256(full)), fmt.Sprintf("%x", sha256.Sum256(cut))})
+}
+
+type markdownReplayPaging struct {
+	swap     int64
+	swapouts uint64
+}
+
+func markdownReplayGuard(t *testing.T, phase string, before *markdownReplayPaging) markdownReplayPaging {
+	t.Helper()
+	if lock := os.Getenv("GOINFER_TIMING_LOCK"); lock == "" || strings.HasPrefix(lock, "sh-") {
+		t.Fatal("an exclusive timing lease is required")
+	}
+	load := cellLoad1(t)
+	mem, memOK := probe.Read()
+	task, taskOK := probe.ReadTask(os.Getpid())
+	swap, swapOK := probe.SwapUsed()
+	command := func(path string, args ...string) string {
+		raw, err := exec.Command(path, args...).Output()
+		if err != nil {
+			t.Fatal(err)
+		}
+		return string(raw)
+	}
+	var swapouts uint64
+	var parsed bool
+	for line := range strings.SplitSeq(command("/usr/bin/vm_stat"), "\n") {
+		if rest, ok := strings.CutPrefix(line, "Swapouts:"); ok {
+			var err error
+			swapouts, err = strconv.ParseUint(strings.TrimSuffix(strings.TrimSpace(rest), "."), 10, 64)
+			parsed = err == nil
+			break
+		}
+	}
+	thermal := command("/usr/bin/pmset", "-g", "therm")
+	t.Logf("guard=%s load1=%g reclaimable=%d swap=%d swapouts=%d compressed=%d compressed_peak=%d thermal=%q",
+		phase, load, mem.Reclaimable, swap, swapouts, task.Compressed, task.CompressedPeak, strings.TrimSpace(thermal))
+	if !(load >= 0 && load <= 5) || !memOK || mem.Reclaimable < 8<<30 || !taskOK ||
+		task.Compressed != 0 || task.CompressedPeak != 0 || !swapOK || !parsed ||
+		!strings.Contains(thermal, "No thermal warning level has been recorded") ||
+		!strings.Contains(thermal, "No performance warning level has been recorded") ||
+		!strings.Contains(thermal, "No CPU power status has been recorded") ||
+		(before != nil && (swap > before.swap || swapouts != before.swapouts)) {
+		t.Fatalf("host guard refused %s", phase)
+	}
+	return markdownReplayPaging{swap, swapouts}
+}
+
+func TestEG2MetalMarkdownReplay(t *testing.T) {
+	if *eg2ReplayDir == "" {
+		t.Skip("enable -eg2-replay-fixture with the owned Markdown replay directory")
+	}
+	if *eg2BatchGGUFTest == "" || *eg2BatchMLXTest == "" || *eg2ReplayOut == "" {
+		t.Fatal("set both checkpoint flags and -eg2-replay-out")
+	}
+	fixture, err := markdowneval.LoadReplay(*eg2ReplayDir)
+	if err != nil {
+		t.Fatal(err)
+	}
+	pins, err := markdowneval.Load()
+	if err != nil {
+		t.Fatal(err)
+	}
+	before := markdownReplayGuard(t, "start", nil)
+	for _, model := range markdownReplayModels() {
+		t.Run(model.kind, func(t *testing.T) {
+			markdownReplayGuard(t, "before-load", &before)
+			dir := filepath.Join(*eg2ReplayOut, model.kind)
+			if err := os.Mkdir(dir, 0o755); err != nil {
+				t.Fatal(err)
+			}
+			c := markdownLoadReplay(t, fixture, model, pins.Checkpoints[model.kind])
+			oracle, _ := markdownSingletons(t, c.enc, c.ids)
+			lengths := fixture.Prepared[model.kind].GroupTokens
+			var fits []markdownReplayFit
+			var packed [][]float32
+			var dispatches int64
+			var positions, largest int
+			for g, rows := range lengths {
+				positions += rows
+				if rows > lengths[largest] {
+					largest = g
+				}
+				out, fit := c.proveGroup(t, g, rows)
+				fits = append(fits, fit)
+				dispatches += fit.Dispatches
+				packed = append(packed, out...)
+			}
+			for i, passage := range fixture.Passages {
+				markdownExact(t, passage.ID, "packed", oracle[i], packed[i])
+			}
+			c.verifySentinels(t, fixture, oracle)
+			markdownReplayVectors(t, dir, "singleton", fixture, oracle)
+			markdownReplayVectors(t, dir, "packed", fixture, packed)
+			markdownReplayJSON(t, dir, "groups.json", fits)
+
+			c.clearRopes()
+			c.proveGroup(t, largest, lengths[largest])
+			var cells []markdownReplayCell
+			for i := range 3 {
+				c.clearRopes()
+				markdownReplayGuard(t, fmt.Sprintf("before-replay-%d", i), &before)
+				got, cell := c.replay(t, positions, dispatches)
+				markdownReplayGuard(t, fmt.Sprintf("after-replay-%d", i), &before)
+				for j, passage := range fixture.Passages {
+					markdownExact(t, passage.ID, fmt.Sprintf("replay %d", i), oracle[j], got[j])
+				}
+				cells = append(cells, cell)
+				t.Logf("replay=%d positions=%d wall_ns=%d completed_commands=%d", i, positions, cell.WallNS, cell.Commands)
+			}
+			for i, name := range []string{"load", "prepare", "attach"} {
+				m := c.phases[i]
+				t.Logf("phase=%s wall_ns=%d go_total_alloc_delta_bytes=%d", name, m.wall.Nanoseconds(), m.alloc)
+			}
+			var ns []int64
+			for _, cell := range cells {
+				ns = append(ns, cell.WallNS)
+			}
+			slices.Sort(ns)
+			t.Logf("replays=%d median_wall_ns=%d wall_range_ns=%d", len(ns), ns[1], ns[2]-ns[0])
+			markdownReplayJSON(t, dir, "cells.json", cells)
+		})
 	}
 }
