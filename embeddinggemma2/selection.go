@@ -141,7 +141,7 @@ func validateTextTokenIDs(ids [][]int, vocab int) error {
 	for i, row := range ids {
 		for _, id := range row {
 			if id < 0 || id >= vocab {
-				return fmt.Errorf("%w: input %d has token id %d out of range [0, %d)", ErrDeviceUnavailable, i, id, vocab)
+				return fmt.Errorf("embeddinggemma2: input %d has token id %d out of range [0, %d)", i, id, vocab)
 			}
 		}
 	}
