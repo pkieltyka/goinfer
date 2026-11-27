@@ -567,6 +567,9 @@
       "chat",
       "tokenizer"
     ],
+    "apps/examples/embeddinggemma2select": [
+      "embeddinggemma2"
+    ],
     "apps/examples/invoice": [
       "constrain",
       "multimodal"

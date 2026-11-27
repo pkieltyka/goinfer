@@ -1,69 +1,95 @@
 // Command embeddinggemma2select selects one text route before an index write.
 //
-//	go run ./apps/examples/embeddinggemma2select <checkpoint-dir> <route-fingerprint> <selector> [device-id]
+//	go run ./apps/examples/embeddinggemma2select \
+//	    -checkpoint <dir> -model-pin <pin> -fingerprint <stored> [-selector cpu] [-device ""]
 //
-// The fingerprint is the caller's stored value, for example
-// "metal-eg2-batch|metal:4294967296@BOOT|<profile>". A different resolved route
-// is refused before any first-group vector is returned or written.
+// This example links no GPU backend, so its executable route is cpu. An
+// application that imports a backend can pass that backend's selector and an
+// exact device ID or alias; see docs/use-from-go.md.
+//
+// The persisted fingerprint covers the caller-owned model/preprocessing pin,
+// selector, verified numerical profile, output width and normalization. It does
+// not cover the physical attachment, so a Metal registry ID that changes after
+// reboot does not force a rebuild. The resolved device and backend are printed
+// separately as provenance.
 package main
 
 import (
+	"errors"
+	"flag"
 	"fmt"
 	"os"
 
 	"github.com/pkieltyka/goinfer/embeddinggemma2"
 )
 
+type options struct {
+	checkpoint  string
+	modelPin    string
+	fingerprint string
+	selector    string
+	deviceID    string
+}
+
 func main() {
-	if len(os.Args) < 4 || len(os.Args) > 5 {
-		fmt.Fprintln(os.Stderr, "usage: embeddinggemma2select <checkpoint-dir> <route-fingerprint> <selector> [device-id]")
-		os.Exit(2)
+	var opts options
+	flag.StringVar(&opts.checkpoint, "checkpoint", "", "checkpoint directory")
+	flag.StringVar(&opts.modelPin, "model-pin", "", "caller-owned model/tokenizer/prompt/preprocessing pin")
+	flag.StringVar(&opts.fingerprint, "fingerprint", "", "stored route fingerprint")
+	flag.StringVar(&opts.selector, "selector", "cpu", "route selector; this example links cpu only")
+	flag.StringVar(&opts.deviceID, "device", "", "optional exact device ID or alias; empty uses the selector default")
+	flag.Parse()
+	if err := run(opts); err != nil {
+		fmt.Fprintln(os.Stderr, err)
+		os.Exit(1)
 	}
-	dir, wantFingerprint, selector := os.Args[1], os.Args[2], os.Args[3]
-	deviceID := ""
-	if len(os.Args) == 5 {
-		deviceID = os.Args[4]
+}
+
+func run(opts options) (err error) {
+	if opts.checkpoint == "" || opts.modelPin == "" || opts.fingerprint == "" {
+		return errors.New("checkpoint, model-pin and fingerprint are required")
 	}
-	encoder, err := embeddinggemma2.LoadEncoder(dir)
+	if opts.selector != "cpu" {
+		return fmt.Errorf("this example links no GPU backend, so selector %q is unavailable; use cpu, or import a backend in your application (see docs/use-from-go.md)", opts.selector)
+	}
+	encoder, err := embeddinggemma2.LoadEncoder(opts.checkpoint)
 	if err != nil {
-		fatal(err)
+		return err
 	}
 	ids, err := encoder.Tokenize("first document", "document")
 	if err != nil {
-		fatal(err)
+		return err
 	}
 	session, report, err := encoder.SelectText(embeddinggemma2.TextSelectionOptions{
-		Targets:        []embeddinggemma2.TextTarget{{DeviceID: deviceID, Selector: selector}},
+		Targets:        []embeddinggemma2.TextTarget{{DeviceID: opts.deviceID, Selector: opts.selector}},
 		AllowEstimates: true,
 		AllowSplit:     true,
 	}, [][]int{ids})
 	if err != nil {
-		fmt.Fprintf(os.Stderr, "selection attempts: %d\n", len(report.Attempts))
 		for _, attempt := range report.Attempts {
-			fmt.Fprintf(os.Stderr, "  %+v: %v\n", attempt.Target, attempt.Err)
+			fmt.Fprintf(os.Stderr, "selection target %+v: %v\n", attempt.Target, attempt.Err)
 		}
-		fatal(err)
+		return err
 	}
-	defer session.Close()
-	if report.Winner < 0 || report.Winner >= len(report.Attempts) {
-		fatal(fmt.Errorf("selection returned no winner"))
+	defer func() { err = errors.Join(err, session.Close()) }()
+	if report.Winner < 0 || report.Winner >= len(report.Attempts) || len(session.First) == 0 {
+		return errors.New("selection returned no first-group vectors")
 	}
 	attempt := report.Attempts[report.Winner]
-	actual := routeFingerprint(attempt)
-	if actual != wantFingerprint {
-		fatal(fmt.Errorf("route fingerprint mismatch: have %q, want %q; refusing the first write", actual, wantFingerprint))
+	width := len(session.First[0])
+	actual := routeFingerprint(opts.modelPin, attempt, width)
+	if actual != opts.fingerprint {
+		return fmt.Errorf("route fingerprint mismatch: have %q, want %q; refusing the first write", actual, opts.fingerprint)
 	}
-	// A real application writes session.First here, and only here: the route
-	// fingerprint matched, so the index fingerprint can record this route.
-	fmt.Printf("route=%s profile=%q device=%q batched=%t first_vectors=%d\n",
-		selector, attempt.Profile, attempt.Device.ID, attempt.Batched, len(session.First))
+	// A real application writes session.First here, and only here. Device and
+	// driver provenance is recorded separately from the numerical fingerprint.
+	fmt.Printf("fingerprint=%s\nprovenance: backend=%s device=%q name=%q batched=%t memory_basis=%s first_vectors=%d\n",
+		actual, attempt.Device.Backend, attempt.Device.ID, attempt.Device.Name, attempt.Batched,
+		attempt.Memory.Basis, len(session.First))
+	return nil
 }
 
-func routeFingerprint(attempt embeddinggemma2.TextSelectionAttempt) string {
-	return fmt.Sprintf("%s|%s|%s", attempt.Target.Selector, attempt.Device.ID, attempt.Profile)
-}
-
-func fatal(err error) {
-	fmt.Fprintln(os.Stderr, err)
-	os.Exit(1)
+func routeFingerprint(modelPin string, attempt embeddinggemma2.TextSelectionAttempt, width int) string {
+	return fmt.Sprintf("model=%s|selector=%s|profile=%s|width=%d|normalization=unit",
+		modelPin, attempt.Target.Selector, attempt.Profile, width)
 }
