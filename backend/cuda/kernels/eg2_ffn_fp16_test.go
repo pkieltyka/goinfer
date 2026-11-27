@@ -33,7 +33,7 @@ func fp16FFNDevice(t *testing.T) (*gpu.Device, []byte) {
 	if a := adapters[i]; a.Major < 8 {
 		t.Fatalf("FP16 FFN requires SM80 or newer, got %d.%d", a.Major, a.Minor)
 	}
-	ptx, err := os.ReadFile("../testdata/eg2_ffn_fp16.ptx")
+	ptx, err := os.ReadFile("../eg2/testdata/eg2_ffn_fp16.ptx")
 	if err != nil {
 		t.Fatal(err)
 	}

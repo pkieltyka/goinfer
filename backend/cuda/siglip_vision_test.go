@@ -16,6 +16,7 @@ import (
 	"unsafe"
 
 	gpu "github.com/pkieltyka/goinfer/backend/cuda/internal/gpudev"
+	"github.com/pkieltyka/goinfer/backend/cuda/internal/tower"
 	"github.com/pkieltyka/goinfer/decoder"
 	"github.com/pkieltyka/goinfer/internal/vision"
 )
@@ -465,7 +466,7 @@ func TestSiglipCUDA_fusedAttentionKernelDefectsReal(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	defer func() { towerAttnDefect = 0 }()
+	defer func() { tower.AttnDefect = 0 }()
 	if got, err := dev.Forward(pv.Data); err != nil {
 		t.Fatal(err)
 	} else if w := gridWorst(t, got, want, cpu.Cfg.HiddenSize); w < 0.9999 {
@@ -476,9 +477,9 @@ func TestSiglipCUDA_fusedAttentionKernelDefectsReal(t *testing.T) {
 		name    string
 		visible bool // whether real size can see it: defect 2 adds one zero-score zero-value key, 1/4097 of the weight over 4096 keys
 	}{{1, "no rescale when the running max moves", true}, {2, "key mask one past the segment", false}, {3, "V tile read one key late", true}} {
-		towerAttnDefect = c.d
+		tower.AttnDefect = c.d
 		got, err := dev.Forward(pv.Data)
-		towerAttnDefect = 0
+		tower.AttnDefect = 0
 		if err != nil {
 			t.Fatal(err)
 		}

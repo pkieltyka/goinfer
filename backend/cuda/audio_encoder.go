@@ -96,31 +96,31 @@ func newAudioTowerMode(enc *audio.WhisperEncoder, streamed bool) (*audioTower, e
 	t := &audioTower{g: g, cfg: c, pos: w.Pos, streamed: streamed, host: w.Layers}
 	o := g.ops
 	if _, err := g.build(func() error {
-		lib, e := o.dev.CompileLibrary(audioEncoderPTX)
+		lib, e := o.Dev.CompileLibrary(audioEncoderPTX)
 		if e != nil {
 			return fmt.Errorf("compile audio_encoder: %w", e)
 		}
-		if t.geluErf, e = o.dev.NewComputePipeline(lib, "audio_gelu_erf"); e != nil {
+		if t.geluErf, e = o.Dev.NewComputePipeline(lib, "audio_gelu_erf"); e != nil {
 			return e
 		}
-		if t.im2col, e = o.dev.NewComputePipeline(lib, "audio_im2col_k3"); e != nil {
+		if t.im2col, e = o.Dev.NewComputePipeline(lib, "audio_im2col_k3"); e != nil {
 			return e
 		}
 		D := c.DModel
 		p := func(wt, b []float32, out, in int) gridProj {
-			return gridProj{w: o.up(wt), b: o.up(b), out: out, in: in}
+			return gridProj{w: o.Up(wt), b: o.Up(b), out: out, in: in}
 		}
 		t.conv1, t.conv2 = p(w.Conv1W, w.Conv1B, D, c.MelBins*3), p(w.Conv2W, w.Conv2B, D, D*3)
-		t.posB = o.up(w.Pos)
+		t.posB = o.Up(w.Pos)
 		if streamed {
 			t.layers = []audioLayer{t.emptyLayer()}
 		} else {
 			for _, l := range w.Layers {
-				t.layers = append(t.layers, audioLayer{ln1W: o.up(l.LN1W), ln1B: o.up(l.LN1B), ln2W: o.up(l.LN2W), ln2B: o.up(l.LN2B),
+				t.layers = append(t.layers, audioLayer{ln1W: o.Up(l.LN1W), ln1B: o.Up(l.LN1B), ln2W: o.Up(l.LN2W), ln2B: o.Up(l.LN2B),
 					q: p(l.QW, l.QB, D, D), k: p(l.KW, nil, D, D), v: p(l.VW, l.VB, D, D), o: p(l.OW, l.OB, D, D), fc1: p(l.FC1W, l.FC1B, c.FFN, D), fc2: p(l.FC2W, l.FC2B, D, c.FFN)})
 			}
 		}
-		t.lnW, t.lnB = o.up(w.FinalLNW), o.up(w.FinalLNB)
+		t.lnW, t.lnB = o.Up(w.FinalLNW), o.Up(w.FinalLNB)
 		return nil
 	}); err != nil {
 		return nil, err
@@ -137,7 +137,7 @@ func (l *audioLayer) block() gridBlock {
 func (t *audioTower) emptyLayer() audioLayer {
 	c, o := t.cfg, t.g.ops
 	D, F := c.DModel, c.FFN
-	buf := func(n int) Buffer { return gpu.NewBufferLenOfOn[float32](o.dev, mem.LineCompanion, n) }
+	buf := func(n int) Buffer { return gpu.NewBufferLenOfOn[float32](o.Dev, mem.LineCompanion, n) }
 	p := func(out, in int, bias bool) gridProj {
 		r := gridProj{w: buf(out * in), out: out, in: in}
 		if bias {
@@ -168,17 +168,17 @@ func (t *audioTower) fillLayer(dst *audioLayer, h *audio.WhisperLayerWeights) er
 // gelu is the encoder's activation: the exact kernel, or the tanh form under the planted defect.
 func (t *audioTower) gelu(x Buffer, n int) {
 	if t.planted == audioDefectTanhGELU {
-		t.g.ops.geluTanh(x, n)
+		t.g.ops.GeluTanh(x, n)
 		return
 	}
-	t.g.ops.launch(t.geluErf, gpu.Grid1D(n, 256), Arg(x), i64(int64(n)))
+	t.g.ops.Launch(t.geluErf, gpu.Grid1D(n, 256), Arg(x), i64(int64(n)))
 }
 
 // conv runs one k=3 pad=1 Conv1d: im2col from src (channel c at chStride, frame t at tStride) into col, then col · Wᵀ + bias into out.
 func (t *audioTower) conv(src, col, out Buffer, p *gridProj, Tin, Tout, stride, chStride, tStride int) {
 	C := p.in / 3
 	n := Tout * C * 3
-	t.g.ops.launch(t.im2col, gpu.Grid1D(n, 256), Arg(src), Arg(col), i32(int32(Tin)), i32(int32(stride)), i32(int32(C)), i64(int64(chStride)), i64(int64(tStride)), i64(int64(n)))
+	t.g.ops.Launch(t.im2col, gpu.Grid1D(n, 256), Arg(src), Arg(col), i32(int32(Tin)), i32(int32(stride)), i32(int32(C)), i64(int64(chStride)), i64(int64(tStride)), i64(int64(n)))
 	t.g.linear(col, p, out, Tout)
 }
 
@@ -196,16 +196,16 @@ func (t *audioTower) Forward(feats []float32) ([]float32, error) {
 	}
 	D, N, F := c.DModel, c.MaxPositions, c.FFN
 	var out []float32
-	err := t.g.ops.do(func() error {
-		defer t.g.ops.releaseScratch()
+	err := t.g.ops.Do(func() error {
+		defer t.g.ops.ReleaseScratch()
 		o, a := t.g.ops, t.g
-		fb, col1, x1 := o.af(c.MelBins*T), o.af(T*c.MelBins*3), o.af(T*D)
+		fb, col1, x1 := o.Af(c.MelBins*T), o.Af(T*c.MelBins*3), o.Af(T*D)
 		if e := gpu.Upload(fb, feats); e != nil {
 			return e
 		}
 		t.conv(fb, col1, x1, &t.conv1, T, T, 1, T, 1)
 		t.gelu(x1, T*D)
-		col2, x, xn := o.af(N*D*3), o.af(N*D), o.af(N*D)
+		col2, x, xn := o.Af(N*D*3), o.Af(N*D), o.Af(N*D)
 		t.conv(x1, col2, x, &t.conv2, T, N, 2, 1, D)
 		t.gelu(x, N*D)
 		switch t.planted {
@@ -215,15 +215,15 @@ func (t *audioTower) Forward(feats []float32) ([]float32, error) {
 			for i := range N {
 				copy(sh[i*D:(i+1)*D], t.pos[((i+1)%N)*D:((i+1)%N+1)*D])
 			}
-			pb := o.af(N * D)
+			pb := o.Af(N * D)
 			if e := gpu.Upload(pb, sh); e != nil {
 				return e
 			}
-			o.addVec(x, pb, N*D)
+			o.AddVec(x, pb, N*D)
 		default:
-			o.addVec(x, t.posB, N*D)
+			o.AddVec(x, t.posB, N*D)
 		}
-		q, k, v, ctx, tmp, f1 := o.af(N*D), o.af(N*D), o.af(N*D), o.af(N*D), o.af(N*D), o.af(N*F)
+		q, k, v, ctx, tmp, f1 := o.Af(N*D), o.Af(N*D), o.Af(N*D), o.Af(N*D), o.Af(N*D), o.Af(N*F)
 		env := &towerWalkEnv{geluErf: t.gelu}
 		if t.planted == audioDefectNoScale {
 			env.scale = 1
@@ -247,10 +247,10 @@ func (t *audioTower) Forward(feats []float32) ([]float32, error) {
 		}
 		res := x
 		if t.planted != audioDefectNoFinalNorm {
-			o.layerNorm(x, t.lnW, t.lnB, xn, N, D, a.eps)
+			o.LayerNorm(x, t.lnW, t.lnB, xn, N, D, a.eps)
 			res = xn
 		}
-		if e := o.finish(); e != nil {
+		if e := o.Finish(); e != nil {
 			return e
 		}
 		out = make([]float32, N*D)

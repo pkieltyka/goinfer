@@ -871,11 +871,13 @@
    "predicates": [
     "cuda:DeviceAttributeComputeCapabilityMajor",
     "cuda:DeviceAttributeComputeCapabilityMinor",
-    "mem:MemInfo@goinfer/backend/cuda/hwinfo.go"
+    "mem:MemInfo@goinfer/backend/cuda/hwinfo.go",
+    "mem:MemInfo@goinfer/backend/cuda/eg2/eg2_devices.go"
    ],
    "selected_when": "`check --hardware` on a CUDA build reports device facts; an EmbeddingGemma 2 memory query reads free and total bytes on its attached CUDA context",
    "files": [
-    "goinfer/backend/cuda/hwinfo.go"
+    "goinfer/backend/cuda/hwinfo.go",
+    "goinfer/backend/cuda/eg2/eg2_devices.go"
    ],
    "our_machines": "an RTX 2070 SUPER only",
    "last_executed": [

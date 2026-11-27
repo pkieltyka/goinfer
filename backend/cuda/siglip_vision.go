@@ -39,9 +39,9 @@ func newSiglipTower(enc *vision.Encoder) (*siglipTower, error) {
 		return nil, err
 	}
 	if _, err := g.build(func() error {
-		g.patchW, g.patchB = g.ops.up(w.PatchW), g.ops.up(w.PatchB)
+		g.patchW, g.patchB = g.ops.Up(w.PatchW), g.ops.Up(w.PatchB)
 		for _, b := range w.Blocks {
-			g.blocks = append(g.blocks, gridBlock{norm1w: g.ops.up(b.LN1W), norm1b: g.ops.up(b.LN1B), norm2w: g.ops.up(b.LN2W), norm2b: g.ops.up(b.LN2B),
+			g.blocks = append(g.blocks, gridBlock{norm1w: g.ops.Up(b.LN1W), norm1b: g.ops.Up(b.LN1B), norm2w: g.ops.Up(b.LN2W), norm2b: g.ops.Up(b.LN2B),
 				q: g.proj(b.Q), k: g.proj(b.K), v: g.proj(b.V), proj: g.proj(b.O), fc1: g.proj(b.FC1), fc2: g.proj(b.FC2)})
 		}
 		return nil
@@ -61,13 +61,13 @@ func (r *siglipTower) hidden(patches []float32) ([]float32, error) {
 	}
 	H, I := a.hidden, a.inter
 	var out []float32
-	err := a.ops.do(func() error {
-		defer a.ops.releaseScratch()
+	err := a.ops.Do(func() error {
+		defer a.ops.ReleaseScratch()
 		o := a.ops
-		x, xn, pt := o.af(np*H), o.af(np*H), o.af(np*a.patchDim)
-		q, k, v, ctx, tmp := o.af(np*H), o.af(np*H), o.af(np*H), o.af(np*H), o.af(np*H)
-		f1 := o.af(np * I)
-		posB := o.af(np * H)
+		x, xn, pt := o.Af(np*H), o.Af(np*H), o.Af(np*a.patchDim)
+		q, k, v, ctx, tmp := o.Af(np*H), o.Af(np*H), o.Af(np*H), o.Af(np*H), o.Af(np*H)
+		f1 := o.Af(np * I)
+		posB := o.Af(np * H)
 		if e := gpu.Upload(pt, patches); e != nil {
 			return e
 		}
@@ -80,7 +80,7 @@ func (r *siglipTower) hidden(patches []float32) ([]float32, error) {
 		}
 		a.linear(pt, &gridProj{w: a.patchW, b: pb, out: H, in: a.patchDim}, x, np)
 		if !a.planted.noPosEmbed {
-			o.addVec(x, posB, np*H)
+			o.AddVec(x, posB, np*H)
 		}
 		env := &towerWalkEnv{} // one segment, no RoPE
 		if a.planted.noScale {
@@ -93,7 +93,7 @@ func (r *siglipTower) hidden(patches []float32) ([]float32, error) {
 				return fmt.Errorf("block %d: %w", bi, e)
 			}
 		}
-		if e := o.finish(); e != nil {
+		if e := o.Finish(); e != nil {
 			return e
 		}
 		out = make([]float32, np*H)

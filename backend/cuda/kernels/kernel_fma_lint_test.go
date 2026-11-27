@@ -126,9 +126,13 @@ func TestKernelFMALint(t *testing.T) {
 // A new kernel fails here the moment it is embedded without being linted or explicitly exempted,
 // which is the point at which the author is still holding the context to decide which it should be.
 func TestKernelFMALint_coversEmbeddedPTX(t *testing.T) {
-	embedded, err := launchgeom.EmbeddedPTXModules("..")
-	if err != nil {
-		t.Fatal(err)
+	var embedded []string
+	for _, dir := range []string{"..", "../internal/tower", "../eg2"} {
+		mods, err := launchgeom.EmbeddedPTXModules(dir)
+		if err != nil {
+			t.Fatal(err)
+		}
+		embedded = append(embedded, mods...)
 	}
 	if len(embedded) == 0 {
 		t.Fatal("no production PTX embeds found")

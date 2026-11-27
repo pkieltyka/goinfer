@@ -1,6 +1,6 @@
 //go:build cuda
 
-package cuda
+package eg2
 
 import (
 	"crypto/sha256"
@@ -11,22 +11,30 @@ import (
 
 	gc "github.com/eitamring/gocudrv/cuda"
 	gpu "github.com/pkieltyka/goinfer/backend/cuda/internal/gpudev"
+	"github.com/pkieltyka/goinfer/backend/cuda/internal/tower"
 	"github.com/pkieltyka/goinfer/embeddinggemma2"
 )
 
-type eg2Module string
+type eg2Module = tower.Module
 
 const (
-	eg2ModuleViT        eg2Module = "vit"
-	eg2ModuleBase       eg2Module = "base"
+	eg2ModuleViT                  = tower.ModuleViT
+	eg2ModuleBase                 = tower.ModuleBase
 	eg2ModuleTransposed eg2Module = "transposed"
 	eg2ModuleFusion     eg2Module = "fusion"
 	eg2ModuleFFN        eg2Module = "ffn"
 	eg2ModulePacked     eg2Module = "packed"
 )
 
-type cudaModuleCompile func([]byte) (gpu.Library, error)
-type towerModuleLoader func(eg2Module, []byte) (gpu.Library, error)
+type cudaModuleCompile = tower.Compile
+type towerModuleLoader = tower.ModuleLoader
+
+var towerPTXLoader = tower.PTXLoader
+
+// eg2CombinedAttentionPTX transposes key heads and attends over the encoder's bounded rows.
+//
+//go:embed testdata/eg2_transposed_experiment.ptx
+var eg2CombinedAttentionPTX []byte
 
 //go:embed testdata/eg2-sm120/vit.sm120.cubin
 var eg2ViTSM120 []byte
@@ -58,10 +66,6 @@ func eg2ModuleImage(unit eg2Module) (cubin []byte, ptxSHA string) {
 	default:
 		return nil, ""
 	}
-}
-
-func towerPTXLoader(compile cudaModuleCompile) towerModuleLoader {
-	return func(_ eg2Module, ptx []byte) (gpu.Library, error) { return compile(ptx) }
 }
 
 // eg2SM120Loader only substitutes a cubin for the PTX it was built from, on

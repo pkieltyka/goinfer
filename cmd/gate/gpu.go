@@ -518,7 +518,7 @@ func (g *gpuGate) readHeavy() heavyInput {
 		in.PartitionErr = err.Error()
 		return in
 	}
-	// The kernel-level tests in ./cuda/kernels/ load no model, so they are one more process, run whole.
+	// The kernel-level tests in ./cuda/kernels/ and tower tests in ./cuda/internal/tower/ load no large model.
 	kernels, err := listCUDATests(cudaKernelsPkg)
 	in.Kernels = len(kernels)
 	if err != nil || len(kernels) == 0 {
@@ -529,13 +529,35 @@ func (g *gpuGate) readHeavy() heavyInput {
 	}
 	in.Groups = append(groups, heavyGroup{Label: "kernels", Tests: kernels, Pkg: cudaKernelsPkg})
 	in.Listed = append(listed, kernels...)
+	for _, extra := range []struct {
+		label, pkg string
+	}{
+		{"eg2", cudaEG2Pkg},
+		{"tower", cudaTowerPkg},
+	} {
+		extraTests, err := listCUDATests(extra.pkg)
+		if err != nil {
+			in.ListErr = fmt.Sprintf("%s: %v", extra.pkg, err)
+			return in
+		}
+		if len(extraTests) == 0 {
+			problems = append(problems, fmt.Sprintf("%s: `go test -list` found no tests", extra.pkg))
+			continue
+		}
+		in.Groups = append(in.Groups, heavyGroup{Label: extra.label, Tests: extraTests, Pkg: extra.pkg})
+		in.Listed = append(in.Listed, extraTests...)
+	}
 	in.Problems = problems
 	in.Run = g.heavyOnly
 	return in
 }
 
 // cudaKernelsPkg holds the CUDA kernel-level tests that need nothing from package cuda but its PTX.
-const cudaKernelsPkg = "./backend/cuda/kernels/"
+const (
+	cudaKernelsPkg = "./backend/cuda/kernels/"
+	cudaEG2Pkg     = "./backend/cuda/eg2/"
+	cudaTowerPkg   = "./backend/cuda/internal/tower/"
+)
 
 // listCUDATests lists pkg's top-level tests under the heavy tier's tags.
 func listCUDATests(pkg string) ([]string, error) {
@@ -749,7 +771,15 @@ func readPTX(keepDir string) ptxInput {
 		return m
 	}())}
 
-	ptxFiles, _ := filepath.Glob(filepath.Join("backend", "cuda", "testdata", "*.ptx"))
+	var ptxFiles []string
+	for _, dir := range []string{
+		filepath.Join("backend", "cuda", "testdata"),
+		filepath.Join("backend", "cuda", "eg2", "testdata"),
+		filepath.Join("backend", "cuda", "internal", "tower", "testdata"),
+	} {
+		m, _ := filepath.Glob(filepath.Join(dir, "*.ptx"))
+		ptxFiles = append(ptxFiles, m...)
+	}
 	sort.Strings(ptxFiles)
 	backup, err := os.MkdirTemp("", "gate_ptx_before")
 	if err != nil {

@@ -7,11 +7,14 @@ import (
 	"os"
 	"path/filepath"
 	"regexp"
+	"runtime/debug"
+	"slices"
 	"sort"
 	"strings"
 	"testing"
 
 	"github.com/pkieltyka/goinfer/backend/cuda/internal/launchgeom"
+	"github.com/pkieltyka/goinfer/embeddinggemma2"
 )
 
 // TestPTX_matchesSourcesAndBindings is PTX freshness without a device or an NVRTC. A .cu edit committed without
@@ -258,5 +261,38 @@ func TestKV8_glueTwinIsBuiltAtTheAuditedToolchain(t *testing.T) {
 	}
 	if banner(kv8StorePTX) == "" {
 		t.Error("kv8_store.ptx has no NVRTC banner")
+	}
+}
+
+var initCUDAEG2Accelerators []string
+
+func init() {
+	initCUDAEG2Accelerators = embeddinggemma2.Accelerators()
+}
+
+// TestBackendCUDA_eg2RegistryMatchesTags verifies that importing backend/cuda
+// exposes the exact expected EmbeddingGemma 2 selectors through its blank import
+// of backend/cuda/eg2 for every tag set.
+func TestBackendCUDA_eg2RegistryMatchesTags(t *testing.T) {
+	hasTag := map[string]bool{}
+	if bi, ok := debug.ReadBuildInfo(); ok {
+		for _, s := range bi.Settings {
+			if s.Key == "-tags" {
+				for tag := range strings.SplitSeq(s.Value, ",") {
+					hasTag[strings.TrimSpace(tag)] = true
+				}
+			}
+		}
+	}
+	want := []string{"cuda"}
+	if hasTag["eg2_combined"] {
+		want = append(want, "cuda-eg2-combined")
+		if hasTag["eg2_fp16"] {
+			want = append(want, "cuda-eg2-fp16")
+		}
+	}
+	slices.Sort(want)
+	if !slices.Equal(initCUDAEG2Accelerators, want) {
+		t.Fatalf("Accelerators() = %v, want %v (tags=%v)", initCUDAEG2Accelerators, want, hasTag)
 	}
 }

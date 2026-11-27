@@ -1,6 +1,6 @@
 //go:build cuda
 
-package cuda
+package eg2
 
 import (
 	"errors"
@@ -14,8 +14,15 @@ import (
 	"github.com/eitamring/gocudrv/cudasys"
 	gpu "github.com/pkieltyka/goinfer/backend/cuda/internal/gpudev"
 	"github.com/pkieltyka/goinfer/backend/cuda/internal/launchgeom"
+	"github.com/pkieltyka/goinfer/backend/cuda/internal/tower"
 	"github.com/pkieltyka/goinfer/embeddinggemma2"
 	"github.com/pkieltyka/goinfer/internal/runtime/mem"
+)
+
+var (
+	i32  = gpu.ArgValue[int32]
+	f32v = gpu.ArgValue[float32]
+	i64  = gpu.ArgValue[int64]
 )
 
 // EmbeddingGemma 2's text encoder on CUDA: the CPU forward of embeddinggemma2/model.go in float32 with every weight
@@ -36,7 +43,7 @@ func bareEG2Factory(combined bool) func(*embeddinggemma2.Model) (embeddinggemma2
 
 func bareEG2FactoryOn(attach eg2Attacher) func(*embeddinggemma2.Model) (embeddinggemma2.Accelerator, error) {
 	return func(m *embeddinggemma2.Model) (embeddinggemma2.Accelerator, error) {
-		acc, err := attach(m, CreateSystemDefaultDevice)
+		acc, err := attach(m, gpu.CreateSystemDefaultDevice)
 		if err != nil {
 			return nil, err
 		}
@@ -50,10 +57,10 @@ const eg2MaxTokens = embeddinggemma2.MaxTokens
 
 type eg2Layer struct {
 	w                                 embeddinggemma2.LayerWeights
-	inNorm, q, k, v, o, qNorm, kNorm  Buffer
-	postAttnNorm, preFFNorm, gate, up Buffer
-	down, postFFNorm, pleGate         Buffer
-	pleProj, plePostNorm              Buffer
+	inNorm, q, k, v, o, qNorm, kNorm  gpu.Buffer
+	postAttnNorm, preFFNorm, gate, up gpu.Buffer
+	down, postFFNorm, pleGate         gpu.Buffer
+	pleProj, plePostNorm              gpu.Buffer
 }
 
 // eg2Rope is one (head dim, theta) pair's cos and sin tables, [rows, hd] each with both halves of a row holding the
@@ -63,7 +70,7 @@ type eg2Rope struct {
 	hd       int
 	theta    float64
 	rows     int
-	cos, sin Buffer
+	cos, sin gpu.Buffer
 }
 
 // eg2Defect plants one defect for a test to show it is noticed; zero in production.
@@ -79,23 +86,23 @@ type eg2Defect struct {
 // eg2Accel is the CUDA accelerator. One forward at a time (mu); towerOps runs every device call on its executor.
 type eg2Accel struct {
 	mu       sync.Mutex
-	ops      *towerOps
+	ops      *tower.Ops
 	closed   bool
 	cfg      embeddinggemma2.Config
 	model    *embeddinggemma2.Model
 	identity embeddinggemma2.DeviceInfo
 
-	pleProj, pleNorm, finalNorm, proj, ones Buffer
+	pleProj, pleNorm, finalNorm, proj, ones gpu.Buffer
 	residentWeightBytes                     int64
 	layers                                  []eg2Layer
 	ropes                                   []eg2Rope
 	broken                                  error // set when a failed forward could not be drained or Close failed; every later forward returns it
 	teardownStarted                         bool  // set once Close has drained (if needed) and entered closeChecked; retries skip q.Sync on destroyed streams
-	combinedTranspose, combinedAttention    Pipeline
-	ffnFP16                                 Pipeline
-	ffnGateEpilogue                         Pipeline
+	combinedTranspose, combinedAttention    gpu.Pipeline
+	ffnFP16                                 gpu.Pipeline
+	ffnGateEpilogue                         gpu.Pipeline
 	packedAttnMode                          bool
-	packedAttn                              map[int]Pipeline
+	packedAttn                              map[int]gpu.Pipeline
 	fusions                                 *eg2Fusions
 	defect                                  eg2Defect
 }
@@ -269,7 +276,7 @@ func classifyEG2ForwardErr(err, latchedErr, drainErr, releaseErr, broken error, 
 }
 
 func newEG2Accel(m *embeddinggemma2.Model, combined bool) (*eg2Accel, error) {
-	return newEG2AccelOn(m, combined, CreateSystemDefaultDevice)
+	return newEG2AccelOn(m, combined, gpu.CreateSystemDefaultDevice)
 }
 
 // eg2AttachCleanup serializes EmbeddingGemma 2 CUDA attach admission and
@@ -280,14 +287,14 @@ func newEG2Accel(m *embeddinggemma2.Model, combined bool) (*eg2Accel, error) {
 // independent; standalone vision towers are unaffected.
 var eg2AttachCleanup struct {
 	mu      sync.Mutex
-	pending *towerOps
+	pending *tower.Ops
 }
 
-func retireEG2AttachLocked(ops *towerOps) error {
+func retireEG2AttachLocked(ops *tower.Ops) error {
 	if ops == nil {
 		return nil
 	}
-	err := ops.closeChecked()
+	err := ops.CloseChecked()
 	if err != nil {
 		eg2AttachCleanup.pending = ops
 	}
@@ -298,7 +305,7 @@ func drainPendingEG2CleanupLocked() error {
 	if eg2AttachCleanup.pending == nil {
 		return nil
 	}
-	if err := eg2AttachCleanup.pending.closeChecked(); err != nil {
+	if err := eg2AttachCleanup.pending.CloseChecked(); err != nil {
 		return err
 	}
 	eg2AttachCleanup.pending = nil
@@ -327,27 +334,27 @@ func pendingEG2CleanupsLen() int {
 // explicitly selected device openers: open acquires the device while this
 // constructor owns admission serialization, setup, checked rollback, and OOM
 // classification.
-func newEG2AccelOn(m *embeddinggemma2.Model, combined bool, open func() (*Device, error)) (_ *eg2Accel, err error) {
+func newEG2AccelOn(m *embeddinggemma2.Model, combined bool, open func() (*gpu.Device, error)) (_ *eg2Accel, err error) {
 	return newEG2AccelWithFFN(m, combined, nil, open)
 }
 
-type eg2Attacher func(*embeddinggemma2.Model, func() (*Device, error)) (*eg2Accel, error)
+type eg2Attacher func(*embeddinggemma2.Model, func() (*gpu.Device, error)) (*eg2Accel, error)
 
 func eg2CUDAAttach(combined bool, fp16PTX []byte) eg2Attacher {
-	return func(m *embeddinggemma2.Model, open func() (*Device, error)) (*eg2Accel, error) {
+	return func(m *embeddinggemma2.Model, open func() (*gpu.Device, error)) (*eg2Accel, error) {
 		return newEG2AccelWithFFN(m, combined, fp16PTX, open)
 	}
 }
 
-func newEG2AccelWithFFN(m *embeddinggemma2.Model, combined bool, fp16PTX []byte, open func() (*Device, error)) (*eg2Accel, error) {
+func newEG2AccelWithFFN(m *embeddinggemma2.Model, combined bool, fp16PTX []byte, open func() (*gpu.Device, error)) (*eg2Accel, error) {
 	return newEG2AccelConfigured(m, combined, fp16PTX, nil, nil, open)
 }
 
-func newEG2AccelConfigured(m *embeddinggemma2.Model, combined bool, fp16PTX, packedAttnPTX, fusionPTX []byte, open func() (*Device, error)) (*eg2Accel, error) {
+func newEG2AccelConfigured(m *embeddinggemma2.Model, combined bool, fp16PTX, packedAttnPTX, fusionPTX []byte, open func() (*gpu.Device, error)) (*eg2Accel, error) {
 	return newEG2AccelWithLoader(m, combined, fp16PTX, packedAttnPTX, fusionPTX, open, eg2SM120Loader)
 }
 
-func newEG2AccelWithLoader(m *embeddinggemma2.Model, combined bool, fp16PTX, packedAttnPTX, fusionPTX []byte, open func() (*Device, error),
+func newEG2AccelWithLoader(m *embeddinggemma2.Model, combined bool, fp16PTX, packedAttnPTX, fusionPTX []byte, open func() (*gpu.Device, error),
 	moduleLoader func(cudaModuleCompile, embeddinggemma2.CUDAComputeCapability) towerModuleLoader) (_ *eg2Accel, err error) {
 	defer func() { err = classifyCUDAAttach(err) }()
 	if open == nil {
@@ -379,7 +386,7 @@ func newEG2AccelWithLoader(m *embeddinggemma2.Model, combined bool, fp16PTX, pac
 	}
 	var identity embeddinggemma2.DeviceInfo
 	var capabilityErr error
-	ops, err := newTowerOpsOnUnclosed(open, maxN, func(dev *Device) towerModuleLoader {
+	ops, err := tower.NewOnUnclosed(open, maxN, func(dev *gpu.Device) towerModuleLoader {
 		adapter, queryErr := gpu.AttachedAdapter(dev)
 		identity, capabilityErr = cudaDeviceInfo(adapter), queryErr
 		return moduleLoader(dev.CompileLibrary, identity.ComputeCapability)
@@ -391,7 +398,7 @@ func newEG2AccelWithLoader(m *embeddinggemma2.Model, combined bool, fp16PTX, pac
 		return nil, err
 	}
 	a := &eg2Accel{ops: ops, cfg: c, model: m, identity: identity}
-	if err := ops.do(func() error {
+	if err := ops.Do(func() error {
 		if len(fusionPTX) != 0 {
 			fusions, err := loadEG2Fusions(ops, fusionPTX)
 			if err != nil {
@@ -407,17 +414,17 @@ func newEG2AccelWithLoader(m *embeddinggemma2.Model, combined bool, fp16PTX, pac
 			a.ffnFP16, a.ffnGateEpilogue = projection, gate
 		}
 		if len(packedAttnPTX) != 0 {
-			lib, err := ops.loadLibrary(eg2ModulePacked, packedAttnPTX)
+			lib, err := ops.LoadLibrary(eg2ModulePacked, packedAttnPTX)
 			if err != nil {
 				return fmt.Errorf("cuda: load EmbeddingGemma 2 packed attention: %w", err)
 			}
-			pipes := make(map[int]Pipeline)
+			pipes := make(map[int]gpu.Pipeline)
 			for _, ly := range w.Layers {
 				if _, ok := pipes[ly.HeadDim]; ok {
 					continue
 				}
 				spec, _ := launchgeom.EG2PackedAttnSpecForHD(ly.HeadDim)
-				p, err := ops.dev.NewComputePipeline(lib, spec.Entry)
+				p, err := ops.Dev.NewComputePipeline(lib, spec.Entry)
 				if err != nil {
 					return fmt.Errorf("cuda: load EmbeddingGemma 2 packed attention %s: %w", spec.Entry, err)
 				}
@@ -427,13 +434,13 @@ func newEG2AccelWithLoader(m *embeddinggemma2.Model, combined bool, fp16PTX, pac
 			a.packedAttnMode = true
 		}
 		var weightBytes int64
-		upWeight := func(v []float32) Buffer {
+		upWeight := func(v []float32) gpu.Buffer {
 			if len(v) > 0 {
 				weightBytes += gpu.ChargedBytes(int64(len(v)) * 4)
 			}
-			return ops.up(v)
+			return ops.Up(v)
 		}
-		upFFNWeight := func(v []float32) Buffer {
+		upFFNWeight := func(v []float32) gpu.Buffer {
 			if len(fp16PTX) == 0 {
 				return upWeight(v)
 			}
@@ -442,14 +449,14 @@ func newEG2AccelWithLoader(m *embeddinggemma2.Model, combined bool, fp16PTX, pac
 				panic(err)
 			}
 			weightBytes += gpu.ChargedBytes(int64(len(v)) * 2)
-			return gpu.NewBufferOfOn(ops.dev, mem.LineCompanion, packed)
+			return gpu.NewBufferOfOn(ops.Dev, mem.LineCompanion, packed)
 		}
 		a.pleProj, a.pleNorm, a.finalNorm, a.proj = upWeight(w.PLEProj), upWeight(w.PLENorm), upWeight(w.FinalNorm), upWeight(w.Projection)
 		ones := make([]float32, maxHD)
 		for i := range ones {
 			ones[i] = 1
 		}
-		a.ones = ops.up(ones) // synthetic helper, excluded from residentWeightBytes
+		a.ones = ops.Up(ones) // synthetic helper, excluded from residentWeightBytes
 		for _, ly := range w.Layers {
 			a.layers = append(a.layers, eg2Layer{w: ly, inNorm: upWeight(ly.InNorm), q: upWeight(ly.Q), k: upWeight(ly.K), v: upWeight(ly.V), o: upWeight(ly.O),
 				qNorm: upWeight(ly.QNorm), kNorm: upWeight(ly.KNorm), postAttnNorm: upWeight(ly.PostAttnNorm), preFFNorm: upWeight(ly.PreFFNorm),
@@ -457,7 +464,7 @@ func newEG2AccelWithLoader(m *embeddinggemma2.Model, combined bool, fp16PTX, pac
 				pleProj: upWeight(ly.PLEProj), plePostNorm: upWeight(ly.PLEPostNorm)})
 		}
 		a.residentWeightBytes = weightBytes
-		return ops.finish()
+		return ops.Finish()
 	}); err != nil {
 		if cerr := retireEG2AttachLocked(ops); cerr != nil {
 			return nil, fmt.Errorf("cuda: EmbeddingGemma 2 upload: %w", errors.Join(err, cerr))
@@ -467,7 +474,7 @@ func newEG2AccelWithLoader(m *embeddinggemma2.Model, combined bool, fp16PTX, pac
 	var attentionErr error
 	switch {
 	case combined && a.packedAttnMode:
-		a.ops.shortTiled = true
+		a.ops.ShortTiled = true
 	case combined:
 		attentionErr = a.enableCombined()
 	case !a.packedAttnMode && len(fp16PTX) == 0 && len(fusionPTX) == 0 && cudaSupportsEG2(a.identity):
@@ -486,29 +493,29 @@ func (a *eg2Accel) enableCombined() error {
 	if err := a.loadTransposedAttention(false); err != nil {
 		return err
 	}
-	a.ops.shortTiled = true
+	a.ops.ShortTiled = true
 	return nil
 }
 
 // loadTransposedAttention publishes both pipelines together. The default selector can keep
 // stock attention when its driver cannot JIT this optional module.
 func (a *eg2Accel) loadTransposedAttention(optional bool) error {
-	if a.combinedAttention != (Pipeline{}) {
+	if a.combinedAttention != (gpu.Pipeline{}) {
 		return nil
 	}
-	if err := a.ops.do(func() error {
-		lib, err := a.ops.loadLibrary(eg2ModuleTransposed, eg2CombinedAttentionPTX)
+	if err := a.ops.Do(func() error {
+		lib, err := a.ops.LoadLibrary(eg2ModuleTransposed, eg2CombinedAttentionPTX)
 		if err != nil {
 			if optional && eg2TransposedJITUnsupported(err) {
 				return nil
 			}
 			return err
 		}
-		transpose, err := a.ops.dev.NewComputePipeline(lib, "eg2_transpose_keys")
+		transpose, err := a.ops.Dev.NewComputePipeline(lib, "eg2_transpose_keys")
 		if err != nil {
 			return err
 		}
-		attention, err := a.ops.dev.NewComputePipeline(lib, "eg2_attention_transposed")
+		attention, err := a.ops.Dev.NewComputePipeline(lib, "eg2_attention_transposed")
 		if err != nil {
 			return err
 		}
@@ -543,12 +550,12 @@ func (a *eg2Accel) Close() error {
 		return nil
 	}
 	if a.broken != nil && !a.teardownStarted {
-		if err := a.ops.do(a.drainQueue); err != nil {
+		if err := a.ops.Do(a.drainQueue); err != nil {
 			return fmt.Errorf("cuda: EmbeddingGemma 2 Close could not drain the queue, so nothing was freed: %w", err)
 		}
 	}
 	a.teardownStarted = true
-	if err := a.ops.closeChecked(); err != nil {
+	if err := a.ops.CloseChecked(); err != nil {
 		if a.broken == nil {
 			a.broken = fmt.Errorf("cuda: EmbeddingGemma 2 Close release failed: %w", err)
 		}
@@ -564,7 +571,7 @@ func (a *eg2Accel) drainQueue() error {
 		a.defect.drainFails--
 		return errors.New("cuda: planted drain failure")
 	}
-	return a.ops.q.Sync()
+	return a.ops.Q.Sync()
 }
 
 var errEG2Closed = errors.New("cuda: the EmbeddingGemma 2 accelerator is closed")
@@ -685,7 +692,7 @@ func (a *eg2Accel) scratchPlanForLens(lens []int) (eg2ScratchPlan, error) {
 			return eg2ScratchPlan{}, fmt.Errorf("cuda: %w: fused activations exceed their launch element count", embeddinggemma2.ErrUnsupportedBatchShape)
 		}
 	}
-	if a.ffnFP16 != (Pipeline{}) && (T > math.MaxInt32/max(c.Hidden, c.Intermediate) || T > 65535*32) {
+	if a.ffnFP16 != (gpu.Pipeline{}) && (T > math.MaxInt32/max(c.Hidden, c.Intermediate) || T > 65535*32) {
 		return eg2ScratchPlan{}, fmt.Errorf("%w: CUDA FP16 FFN exceeds its launch dimensions", embeddinggemma2.ErrUnsupportedBatchShape)
 	}
 	maxQD, maxKVD := 0, 0
@@ -783,7 +790,7 @@ func (a *eg2Accel) scratchPlanForLens(lens []int) (eg2ScratchPlan, error) {
 			}
 		}
 	}
-	if a.ffnFP16 != (Pipeline{}) || a.packedAttnMode {
+	if a.ffnFP16 != (gpu.Pipeline{}) || a.packedAttnMode {
 		// The final projected rows share their readback with one FP16 conversion status word.
 		oldCharge := gpu.ChargedBytes(int64(p.res) * 4)
 		res, charge, err := checkedBufCharged(1, p.res+1, 4)
@@ -925,7 +932,7 @@ func (a *eg2Accel) Forward(ids []int, keepLayers bool) ([]float32, [][]float32, 
 // buffer; only complete cos/sin pairs are published into a.ropes. Retiring an
 // older smaller table uses ReleaseBufChecked so a failed native close preserves
 // ownership and records releaseErr. The caller is on the executor.
-func (a *eg2Accel) rope(T, hd int, theta float64, pending *[]Buffer, releaseErr *error) (Buffer, Buffer, error) {
+func (a *eg2Accel) rope(T, hd int, theta float64, pending *[]gpu.Buffer, releaseErr *error) (gpu.Buffer, gpu.Buffer, error) {
 	for i := range a.ropes {
 		r := &a.ropes[i]
 		if r.hd != hd || r.theta != theta {
@@ -934,19 +941,19 @@ func (a *eg2Accel) rope(T, hd int, theta float64, pending *[]Buffer, releaseErr 
 		if r.rows >= T {
 			return r.cos, r.sin, nil
 		}
-		if r.cos != (Buffer{}) {
-			if err := a.ops.dev.ReleaseBufChecked(r.cos); err != nil {
+		if r.cos != (gpu.Buffer{}) {
+			if err := a.ops.Dev.ReleaseBufChecked(r.cos); err != nil {
 				*releaseErr = errors.Join(*releaseErr, fmt.Errorf("cuda: release retired RoPE cos table: %w", err))
-				return Buffer{}, Buffer{}, *releaseErr
+				return gpu.Buffer{}, gpu.Buffer{}, *releaseErr
 			}
-			r.cos = Buffer{}
+			r.cos = gpu.Buffer{}
 		}
-		if r.sin != (Buffer{}) {
-			if err := a.ops.dev.ReleaseBufChecked(r.sin); err != nil {
+		if r.sin != (gpu.Buffer{}) {
+			if err := a.ops.Dev.ReleaseBufChecked(r.sin); err != nil {
 				*releaseErr = errors.Join(*releaseErr, fmt.Errorf("cuda: release retired RoPE sin table: %w", err))
-				return Buffer{}, Buffer{}, *releaseErr
+				return gpu.Buffer{}, gpu.Buffer{}, *releaseErr
 			}
-			r.sin = Buffer{}
+			r.sin = gpu.Buffer{}
 		}
 		a.ropes = append(a.ropes[:i], a.ropes[i+1:]...)
 		break
@@ -960,15 +967,15 @@ func (a *eg2Accel) rope(T, hd int, theta float64, pending *[]Buffer, releaseErr 
 			sf[t*hd+i], sf[t*hd+half+i] = sn[t*half+i], sn[t*half+i]
 		}
 	}
-	cos := gpu.NewBufferLenOfOn[float32](a.ops.dev, mem.LineCompanion, len(cf))
+	cos := gpu.NewBufferLenOfOn[float32](a.ops.Dev, mem.LineCompanion, len(cf))
 	*pending = append(*pending, cos)
 	if err := gpu.Upload(cos, cf); err != nil {
-		return Buffer{}, Buffer{}, fmt.Errorf("cuda: upload RoPE cos table: %w", err)
+		return gpu.Buffer{}, gpu.Buffer{}, fmt.Errorf("cuda: upload RoPE cos table: %w", err)
 	}
-	sin := gpu.NewBufferLenOfOn[float32](a.ops.dev, mem.LineCompanion, len(sf))
+	sin := gpu.NewBufferLenOfOn[float32](a.ops.Dev, mem.LineCompanion, len(sf))
 	*pending = append(*pending, sin)
 	if err := gpu.Upload(sin, sf); err != nil {
-		return Buffer{}, Buffer{}, fmt.Errorf("cuda: upload RoPE sin table: %w", err)
+		return gpu.Buffer{}, gpu.Buffer{}, fmt.Errorf("cuda: upload RoPE sin table: %w", err)
 	}
 	*pending = (*pending)[:len(*pending)-2]
 	r := eg2Rope{hd: hd, theta: theta, rows: T, cos: cos, sin: sin}
@@ -1099,30 +1106,30 @@ type eg2RopeKey struct {
 // table is grown before the first copy is queued, so no source a copy reads is replaced under it; the tables are
 // per-call scratch (towerOps.af), freed when the forward's scratch is. Copy errors latch as launch errors do. The
 // caller is on the executor.
-func (a *eg2Accel) batchRope(lens []int, pending *[]Buffer, releaseErr *error) (map[eg2RopeKey][2]Buffer, error) {
+func (a *eg2Accel) batchRope(lens []int, pending *[]gpu.Buffer, releaseErr *error) (map[eg2RopeKey][2]gpu.Buffer, error) {
 	o := a.ops
 	T, maxT := 0, 0
 	for _, n := range lens {
 		T, maxT = T+n, max(maxT, n)
 	}
 	keys := a.distinctRopeKeys()
-	src := make(map[eg2RopeKey][2]Buffer, len(keys))
+	src := make(map[eg2RopeKey][2]gpu.Buffer, len(keys))
 	for _, k := range keys {
 		cs, sn, err := a.rope(maxT, k.hd, k.theta, pending, releaseErr)
 		if err != nil {
 			return nil, err
 		}
-		src[k] = [2]Buffer{cs, sn}
+		src[k] = [2]gpu.Buffer{cs, sn}
 	}
-	out := map[eg2RopeKey][2]Buffer{}
+	out := map[eg2RopeKey][2]gpu.Buffer{}
 	for _, k := range keys {
-		dst := [2]Buffer{o.af(T * k.hd), o.af(T * k.hd)}
+		dst := [2]gpu.Buffer{o.Af(T * k.hd), o.Af(T * k.hd)}
 		off := 0
 		for _, n := range lens {
 			w := n * k.hd * 4
 			for j := range dst {
-				if o.err == nil {
-					o.err = o.q.Copy2DAsync(dst[j].At(off*k.hd*4), w, src[k][j], w, w, 1)
+				if o.Err == nil {
+					o.Err = o.Q.Copy2DAsync(dst[j].At(off*k.hd*4), w, src[k][j], w, w, 1)
 				}
 			}
 			off += n
@@ -1170,29 +1177,29 @@ func (a *eg2Accel) forwardRows(x0 []float32, lens []int, keepLayers bool) ([]flo
 		ropeReleaseErr error
 		rangeFailed    bool
 	)
-	err = a.ops.do(func() error {
+	err = a.ops.Do(func() error {
 		o := a.ops
 		done := false
-		var pendingRope []Buffer
+		var pendingRope []gpu.Buffer
 		defer func() {
 			// A failed or panicking forward may leave copies and launches queued on its scratch: capture any latched
 			// launch/copy error before clearing o.err, then drain before freeing. If drain fails, retain all possibly
 			// pending buffers (Close frees them once a drain succeeds) and poison the accelerator. If rollback release
 			// fails, preserve ledger ownership of failed frees and poison the accelerator.
 			if !done {
-				latchedErr = o.err
-				o.err = nil
+				latchedErr = o.Err
+				o.Err = nil
 				if e := a.drainQueue(); e != nil {
 					drainErr = e
-					o.scratch = append(o.scratch, pendingRope...)
+					o.Scratch = append(o.Scratch, pendingRope...)
 					pendingRope = nil
 					return
 				}
-				releaseErr = o.releaseScratchChecked()
+				releaseErr = o.ReleaseScratchChecked()
 				for _, b := range pendingRope {
-					if e := o.dev.ReleaseBufChecked(b); e != nil {
+					if e := o.Dev.ReleaseBufChecked(b); e != nil {
 						releaseErr = errors.Join(releaseErr, e)
-						o.scratch = append(o.scratch, b)
+						o.Scratch = append(o.Scratch, b)
 					}
 				}
 				pendingRope = nil
@@ -1201,25 +1208,25 @@ func (a *eg2Accel) forwardRows(x0 []float32, lens []int, keepLayers bool) ([]flo
 				}
 				return
 			}
-			if e := o.releaseScratchChecked(); e != nil {
+			if e := o.ReleaseScratchChecked(); e != nil {
 				releaseErr = e
 			}
 		}()
-		af := o.af
+		af := o.Af
 		x, xn := af(plan.x), af(plan.xn)
 		q, k, v := af(plan.q), af(plan.k), af(plan.v)
 		ctx := af(plan.ctx)
 		ob, g, u, f := af(plan.ob), af(plan.g), af(plan.u), af(plan.f)
 		ple := af(plan.ple)
-		var pleL Buffer
+		var pleL gpu.Buffer
 		if a.fusions == nil {
 			pleL = af(plan.pleL)
 		}
 		gg, pr := af(plan.gg), af(plan.pr)
 		res := af(plan.res)
-		var qkv, slLoB, slHiB, fuLoB, fuHiB Buffer
+		var qkv, slLoB, slHiB, fuLoB, fuHiB gpu.Buffer
 		type packedTileBufs struct {
-			segStart, segLen, qLocal0 Buffer
+			segStart, segLen, qLocal0 gpu.Buffer
 			nTiles                    int32
 		}
 		var packedBufs map[int]packedTileBufs
@@ -1227,9 +1234,9 @@ func (a *eg2Accel) forwardRows(x0 []float32, lens []int, keepLayers bool) ([]flo
 			packedBufs = make(map[int]packedTileBufs, len(plan.packedBMs))
 			for _, bm := range plan.packedBMs {
 				tab := plan.packedTabs[bm]
-				ssb, slb, q0b := o.ai(len(tab.SegStart)), o.ai(len(tab.SegLen)), o.ai(len(tab.QLocal0))
+				ssb, slb, q0b := o.Ai(len(tab.SegStart)), o.Ai(len(tab.SegLen)), o.Ai(len(tab.QLocal0))
 				for _, up := range []struct {
-					dst Buffer
+					dst gpu.Buffer
 					src []int32
 				}{{ssb, tab.SegStart}, {slb, tab.SegLen}, {q0b, tab.QLocal0}} {
 					if e := gpu.Upload(up.dst, up.src); e != nil {
@@ -1240,9 +1247,9 @@ func (a *eg2Accel) forwardRows(x0 []float32, lens []int, keepLayers bool) ([]flo
 			}
 		} else {
 			qkv = af(plan.qkv)
-			slLoB, slHiB, fuLoB, fuHiB = o.ai(plan.bounds), o.ai(plan.bounds), o.ai(plan.bounds), o.ai(plan.bounds)
+			slLoB, slHiB, fuLoB, fuHiB = o.Ai(plan.bounds), o.Ai(plan.bounds), o.Ai(plan.bounds), o.Ai(plan.bounds)
 			for _, b := range []struct {
-				dst Buffer
+				dst gpu.Buffer
 				v   []int32
 			}{{slLoB, slLo}, {slHiB, slHi}, {fuLoB, fuLo}, {fuHiB, fuHi}} {
 				if e := gpu.Upload(b.dst, b.v); e != nil {
@@ -1253,7 +1260,7 @@ func (a *eg2Accel) forwardRows(x0 []float32, lens []int, keepLayers bool) ([]flo
 		if e := gpu.Upload(x, x0); e != nil {
 			return e
 		}
-		var batchRope map[eg2RopeKey][2]Buffer
+		var batchRope map[eg2RopeKey][2]gpu.Buffer
 		if len(lens) > 1 {
 			var e error
 			batchRope, e = a.batchRope(lens, &pendingRope, &ropeReleaseErr)
@@ -1261,35 +1268,35 @@ func (a *eg2Accel) forwardRows(x0 []float32, lens []int, keepLayers bool) ([]flo
 				return e
 			}
 		}
-		var invalidInput Buffer
-		if a.ffnFP16 != (Pipeline{}) || a.packedAttnMode {
+		var invalidInput gpu.Buffer
+		if a.ffnFP16 != (gpu.Pipeline{}) || a.packedAttnMode {
 			invalidInput = res.At((plan.res - 1) * 4)
-			if err := o.q.ZeroAsync(invalidInput, 4); err != nil {
+			if err := o.Q.ZeroAsync(invalidInput, 4); err != nil {
 				return err
 			}
 		}
 		eps := float32(c.RMSNormEps)
 		// Per-layer inputs, as the CPU forms them: RMSNorm(W · x0 · hidden^-0.5) over [T, L, P].
-		o.gemm(x, a.pleProj, ple, T, L*P, H)
-		o.scaleVec(ple, T*L*P, float32(1/math.Sqrt(float64(H))))
-		o.rms(ple, a.pleNorm, ple, T*L, P, eps)
+		o.GEMM(x, a.pleProj, ple, T, L*P, H)
+		o.ScaleVec(ple, T*L*P, float32(1/math.Sqrt(float64(H))))
+		o.RMS(ple, a.pleNorm, ple, T*L, P, eps)
 		for li := range a.layers {
 			ly := &a.layers[li]
 			hd, nKV := ly.w.HeadDim, ly.w.KVHeads
 			qd, kvd, group := nH*hd, nKV*hd, nH/nKV
 			// attention
-			o.rms(x, ly.inNorm, xn, T, H, eps)
-			o.gemm(xn, ly.q, q, T, qd, H)
-			o.gemm(xn, ly.k, k, T, kvd, H)
-			o.gemm(xn, ly.v, v, T, kvd, H)
-			o.rms(q, ly.qNorm, q, T*nH, hd, eps)
-			o.rms(k, ly.kNorm, k, T*nKV, hd, eps)
+			o.RMS(x, ly.inNorm, xn, T, H, eps)
+			o.GEMM(xn, ly.q, q, T, qd, H)
+			o.GEMM(xn, ly.k, k, T, kvd, H)
+			o.GEMM(xn, ly.v, v, T, kvd, H)
+			o.RMS(q, ly.qNorm, q, T*nH, hd, eps)
+			o.RMS(k, ly.kNorm, k, T*nKV, hd, eps)
 			vw := a.ones
 			if a.defect.vNormWeight {
 				vw = ly.kNorm
 			}
-			o.rms(v, vw, v, T*nKV, hd, eps)
-			var cs, sn Buffer
+			o.RMS(v, vw, v, T*nKV, hd, eps)
+			var cs, sn gpu.Buffer
 			if r, ok := batchRope[eg2RopeKey{hd, ly.w.RopeTheta}]; ok {
 				cs, sn = r[0], r[1]
 			} else {
@@ -1299,8 +1306,8 @@ func (a *eg2Accel) forwardRows(x0 []float32, lens []int, keepLayers bool) ([]flo
 					return e
 				}
 			}
-			o.ropeHalfTo(q, cs, sn, T, nH, hd)
-			o.ropeHalfTo(k, cs, sn, T, nKV, hd)
+			o.RopeHalfTo(q, cs, sn, T, nH, hd)
+			o.RopeHalfTo(k, cs, sn, T, nKV, hd)
 			if a.packedAttnMode {
 				spec, _ := launchgeom.EG2PackedAttnSpecForHD(hd)
 				td := packedBufs[spec.BM]
@@ -1312,23 +1319,23 @@ func (a *eg2Accel) forwardRows(x0 []float32, lens []int, keepLayers bool) ([]flo
 					// radii such as 2^32 preserve full-segment visibility instead of wrapping.
 					win = maxT
 				}
-				o.cls(clsAttn)
-				o.launch(a.packedAttn[hd], LaunchConfig{
+				o.Cls(tower.ClsAttn)
+				o.Launch(a.packedAttn[hd], gpu.LaunchConfig{
 					GridX: uint32(nH), GridY: uint32(td.nTiles), GridZ: 1,
 					BlockX: spec.BlockX, BlockY: 1, BlockZ: 1, SharedMemBytes: spec.SharedMem,
-				}, Arg(q), Arg(k), Arg(v),
-					Arg(td.segStart), Arg(td.segLen), Arg(td.qLocal0),
+				}, gpu.Arg(q), gpu.Arg(k), gpu.Arg(v),
+					gpu.Arg(td.segStart), gpu.Arg(td.segLen), gpu.Arg(td.qLocal0),
 					i32(int32(nH)), i32(int32(nKV)), i32(int32(win)),
-					f32v(1), i32(td.nTiles), Arg(ctx), Arg(invalidInput))
+					f32v(1), i32(td.nTiles), gpu.Arg(ctx), gpu.Arg(invalidInput))
 			} else {
 				pitch := (T + 31) &^ 31
 				// Gate on the longest individual input. A batch of short inputs keeps stock attention.
-				transposed := a.combinedAttention != (Pipeline{}) && maxT >= 128 && hd <= 512 && kvd*pitch <= qkv.Len()
+				transposed := a.combinedAttention != (gpu.Pipeline{}) && maxT >= 128 && hd <= 512 && kvd*pitch <= qkv.Len()
 				if transposed {
-					o.launch(a.combinedTranspose, LaunchConfig{
+					o.Launch(a.combinedTranspose, gpu.LaunchConfig{
 						GridX: uint32((kvd + 31) / 32), GridY: uint32((T + 31) / 32), GridZ: 1,
 						BlockX: 32, BlockY: 8, BlockZ: 1,
-					}, Arg(k), Arg(qkv), i32(int32(T)), i32(int32(kvd)), i32(int32(pitch)))
+					}, gpu.Arg(k), gpu.Arg(qkv), i32(int32(T)), i32(int32(kvd)), i32(int32(pitch)))
 				} else if e := a.pack(qkv, q, k, v, T, nH, hd, group); e != nil {
 					return e
 				}
@@ -1336,41 +1343,41 @@ func (a *eg2Accel) forwardRows(x0 []float32, lens []int, keepLayers bool) ([]flo
 				if ly.w.Full {
 					lo, hi, maxSeg = fuLoB, fuHiB, maxT
 				}
-				o.cls(clsAttn)
+				o.Cls(tower.ClsAttn)
 				grid := gpu.SegAttentionGrid(T, nH, maxSeg)
 				if transposed {
-					o.launch(a.combinedAttention, grid, Arg(q), Arg(qkv), Arg(v), Arg(ctx), Arg(lo), Arg(hi),
+					o.Launch(a.combinedAttention, grid, gpu.Arg(q), gpu.Arg(qkv), gpu.Arg(v), gpu.Arg(ctx), gpu.Arg(lo), gpu.Arg(hi),
 						i32(int32(T)), i32(int32(nH)), i32(int32(nKV)), i32(int32(hd)), i32(int32(pitch)), f32v(1))
 				} else {
-					o.launch(o.vit.AttentionSeg, grid, Arg(qkv), Arg(ctx), Arg(lo), Arg(hi),
+					o.Launch(o.ViT.AttentionSeg, grid, gpu.Arg(qkv), gpu.Arg(ctx), gpu.Arg(lo), gpu.Arg(hi),
 						i32(int32(T)), i32(int32(nH)), i32(int32(hd)), f32v(1))
 				}
 			}
-			o.gemm(ctx, ly.o, ob, T, H, qd)
-			o.rms(ob, ly.postAttnNorm, ob, T, H, eps)
-			o.addVec(x, ob, T*H)
+			o.GEMM(ctx, ly.o, ob, T, H, qd)
+			o.RMS(ob, ly.postAttnNorm, ob, T, H, eps)
+			o.AddVec(x, ob, T*H)
 			// MLP
-			o.rms(x, ly.preFFNorm, xn, T, H, eps)
+			o.RMS(x, ly.preFFNorm, xn, T, H, eps)
 			a.ffnGateUp(xn, ly.gate, ly.up, g, u, invalidInput, T, I, H)
 			a.ffnGEMM(g, ly.down, f, invalidInput, T, H, I)
-			o.rms(f, ly.postFFNorm, f, T, H, eps)
-			o.addVec(x, f, T*H)
+			o.RMS(f, ly.postFFNorm, f, T, H, eps)
+			o.AddVec(x, f, T*H)
 			// PLE block, then the layer scalar over the whole residual sum
-			o.gemm(x, ly.pleGate, gg, T, P, H)
+			o.GEMM(x, ly.pleGate, gg, T, P, H)
 			a.pleActivation(gg, ple, pleL, T, li)
-			o.gemm(gg, ly.pleProj, pr, T, H, P)
-			o.rms(pr, ly.plePostNorm, pr, T, H, eps)
-			o.addVec(x, pr, T*H)
-			o.scaleVec(x, T*H, ly.w.LayerScalar)
-			if a.defect.failForward && o.err == nil {
+			o.GEMM(gg, ly.pleProj, pr, T, H, P)
+			o.RMS(pr, ly.plePostNorm, pr, T, H, eps)
+			o.AddVec(x, pr, T*H)
+			o.ScaleVec(x, T*H, ly.w.LayerScalar)
+			if a.defect.failForward && o.Err == nil {
 				if a.defect.failForwardErr != nil {
-					o.err = a.defect.failForwardErr
+					o.Err = a.defect.failForwardErr
 				} else {
-					o.err = errors.New("cuda: planted forward failure")
+					o.Err = errors.New("cuda: planted forward failure")
 				}
 			}
 			if keepLayers {
-				if e := o.finish(); e != nil {
+				if e := o.Finish(); e != nil {
 					return fmt.Errorf("layer %d: %w", li, e)
 				}
 				h := make([]float32, T*H)
@@ -1380,9 +1387,9 @@ func (a *eg2Accel) forwardRows(x0 []float32, lens []int, keepLayers bool) ([]flo
 				layers = append(layers, h)
 			}
 		}
-		o.rms(x, a.finalNorm, xn, T, H, eps)
-		o.gemm(xn, a.proj, res, T, E, H)
-		if e := o.finish(); e != nil {
+		o.RMS(x, a.finalNorm, xn, T, H, eps)
+		o.GEMM(xn, a.proj, res, T, E, H)
+		if e := o.Finish(); e != nil {
 			return e
 		}
 		out = make([]float32, plan.res)
@@ -1390,7 +1397,7 @@ func (a *eg2Accel) forwardRows(x0 []float32, lens []int, keepLayers bool) ([]flo
 			return e
 		}
 		done = true
-		if invalidInput != (Buffer{}) {
+		if invalidInput != (gpu.Buffer{}) {
 			last := len(out) - 1
 			if math.Float32bits(out[last]) != 0 {
 				rangeFailed = true
@@ -1430,22 +1437,22 @@ func (a *eg2Accel) forwardRows(x0 []float32, lens []int, keepLayers bool) ([]flo
 
 // pack gathers q [T, nH*hd], k and v [T, nKV*hd] into qkv [T, 3, nH, hd], attention_seg's layout, by strided device
 // copies: q whole, then each query head h's k and v from KV head h/group. It latches the first error as a launch does.
-func (a *eg2Accel) pack(qkv, q, k, v Buffer, T, nH, hd, group int) error {
+func (a *eg2Accel) pack(qkv, q, k, v gpu.Buffer, T, nH, hd, group int) error {
 	o := a.ops
-	if o.err != nil {
+	if o.Err != nil {
 		return nil
 	}
 	qd, kvd := nH*hd, nH/group*hd
 	row := 3 * qd * 4
-	if e := o.q.Copy2DAsync(qkv, row, q, qd*4, qd*4, T); e != nil {
+	if e := o.Q.Copy2DAsync(qkv, row, q, qd*4, qd*4, T); e != nil {
 		return e
 	}
 	for h := range nH {
 		g := h / group
-		if e := o.q.Copy2DAsync(qkv.At((qd+h*hd)*4), row, k.At(g*hd*4), kvd*4, hd*4, T); e != nil {
+		if e := o.Q.Copy2DAsync(qkv.At((qd+h*hd)*4), row, k.At(g*hd*4), kvd*4, hd*4, T); e != nil {
 			return e
 		}
-		if e := o.q.Copy2DAsync(qkv.At((2*qd+h*hd)*4), row, v.At(g*hd*4), kvd*4, hd*4, T); e != nil {
+		if e := o.Q.Copy2DAsync(qkv.At((2*qd+h*hd)*4), row, v.At(g*hd*4), kvd*4, hd*4, T); e != nil {
 			return e
 		}
 	}

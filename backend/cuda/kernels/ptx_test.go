@@ -73,14 +73,22 @@ var (
 	ropePairwisePTX          = readPTX("rope_pairwise")
 )
 
-// readPTX reads cuda/testdata/<name>.ptx. The files are committed, so a missing one is a broken checkout and panics
+// readPTX reads <name>.ptx from cuda's testdata directories. The files are committed, so a missing one is a broken checkout and panics
 // at init rather than surfacing later as a module-load error inside some test.
 func readPTX(name string) []byte {
-	b, err := os.ReadFile(filepath.Join("..", "testdata", name+".ptx"))
-	if err != nil {
-		panic(fmt.Sprintf("cuda/kernels: %v", err))
+	var lastErr error
+	for _, dir := range []string{
+		filepath.Join("..", "testdata"),
+		filepath.Join("..", "eg2", "testdata"),
+		filepath.Join("..", "internal", "tower", "testdata"),
+	} {
+		b, err := os.ReadFile(filepath.Join(dir, name+".ptx"))
+		if err == nil {
+			return b
+		}
+		lastErr = err
 	}
-	return b
+	panic(fmt.Sprintf("cuda/kernels: %v", lastErr))
 }
 
 // moePTXOrOverride returns moe.ptx, or the file GOINFER_MOE_PTX_FILE names: a scratch build at a different MOE_MAX_E,

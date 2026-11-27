@@ -224,6 +224,27 @@ func TestHeavyPartition_cudaTreeFitsTheTable(t *testing.T) {
 	if got := byGroup["kv10"]; !slices.Equal(got, []string{"TestKV10_longContextFidelity"}) {
 		t.Errorf("group kv10 = %v, want [TestKV10_longContextFidelity] alone, out of the shared group", got)
 	}
+	for _, sub := range []string{
+		filepath.Join("backend", "cuda", "eg2"),
+		filepath.Join("backend", "cuda", "internal", "tower"),
+	} {
+		subRefs, err := testReachableLiterals(filepath.Join(root, sub), []string{"cuda", "goinfer_testhooks"}, filepath.Join(root, "testdata", "assets.json"))
+		if err != nil {
+			t.Fatal(err)
+		}
+		var subListed []string
+		for k := range subRefs {
+			subListed = append(subListed, k)
+		}
+		slices.Sort(subListed)
+		if len(subListed) == 0 {
+			t.Fatalf("found 0 tests in %s", sub)
+		}
+		_, subProblems := heavyPartition(subListed, subRefs, nil)
+		for _, p := range subProblems {
+			t.Errorf("%s: %s", sub, p)
+		}
+	}
 }
 
 func TestParseProcStat(t *testing.T) {

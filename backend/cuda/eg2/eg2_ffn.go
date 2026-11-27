@@ -1,12 +1,14 @@
 //go:build cuda
 
-package cuda
+package eg2
 
 import (
 	"errors"
 	"fmt"
 	"math"
 
+	gpu "github.com/pkieltyka/goinfer/backend/cuda/internal/gpudev"
+	"github.com/pkieltyka/goinfer/backend/cuda/internal/tower"
 	"github.com/pkieltyka/goinfer/backend/cuda/internal/wpack"
 	"github.com/pkieltyka/goinfer/embeddinggemma2"
 )
@@ -46,7 +48,7 @@ func requireEG2FP16Capability(capability embeddinggemma2.CUDAComputeCapability, 
 	major, minor := capability.Major, capability.Minor
 	if !cudaSupportsPTX(major, minor) {
 		return fmt.Errorf("%w: CUDA compute capability %d.%d is below the default kernel target %d.%d",
-			embeddinggemma2.ErrNoDevice, major, minor, ptxTargetMajor, ptxTargetMinor)
+			embeddinggemma2.ErrNoDevice, major, minor, tower.PTXTargetMajor, tower.PTXTargetMinor)
 	}
 	if !eg2FP16Supported(major) {
 		return fmt.Errorf("%w: %q needs CUDA compute capability %d.0, device has %d.%d",
@@ -55,48 +57,48 @@ func requireEG2FP16Capability(capability embeddinggemma2.CUDAComputeCapability, 
 	return nil
 }
 
-func eg2FP16Pipelines(ops *towerOps, ptx []byte, fuseGate bool, capability embeddinggemma2.CUDAComputeCapability, capabilityErr error) (projection, gate Pipeline, err error) {
+func eg2FP16Pipelines(ops *tower.Ops, ptx []byte, fuseGate bool, capability embeddinggemma2.CUDAComputeCapability, capabilityErr error) (projection, gate gpu.Pipeline, err error) {
 	if err := requireEG2FP16Capability(capability, capabilityErr); err != nil {
-		return Pipeline{}, Pipeline{}, err
+		return gpu.Pipeline{}, gpu.Pipeline{}, err
 	}
-	lib, err := ops.loadLibrary(eg2ModuleFFN, ptx)
+	lib, err := ops.LoadLibrary(eg2ModuleFFN, ptx)
 	if err != nil {
-		return Pipeline{}, Pipeline{}, fmt.Errorf("cuda: load FP16 FFN: %w", err)
+		return gpu.Pipeline{}, gpu.Pipeline{}, fmt.Errorf("cuda: load FP16 FFN: %w", err)
 	}
-	projection, err = ops.dev.NewComputePipeline(lib, "eg2_ffn_fp16")
+	projection, err = ops.Dev.NewComputePipeline(lib, "eg2_ffn_fp16")
 	if err != nil {
-		return Pipeline{}, Pipeline{}, err
+		return gpu.Pipeline{}, gpu.Pipeline{}, err
 	}
 	if fuseGate {
-		gate, err = ops.dev.NewComputePipeline(lib, "eg2_ffn_fp16_gate_epilogue")
+		gate, err = ops.Dev.NewComputePipeline(lib, "eg2_ffn_fp16_gate_epilogue")
 		if err != nil {
-			return Pipeline{}, Pipeline{}, fmt.Errorf("cuda: load FP16 FFN gate epilogue: %w", err)
+			return gpu.Pipeline{}, gpu.Pipeline{}, fmt.Errorf("cuda: load FP16 FFN gate epilogue: %w", err)
 		}
 	}
 	return projection, gate, nil
 }
 
-func eg2FP16Grid(m, n int) LaunchConfig {
-	return LaunchConfig{
+func eg2FP16Grid(m, n int) gpu.LaunchConfig {
+	return gpu.LaunchConfig{
 		GridX: uint32((n + 63) / 64), GridY: uint32((m + 31) / 32), GridZ: 1,
 		BlockX: 128, BlockY: 1, BlockZ: 1,
 	}
 }
 
-func (a *eg2Accel) ffnGEMM(x, w, out, invalidInput Buffer, m, n, k int) {
+func (a *eg2Accel) ffnGEMM(x, w, out, invalidInput gpu.Buffer, m, n, k int) {
 	o := a.ops
-	if a.ffnFP16 == (Pipeline{}) {
-		o.gemm(x, w, out, m, n, k)
+	if a.ffnFP16 == (gpu.Pipeline{}) {
+		o.GEMM(x, w, out, m, n, k)
 		return
 	}
-	o.cls(clsGEMM)
-	o.profGEMM(m, n, k)
-	o.launch(a.ffnFP16, eg2FP16Grid(m, n),
-		Arg(x), Arg(w), Arg(out), Arg(invalidInput), i32(int32(m)), i32(int32(n)), i32(int32(k)))
+	o.Cls(tower.ClsGEMM)
+	o.ProfGEMM(m, n, k)
+	o.Launch(a.ffnFP16, eg2FP16Grid(m, n),
+		gpu.Arg(x), gpu.Arg(w), gpu.Arg(out), gpu.Arg(invalidInput), i32(int32(m)), i32(int32(n)), i32(int32(k)))
 }
 
-func (a *eg2Accel) ffnGateUp(x, gateWeights, upWeights, gate, up, invalidInput Buffer, m, n, k int) {
-	if a.ffnGateEpilogue == (Pipeline{}) {
+func (a *eg2Accel) ffnGateUp(x, gateWeights, upWeights, gate, up, invalidInput gpu.Buffer, m, n, k int) {
+	if a.ffnGateEpilogue == (gpu.Pipeline{}) {
 		a.ffnGEMM(x, gateWeights, gate, invalidInput, m, n, k)
 		a.ffnGEMM(x, upWeights, up, invalidInput, m, n, k)
 		a.ffnActivation(gate, up, m*n)
@@ -105,8 +107,8 @@ func (a *eg2Accel) ffnGateUp(x, gateWeights, upWeights, gate, up, invalidInput B
 	// The gate epilogue reads the completed up projection on the same queue.
 	a.ffnGEMM(x, upWeights, up, invalidInput, m, n, k)
 	o := a.ops
-	o.cls(clsGEMM)
-	o.profGEMM(m, n, k)
-	o.launch(a.ffnGateEpilogue, eg2FP16Grid(m, n),
-		Arg(x), Arg(gateWeights), Arg(gate), Arg(up), Arg(invalidInput), i32(int32(m)), i32(int32(n)), i32(int32(k)))
+	o.Cls(tower.ClsGEMM)
+	o.ProfGEMM(m, n, k)
+	o.Launch(a.ffnGateEpilogue, eg2FP16Grid(m, n),
+		gpu.Arg(x), gpu.Arg(gateWeights), gpu.Arg(gate), gpu.Arg(up), gpu.Arg(invalidInput), i32(int32(m)), i32(int32(n)), i32(int32(k)))
 }

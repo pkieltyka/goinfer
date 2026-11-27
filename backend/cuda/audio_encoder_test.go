@@ -21,13 +21,15 @@ import (
 func TestAudioGeluErf_bitsMatchContract(t *testing.T) {
 	ops := newTestTower(t, 16)
 	var pm Pipeline
-	ops.mustRun(t, func() {})
-	if err := ops.do(func() error {
-		lib, e := ops.dev.CompileLibrary(audioEncoderPTX)
+	if err := ops.Do(func() error { defer ops.ReleaseScratch(); return ops.Finish() }); err != nil {
+		t.Fatal(err)
+	}
+	if err := ops.Do(func() error {
+		lib, e := ops.Dev.CompileLibrary(audioEncoderPTX)
 		if e != nil {
 			return e
 		}
-		pm, e = ops.dev.NewComputePipeline(lib, "audio_gelu_erf")
+		pm, e = ops.Dev.NewComputePipeline(lib, "audio_gelu_erf")
 		return e
 	}); err != nil {
 		t.Fatal(err)
@@ -44,14 +46,14 @@ func TestAudioGeluErf_bitsMatchContract(t *testing.T) {
 	want := make([]float32, len(src))
 	linalg.GELUContractInto(want, src)
 	got := make([]float32, len(src))
-	if err := ops.do(func() error {
-		defer ops.releaseScratch()
-		b := ops.af(len(src))
+	if err := ops.Do(func() error {
+		defer ops.ReleaseScratch()
+		b := ops.Af(len(src))
 		if e := gpu.Upload(b, src); e != nil {
 			return e
 		}
-		ops.launch(pm, gpu.Grid1D(len(src), 256), Arg(b), i64(int64(len(src))))
-		if e := ops.finish(); e != nil {
+		ops.Launch(pm, gpu.Grid1D(len(src), 256), Arg(b), i64(int64(len(src))))
+		if e := ops.Finish(); e != nil {
 			return e
 		}
 		return gpu.Download(b, got)
@@ -76,12 +78,12 @@ func TestAudioGeluErf_bitsMatchContract(t *testing.T) {
 func TestAudioIm2col_bothStems(t *testing.T) {
 	ops := newTestTower(t, 16)
 	var pm Pipeline
-	if err := ops.do(func() error {
-		lib, e := ops.dev.CompileLibrary(audioEncoderPTX)
+	if err := ops.Do(func() error {
+		lib, e := ops.Dev.CompileLibrary(audioEncoderPTX)
 		if e != nil {
 			return e
 		}
-		pm, e = ops.dev.NewComputePipeline(lib, "audio_im2col_k3")
+		pm, e = ops.Dev.NewComputePipeline(lib, "audio_im2col_k3")
 		return e
 	}); err != nil {
 		t.Fatal(err)
@@ -112,14 +114,14 @@ func TestAudioIm2col_bothStems(t *testing.T) {
 			}
 		}
 		got := make([]float32, n)
-		if err := ops.do(func() error {
-			defer ops.releaseScratch()
-			s, d := ops.af(len(src)), ops.af(n)
+		if err := ops.Do(func() error {
+			defer ops.ReleaseScratch()
+			s, d := ops.Af(len(src)), ops.Af(n)
 			if e := gpu.Upload(s, src); e != nil {
 				return e
 			}
-			ops.launch(pm, gpu.Grid1D(n, 256), Arg(s), Arg(d), i32(int32(tc.Tin)), i32(int32(tc.stride)), i32(int32(tc.C)), i64(int64(tc.chStride)), i64(int64(tc.tStride)), i64(int64(n)))
-			if e := ops.finish(); e != nil {
+			ops.Launch(pm, gpu.Grid1D(n, 256), Arg(s), Arg(d), i32(int32(tc.Tin)), i32(int32(tc.stride)), i32(int32(tc.C)), i64(int64(tc.chStride)), i64(int64(tc.tStride)), i64(int64(n)))
+			if e := ops.Finish(); e != nil {
 				return e
 			}
 			return gpu.Download(d, got)

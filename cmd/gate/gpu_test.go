@@ -435,7 +435,15 @@ func TestGatePTX_nothingVerifiedIsRed(t *testing.T) {
 	if rc := runPTX(&out, ""); rc != 1 {
 		t.Errorf("gate ptx with no NVRTC exited %d, want 1\n%s", rc, out.String())
 	}
-	all, _ := filepath.Glob(filepath.Join("backend", "cuda", "testdata", "*.ptx"))
+	var all []string
+	for _, dir := range []string{
+		filepath.Join("backend", "cuda", "testdata"),
+		filepath.Join("backend", "cuda", "eg2", "testdata"),
+		filepath.Join("backend", "cuda", "internal", "tower", "testdata"),
+	} {
+		m, _ := filepath.Glob(filepath.Join(dir, "*.ptx"))
+		all = append(all, m...)
+	}
 	if want := fmt.Sprintf("zero of %d artifacts verified", len(all)); len(all) == 0 || !strings.Contains(out.String(), want) {
 		t.Errorf("gate ptx did not count every committed .ptx (%d of them, the f16-KV and softcap twins included), want %q in:\n%s", len(all), want, out.String())
 	}
@@ -478,7 +486,7 @@ func TestBuildPTX_towerBaseDoesNotDependOnTheCheckoutDirectory(t *testing.T) {
 		t.Skip("no NVRTC V12.9.86 here")
 	}
 	src := filepath.Join("backend", "cuda")
-	committed, err := os.ReadFile(filepath.Join(src, "testdata", "tower_base.ptx"))
+	committed, err := os.ReadFile(filepath.Join(src, "internal", "tower", "testdata", "tower_base.ptx"))
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -505,7 +513,7 @@ func TestBuildPTX_towerBaseDoesNotDependOnTheCheckoutDirectory(t *testing.T) {
 		if out, err := cmd.CombinedOutput(); err != nil {
 			t.Fatalf("build_ptx.sh in %s: %v\n%s", name, err, out)
 		}
-		got, err := os.ReadFile(filepath.Join(dir, "testdata", "tower_base.ptx"))
+		got, err := os.ReadFile(filepath.Join(dir, "internal", "tower", "testdata", "tower_base.ptx"))
 		if err != nil {
 			t.Fatal(err)
 		}

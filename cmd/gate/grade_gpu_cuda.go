@@ -11,12 +11,12 @@ import (
 // cgofree's is a function of the build and ldd's recorded output. The live gate and `gate gpu -replay` print through these.
 
 var (
-	cudaSuiteCell = cell{Name: "cuda-suite", Pkgs: []string{"./backend/cuda/", "./backend/cuda/kernels/"}, Tags: []string{"cuda"},
+	cudaSuiteCell = cell{Name: "cuda-suite", Pkgs: []string{"./backend/cuda/", "./backend/cuda/eg2/", "./backend/cuda/internal/tower/", "./backend/cuda/kernels/"}, Tags: []string{"cuda"},
 		Serial: true, Extra: []string{"-short"}, Env: map[string]string{"CGO_ENABLED": "0"}}
 	// The parity cell declares its timeout: without it the cell inherits go's 10m default, and an overrun reports
 	// "FAIL <pkg> 608.417s" with no test named, indistinguishable from a crash until detailLines dumps the tail. It is the
 	// package's wall on a quiet card plus headroom; when that wall nears it, raise it (docs/code-notes/cmd-gate.md, "cudaParityCell: timeout").
-	cudaParityCell = cell{Name: "cuda-parity", Pkgs: []string{"./backend/cuda/"}, Tags: []string{"cuda", "goinfer_testhooks"},
+	cudaParityCell = cell{Name: "cuda-parity", Pkgs: []string{"./backend/cuda/", "./backend/cuda/eg2/", "./backend/cuda/internal/tower/"}, Tags: []string{"cuda", "goinfer_testhooks"},
 		Serial: true, Timeout: "35m", Env: map[string]string{"CGO_ENABLED": "0"}}
 	// The graphs cell is separate from parity and labelled FORCED, deliberately. admitGraphs declines under DEFAULT compute
 	// mode without MPS, which is correct production behaviour, so on this box capture and replay are otherwise never

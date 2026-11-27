@@ -7,6 +7,7 @@ import (
 	"sync"
 
 	gpu "github.com/pkieltyka/goinfer/backend/cuda/internal/gpudev"
+	"github.com/pkieltyka/goinfer/backend/cuda/internal/tower"
 	"github.com/pkieltyka/goinfer/internal/vision"
 	"github.com/pkieltyka/goinfer/multimodal"
 )
@@ -65,7 +66,7 @@ type gridDefect struct {
 
 type gridTower struct {
 	mu                  sync.Mutex
-	ops                 *towerOps
+	ops                 *tower.Ops
 	kind                gridKind
 	hidden, inter       int
 	heads, hd, patchDim int
@@ -83,7 +84,7 @@ func (a *gridTower) Name() string { return "cuda" }
 func (a *gridTower) Close() error {
 	a.mu.Lock()
 	defer a.mu.Unlock()
-	a.ops.close()
+	a.ops.Close()
 	return nil
 }
 
@@ -91,7 +92,7 @@ func newGridTower(kind gridKind, hidden, inter, heads, patchDim int, eps float64
 	if heads <= 0 || hidden%heads != 0 || (hidden/heads)%2 != 0 {
 		return nil, fmt.Errorf("cuda: vision tower hidden %d over %d heads: the kernels need an even head_dim dividing hidden", hidden, heads)
 	}
-	ops, err := newTowerOps(max(hidden, inter))
+	ops, err := tower.New(max(hidden, inter))
 	if err != nil {
 		return nil, err
 	}
@@ -99,7 +100,7 @@ func newGridTower(kind gridKind, hidden, inter, heads, patchDim int, eps float64
 }
 
 func (a *gridTower) proj(p vision.VisionProj) gridProj {
-	return gridProj{w: a.ops.up(p.W), b: a.ops.up(p.B), out: p.Out, in: p.In}
+	return gridProj{w: a.ops.Up(p.W), b: a.ops.Up(p.B), out: p.Out, in: p.In}
 }
 
 // splitQKV uploads a fused [3*hidden, hidden] qkv projection (rows q, then k, then v) as three projections.
@@ -109,9 +110,9 @@ func (a *gridTower) splitQKV(p vision.VisionProj) (q, k, v gridProj, err error) 
 		return q, k, v, fmt.Errorf("cuda: qkv is %dx%d, want %dx%d", p.Out, p.In, 3*H, H)
 	}
 	part := func(i int) gridProj {
-		r := gridProj{w: a.ops.up(p.W[i*H*H : (i+1)*H*H]), out: H, in: H}
+		r := gridProj{w: a.ops.Up(p.W[i*H*H : (i+1)*H*H]), out: H, in: H}
 		if len(p.B) == 3*H {
-			r.b = a.ops.up(p.B[i*H : (i+1)*H])
+			r.b = a.ops.Up(p.B[i*H : (i+1)*H])
 		}
 		return r
 	}
@@ -120,13 +121,13 @@ func (a *gridTower) splitQKV(p vision.VisionProj) (q, k, v gridProj, err error) 
 
 // build runs upload on the executor, closing the ops and returning an error (never a panic) if the device cannot hold the weights.
 func (a *gridTower) build(upload func() error) (*gridTower, error) {
-	if err := a.ops.do(func() error {
+	if err := a.ops.Do(func() error {
 		if err := upload(); err != nil {
 			return err
 		}
-		return a.ops.finish()
+		return a.ops.Finish()
 	}); err != nil {
-		a.ops.close()
+		a.ops.Close()
 		return nil, fmt.Errorf("cuda: vision tower upload: %w", err)
 	}
 	return a, nil
@@ -145,13 +146,13 @@ func newQwen3Tower(enc *vision.Qwen3VisionEncoder) (*gridTower, error) {
 	a.posEmbeds, a.ropeTables = enc.PositionEmbeds, enc.RopeTables
 	a.program = func() vision.TowerBlock { return vision.Qwen3Program(c) }
 	return a.build(func() error {
-		a.patchW, a.patchB = a.ops.up(w.PatchW), a.ops.up(w.PatchB)
+		a.patchW, a.patchB = a.ops.Up(w.PatchW), a.ops.Up(w.PatchB)
 		for _, b := range w.Blocks {
 			q, k, v, err := a.splitQKV(b.QKV)
 			if err != nil {
 				return err
 			}
-			a.blocks = append(a.blocks, gridBlock{norm1w: a.ops.up(b.Norm1W), norm1b: a.ops.up(b.Norm1B), norm2w: a.ops.up(b.Norm2W), norm2b: a.ops.up(b.Norm2B),
+			a.blocks = append(a.blocks, gridBlock{norm1w: a.ops.Up(b.Norm1W), norm1b: a.ops.Up(b.Norm1B), norm2w: a.ops.Up(b.Norm2W), norm2b: a.ops.Up(b.Norm2B),
 				q: q, k: k, v: v, proj: a.proj(b.Proj), fc1: a.proj(b.FC1), fc2: a.proj(b.FC2)})
 		}
 		return nil
@@ -171,7 +172,7 @@ func newGlmOcrTower(enc *vision.GlmOcrVisionEncoder) (*gridTower, error) {
 	a.ropeTables = enc.RopeTables
 	a.program = func() vision.TowerBlock { return vision.GlmOcrProgram(c) }
 	return a.build(func() error {
-		a.patchW, a.patchB = a.ops.up(w.PatchW), a.ops.up(w.PatchB)
+		a.patchW, a.patchB = a.ops.Up(w.PatchW), a.ops.Up(w.PatchB)
 		for _, b := range w.Blocks {
 			q, k, v, err := a.splitQKV(b.QKV)
 			if err != nil {
@@ -180,8 +181,8 @@ func newGlmOcrTower(enc *vision.GlmOcrVisionEncoder) (*gridTower, error) {
 			if len(b.QNorm) != a.hd || len(b.KNorm) != a.hd {
 				return fmt.Errorf("cuda: GLM-OCR q/k norm widths %d/%d, want head_dim %d", len(b.QNorm), len(b.KNorm), a.hd)
 			}
-			a.blocks = append(a.blocks, gridBlock{norm1w: a.ops.up(b.Norm1W), norm2w: a.ops.up(b.Norm2W), q: q, k: k, v: v, proj: a.proj(b.Proj),
-				qNorm: a.ops.up(b.QNorm), kNorm: a.ops.up(b.KNorm), gate: a.proj(b.Gate), up: a.proj(b.Up), down: a.proj(b.Down)})
+			a.blocks = append(a.blocks, gridBlock{norm1w: a.ops.Up(b.Norm1W), norm2w: a.ops.Up(b.Norm2W), q: q, k: k, v: v, proj: a.proj(b.Proj),
+				qNorm: a.ops.Up(b.QNorm), kNorm: a.ops.Up(b.KNorm), gate: a.proj(b.Gate), up: a.proj(b.Up), down: a.proj(b.Down)})
 		}
 		return nil
 	})
@@ -190,20 +191,20 @@ func newGlmOcrTower(enc *vision.GlmOcrVisionEncoder) (*gridTower, error) {
 // linear runs out = x * Wt (+ bias) over rows.
 func (a *gridTower) linear(x Buffer, p *gridProj, out Buffer, rows int) {
 	if p.b != (Buffer{}) {
-		a.ops.gemmBias(x, p.w, p.b, out, rows, p.out, p.in)
+		a.ops.GEMMBias(x, p.w, p.b, out, rows, p.out, p.in)
 		return
 	}
-	a.ops.gemm(x, p.w, out, rows, p.out, p.in)
+	a.ops.GEMM(x, p.w, out, rows, p.out, p.in)
 }
 
 // linearAdd runs resid += x * Wt (+ bias) over rows (tmp is [rows, out] scratch for the paths with no fused epilogue).
 func (a *gridTower) linearAdd(x Buffer, p *gridProj, resid, tmp Buffer, rows int) {
 	if p.b != (Buffer{}) {
-		a.ops.gemmBiasAdd(x, p.w, p.b, resid, tmp, rows, p.out, p.in)
+		a.ops.GEMMBiasAdd(x, p.w, p.b, resid, tmp, rows, p.out, p.in)
 		return
 	}
-	a.ops.gemm(x, p.w, tmp, rows, p.out, p.in)
-	a.ops.addVec(resid, tmp, rows*p.out)
+	a.ops.GEMM(x, p.w, tmp, rows, p.out, p.in)
+	a.ops.AddVec(resid, tmp, rows*p.out)
 }
 
 // Hidden runs the patch embed and every block (multimodal.GridTowerAccelerator): the last block's output, [np, hidden], for vision.FinishHidden.
@@ -285,21 +286,21 @@ func (a *gridTower) hiddenLocked(pixels []float32, gridTHW [][3]int, tapBlocks [
 	}
 	var out []float32
 	taps := make([][]float32, len(tapBlocks))
-	err := a.ops.do(func() error {
-		defer a.ops.releaseScratch()
+	err := a.ops.Do(func() error {
+		defer a.ops.ReleaseScratch()
 		o := a.ops
 		H, I := a.hidden, a.inter
-		x, xn, pt := o.af(np*H), o.af(np*H), o.af(np*a.patchDim)
-		q, k, v, ctx, tmp := o.af(np*H), o.af(np*H), o.af(np*H), o.af(np*H), o.af(np*H)
-		f1, f2 := o.af(np*I), o.af(np*I)
-		csB, snB := o.af(np*hd), o.af(np*hd)
+		x, xn, pt := o.Af(np*H), o.Af(np*H), o.Af(np*a.patchDim)
+		q, k, v, ctx, tmp := o.Af(np*H), o.Af(np*H), o.Af(np*H), o.Af(np*H), o.Af(np*H)
+		f1, f2 := o.Af(np*I), o.Af(np*I)
+		csB, snB := o.Af(np*hd), o.Af(np*hd)
 		uploads := []struct {
 			b Buffer
 			v []float32
 		}{{pt, pixels}, {csB, cos}, {snB, sin}}
 		var posB Buffer
 		if pe != nil {
-			posB = o.af(np * H)
+			posB = o.Af(np * H)
 			uploads = append(uploads, struct {
 				b Buffer
 				v []float32
@@ -316,7 +317,7 @@ func (a *gridTower) hiddenLocked(pixels []float32, gridTHW [][3]int, tapBlocks [
 		}
 		a.linear(pt, &gridProj{w: a.patchW, b: pb, out: H, in: a.patchDim}, x, np)
 		if pe != nil {
-			o.addVec(x, posB, np*H)
+			o.AddVec(x, posB, np*H)
 		}
 		env := &towerWalkEnv{noHeadNorm: a.planted.noQKNorm, cs: csB, sn: snB, segs: segs}
 		if a.planted.noScale {
@@ -330,7 +331,7 @@ func (a *gridTower) hiddenLocked(pixels []float32, gridTHW [][3]int, tapBlocks [
 			}
 			for k, tb := range tapBlocks { // G-S10f: the residual right after this block, for Qwen3-VL's DeepStack
 				if tb+a.planted.tapShift == bi {
-					if e := o.finish(); e != nil {
+					if e := o.Finish(); e != nil {
 						return e
 					}
 					taps[k] = make([]float32, np*H)
@@ -340,7 +341,7 @@ func (a *gridTower) hiddenLocked(pixels []float32, gridTHW [][3]int, tapBlocks [
 				}
 			}
 		}
-		if e := o.finish(); e != nil {
+		if e := o.Finish(); e != nil {
 			return e
 		}
 		out = make([]float32, np*H)

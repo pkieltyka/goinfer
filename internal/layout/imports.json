@@ -111,6 +111,19 @@
       "why": "Backend kernel tests left the packages that import decoder (SB1 step 1) so a decoder edit stops re-running them."
     },
     {
+      "name": "cuda-tower-free-of-decoder",
+      "from": [
+        "backend/cuda/eg2",
+        "backend/cuda/internal/tower"
+      ],
+      "tests": true,
+      "forbid_goinfer": [
+        "decoder",
+        "constrain"
+      ],
+      "why": "The CUDA tower base and text leaf sit below the generation backend and must stay free of decoder and constrain."
+    },
+    {
       "name": "probe-standalone",
       "from": [
         "internal/runtime/mem/probe"
@@ -216,16 +229,16 @@
       "tokenizer"
     ],
     "backend/cuda": [
+      "backend/cuda/eg2",
       "backend/cuda/internal/fitdecide",
       "backend/cuda/internal/gpudev",
       "backend/cuda/internal/launchgeom",
+      "backend/cuda/internal/tower",
       "backend/cuda/internal/wpack",
       "decoder",
       "decoder/fit",
-      "embeddinggemma2",
       "internal/audio",
       "internal/cost",
-      "internal/cudaid",
       "internal/modelcore/linalg",
       "internal/runtime/logs",
       "internal/runtime/mem",
@@ -242,7 +255,20 @@
       "backend/cuda",
       "internal/app/serveapp"
     ],
+    "backend/cuda/eg2": [
+      "backend/cuda/internal/gpudev",
+      "backend/cuda/internal/launchgeom",
+      "backend/cuda/internal/tower",
+      "backend/cuda/internal/wpack",
+      "embeddinggemma2",
+      "internal/cudaid",
+      "internal/runtime/mem"
+    ],
     "backend/cuda/internal/fitdecide": [
+      "internal/runtime/mem"
+    ],
+    "backend/cuda/internal/tower": [
+      "backend/cuda/internal/gpudev",
       "internal/runtime/mem"
     ],
     "backend/cuda/internal/wpack": [
@@ -577,6 +603,7 @@
     "backend/cuda": [
       "backend/cuda/internal/gpudev",
       "backend/cuda/internal/launchgeom",
+      "backend/cuda/internal/tower",
       "backend/cuda/internal/wpack",
       "chat",
       "decoder",
@@ -604,6 +631,20 @@
       "internal/wrappedupload",
       "multimodal",
       "tokenizer"
+    ],
+    "backend/cuda/eg2": [
+      "backend/cuda/internal/gpudev",
+      "backend/cuda/internal/launchgeom",
+      "backend/cuda/internal/ptxtest",
+      "backend/cuda/internal/tower",
+      "embeddinggemma2",
+      "internal/runtime/mem",
+      "internal/testgate",
+      "tokenizer"
+    ],
+    "backend/cuda/internal/tower": [
+      "backend/cuda/internal/gpudev",
+      "backend/cuda/internal/ptxtest"
     ],
     "backend/cuda/internal/wpack": [
       "internal/modelcore/linalg"

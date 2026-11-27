@@ -29,6 +29,7 @@ import (
 	"github.com/pkieltyka/goinfer/internal/guard/memgate"
 	"github.com/pkieltyka/goinfer/internal/runtime/mem"
 	"github.com/pkieltyka/goinfer/internal/runtime/program"
+	"github.com/pkieltyka/goinfer/internal/testgate"
 )
 
 // Layer B-cuda of the admission and routing census: CUDA's own static
@@ -2410,17 +2411,6 @@ func TestMemGate_cudaInvariantsGoRed(t *testing.T) {
 	g := cudaGate(t)
 	o := decoder.Options{Backend: "cuda", Quant: "int4", ResidentContext: 256}
 	const row, path = "testdata/llama-tiny int4", "../../testdata/llama-tiny"
-	// A plant here can break the suite's own check of a released device on purpose; the device's report goes with the subtest.
-	expectLedgerBreak := func(t *testing.T) {
-		releasedMu.Lock()
-		n := len(releasedBad)
-		releasedMu.Unlock()
-		t.Cleanup(func() {
-			releasedMu.Lock()
-			defer releasedMu.Unlock()
-			releasedBad = releasedBad[:n]
-		})
-	}
 	for _, c := range []struct {
 		name  string
 		plant func()
@@ -2435,9 +2425,23 @@ func TestMemGate_cudaInvariantsGoRed(t *testing.T) {
 		}, "open after Close"},
 	} {
 		t.Run(c.name, func(t *testing.T) {
-			expectLedgerBreak(t)
 			c.plant()
-			defer func() { cudaGatePlantForTest = nil }()
+			t.Cleanup(func() { cudaGatePlantForTest = nil })
+			plant := cudaGatePlantForTest
+			testgate.SetForTest(t, &cudaGatePlantForTest, func(r *cudaResident) {
+				plant(r)
+				switch c.name {
+				case "unknown line":
+					vramLedgerGuard.ExpectPlantedRelease(r.dev, func(u mem.Usage, unplanned int64) bool {
+						return u.Leases == 0 && u.PeakUnplannedCharged == 1<<20 && unplanned == 1<<20
+					})
+				case "open after Close":
+					vramLedgerGuard.ExpectPlantedRelease(r.dev, func(u mem.Usage, unplanned int64) bool {
+						return u.PeakUnplannedCharged == 0 && unplanned == 0 && u.Leases == 1 &&
+							u.Charged == 4096 && u.ByLine[mem.LineDense] == 4096
+					})
+				}
+			})
 			read, ok := cudaGateRow(t, row, path, o)
 			if !ok {
 				t.Fatal("llama-tiny did not build resident")

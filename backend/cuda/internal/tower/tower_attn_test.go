@@ -1,6 +1,6 @@
 //go:build cuda
 
-package cuda
+package tower
 
 import (
 	"fmt"
@@ -52,14 +52,14 @@ func attnRef(q, k, v []float32, T, nH, hd int, scale float64, rows []int) map[in
 }
 
 // runAttn runs ops.attention over [T, nH*hd] q/k/v (segments are the caller's: a segment is the same call on offset views) and returns the output.
-func runAttn(t *testing.T, ops *towerOps, q, k, v []float32, T, nH, hd int, scale float32, segs []int) []float32 {
+func runAttn(t *testing.T, ops *Ops, q, k, v []float32, T, nH, hd int, scale float32, segs []int) []float32 {
 	t.Helper()
 	out := make([]float32, len(q))
-	err := ops.do(func() error {
-		defer ops.releaseScratch()
-		qb, kb, vb, ob := ops.af(len(q)), ops.af(len(q)), ops.af(len(q)), ops.af(len(q))
+	err := ops.Do(func() error {
+		defer ops.ReleaseScratch()
+		qb, kb, vb, ob := ops.Af(len(q)), ops.Af(len(q)), ops.Af(len(q)), ops.Af(len(q))
 		for _, u := range []struct {
-			b Buffer
+			b gpu.Buffer
 			v []float32
 		}{{qb, q}, {kb, k}, {vb, v}} {
 			if e := gpu.Upload(u.b, u.v); e != nil {
@@ -69,11 +69,11 @@ func runAttn(t *testing.T, ops *towerOps, q, k, v []float32, T, nH, hd int, scal
 		stride := nH * hd
 		for si := 1; si < len(segs); si++ {
 			off, n := segs[si-1]*stride*4, segs[si]-segs[si-1]
-			if e := ops.attention(qb.At(off), kb.At(off), vb.At(off), ob.At(off), n, nH, hd, scale); e != nil {
+			if e := ops.Attention(qb.At(off), kb.At(off), vb.At(off), ob.At(off), n, nH, hd, scale); e != nil {
 				return e
 			}
 		}
-		if e := ops.finish(); e != nil {
+		if e := ops.Finish(); e != nil {
 			return e
 		}
 		return gpu.Download(ob, out)
@@ -167,7 +167,7 @@ func TestTowerAttn_matchesFloat64(t *testing.T) {
 // (the max moves between tiles); the key-mask defect lets one zero-score, zero-value key in, which only matters when the softmax is flat and the segment short (33 keys: it takes ~3% of the weight).
 func TestTowerAttn_plantedDefects(t *testing.T) {
 	ops := newTestTower(t, 64)
-	defer func() { towerAttnDefect = 0 }()
+	defer func() { AttnDefect = 0 }()
 	for _, c := range []struct {
 		d         int
 		name      string
@@ -187,9 +187,9 @@ func TestTowerAttn_plantedDefects(t *testing.T) {
 		}
 		ref := attnRef(q, k, v, c.T, c.nH, c.hd, scale, rows)
 		clean := attnMaxErr(runAttn(t, ops, q, k, v, c.T, c.nH, c.hd, float32(scale), []int{0, c.T}), ref, stride)
-		towerAttnDefect = c.d
+		AttnDefect = c.d
 		got := runAttn(t, ops, q, k, v, c.T, c.nH, c.hd, float32(scale), []int{0, c.T})
-		towerAttnDefect = 0
+		AttnDefect = 0
 		e := attnMaxErr(got, ref, stride)
 		fmt.Fprintf(os.Stderr, "[S17 lever A] planted (%d) %s: max |err| %.3e (unplanted %.1e)\n", c.d, c.name, e, clean)
 		if clean > 5e-5 {
@@ -212,7 +212,7 @@ func TestTowerAttn_speed(t *testing.T) {
 	q, k, v := attnData(1, T*stride, 1.5), attnData(2, T*stride, 1.5), attnData(3, T*stride, 1)
 	var fused, aikit time.Duration
 	for _, own := range []bool{true, false} {
-		towerAttnAikit = !own
+		AttnAikit = !own
 		runAttn(t, ops, q, k, v, T, nH, hd, 0.118, []int{0, T}) // warm
 		t0 := time.Now()
 		for range 3 {
@@ -224,7 +224,7 @@ func TestTowerAttn_speed(t *testing.T) {
 			aikit = time.Since(t0) / 3
 		}
 	}
-	towerAttnAikit = false
+	AttnAikit = false
 	fl := 4 * float64(T) * float64(T) * hd * nH
 	fmt.Fprintf(os.Stderr, "[S17 lever A] SigLIP layer attention: fused %.1f ms (%.2f TFLOPS), aikit %.1f ms (%.2f TFLOPS), %.1fx (includes the upload and download; exploratory)\n",
 		fused.Seconds()*1e3, fl/fused.Seconds()/1e12, aikit.Seconds()*1e3, fl/aikit.Seconds()/1e12, aikit.Seconds()/fused.Seconds())

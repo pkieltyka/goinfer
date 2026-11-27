@@ -104,6 +104,8 @@ In the other direction 13 non-test `decoder` files call it (`model.go`, `prefill
 | Path | What it is |
 |---|---|
 | `backend/cuda/` | the CUDA backend (cgo-free, tag `cuda`), `.cu` kernels and `backend/cuda/cmd/{chat,serve}` |
+| `backend/cuda/eg2/` | lightweight text-only CUDA leaf for EmbeddingGemma 2 (blank-import, no `decoder` dependency; blank-imported by `backend/cuda`) |
+| `backend/cuda/internal/tower/` | shared internal CUDA tower executor, kernel helpers, and device ledger used by `backend/cuda` and `backend/cuda/eg2` |
 | `backend/metal/` | the Metal backend (tag `metal`), `backend/metal/cmd/{chat,serve}` |
 | `backend/vulkan/` | the optional cgo-free Vulkan accelerator for EmbeddingGemma 2 text on Linux amd64 |
 

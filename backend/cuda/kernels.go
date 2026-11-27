@@ -21,11 +21,6 @@ import (
 //
 //go:generate ./build_ptx.sh
 
-// eg2CombinedAttentionPTX transposes key heads and attends over the encoder's bounded rows.
-//
-//go:embed testdata/eg2_transposed_experiment.ptx
-var eg2CombinedAttentionPTX []byte
-
 // gemvFwdPTX: the LLM-specific forward kernels, kv_store / rope_kv. The generic quantized GEMVs live in gpudev
 // (gpu.QuantGEMVPTX, Device.NewQuantGEMV; see backend.go); the name is kept for continuity with the .cu it is built
 // from.
@@ -237,13 +232,6 @@ var attnFusedBMPTX []byte
 //
 //go:embed testdata/attn_fused_vit.ptx
 var attnFusedVitPTX []byte
-
-// towerBasePTX: tower_pos_add / tower_clamp / tower_clamp_copy / tower_rope_axial / tower_mul / tower_scale, the CUDA
-// vision-tower base's own kernels, used alongside the device layer's ViT kernels.
-// Built at NVRTC 12.9.86.
-//
-//go:embed testdata/tower_base.ptx
-var towerBasePTX []byte
 
 // gemmMMAPTX: gemm_w4a8_mma, the L3 tensor-core int4xint8 GEMM with group scales.
 //

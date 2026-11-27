@@ -8,8 +8,6 @@ import (
 	"fmt"
 	"os"
 	"reflect"
-	"runtime"
-	"runtime/debug"
 	"sort"
 	"strings"
 	"sync/atomic"
@@ -19,6 +17,7 @@ import (
 	"github.com/pkieltyka/goinfer/backend/cuda/internal/fitdecide"
 	gpu "github.com/pkieltyka/goinfer/backend/cuda/internal/gpudev"
 	"github.com/pkieltyka/goinfer/backend/cuda/internal/launchgeom"
+	"github.com/pkieltyka/goinfer/backend/cuda/internal/tower"
 	"github.com/pkieltyka/goinfer/backend/cuda/internal/wpack"
 	"github.com/pkieltyka/goinfer/decoder"
 	"github.com/pkieltyka/goinfer/decoder/fit"
@@ -2157,48 +2156,10 @@ func (r *cudaResident) doOn(line string, j func() error) error {
 // The recovered error is deliberately NOT wrapped in errPrefillDeclined here: `do` is shared by every job (setup,
 // decode, prefill), and only the prefill caller knows a decline is the right response. prefillCore wraps it at its
 // own boundary.
-func runJob(j func() error) (err error) {
-	defer func() {
-		if p := recover(); p != nil {
-			// The STACK, not just the value: a recovered executor panic becomes a resident DECLINE printed once to stderr, and
-			// an allocation failure with no frame is unactionable. The stack is a few KB on a path that runs at most once per
-			// model load.
-			stack := debug.Stack()
-			switch v := p.(type) {
-			case runtime.Error:
-				err = &executorBug{bug: v, stack: stack}
-			case error:
-				err = fmt.Errorf("cuda: executor job panicked: %w\n%s", v, stack)
-			default:
-				err = fmt.Errorf("cuda: executor job panicked: %v\n%s", p, stack)
-			}
-		}
-	}()
-	return j()
-}
-
-// executorBug is a runtime.Error recovered on an executor goroutine, with that goroutine's stack. It is itself a runtime.Error,
-// so every recover the re-raised panic meets on the calling side (mem.RepanicBug) lets it through too.
-type executorBug struct {
-	bug   runtime.Error
-	stack []byte
-}
-
-func (b *executorBug) Error() string {
-	return fmt.Sprintf("cuda: executor job panicked: %s\nexecutor goroutine stack:\n%s", b.bug.Error(), b.stack)
-}
-
-func (b *executorBug) RuntimeError() {}
-
-func (b *executorBug) Unwrap() error { return b.bug }
-
-// ackJob is a job's result as `do` returns it: an executorBug panics on the calling goroutine, anything else is returned.
-func ackJob(err error) error {
-	if b, ok := err.(*executorBug); ok {
-		panic(b)
-	}
-	return err
-}
+var (
+	runJob = tower.RunJob
+	ackJob = tower.AckJob
+)
 
 // errKVWontFit marks the one setup failure that must NOT degrade quietly to the staged path: an explicitly configured resident
 // context whose KV does not fit (fitdecide.ErrKVWontFit). BuildResident turns it into a hard startup error instead of a decline.
