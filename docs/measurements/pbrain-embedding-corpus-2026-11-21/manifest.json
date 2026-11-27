@@ -1,0 +1,232 @@
+{
+  "source": "pkieltyka/pbrain",
+  "revision": "b4def8fad8ea34101c369777604144fbbec2182a",
+  "fixture_clock": "2026-11-21T18:00:00Z",
+  "license_sha256": "72afb2c2ef51469da3463bafa2fc2e8fa581614172a36bdd602e21e731de8912",
+  "questions": {
+    "path": "internal/semantic/calibrate/testdata/retrieval/questions.json",
+    "sha256": "af4054bbb01300f9f3097b3b414f4a4a5f05d246fa62b2cd48ea906358b5c041"
+  },
+  "documents": [
+    {
+      "id": "bge-aikit",
+      "path": "internal/semantic/calibrate/testdata/retrieval/brain/decisions/bge-aikit.md",
+      "sha256": "f7d1fb3a7c1d0c31ddf1b10c05afb4f6d50f5f25f88a1f17eb99e4c6707f12ba",
+      "current": true
+    },
+    {
+      "id": "bge-hugot-old",
+      "path": "internal/semantic/calibrate/testdata/retrieval/brain/decisions/bge-hugot-old.md",
+      "sha256": "b267bbd3e375184efe7f84afe1ddda3f821ee14cb4339843f8fa12a78b2952cc",
+      "current": false
+    },
+    {
+      "id": "context-budget",
+      "path": "internal/semantic/calibrate/testdata/retrieval/brain/decisions/context-budget.md",
+      "sha256": "bb47986d470c3d43276c825b5dd6cd696c527229a885e768448a4b644382dfd0",
+      "current": true
+    },
+    {
+      "id": "factory-review",
+      "path": "internal/semantic/calibrate/testdata/retrieval/brain/decisions/factory-review.md",
+      "sha256": "72b08fe3bd48986a7c3bbe8c1b4713e59b23dbf75d2f9f0e7e553fa59e37d8bd",
+      "current": true
+    },
+    {
+      "id": "flat-vectors-old",
+      "path": "internal/semantic/calibrate/testdata/retrieval/brain/decisions/flat-vectors-old.md",
+      "sha256": "995df2e6d0c1ab2097ad536e8b018392d5b15619457e0cbb9da47523e327860e",
+      "current": false
+    },
+    {
+      "id": "hybrid-order",
+      "path": "internal/semantic/calibrate/testdata/retrieval/brain/decisions/hybrid-order.md",
+      "sha256": "2aca1444d181cf788f8284dce255160d0d7ea3a9fd0e120187b4982fd846437c",
+      "current": true
+    },
+    {
+      "id": "index-refresh",
+      "path": "internal/semantic/calibrate/testdata/retrieval/brain/decisions/index-refresh.md",
+      "sha256": "7d4cd6381ca8933a41474c5ea4d8eb52b288e856f392bbcc29529014a1471301",
+      "current": true
+    },
+    {
+      "id": "missing-links",
+      "path": "internal/semantic/calibrate/testdata/retrieval/brain/decisions/missing-links.md",
+      "sha256": "4c00c2e1d039e60645164860fa12c5c0a38963040db2f3fc42ca36d95ad3ae63",
+      "current": true
+    },
+    {
+      "id": "model-cache",
+      "path": "internal/semantic/calibrate/testdata/retrieval/brain/decisions/model-cache.md",
+      "sha256": "9177244be93e34657b0ba4c724f23d890905be3600eb122b7785f4fe1f753f1d",
+      "current": true
+    },
+    {
+      "id": "original-refcount",
+      "path": "internal/semantic/calibrate/testdata/retrieval/brain/decisions/original-refcount.md",
+      "sha256": "5e90ffbcf316dca56794126bf38609828c7c84f7eace6bf9ea0b07a42891e15e",
+      "current": true
+    },
+    {
+      "id": "output-budget-old",
+      "path": "internal/semantic/calibrate/testdata/retrieval/brain/decisions/output-budget-old.md",
+      "sha256": "0fdefe900ec38b251bfa31b597669851a4eda5397f8bf9708222f3ba2701c1ce",
+      "current": false
+    },
+    {
+      "id": "routed-lock",
+      "path": "internal/semantic/calibrate/testdata/retrieval/brain/decisions/routed-lock.md",
+      "sha256": "3af7a0fcac23496a8c478e5f80c97c7053b28b1aa3e3601d1dcdc9fea448db3f",
+      "current": true
+    },
+    {
+      "id": "search-page-size",
+      "path": "internal/semantic/calibrate/testdata/retrieval/brain/decisions/search-page-size.md",
+      "sha256": "aa2f6b73fae63bb3c627bee343f209a097fb284125329ecb1e6f0d0acfd19cd3",
+      "current": true
+    },
+    {
+      "id": "standing-rule",
+      "path": "internal/semantic/calibrate/testdata/retrieval/brain/decisions/standing-rule.md",
+      "sha256": "dca7b847ee9f5848a9a1d0a2a1edc5c4ce1de89bb9ea2f44e9c793721c2c929d",
+      "current": true
+    },
+    {
+      "id": "tag-map",
+      "path": "internal/semantic/calibrate/testdata/retrieval/brain/decisions/tag-map.md",
+      "sha256": "dcef1407b4196baba7c2db9a76fe97b591f726d16e35c0929cfb8523c45bd7ed",
+      "current": true
+    },
+    {
+      "id": "vector-sql",
+      "path": "internal/semantic/calibrate/testdata/retrieval/brain/decisions/vector-sql.md",
+      "sha256": "62b69fe577a0d519744249f44aaa59a268b42b6d0e762ee918188042bc972c26",
+      "current": true
+    },
+    {
+      "id": "combined-gate",
+      "path": "internal/semantic/calibrate/testdata/retrieval/brain/learnings/combined-gate.md",
+      "sha256": "70b6e42a01113b73686a38b718ed0feb9010299717932c1113303f26b518a35b",
+      "current": true
+    },
+    {
+      "id": "file-navigation",
+      "path": "internal/semantic/calibrate/testdata/retrieval/brain/learnings/file-navigation.md",
+      "sha256": "bd0236e411a6b0d402877ea635a9805adb343ec5eed664d01a15d05f70950601",
+      "current": true
+    },
+    {
+      "id": "fixture-reader",
+      "path": "internal/semantic/calibrate/testdata/retrieval/brain/learnings/fixture-reader.md",
+      "sha256": "869e5acbeeaaddcdf1e8399252370c7d48cf386817b2705918c10615b48739a2",
+      "current": true
+    },
+    {
+      "id": "guard-tracked",
+      "path": "internal/semantic/calibrate/testdata/retrieval/brain/learnings/guard-tracked.md",
+      "sha256": "30fefe5dce1dd4c77f3e9d50777ef3b2c7e23b7d33ee150ac46de61cdd24af2e",
+      "current": true
+    },
+    {
+      "id": "outside-window",
+      "path": "internal/semantic/calibrate/testdata/retrieval/brain/learnings/outside-window.md",
+      "sha256": "fd4c1dbb518bfac2183aa3cb8dbfb4690cdae7db421ab58a8806942db2f0a4f7",
+      "current": true
+    },
+    {
+      "id": "pack-startup",
+      "path": "internal/semantic/calibrate/testdata/retrieval/brain/learnings/pack-startup.md",
+      "sha256": "0fe3bedc9aa98c21f523b8130f1a3d2016d0937bdb424106074dfdd2ab7eee6a",
+      "current": true
+    },
+    {
+      "id": "tag-count-view",
+      "path": "internal/semantic/calibrate/testdata/retrieval/brain/learnings/tag-count-view.md",
+      "sha256": "b0bb02f0ccd100f68ccee6e370262e1acb2f3ea3f0b5fea9ad3b96af4e9bbd7b",
+      "current": true
+    },
+    {
+      "id": "adoption-gates",
+      "path": "internal/semantic/calibrate/testdata/retrieval/brain/notes/adoption-gates.md",
+      "sha256": "0261bd26c76493ea277b44f719fc12594ba49edc827cc29b1858d27859a7b1e4",
+      "current": true
+    },
+    {
+      "id": "budget-minimum",
+      "path": "internal/semantic/calibrate/testdata/retrieval/brain/notes/budget-minimum.md",
+      "sha256": "4d19de76a2196958f76caa6890b4eb75f4b02b0fa8aba761428982bd926ba779",
+      "current": true
+    },
+    {
+      "id": "delete-preview",
+      "path": "internal/semantic/calibrate/testdata/retrieval/brain/notes/delete-preview.md",
+      "sha256": "ec17671d14ee087d4bdcc208fe942f543f6a2d0ae4d65ac7aa9c30010319e1a6",
+      "current": true
+    },
+    {
+      "id": "factory-install",
+      "path": "internal/semantic/calibrate/testdata/retrieval/brain/notes/factory-install.md",
+      "sha256": "3ab1a583e5beb946822f9e429eb30dc1b8ea21cece93ecdaeb5d9076c1534ddf",
+      "current": true
+    },
+    {
+      "id": "factory-ready",
+      "path": "internal/semantic/calibrate/testdata/retrieval/brain/notes/factory-ready.md",
+      "sha256": "05e2f6603889d1486a149e650e3b50a2cd1e35f13a3736635e11290b1a801985",
+      "current": true
+    },
+    {
+      "id": "factory-resume",
+      "path": "internal/semantic/calibrate/testdata/retrieval/brain/notes/factory-resume.md",
+      "sha256": "f947ce7fdbaae62d0a3888df1148d9f6c8344b557e8baab7ab6b366ce52266da",
+      "current": true
+    },
+    {
+      "id": "linked-summary",
+      "path": "internal/semantic/calibrate/testdata/retrieval/brain/notes/linked-summary.md",
+      "sha256": "c531571f6c2f9516d5c3d08a8f021b170aff9304bc7d4475b708a9a2d7e41d24",
+      "current": true
+    },
+    {
+      "id": "partial-readiness",
+      "path": "internal/semantic/calibrate/testdata/retrieval/brain/notes/partial-readiness.md",
+      "sha256": "0de75f1049df862cf6828e20406447cd293d4cfffd5631db584f31e47bcb951f",
+      "current": true
+    },
+    {
+      "id": "time-window",
+      "path": "internal/semantic/calibrate/testdata/retrieval/brain/notes/time-window.md",
+      "sha256": "b4857555be6fc1fae05398a387697dbc8220d473a7173125a580340e59bf21a9",
+      "current": true
+    },
+    {
+      "id": "discovery-field-guide",
+      "path": "internal/semantic/calibrate/testdata/retrieval/brain/sources/discovery-field-guide.md",
+      "sha256": "c543a8446defd54479ca0531389ad82e917ee6662a6c3bf93c04816b2b207c32",
+      "current": true
+    },
+    {
+      "id": "storage-field-guide",
+      "path": "internal/semantic/calibrate/testdata/retrieval/brain/sources/storage-field-guide.md",
+      "sha256": "a10fe2e8cf0eaa4997d7b58414c5f9a508f5521b76008ccda912d8fdd814fb51",
+      "current": true
+    },
+    {
+      "id": "tokenizer-report",
+      "path": "internal/semantic/calibrate/testdata/retrieval/brain/sources/tokenizer-report.md",
+      "sha256": "3f129253d9175ec25cedbb35258b763901edac668c7e1addd7cae00e3b45ddf1",
+      "current": true
+    }
+  ],
+  "model": "google/embeddinggemma-2",
+  "model_revision": "f9972ac22e696a105c482202646979e33e4b5a1e",
+  "model_files": {
+    "config.json": "b8f1e9931b57fbc054acdb445c41765d55b0074c58d145fa82839941ad1b5bb3",
+    "config_sentence_transformers.json": "031e56a498d33c349ab489a21885bcfe25b4fcba841149dc99e1e90d4a7c28f5",
+    "model.safetensors": "197a32965d4b1105faf060417baa899e193fb73cd401f42ec9295234d5553d79",
+    "tokenizer.json": "4d777ef5bdc1aa36227abdfb77c3e49e7b9c892d16e1b6bda41c393504828be4",
+    "tokenizer_config.json": "17bd5d6e9364ca49a534e1502076593317c298d4a663623091ed45388f004874"
+  },
+  "cutoff": 0.72
+}
