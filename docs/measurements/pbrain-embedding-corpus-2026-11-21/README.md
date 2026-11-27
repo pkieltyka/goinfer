@@ -130,8 +130,8 @@ pbrain=/path/to/pbrain
 rev=b4def8fad8ea34101c369777604144fbbec2182a
 prefix=internal/semantic/calibrate/testdata/retrieval
 model="${HF_HOME:-$HOME/.cache/huggingface}/hub/models--google--embeddinggemma-2/snapshots/f9972ac22e696a105c482202646979e33e4b5a1e"
-work=/path/to/pbe1-corpus-run
-mkdir -p "$work/fixture"
+work=$(mktemp -d "${TMPDIR:-/tmp}/pbe1-corpus.XXXXXX")
+mkdir "$work/fixture"
 git -C "$pbrain" archive "$rev" LICENSE "$prefix/brain" "$prefix/questions.json" | tar -x -C "$work/fixture"
 python3 scripts/timing_lock.py run --shared --label pbe1-corpus-build -- \
   env CGO_ENABLED=0 go build -o "$work/corpus" "$campaign/testdata/main.go"
