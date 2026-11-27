@@ -1,6 +1,7 @@
 package main
 
 import (
+	"bytes"
 	"crypto/sha256"
 	"fmt"
 	"math"
@@ -133,14 +134,14 @@ import importlib.util, json, pathlib, sys
 spec = importlib.util.spec_from_file_location("run_linux", %q)
 mod = importlib.util.module_from_spec(spec)
 spec.loader.exec_module(mod)
-status, interrupted, elapsed, peak_swap, samples = mod.run_monitored(
+status, interrupted, cleanup_ok, elapsed, peak_swap, samples = mod.run_monitored(
     [sys.executable, "-c", %q],
     pathlib.Path(%q),
     grace_seconds=0.3,
 )
-if interrupted is None and status == 0:
+if interrupted is None and status == 0 and cleanup_ok:
     (pathlib.Path(%q) / "cpu.json.partial").rename(pathlib.Path(%q) / "cpu.json")
-sys.exit(128 + interrupted if interrupted is not None else (status if status >= 0 else 128 - status))
+sys.exit(128 + interrupted if interrupted is not None else (1 if not cleanup_ok else (status if status >= 0 else 128 - status)))
 `, scriptPath, childCode, outDir, outDir, outDir)
 
 			cmd := exec.Command(py, "-c", driverCode)
@@ -224,14 +225,14 @@ import importlib.util, json, pathlib, sys
 spec = importlib.util.spec_from_file_location("run_linux", %q)
 mod = importlib.util.module_from_spec(spec)
 spec.loader.exec_module(mod)
-status, interrupted, elapsed, peak_swap, samples = mod.run_monitored(
+status, interrupted, cleanup_ok, elapsed, peak_swap, samples = mod.run_monitored(
     [sys.executable, "-c", %q],
     pathlib.Path(%q),
     grace_seconds=0.5,
 )
-if interrupted is None and status == 0:
+if interrupted is None and status == 0 and cleanup_ok:
     (pathlib.Path(%q) / "cpu.json.partial").rename(pathlib.Path(%q) / "cpu.json")
-sys.exit(128 + interrupted if interrupted is not None else (status if status >= 0 else 128 - status))
+sys.exit(128 + interrupted if interrupted is not None else (1 if not cleanup_ok else (status if status >= 0 else 128 - status)))
 `, scriptPath, childCode, outDir, outDir, outDir)
 	cmd := exec.Command(py, "-c", driverCode)
 	if err := cmd.Run(); err != nil {
@@ -245,11 +246,196 @@ sys.exit(128 + interrupted if interrupted is not None else (status if status >= 
 	if err != nil || grandchildPID <= 0 {
 		t.Fatalf("grandchild pid %q: %v", raw, err)
 	}
-	if err := syscall.Kill(grandchildPID, 0); err != syscall.ESRCH {
+	deadline := time.Now().Add(2 * time.Second)
+	for !processStopped(grandchildPID) && time.Now().Before(deadline) {
+		time.Sleep(20 * time.Millisecond)
+	}
+	if !processStopped(grandchildPID) {
 		_ = syscall.Kill(grandchildPID, syscall.SIGKILL)
-		t.Fatalf("grandchild pid %d survived leader exit (kill(0) err=%v)", grandchildPID, err)
+		t.Fatalf("grandchild pid %d remained live after leader exit", grandchildPID)
 	}
 	if _, err := os.Stat(filepath.Join(outDir, "cpu.json")); err != nil {
 		t.Fatalf("successful run did not promote cpu.json: %v", err)
+	}
+}
+
+func TestGroupLivenessTreatsZombiesAsStoppedAndUnknownAsFailure(t *testing.T) {
+	if runtime.GOOS != "linux" {
+		t.Skip("run_linux.py is Linux-specific")
+	}
+	py, err := exec.LookPath("python3")
+	if err != nil {
+		t.Skipf("python3 unavailable: %v", err)
+	}
+	scriptPath, err := filepath.Abs("../run_linux.py")
+	if err != nil {
+		t.Fatal(err)
+	}
+	driverCode := fmt.Sprintf(`
+import importlib.util, os, pathlib, shutil, tempfile, types
+spec = importlib.util.spec_from_file_location("run_linux", %q)
+mod = importlib.util.module_from_spec(spec)
+spec.loader.exec_module(mod)
+root = pathlib.Path(tempfile.mkdtemp())
+def stat(pid, state, pgrp):
+    p = root / str(pid); p.mkdir()
+    (p / "stat").write_text(f"{pid} (comm) {state} 1 {pgrp} 0 0 0")
+    task = p / "task" / str(pid); task.mkdir(parents=True)
+    (task / "stat").write_text(f"{pid} (comm) {state} 1 {pgrp} 0 0 0")
+def set_state(pid, state):
+    (root / str(pid) / "stat").write_text(f"{pid} (comm) {state} 1 42 0 0 0")
+    (root / str(pid) / "task" / str(pid) / "stat").write_text(f"{pid} (comm) {state} 1 42 0 0 0")
+stat(101, "R", 42)
+assert mod._group_liveness(42, root) == mod.GROUP_LIVE
+set_state(101, "Z")
+assert mod._group_liveness(42, root) == mod.GROUP_STOPPED
+(root / "101" / "task" / "1002").mkdir()
+(root / "101" / "task" / "1002" / "stat").write_text("1002 (worker) S 101 42 0 0 0")
+assert mod._group_liveness(42, root) == mod.GROUP_LIVE
+shutil.rmtree(root / "101" / "task" / "1002")
+(root / "101" / "task" / "1003").mkdir()
+assert mod._group_liveness(42, root) == mod.GROUP_UNKNOWN
+shutil.rmtree(root / "101" / "task" / "1003")
+(root / "101" / "stat").write_text("broken")
+assert mod._group_liveness(42, root) == mod.GROUP_UNKNOWN
+shutil.rmtree(root / "101")
+(root / "102").mkdir()
+(root / "102" / "stat").mkdir()
+assert mod._group_liveness(42, root) == mod.GROUP_UNKNOWN
+
+class Proc:
+    def poll(self): return 0
+    def terminate(self): pass
+    def kill(self): pass
+    def wait(self, timeout=None): return 0
+
+real_liveness = mod._group_liveness
+signals = []
+mod._signal_group = lambda *_: signals.append(1) or True
+for status, visible, ok in ((mod.GROUP_LIVE, False, False), (mod.GROUP_UNKNOWN, False, True),
+                            (mod.GROUP_UNKNOWN, True, False),
+                            (mod.GROUP_STOPPED, False, True), (mod.GROUP_STOPPED, True, True),
+                            (mod.GROUP_STOPPED, None, False)):
+    signals.clear()
+    mod._group_liveness = lambda *_args, status=status: status
+    mod._group_visible = lambda *_args, visible=visible: visible
+    got_status, got_ok = mod._finish_group(Proc(), 42, 0.2, root)
+    assert got_ok is ok, (status, visible, got_ok)
+    assert got_status == 0
+    if status == mod.GROUP_STOPPED and visible is True:
+        assert signals, "all-zombie snapshot was promoted without termination/recheck"
+class CountProc(Proc):
+    def poll(self): return None
+    def __init__(self):
+        self.terminated = 0
+        self.killed = 0
+    def terminate(self): self.terminated += 1
+    def kill(self): self.killed += 1
+
+mod._group_liveness = lambda *_args: mod.GROUP_STOPPED
+mod._group_visible = lambda *_args: True
+mod._signal_group = lambda *_: True
+p = CountProc()
+mod._finish_group(p, 42, 0.2, root)
+assert p.terminated == 0 and p.killed == 0, (p.terminated, p.killed)
+mod._signal_group = lambda *_: False
+p = CountProc()
+mod._finish_group(p, 42, 0.05, root)
+assert p.terminated == 1 and p.killed == 1, (p.terminated, p.killed)
+mi = pathlib.Path(tempfile.mkdtemp()) / "mountinfo"
+mi.write_text("36 35 98:0 / /proc rw,nosuid,nodev,noexec,relatime - proc proc rw\n")
+assert mod._proc_complete(pathlib.Path("/proc"), mi) is True
+for option in ("hidepid=1", "hidepid=2", "hidepid=noaccess", "hidepid=invisible", "hidepid=ptraceable", "hidepid=other"):
+    mi.write_text("36 35 98:0 / /proc rw,nosuid,nodev,noexec,relatime - proc proc rw," + option + "\n")
+    assert mod._proc_complete(pathlib.Path("/proc"), mi) is False, option
+for option in ("hidepid=0", "hidepid=off"):
+    mi.write_text("36 35 98:0 / /proc rw,nosuid,nodev,noexec,relatime - proc proc rw," + option + "\n")
+    assert mod._proc_complete(pathlib.Path("/proc"), mi) is True, option
+mi.write_text("36 35 98:0 / /other rw,nosuid,nodev,noexec,relatime - proc proc rw\n")
+assert mod._proc_complete(pathlib.Path("/proc"), mi) is False
+mi.write_text("36 35 98:0 / /proc rw,nosuid,nodev,noexec,relatime - proc proc rw\n37 36 98:0 / /proc rw,nosuid,nodev,noexec,relatime - proc proc rw\n")
+assert mod._proc_complete(pathlib.Path("/proc"), mi) is False
+mi.write_bytes(b"1 2 3 4 /bad\xff rw - ext4 /dev/x rw\n36 35 98:0 / /proc rw,nosuid,nodev,noexec,relatime - proc proc rw\n")
+assert mod._proc_complete(pathlib.Path("/proc"), mi) is True
+mi.write_bytes(b"1 2 3 4 /bad\xff rw - ext4 /dev/x rw\n36 35 98:0 / /proc rw,nosuid,nodev,noexec,relatime - proc proc rw,hidepid=2\n")
+assert mod._proc_complete(pathlib.Path("/proc"), mi) is False
+mod._group_liveness = real_liveness
+hidden = pathlib.Path(tempfile.mkdtemp())
+(hidden / "123").mkdir()
+(hidden / "123" / "stat").write_text("123 (hidden) Z 1 42 0 0 0")
+(hidden / "123" / "task" / "123").mkdir(parents=True)
+(hidden / "123" / "task" / "123" / "stat").write_text("123 (hidden) Z 1 42 0 0 0")
+mod._proc_complete = lambda *_args: False
+assert mod._group_liveness(42, hidden) == mod.GROUP_UNKNOWN
+mod._group_visible = lambda *_args: True
+mod._signal_group = lambda *_: True
+p = CountProc()
+status, ok = mod._finish_group(p, 42, 0.05, hidden)
+assert ok is False and status == 0
+mod._proc_complete = lambda *_args: True
+assert mod._group_liveness(42, hidden) == mod.GROUP_STOPPED
+assert mod._should_promote(None, 0, False) is False
+assert mod._should_promote(None, 0, True) is True
+assert mod._should_promote(15, 0, True) is False
+print("liveness-controls-ok")
+`, scriptPath)
+	out, err := exec.Command(py, "-c", driverCode).CombinedOutput()
+	if err != nil || !strings.Contains(string(out), "liveness-controls-ok") {
+		t.Fatalf("liveness controls: %v\n%s", err, out)
+	}
+}
+
+func processStopped(pid int) bool {
+	if err := syscall.Kill(pid, 0); err == syscall.ESRCH {
+		return true
+	}
+	raw, err := os.ReadFile(fmt.Sprintf("/proc/%d/stat", pid))
+	if err != nil {
+		return false
+	}
+	close := bytes.LastIndexByte(raw, ')')
+	if close < 0 {
+		return false
+	}
+	fields := bytes.Fields(raw[close+2:])
+	return len(fields) > 0 && fields[0][0] == 'Z'
+}
+
+func TestRunLinuxPersistsCleanupFailure(t *testing.T) {
+	if runtime.GOOS != "linux" {
+		t.Skip("run_linux.py is Linux-specific")
+	}
+	py, err := exec.LookPath("python3")
+	if err != nil {
+		t.Skipf("python3 unavailable: %v", err)
+	}
+	scriptPath, err := filepath.Abs("../run_linux.py")
+	if err != nil {
+		t.Fatal(err)
+	}
+	driverCode := fmt.Sprintf(`
+import importlib.util, json, pathlib, sys, tempfile
+spec = importlib.util.spec_from_file_location("run_linux", %q)
+mod = importlib.util.module_from_spec(spec)
+spec.loader.exec_module(mod)
+out = pathlib.Path(tempfile.mkdtemp()) / "cell"
+mod.host = lambda: {"load_1m": 0.0, "MemAvailable": 1 << 40}
+def fake(command, output):
+    output.mkdir()
+    (output / "cpu.json.partial").write_text("partial")
+    return 0, None, False, 0.1, 0, 0
+mod.run_monitored = fake
+sys.argv = ["run_linux.py", "--output", str(out), "--fit-gib", "1", "--physical-cores", "1", "--", "true"]
+rc = mod.main()
+meta = json.loads((out / "host.json").read_text())
+assert rc == 1, rc
+assert meta["cleanup_ok"] is False, meta
+assert not (out / "cpu.json").exists()
+assert (out / "cpu.json.partial").exists()
+print("cleanup-meta-ok")
+`, scriptPath)
+	out, err := exec.Command(py, "-c", driverCode).CombinedOutput()
+	if err != nil || !strings.Contains(string(out), "cleanup-meta-ok") {
+		t.Fatalf("cleanup metadata: %v\n%s", err, out)
 	}
 }
