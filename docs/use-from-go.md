@@ -368,7 +368,7 @@ For example, an inventory row might report `metal:4294967296@<boot-session>` wit
 alias `metal:0`; the alias is current-order only, while the full ID is the value to
 store. A row with a missing or duplicated registry ID reports neither ID nor alias.
 
-```go
+```text
 	rows, failures := embeddinggemma2.AllDevices(embeddinggemma2.ProbeOptions{IncludeMemory: true})
 	for _, failure := range failures {
 		fmt.Fprintf(os.Stderr, "%s: %v\n", failure.Backend, failure.Err)

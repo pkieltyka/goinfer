@@ -16,6 +16,8 @@ import (
 	"path/filepath"
 	"runtime"
 	"slices"
+	"strconv"
+	"strings"
 	"testing"
 	"time"
 
@@ -221,7 +223,7 @@ func TestMetalDeviceRowsIdentityAndToken(t *testing.T) {
 // the legacy blank device ID contract. #86's exact 24-GiB figures stay in the
 // qualification record rather than being enforced across M4s.
 func TestMetalAttachedDeviceMemory(t *testing.T) {
-	legacyRows, legacyFailures := embeddinggemma2.Devices(embeddinggemma2.ProbeOptions{})
+	legacyRows, legacyFailures := embeddinggemma2.Devices(embeddinggemma2.ProbeOptions{IncludeMemory: true})
 	if len(legacyFailures) != 0 {
 		t.Fatalf("legacy Metal discovery: %+v", legacyFailures)
 	}
@@ -234,10 +236,11 @@ func TestMetalAttachedDeviceMemory(t *testing.T) {
 	if len(legacyMetal) != 1 {
 		t.Fatalf("legacy Metal discovery returned %d rows, want one system-default row", len(legacyMetal))
 	}
-	if legacyMetal[0].ID != "" || legacyMetal[0].Alias != "" {
-		t.Fatalf("legacy Metal row has identity: %+v", legacyMetal[0])
+	legacyRow := legacyMetal[0]
+	if legacyRow.ID != "" || legacyRow.Alias != "" {
+		t.Fatalf("legacy Metal row has identity: %+v", legacyRow)
 	}
-	rows, failures := embeddinggemma2.AllDevices(embeddinggemma2.ProbeOptions{})
+	rows, failures := embeddinggemma2.AllDevices(embeddinggemma2.ProbeOptions{IncludeMemory: true})
 	if len(failures) != 0 {
 		t.Fatalf("native Metal discovery: %+v", failures)
 	}
@@ -263,6 +266,14 @@ func TestMetalAttachedDeviceMemory(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
+	ids := []int{1, 2, 3}
+	if m.Config().VocabSize <= 3 {
+		t.Fatalf("tiny fixture vocabulary %d cannot hold the forward input", m.Config().VocabSize)
+	}
+	cpuVector, err := enc.EmbedIDs(ids)
+	if err != nil {
+		t.Fatalf("CPU EmbedIDs: %v", err)
+	}
 	acc, err := enc.UseAccelerator("metal")
 	if err != nil {
 		t.Fatal(err)
@@ -276,13 +287,16 @@ func TestMetalAttachedDeviceMemory(t *testing.T) {
 	if attached.ID != "" || attached.Alias != "" || attached.Backend != "metal" {
 		t.Fatalf("legacy attachment identity = %+v; want blank ID/alias", attached)
 	}
+	if attached.MemoryKind != legacyRow.MemoryKind || attached.Memory.TotalBytes != legacyRow.Memory.TotalBytes {
+		t.Fatalf("legacy attachment memory %+v, legacy inventory %+v", attached.Memory, legacyRow.Memory)
+	}
 	ram, ramErr := physicalRAM()
 	if ramErr == nil && ram > 0 {
-		if attached.MemoryKind == embeddinggemma2.MemoryShared && attached.Memory.TotalBytes != int64(ram) {
-			t.Errorf("attached total memory %d, want host total %d", attached.Memory.TotalBytes, ram)
+		if legacyRow.MemoryKind == embeddinggemma2.MemoryShared && legacyRow.Memory.TotalBytes != int64(ram) {
+			t.Errorf("legacy inventory total memory %d, want host total %d", legacyRow.Memory.TotalBytes, ram)
 		}
-		if attached.MemoryKind == embeddinggemma2.MemoryDedicated && attached.Memory.TotalBytes != 0 {
-			t.Errorf("dedicated attachment reported total %d without a verified device probe", attached.Memory.TotalBytes)
+		if legacyRow.MemoryKind == embeddinggemma2.MemoryDedicated && legacyRow.Memory.TotalBytes != 0 {
+			t.Errorf("dedicated legacy row reported total %d without a verified device probe", legacyRow.Memory.TotalBytes)
 		}
 	}
 	reporter, ok := acc.(embeddinggemma2.DeviceMemoryReporter)
@@ -293,20 +307,21 @@ func TestMetalAttachedDeviceMemory(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if reading.TotalBytes < 0 || reading.AvailableBytes < 0 || reading.AvailableBytes > reading.TotalBytes {
-		t.Fatalf("attached memory bounds: %+v", reading)
+	if reading.TotalBytes != legacyRow.Memory.TotalBytes || reading.Basis != legacyRow.Memory.Basis ||
+		reading.AvailableBytes < 0 || reading.AvailableBytes > reading.TotalBytes {
+		t.Fatalf("legacy attached memory %+v, legacy inventory %+v", reading, legacyRow.Memory)
 	}
 	if ramErr != nil {
 		if reading.Basis != embeddinggemma2.MemoryUnknown || reading.AvailableBytes != 0 {
 			t.Fatalf("unreadable host RAM should be unknown memory: %+v", reading)
 		}
-	} else if attached.MemoryKind == embeddinggemma2.MemoryShared {
+	} else if legacyRow.MemoryKind == embeddinggemma2.MemoryShared {
 		if reading.Basis != embeddinggemma2.MemoryEstimated || reading.TotalBytes <= 0 ||
 			reading.AvailableBytes < 0 || reading.AvailableBytes > reading.TotalBytes {
-			t.Fatalf("shared attached memory = %+v", reading)
+			t.Fatalf("shared legacy attached memory = %+v", reading)
 		}
 	} else if reading.Basis != embeddinggemma2.MemoryUnknown || reading.AvailableBytes != 0 {
-		t.Fatalf("dedicated/unknown attached memory = %+v", reading)
+		t.Fatalf("dedicated/unknown legacy attached memory = %+v", reading)
 	}
 	prev := enc.Accelerator()
 	if _, err := enc.UseDevice("metal:11@stale-boot", "metal"); !errors.Is(err, embeddinggemma2.ErrNoDevice) {
@@ -314,6 +329,10 @@ func TestMetalAttachedDeviceMemory(t *testing.T) {
 	}
 	if enc.Accelerator() != prev {
 		t.Fatal("failed explicit selection changed the working attachment")
+	}
+	// A refusal leaves the previous attachment usable, not merely equal.
+	if _, err := enc.EmbedIDs(ids); err != nil {
+		t.Fatalf("forward after refused selection: %v", err)
 	}
 	// A selection reason survives the public UseDevice call and is not folded
 	// into the sibling runtime-unavailable category.
@@ -338,6 +357,9 @@ func TestMetalAttachedDeviceMemory(t *testing.T) {
 	if enc.Accelerator() != prev {
 		t.Fatal("typed selection failures changed the working attachment")
 	}
+	if _, err := enc.EmbedIDs(ids); err != nil {
+		t.Fatalf("forward after typed refusals: %v", err)
+	}
 	if err := acc.Close(); err != nil {
 		t.Fatal(err)
 	}
@@ -345,8 +367,17 @@ func TestMetalAttachedDeviceMemory(t *testing.T) {
 		t.Fatal("DeviceMemory after Close returned no error")
 	}
 
+	selectedRegistry, boot, ok := strings.Cut(strings.TrimPrefix(usable.ID, "metal:"), "@")
+	if !ok || boot == "" {
+		t.Fatalf("selected ID %q has no boot marker", usable.ID)
+	}
+	wantRegistry, err := strconv.ParseUint(selectedRegistry, 10, 64)
+	if err != nil || wantRegistry == 0 {
+		t.Fatalf("selected ID %q has no registry ID: %v", usable.ID, err)
+	}
 	// The published exact ID and its current-order alias must both attach the
-	// same physical device and report the inventory identity and memory.
+	// same physical device, report the selected inventory row, and run a real
+	// forward on that retained handle.
 	for _, token := range []string{usable.ID, usable.Alias} {
 		explicit, err := enc.UseDevice(token, "metal")
 		if err != nil {
@@ -358,8 +389,16 @@ func TestMetalAttachedDeviceMemory(t *testing.T) {
 			t.Fatalf("%q attachment cannot report its device", token)
 		}
 		identity := explicitReport.AttachedDevice()
-		if identity.ID != usable.ID || identity.Alias != usable.Alias || identity.Backend != "metal" {
+		if identity.ID != usable.ID || identity.Alias != usable.Alias || identity.Backend != "metal" ||
+			identity.MemoryKind != usable.MemoryKind || identity.Memory.TotalBytes != usable.Memory.TotalBytes {
 			t.Fatalf("%q attached %+v, inventory %+v", token, identity, *usable)
+		}
+		a, ok := explicit.(*eg2Accel)
+		if !ok || a.d == nil {
+			t.Fatalf("%q attachment is not the selected Metal handle", token)
+		}
+		if a.d.RegistryID() != wantRegistry {
+			t.Fatalf("%q attached registry ID %d, inventory %q", token, a.d.RegistryID(), usable.ID)
 		}
 		explicitMemory, ok := explicit.(embeddinggemma2.DeviceMemoryReporter)
 		if !ok {
@@ -369,9 +408,32 @@ func TestMetalAttachedDeviceMemory(t *testing.T) {
 		if err != nil {
 			t.Fatalf("%q memory: %v", token, err)
 		}
-		if memory.TotalBytes != reading.TotalBytes || memory.AvailableBytes < 0 ||
-			memory.AvailableBytes > memory.TotalBytes || memory.Basis != reading.Basis {
-			t.Fatalf("%q memory %+v, legacy %+v", token, memory, reading)
+		if memory.TotalBytes != usable.Memory.TotalBytes || memory.Basis != usable.Memory.Basis ||
+			memory.AvailableBytes < 0 || memory.AvailableBytes > memory.TotalBytes {
+			t.Fatalf("%q memory %+v, inventory %+v", token, memory, usable.Memory)
+		}
+		d0, s0, w0 := a.d.Activity()
+		vector, err := enc.EmbedIDs(ids)
+		if err != nil {
+			t.Fatalf("%q EmbedIDs: %v", token, err)
+		}
+		d1, s1, w1 := a.d.Activity()
+		if d1 <= d0 || s1 <= s0 || w1 <= w0 {
+			t.Fatalf("%q activity dispatches %d->%d, submits %d->%d, waits %d->%d; want all to increase",
+				token, d0, d1, s0, s1, w0, w1)
+		}
+		var norm float64
+		for _, v := range vector {
+			if math.IsNaN(float64(v)) || math.IsInf(float64(v), 0) {
+				t.Fatalf("%q EmbedIDs returned a non-finite value", token)
+			}
+			norm += float64(v) * float64(v)
+		}
+		if math.Abs(norm-1) > 1e-4 {
+			t.Fatalf("%q EmbedIDs norm %v, want unit length", token, norm)
+		}
+		if cosine := eg2Cos(vector, cpuVector); cosine < 0.9999 {
+			t.Fatalf("%q EmbedIDs matches CPU at cosine %.9f", token, cosine)
 		}
 		if err := explicit.Close(); err != nil {
 			t.Fatal(err)
