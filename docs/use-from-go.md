@@ -305,6 +305,20 @@ unchanged. A selector being listed does not guarantee the device can load a give
 Read the actual attached device through the accelerator's
 `embeddinggemma2.AttachedDeviceReporter` interface.
 
+`Encoder.SelectText` is the opt-in pre-write route selection. It takes an
+ordered list of `embeddinggemma2.TextTarget` entries, validates the requested
+selectors and profiles, resolves an explicit device ID or current alias through
+`AllDevices`, and trials the first batch on private encoders. It returns a
+`TextSession` pinned to the winning route and a report of every attempt; the
+session's `First` field holds the first group's full-width vectors once. A later
+batch cannot change device or profile. The caller owns the route fingerprint and
+should refuse a mismatch before writing its first vector. A target's
+`MaxAdditionalBytes` cap is optional, and a pointer to zero is a real cap. A
+target refused by a batch estimate returns `ErrSelectionFit` under
+`ErrDeviceUnavailable`; a native OOM is never retried as another route. See the
+[embeddinggemma2select example](../apps/examples/embeddinggemma2select/main.go).
+
+
 Each CUDA row also carries the device's native compute capability in
 `ComputeCapability` (`Major`, `Minor`). The zero value means the capability is
 unavailable or inapplicable; CUDA majors are positive, so capability 8.0 has

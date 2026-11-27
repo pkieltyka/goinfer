@@ -199,6 +199,9 @@
       "embeddinggemma2",
       "pull"
     ],
+    "apps/examples/embeddinggemma2select": [
+      "embeddinggemma2"
+    ],
     "apps/examples/invoice": [
       "chat",
       "constrain",
