@@ -4,6 +4,7 @@ import (
 	"errors"
 	"fmt"
 	"slices"
+	"sync"
 	"testing"
 )
 
@@ -270,5 +271,77 @@ func TestAllDevicesAddsAddressableInventory(t *testing.T) {
 		if row.Backend == metalName && (row.ID == "" || row.Alias == "") {
 			t.Fatalf("expanded inventory kept a synthetic default row: %+v", row)
 		}
+	}
+}
+
+// TestDevicesSnapshotsRegistryDuringRegistration is meaningful under -race: it
+// registers and replaces probers while Devices and AllDevices iterate, which a
+// direct global-map read would race. The callbacks must run outside the lock.
+func TestDevicesSnapshotsRegistryDuringRegistration(t *testing.T) {
+	const backend = "fake-register-race"
+	probe := func(opts ProbeOptions) ([]DeviceInfo, error) {
+		if !opts.IncludeMemory {
+			return nil, errors.New("IncludeMemory not forwarded")
+		}
+		return []DeviceInfo{{Backend: backend, Name: "Device"}}, nil
+	}
+	t.Cleanup(func() {
+		accelMu.Lock()
+		delete(deviceProbes, backend)
+		delete(deviceInventoryProbes, backend)
+		accelMu.Unlock()
+	})
+	done := make(chan struct{})
+	go func() {
+		defer close(done)
+		for i := 0; i < 200; i++ {
+			RegisterDeviceProber(backend, probe)
+			RegisterDeviceInventoryProber(backend, probe)
+		}
+	}()
+	for i := 0; i < 200; i++ {
+		Devices(ProbeOptions{IncludeMemory: true})
+		AllDevices(ProbeOptions{IncludeMemory: true})
+	}
+	<-done
+	rows, failures := AllDevices(ProbeOptions{IncludeMemory: true})
+	if len(failures) != 0 || len(rows) != 1 || rows[0].Backend != backend {
+		t.Fatalf("final inventory rows %+v, failures %+v", rows, failures)
+	}
+}
+
+// TestEnumerationUsesSnapshotDuringCallbackRegistration proves a prober runs
+// after the registry lock is released and sees the snapshot taken before it:
+// re-registering from inside the callback cannot change the current call.
+func TestEnumerationUsesSnapshotDuringCallbackRegistration(t *testing.T) {
+	const backend, added = "fake-snapshot", "fake-snapshot-added"
+	original := DeviceInfo{Backend: backend, Name: "original"}
+	replacement := DeviceInfo{Backend: backend, Name: "replacement"}
+	var once sync.Once
+	RegisterDeviceProber(backend, func(ProbeOptions) ([]DeviceInfo, error) {
+		once.Do(func() {
+			RegisterDeviceProber(backend, func(ProbeOptions) ([]DeviceInfo, error) {
+				return []DeviceInfo{replacement}, nil
+			})
+			RegisterDeviceProber(added, func(ProbeOptions) ([]DeviceInfo, error) {
+				return []DeviceInfo{{Backend: added, Name: "late"}}, nil
+			})
+		})
+		return []DeviceInfo{original}, nil
+	})
+	t.Cleanup(func() {
+		accelMu.Lock()
+		delete(deviceProbes, backend)
+		delete(deviceProbes, added)
+		accelMu.Unlock()
+	})
+
+	rows, failures := Devices(ProbeOptions{})
+	if len(failures) != 0 || !slices.Equal(rows, []DeviceInfo{original}) {
+		t.Fatalf("first enumeration saw %+v, failures %+v; want the pre-registration snapshot", rows, failures)
+	}
+	rows, failures = Devices(ProbeOptions{})
+	if len(failures) != 0 || !slices.Equal(rows, []DeviceInfo{replacement, {Backend: added, Name: "late"}}) {
+		t.Fatalf("second enumeration saw %+v, failures %+v; want both registrations", rows, failures)
 	}
 }

@@ -79,7 +79,7 @@ func RegisterDeviceInventoryProber(backend string, probe func(ProbeOptions) ([]D
 // A backend may keep this legacy/default inventory separate from its explicit
 // addressable inventory; use AllDevices for the latter.
 func Devices(opts ProbeOptions) ([]DeviceInfo, []ProbeFailure) {
-	return devicesThrough(deviceProbes, opts)
+	return devicesThrough(snapshotProbes(false), opts)
 }
 
 // AllDevices asks every backend for its addressable inventory, with
@@ -87,13 +87,25 @@ func Devices(opts ProbeOptions) ([]DeviceInfo, []ProbeFailure) {
 // a separate inventory prober contributes its legacy rows. This is additive:
 // Devices and ProbeOptions keep their existing shape and default behavior.
 func AllDevices(opts ProbeOptions) ([]DeviceInfo, []ProbeFailure) {
+	return devicesThrough(snapshotProbes(true), opts)
+}
+
+// snapshotProbes copies the registered callbacks while holding the registry
+// lock, so a concurrent Register call cannot race the iteration. Callers invoke
+// the callbacks after the lock is released.
+func snapshotProbes(includeInventory bool) map[string]func(ProbeOptions) ([]DeviceInfo, error) {
 	accelMu.Lock()
+	defer accelMu.Unlock()
 	probes := maps.Clone(deviceProbes)
-	for name, probe := range deviceInventoryProbes {
-		probes[name] = probe
+	if probes == nil {
+		probes = make(map[string]func(ProbeOptions) ([]DeviceInfo, error), len(deviceInventoryProbes))
 	}
-	accelMu.Unlock()
-	return devicesThrough(probes, opts)
+	if includeInventory {
+		for name, probe := range deviceInventoryProbes {
+			probes[name] = probe
+		}
+	}
+	return probes
 }
 
 func devicesThrough(probes map[string]func(ProbeOptions) ([]DeviceInfo, error), opts ProbeOptions) ([]DeviceInfo, []ProbeFailure) {
