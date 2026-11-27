@@ -4,6 +4,7 @@ import (
 	"errors"
 	"fmt"
 	"slices"
+	"sync"
 	"testing"
 )
 
@@ -206,5 +207,141 @@ func TestDeviceRunnableSelectors(t *testing.T) {
 	RegisterDeviceAcceleratorWithSupport(last, backend, open, func(DeviceInfo) bool { return false })
 	if got := d.RunnableSelectors(); got != nil {
 		t.Fatalf("overwritten factories retained support: %v", got)
+	}
+}
+
+// TestAllDevicesAddsAddressableInventory covers the additive inventory entry
+// point against fake co-linked probers: Devices keeps the legacy blank row,
+// AllDevices replaces that backend's callback with its expanded inventory in
+// native order, and both keep another backend's partial rows and error.
+func TestAllDevicesAddsAddressableInventory(t *testing.T) {
+	const metalName, other = "fake-metal", "fake-other"
+	failure := errors.New("adapter query failed")
+	legacy := DeviceInfo{Backend: metalName, Name: "System default"}
+	physical := []DeviceInfo{
+		{ID: metalName + ":111@boot-A", Alias: metalName + ":0", Backend: metalName, Name: "GPU A"},
+		{ID: metalName + ":222@boot-A", Alias: metalName + ":1", Backend: metalName, Name: "GPU B"},
+	}
+	otherRow := DeviceInfo{ID: other + ":abc", Backend: other, Name: "Other", ProductID: 1234}
+	var legacyCalls, expandedCalls, otherCalls int
+	RegisterDeviceProber(metalName, func(opts ProbeOptions) ([]DeviceInfo, error) {
+		legacyCalls++
+		if !opts.IncludeMemory {
+			t.Error("legacy probe did not receive IncludeMemory")
+		}
+		return []DeviceInfo{legacy}, nil
+	})
+	RegisterDeviceInventoryProber(metalName, func(opts ProbeOptions) ([]DeviceInfo, error) {
+		expandedCalls++
+		if !opts.IncludeMemory {
+			t.Error("expanded probe did not receive IncludeMemory")
+		}
+		return physical, nil
+	})
+	RegisterDeviceProber(other, func(ProbeOptions) ([]DeviceInfo, error) {
+		otherCalls++
+		return []DeviceInfo{otherRow}, failure
+	})
+	t.Cleanup(func() {
+		accelMu.Lock()
+		delete(deviceProbes, metalName)
+		delete(deviceInventoryProbes, metalName)
+		delete(deviceProbes, other)
+		accelMu.Unlock()
+	})
+
+	rows, failures := Devices(ProbeOptions{IncludeMemory: true})
+	if legacyCalls != 1 || expandedCalls != 0 || otherCalls != 1 {
+		t.Fatalf("Devices calls legacy %d, expanded %d, other %d", legacyCalls, expandedCalls, otherCalls)
+	}
+	if !slices.Equal(rows, []DeviceInfo{legacy, otherRow}) ||
+		len(failures) != 1 || failures[0].Backend != other || !errors.Is(failures[0].Err, failure) {
+		t.Fatalf("Devices rows %+v, failures %+v", rows, failures)
+	}
+
+	all, allFailures := AllDevices(ProbeOptions{IncludeMemory: true})
+	if legacyCalls != 1 || expandedCalls != 1 || otherCalls != 2 {
+		t.Fatalf("AllDevices calls legacy %d, expanded %d, other %d", legacyCalls, expandedCalls, otherCalls)
+	}
+	if !slices.Equal(all, []DeviceInfo{physical[0], physical[1], otherRow}) ||
+		len(allFailures) != 1 || allFailures[0].Backend != other || !errors.Is(allFailures[0].Err, failure) {
+		t.Fatalf("AllDevices rows %+v, failures %+v", all, allFailures)
+	}
+	for _, row := range all {
+		if row.Backend == metalName && (row.ID == "" || row.Alias == "") {
+			t.Fatalf("expanded inventory kept a synthetic default row: %+v", row)
+		}
+	}
+}
+
+// TestDevicesSnapshotsRegistryDuringRegistration is meaningful under -race: it
+// registers and replaces probers while Devices and AllDevices iterate, which a
+// direct global-map read would race. The callbacks must run outside the lock.
+func TestDevicesSnapshotsRegistryDuringRegistration(t *testing.T) {
+	const backend = "fake-register-race"
+	probe := func(opts ProbeOptions) ([]DeviceInfo, error) {
+		if !opts.IncludeMemory {
+			return nil, errors.New("IncludeMemory not forwarded")
+		}
+		return []DeviceInfo{{Backend: backend, Name: "Device"}}, nil
+	}
+	t.Cleanup(func() {
+		accelMu.Lock()
+		delete(deviceProbes, backend)
+		delete(deviceInventoryProbes, backend)
+		accelMu.Unlock()
+	})
+	done := make(chan struct{})
+	go func() {
+		defer close(done)
+		for i := 0; i < 200; i++ {
+			RegisterDeviceProber(backend, probe)
+			RegisterDeviceInventoryProber(backend, probe)
+		}
+	}()
+	for i := 0; i < 200; i++ {
+		Devices(ProbeOptions{IncludeMemory: true})
+		AllDevices(ProbeOptions{IncludeMemory: true})
+	}
+	<-done
+	rows, failures := AllDevices(ProbeOptions{IncludeMemory: true})
+	if len(failures) != 0 || len(rows) != 1 || rows[0].Backend != backend {
+		t.Fatalf("final inventory rows %+v, failures %+v", rows, failures)
+	}
+}
+
+// TestEnumerationUsesSnapshotDuringCallbackRegistration proves a prober runs
+// after the registry lock is released and sees the snapshot taken before it:
+// re-registering from inside the callback cannot change the current call.
+func TestEnumerationUsesSnapshotDuringCallbackRegistration(t *testing.T) {
+	const backend, added = "fake-snapshot", "fake-snapshot-added"
+	original := DeviceInfo{Backend: backend, Name: "original"}
+	replacement := DeviceInfo{Backend: backend, Name: "replacement"}
+	var once sync.Once
+	RegisterDeviceProber(backend, func(ProbeOptions) ([]DeviceInfo, error) {
+		once.Do(func() {
+			RegisterDeviceProber(backend, func(ProbeOptions) ([]DeviceInfo, error) {
+				return []DeviceInfo{replacement}, nil
+			})
+			RegisterDeviceProber(added, func(ProbeOptions) ([]DeviceInfo, error) {
+				return []DeviceInfo{{Backend: added, Name: "late"}}, nil
+			})
+		})
+		return []DeviceInfo{original}, nil
+	})
+	t.Cleanup(func() {
+		accelMu.Lock()
+		delete(deviceProbes, backend)
+		delete(deviceProbes, added)
+		accelMu.Unlock()
+	})
+
+	rows, failures := Devices(ProbeOptions{})
+	if len(failures) != 0 || !slices.Equal(rows, []DeviceInfo{original}) {
+		t.Fatalf("first enumeration saw %+v, failures %+v; want the pre-registration snapshot", rows, failures)
+	}
+	rows, failures = Devices(ProbeOptions{})
+	if len(failures) != 0 || !slices.Equal(rows, []DeviceInfo{replacement, {Backend: added, Name: "late"}}) {
+		t.Fatalf("second enumeration saw %+v, failures %+v; want both registrations", rows, failures)
 	}
 }

@@ -1139,6 +1139,7 @@ Every import from one goinfer package to another, by repository-relative directo
 | `apps/examples/confidence` | `chat`, `constrain`, `decoder`, `tokenizer` |  |
 | `apps/examples/embed` | `chat`, `decoder`, `tokenizer` |  |
 | `apps/examples/embeddinggemma2` | `embeddinggemma2`, `pull` |  |
+| `apps/examples/embeddinggemma2select` | `embeddinggemma2` |  |
 | `apps/examples/invoice` | `chat`, `constrain`, `decoder`, `multimodal`, `tokenizer` |  |
 | `apps/examples/structured` | `chat`, `constrain`, `decoder`, `tokenizer` |  |
 | `backend/cuda` | `backend/cuda/eg2`, `backend/cuda/internal/fitdecide`, `backend/cuda/internal/gpudev`, `backend/cuda/internal/launchgeom`, `backend/cuda/internal/tower`, `backend/cuda/internal/wpack`, `decoder`, `decoder/fit`, `internal/audio`, `internal/cost`, `internal/modelcore/linalg`, `internal/runtime/logs`, `internal/runtime/mem`, `internal/runtime/program`, `internal/runtime/sampling`, `internal/vision`, `multimodal` | `chat`, `embeddinggemma2`, `internal/app/fitcmd`, `internal/app/loadflags`, `internal/clef`, `internal/diag/sb2census`, `internal/diag/towerid`, `internal/fidelity`, `internal/guard/memgate`, `internal/runtime/giw`, `internal/runtime/mem/probe`, `internal/runtime/modelload`, `internal/runtime/whisper`, `internal/testgate`, `internal/wrappedupload`, `tokenizer` |

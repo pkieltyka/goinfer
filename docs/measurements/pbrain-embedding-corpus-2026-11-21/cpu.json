@@ -1,0 +1,4732 @@
+{
+  "source": "pkieltyka/pbrain",
+  "revision": "b4def8fad8ea34101c369777604144fbbec2182a",
+  "fixture_clock": "2026-11-21T18:00:00Z",
+  "manifest_sha256": "420988ad6653a9141a56ef61f12de91adc07255705426a3042f9a41cf413d732",
+  "model": "google/embeddinggemma-2",
+  "model_revision": "f9972ac22e696a105c482202646979e33e4b5a1e",
+  "gomaxprocs": 4,
+  "backend": "cpu",
+  "abstention_cutoff": 0.72,
+  "load_wall_ns": 907715840,
+  "load_allocated_bytes": 2393579608,
+  "samples": [
+    {
+      "id": "a001",
+      "role": "query",
+      "tokens": 30,
+      "ids_sha256": "c2272c58486a685a9c2f342f4b5d55b79200bfb051b0f8f9d904df47d1a42501",
+      "wall_ns": 68191809,
+      "allocated_bytes": 39441440,
+      "vector_sha256": "2a51bbd6b280fcf0b60d0aa930ee003112764f8539f95e112915dbe0dc7f45a0"
+    },
+    {
+      "id": "bge-aikit",
+      "role": "document",
+      "tokens": 177,
+      "ids_sha256": "38a9183728fcc2c11b9dafb3d8b9709849aebf6716d08a8593fbeac7abd5b783",
+      "wall_ns": 247175986,
+      "allocated_bytes": 228521840,
+      "vector_sha256": "29f59388c825367f3af2ac017b277872a958124da99fb72c3909d70c8736dc49"
+    },
+    {
+      "id": "context-budget",
+      "role": "document",
+      "tokens": 152,
+      "ids_sha256": "b6c44f4cf5f1ce2447846c7f43ef12e17bc2ae7ecbe181d018f7d0b1f8ef58c0",
+      "wall_ns": 229216332,
+      "allocated_bytes": 195189216,
+      "vector_sha256": "714532fdbbf84e664bc497adc899d064ee9abcca77473c4f29011181dd523c8d"
+    },
+    {
+      "id": "factory-review",
+      "role": "document",
+      "tokens": 141,
+      "ids_sha256": "3ffeab84db5afb7c8b7cbc37ef6fcce40ee2ccb5d00199ed7f204ed4ddb8f497",
+      "wall_ns": 255505084,
+      "allocated_bytes": 182761824,
+      "vector_sha256": "3c416fdd0dd3d84f19a6e616f1f871f41541a8e302e994f48366e12ad1135fac"
+    },
+    {
+      "id": "hybrid-order",
+      "role": "document",
+      "tokens": 150,
+      "ids_sha256": "7b31a38b9eb2ccc77d7fafbffbbcdc8c00ed77729beb75a0f69e6f84cd627966",
+      "wall_ns": 252611381,
+      "allocated_bytes": 193611152,
+      "vector_sha256": "2e7d999dcacb4b0b6e6a154bd9995a8ee6d88458b2b77af115a6cac9f6064497"
+    },
+    {
+      "id": "index-refresh",
+      "role": "document",
+      "tokens": 148,
+      "ids_sha256": "75baddfa60645f8b65848c09d58989f921db18dbb4aa8d6f509b72b7eda46360",
+      "wall_ns": 202710577,
+      "allocated_bytes": 190405216,
+      "vector_sha256": "2dfb1efd20a1e85435c33d05cb8fb61dc40f8dd1103f68fdd7f575b790c32ad7"
+    },
+    {
+      "id": "missing-links",
+      "role": "document",
+      "tokens": 147,
+      "ids_sha256": "e167bd87c0c1088aa38fd763743d1712755af717e457c63eb526258aa0cba8ce",
+      "wall_ns": 209007156,
+      "allocated_bytes": 189864032,
+      "vector_sha256": "aac18e52951989592c31d9df2f10c44d2d550d99edd4dfb944c851e7a9794757"
+    },
+    {
+      "id": "model-cache",
+      "role": "document",
+      "tokens": 133,
+      "ids_sha256": "450bf383a1eed1077651c25ae86f7cbcae50e54e8032524a7b73c5e3c49f164a",
+      "wall_ns": 182298798,
+      "allocated_bytes": 172929824,
+      "vector_sha256": "87766e8923516b5845c2da4a03bd2b3bfe2eca0aa57e82fb8a842f9d25e71c06"
+    },
+    {
+      "id": "original-refcount",
+      "role": "document",
+      "tokens": 148,
+      "ids_sha256": "679be67e673850bda07e83965993774702df0497e81e1c4586b6b7347b703700",
+      "wall_ns": 203184296,
+      "allocated_bytes": 190408096,
+      "vector_sha256": "e1057a8805aae3005c8bdb2e918282e4fbfe433810bcc27ec13ea83e450517b6"
+    },
+    {
+      "id": "routed-lock",
+      "role": "document",
+      "tokens": 141,
+      "ids_sha256": "be66a07e799def71b8369851b779103ce236219e884e0a4f70c02f9f1ead5f73",
+      "wall_ns": 192161737,
+      "allocated_bytes": 182744400,
+      "vector_sha256": "c38646464ab9b9a9959c989d2504e3e4019b2f9616bee683e8e351954267ec66"
+    },
+    {
+      "id": "search-page-size",
+      "role": "document",
+      "tokens": 158,
+      "ids_sha256": "cd05416258259eb2b4c38950241485b80aa33397e134d9b40f35d431f2f837cb",
+      "wall_ns": 224396283,
+      "allocated_bytes": 203400608,
+      "vector_sha256": "1a81b4a0b6b74436c0d5aee61f6712e4990ec66ae91fa773d3b20e35fe93f8a8"
+    },
+    {
+      "id": "standing-rule",
+      "role": "document",
+      "tokens": 134,
+      "ids_sha256": "e6749d506a9cf603788383c60e11bdb03ca62b4b904e25ae5ac4527ef02e0fb3",
+      "wall_ns": 191887626,
+      "allocated_bytes": 173481696,
+      "vector_sha256": "4350718c0ca62db0f6a60d35d045582db861e8ddfbacf16efea4cf5251090e35"
+    },
+    {
+      "id": "tag-map",
+      "role": "document",
+      "tokens": 144,
+      "ids_sha256": "32cbe97c196c3785b04c0382df0d6fd3f0f33cc8473d69ad1c34337fe3e9a078",
+      "wall_ns": 199827846,
+      "allocated_bytes": 184866112,
+      "vector_sha256": "dcb2d63dbd1bd1edb572e065bed2ca105a4607808c73a40cd5a775acd973c70f"
+    },
+    {
+      "id": "vector-sql",
+      "role": "document",
+      "tokens": 158,
+      "ids_sha256": "90888dbb12a8ebe05827fd049ddd77256d3c1ec736282d66868675a6351c92e4",
+      "wall_ns": 233336009,
+      "allocated_bytes": 203400720,
+      "vector_sha256": "b643301cc16229623ab0f02c487e6e22a072c3a5bd1ab0cdaf1483d62cc5a091"
+    },
+    {
+      "id": "combined-gate",
+      "role": "document",
+      "tokens": 161,
+      "ids_sha256": "383b6d76f99bfc1627649fad3464ee48413a365daf304ba17a57337cc88e2787",
+      "wall_ns": 234784258,
+      "allocated_bytes": 208391072,
+      "vector_sha256": "090c49fecbd04652508ee3b62d57588a44f84bd19477fef7b60e5a81fd4fb892"
+    },
+    {
+      "id": "file-navigation",
+      "role": "document",
+      "tokens": 165,
+      "ids_sha256": "1fd71802d052f1dec89aa760ff4e32f5665acb4d424277194bb5e3fd7b23e7c8",
+      "wall_ns": 236744679,
+      "allocated_bytes": 213167264,
+      "vector_sha256": "858322d896887cb885b8913d96adea86a15a3747af2042687171d7b33aee5110"
+    },
+    {
+      "id": "fixture-reader",
+      "role": "document",
+      "tokens": 146,
+      "ids_sha256": "fd0d528aaa21eaa5481c8b7cc348d892f99d0582a26ed47f0d3f95ba6e1d699c",
+      "wall_ns": 205375966,
+      "allocated_bytes": 188828192,
+      "vector_sha256": "4f115c6028732eafc9c27feae8d0345cfc629f3b9a931b8512af405d7ce2e355"
+    },
+    {
+      "id": "guard-tracked",
+      "role": "document",
+      "tokens": 147,
+      "ids_sha256": "8660530df159e6cecb1490a998eff4f50ff395150fc01913a6a1892088672f3c",
+      "wall_ns": 211238041,
+      "allocated_bytes": 189867552,
+      "vector_sha256": "fe8c78219c01b0ff7ef7cb1bc8bca0c5719657d74d44b80d732e4f027e9d1882"
+    },
+    {
+      "id": "outside-window",
+      "role": "document",
+      "tokens": 138,
+      "ids_sha256": "8ffbb802c26301a5600ef5fcc531a75b487fa3052876eaec4daff38a8807baa4",
+      "wall_ns": 192117683,
+      "allocated_bytes": 178510048,
+      "vector_sha256": "51310b19d91f4352215157dd40b26fefdcdb732051af02ec35ea6ab26e13b59a"
+    },
+    {
+      "id": "pack-startup",
+      "role": "document",
+      "tokens": 166,
+      "ids_sha256": "e924e7679e4f7d118037e57e8ebf34e38ebfaa012320c5e2062ac79495274040",
+      "wall_ns": 249201429,
+      "allocated_bytes": 213716960,
+      "vector_sha256": "96af67900b7463f45229237e0d8e55a9870c8d14adcdee8d334e4e5c226f1893"
+    },
+    {
+      "id": "tag-count-view",
+      "role": "document",
+      "tokens": 136,
+      "ids_sha256": "89d7a31ac6d795c4cb0fa263891ee3290a9e46cffcd5b141919223b45538cf00",
+      "wall_ns": 184324562,
+      "allocated_bytes": 175077088,
+      "vector_sha256": "ac98e32c3ee978116e835c08ca882031c905b4a7fbb8e057e0ec55d6488bc52c"
+    },
+    {
+      "id": "adoption-gates",
+      "role": "document",
+      "tokens": 137,
+      "ids_sha256": "285da7e22430339cbf30f2edc307641f71beb45c3e4a23b85bca81b068e781d4",
+      "wall_ns": 192078448,
+      "allocated_bytes": 177969376,
+      "vector_sha256": "878e7e2b72a292a830bffc265c4f6ead3e47ae8948ce35f4297a78b0288c0c3c"
+    },
+    {
+      "id": "budget-minimum",
+      "role": "document",
+      "tokens": 133,
+      "ids_sha256": "94e46f15ade97e8686c81568ecfaed7fe096b86ff92640f3c4fb3247db73f58e",
+      "wall_ns": 184838007,
+      "allocated_bytes": 172929824,
+      "vector_sha256": "ace9e880502389dca075473673b49f329893a5aad0fad050fa974bdfeb45f141"
+    },
+    {
+      "id": "delete-preview",
+      "role": "document",
+      "tokens": 133,
+      "ids_sha256": "06cc215a9a395515a38442c05cf5d42d12c53e818460c73ab67acab4ce5ceb85",
+      "wall_ns": 188659319,
+      "allocated_bytes": 172932032,
+      "vector_sha256": "10b486bdeff5df19cd94e4f69b754a7a3a5139dbf76b1e4968e33a2d9c3de73c"
+    },
+    {
+      "id": "factory-install",
+      "role": "document",
+      "tokens": 128,
+      "ids_sha256": "f0d20d738f57fb7d3e9a7fddf923ee5c53a0e51ea8bf404e2c6521f994a152be",
+      "wall_ns": 174428701,
+      "allocated_bytes": 164709296,
+      "vector_sha256": "3339cf8ee004b3ce4f532f96b0693069a54c21aeec6665780b132e57069dbb39"
+    },
+    {
+      "id": "factory-ready",
+      "role": "document",
+      "tokens": 130,
+      "ids_sha256": "df1ee3337154c428cc5814153e3aeaa472bd7327577ca0c8f5d25e81cacc3b76",
+      "wall_ns": 182217985,
+      "allocated_bytes": 168696368,
+      "vector_sha256": "e273fc8c530295740205bf0d1425a2fa04a5b1b06f3975e3b9b6b45042c866e2"
+    },
+    {
+      "id": "factory-resume",
+      "role": "document",
+      "tokens": 132,
+      "ids_sha256": "ae8a478764e7fe5d1d53f8c8d6ea0875f4043598bf98acc9bde480447a00fe4f",
+      "wall_ns": 189258406,
+      "allocated_bytes": 170277824,
+      "vector_sha256": "9f780cb25cf1b19a1d07128a6bf6036c9fed3c79d22079df00ceaaefcea10e5f"
+    },
+    {
+      "id": "linked-summary",
+      "role": "document",
+      "tokens": 143,
+      "ids_sha256": "216ba3312002304d984d5beae92904296a4285d35b49f86a20a1fb6b85181609",
+      "wall_ns": 247186285,
+      "allocated_bytes": 184325824,
+      "vector_sha256": "341013a8ee2bf4f327ce312ad99440e199b28f18f7e549e8ff1a6f9915e81a05"
+    },
+    {
+      "id": "partial-readiness",
+      "role": "document",
+      "tokens": 142,
+      "ids_sha256": "20e45eea9a38773dadc5940dc85dd188c5f86f13fd019e3bb49bde64755b4c88",
+      "wall_ns": 198658046,
+      "allocated_bytes": 183294176,
+      "vector_sha256": "f27dfa8c850ebe88d619996fc6ed14cae5c67f38e63c6ad28bcd4c0db2d69bdb"
+    },
+    {
+      "id": "time-window",
+      "role": "document",
+      "tokens": 134,
+      "ids_sha256": "f5c7ff1ae0e0f60dad873d3169f722a1c3da11e2df78807a3ba8cce335371e54",
+      "wall_ns": 189004064,
+      "allocated_bytes": 173480896,
+      "vector_sha256": "0e9a3b840c6b6c400234109259279cff3d819839986e548b344296bebf86751f"
+    },
+    {
+      "id": "discovery-field-guide",
+      "role": "document",
+      "tokens": 2042,
+      "ids_sha256": "c255e66aa883c4fdd3400a49e6b488bc952e418dd9d156b3e4d056c159614969",
+      "wall_ns": 3769655101,
+      "allocated_bytes": 2573269328,
+      "vector_sha256": "3b16dd04e5e110622cffc2d03ca65c21fcc125fba1173882013233051f13546e"
+    },
+    {
+      "id": "storage-field-guide",
+      "role": "document",
+      "tokens": 2372,
+      "ids_sha256": "fb5ea794b627818f038aa9b4599588ad72bdcf0eb8d8faa65442505c5e21ac07",
+      "wall_ns": 4466684012,
+      "allocated_bytes": 2987747640,
+      "vector_sha256": "ed637eca59ace085a22261e30ba39fdfccdfe49b270c09ed989d0c0992e3532d"
+    },
+    {
+      "id": "tokenizer-report",
+      "role": "document",
+      "tokens": 2655,
+      "ids_sha256": "7d4ae10d1b8e442a7dca2429a881642d060fc31757a4e290a3b9ce7ee976f1c0",
+      "wall_ns": 5115105952,
+      "allocated_bytes": 3343286768,
+      "vector_sha256": "288244a6857608e0a71ea45c796ae8ac8b247fc59893250971ee0245e720f9f5"
+    },
+    {
+      "id": "a002",
+      "role": "query",
+      "tokens": 28,
+      "ids_sha256": "cb6aa023908374f41e3d8104bb9b0a2aff99b71412a119b0153114691fe6619a",
+      "wall_ns": 64419509,
+      "allocated_bytes": 35868880,
+      "vector_sha256": "441156baf2040981d4a2f06854a5c29afe12a62c56cf6888ca5a64c885342c4e"
+    },
+    {
+      "id": "a003",
+      "role": "query",
+      "tokens": 29,
+      "ids_sha256": "3e2459d5246614c3bc14ed10f7b031d1eba853a06c79d43b9e9d6faa32c85544",
+      "wall_ns": 68919389,
+      "allocated_bytes": 38841344,
+      "vector_sha256": "c60e85e02fd21a73ae81789193a0205609fc9e23390fe6c05a62e79af1e4bfdb"
+    },
+    {
+      "id": "a004",
+      "role": "query",
+      "tokens": 27,
+      "ids_sha256": "ea4c0f13ecd8da5698b9766194bb5eab297a5eb5dc1d6ddc4217af97144d9ffb",
+      "wall_ns": 67948547,
+      "allocated_bytes": 35325920,
+      "vector_sha256": "79a0041c6d050b89dcbee7aa5b5d68c84df02b9659ad480d52e3e0f531ea0203"
+    },
+    {
+      "id": "a005",
+      "role": "query",
+      "tokens": 28,
+      "ids_sha256": "c25d3610b6349de4b743e033fbb54d54cf6f188613927a57319a54bf6d147407",
+      "wall_ns": 66904926,
+      "allocated_bytes": 35869664,
+      "vector_sha256": "4ee6ad2c78b41420f186121b77f8f421aadbaddff6cf6f635464674d0acbc330"
+    },
+    {
+      "id": "a006",
+      "role": "query",
+      "tokens": 23,
+      "ids_sha256": "2cd87ff68041e7f0319f43f8f7dcc42249514a04bd6f2b1ad846c3000d885d12",
+      "wall_ns": 58577722,
+      "allocated_bytes": 30209440,
+      "vector_sha256": "db57da31bfd53fbe4436068d60a1a2e74fb4f549cf2d2713359750197ef36459"
+    },
+    {
+      "id": "a007",
+      "role": "query",
+      "tokens": 29,
+      "ids_sha256": "b0d213ba9594cb5e5a9dac7019b35d8a09d22d6f606a69c99e73f86f62f62b11",
+      "wall_ns": 68391527,
+      "allocated_bytes": 38840560,
+      "vector_sha256": "4c859a5d4d3e91c830d1ebe5f84c645d1670c9c4af1840279042c2a1ded85292"
+    },
+    {
+      "id": "a008",
+      "role": "query",
+      "tokens": 28,
+      "ids_sha256": "6b3b5abc2aa6c15febc04dff325cd6a06594bade094e735dee9660739ca6fb15",
+      "wall_ns": 67905836,
+      "allocated_bytes": 35868496,
+      "vector_sha256": "a551c266fef8eb2ca261f0e419e29e5f4a2500941462a7b0d2581e2f7d54dc0c"
+    },
+    {
+      "id": "a009",
+      "role": "query",
+      "tokens": 28,
+      "ids_sha256": "3e0ac5681a81dc300c26512a0fc5a4d0b9176978bae260fbc69a84dc83099f09",
+      "wall_ns": 66819043,
+      "allocated_bytes": 35868464,
+      "vector_sha256": "580c67c56791f87ef8b97d03465be7cec7d66dae3dc1dc594320f88540dbdd69"
+    },
+    {
+      "id": "a010",
+      "role": "query",
+      "tokens": 25,
+      "ids_sha256": "cc7fe7723d6dfb11eda2ddc54860e4f05d4b53f6d44b55e98e2b27337490d758",
+      "wall_ns": 62457976,
+      "allocated_bytes": 33636080,
+      "vector_sha256": "183e8e61e7b2667e16cb578c5c54ab011b4cd18d1dde22863cc36b4f66104d6b"
+    },
+    {
+      "id": "a011",
+      "role": "query",
+      "tokens": 23,
+      "ids_sha256": "3144a12d8e30f142c9da14043a434df3791e631adff17ac901a651641a9894cf",
+      "wall_ns": 59584343,
+      "allocated_bytes": 30210752,
+      "vector_sha256": "d1346d0d30b121b77cfb1caa8ef07f5e47a1fe2c4cadfd674ecdcf32589133d9"
+    },
+    {
+      "id": "a012",
+      "role": "query",
+      "tokens": 23,
+      "ids_sha256": "b98491d4ad83b19ce6e8257436aba34b274357f597718969bbbb75216e6a535e",
+      "wall_ns": 62812259,
+      "allocated_bytes": 30209440,
+      "vector_sha256": "41c4b84ee04d1e8a0856162b1c95219636461f8e3cbe0461357adb5f0760bec9"
+    },
+    {
+      "id": "a013",
+      "role": "query",
+      "tokens": 26,
+      "ids_sha256": "abe91e546b23f943bc00c2c55d5c11ac451000549337af2102d02c6765740423",
+      "wall_ns": 68833907,
+      "allocated_bytes": 34185968,
+      "vector_sha256": "e417b9a6487aa902bf252464cc6a7e1fd207ff9c9346d963420f9ffc3560b62d"
+    },
+    {
+      "id": "a014",
+      "role": "query",
+      "tokens": 25,
+      "ids_sha256": "b6be85a31178736fed38e768943e1c3efff47bd056397a10dabc8db6157c3874",
+      "wall_ns": 61285501,
+      "allocated_bytes": 33636032,
+      "vector_sha256": "cc342e68bcb640078e30cc8c9347d98cfaae988f0557f2ba31e0e27957ce6d7e"
+    },
+    {
+      "id": "a015",
+      "role": "query",
+      "tokens": 26,
+      "ids_sha256": "1e9960b3a61a7c5b2f827cff655b626063dc30e31140c98718fca3dc54183036",
+      "wall_ns": 64009981,
+      "allocated_bytes": 34185952,
+      "vector_sha256": "02d85e7a254be0c313c415480dae9ec0b9830199f42e8de47a153644ff245db5"
+    },
+    {
+      "id": "a016",
+      "role": "query",
+      "tokens": 32,
+      "ids_sha256": "1c87a2c0e3fc526c37de273d5a615983f0f314eb39bde4b8a30fe026d5254807",
+      "wall_ns": 60182839,
+      "allocated_bytes": 40987488,
+      "vector_sha256": "d5374e68081f2d9845107cfdc42c7fda8e78eceddd3dcd968329ab785a44769b"
+    },
+    {
+      "id": "a017",
+      "role": "query",
+      "tokens": 26,
+      "ids_sha256": "3b4f382c04c714973f542f3d68192d28712d48dc666aec5334c32811d254ab1f",
+      "wall_ns": 63959546,
+      "allocated_bytes": 34185952,
+      "vector_sha256": "4f31667bf18743228e5e79d804a2d5b40804319b7b74e92c39ced6d90eb8d627"
+    },
+    {
+      "id": "a018",
+      "role": "query",
+      "tokens": 36,
+      "ids_sha256": "c1fef28338361261671135ae8507833b7af72e824b290b1d1e74a4f7f60c1672",
+      "wall_ns": 68216586,
+      "allocated_bytes": 46310336,
+      "vector_sha256": "0db0a94ae8228ce0e8d0fbebbcc631edd0105841f2a05c6c815b77f33dadc14e"
+    },
+    {
+      "id": "a019",
+      "role": "query",
+      "tokens": 12,
+      "ids_sha256": "333caf673e4653722bfc3bf6aab3bc1451b3f733aa55498e98451c3d1bcfd560",
+      "wall_ns": 60496534,
+      "allocated_bytes": 15415600,
+      "vector_sha256": "3f214f4edf685744cf9390e1fe16117437386dcd98c9a01b0599105672b3cd38"
+    },
+    {
+      "id": "a020",
+      "role": "query",
+      "tokens": 12,
+      "ids_sha256": "be1848a08bbe3824cd08e6a9ee5b7e220315582da832c715a1c57d4efdca1e12",
+      "wall_ns": 60486415,
+      "allocated_bytes": 15415584,
+      "vector_sha256": "eff7bcbd77fd92d90c8cfc4604b1b915b570b9276455616678634cf89877fcba"
+    },
+    {
+      "id": "a021",
+      "role": "query",
+      "tokens": 12,
+      "ids_sha256": "7fe54f66e2ae5bf68dc977abadc9319bf9d5c1895e645b6c5a1e925ca66e8f8b",
+      "wall_ns": 59702627,
+      "allocated_bytes": 15415312,
+      "vector_sha256": "6237c25e1bef5d30c8c0242c61e1905f8baf322c0dc03d0f4315e749abd1a90d"
+    },
+    {
+      "id": "a022",
+      "role": "query",
+      "tokens": 15,
+      "ids_sha256": "d2679e3e67d8f5458df3763445b8f8c831efced993e100a91de8fbfc1498d21f",
+      "wall_ns": 69679512,
+      "allocated_bytes": 19973152,
+      "vector_sha256": "c5a75570d934206e33f895ece9c193cd81c06eae1d64fc56eb9dbd88f5f90441"
+    },
+    {
+      "id": "a023",
+      "role": "query",
+      "tokens": 12,
+      "ids_sha256": "a486ea58c015e0cce0c55c85ec8399c733f06b28babf64d649179d0d56108909",
+      "wall_ns": 62083515,
+      "allocated_bytes": 15415760,
+      "vector_sha256": "9aa8e704e1709f54718e97dcda3a10bfa4e9bc061fafa270cfe22e1430ad0390"
+    },
+    {
+      "id": "a024",
+      "role": "query",
+      "tokens": 12,
+      "ids_sha256": "84269e11c1b1bd96f33ff1a6fc178b4a47daae6358868e3fd07c66a5194e125f",
+      "wall_ns": 60145979,
+      "allocated_bytes": 15415760,
+      "vector_sha256": "68e775fbfd2557b8e3436421d53f52c401d5818d090102f5967704a2ac53ae63"
+    },
+    {
+      "id": "a025",
+      "role": "query",
+      "tokens": 12,
+      "ids_sha256": "6a1ae30aac2d9249a1ee113847a712285b9b41590fd9bafdb2a495b28bb6c7e1",
+      "wall_ns": 60391024,
+      "allocated_bytes": 15415328,
+      "vector_sha256": "c05be3dc94cd82927d484f1f60c1abdffd4657f9e57fe92ed2661df64a9c295f"
+    },
+    {
+      "id": "a026",
+      "role": "query",
+      "tokens": 12,
+      "ids_sha256": "adcb8830271efa31c779b96a9bb82d5e26b0bf45c92d5f19e3ac2a8c26ac523e",
+      "wall_ns": 60154605,
+      "allocated_bytes": 15415760,
+      "vector_sha256": "fa6107dbc270e4afb0669bb0544780493f173c89e13773616e32e48ec43751ae"
+    },
+    {
+      "id": "a027",
+      "role": "query",
+      "tokens": 12,
+      "ids_sha256": "0426f7ed945c3f2d76e34c414291ff70e6e0e44ef55c76337f0ad93c53510806",
+      "wall_ns": 59704010,
+      "allocated_bytes": 15415760,
+      "vector_sha256": "3838f5561696925ee4ec943a9e40a145ad91cd9544f9ecb089ea6f96d29d05a3"
+    },
+    {
+      "id": "a028",
+      "role": "query",
+      "tokens": 12,
+      "ids_sha256": "a8cdcca6917457b83550cd91ff03549b4cb10b5489a59e137879f17c211b9bda",
+      "wall_ns": 60833794,
+      "allocated_bytes": 15415312,
+      "vector_sha256": "a50f601d83e8ae292787cc41a3ae4ba6c58ffbbdf88b47018ea54e99e407ac8c"
+    },
+    {
+      "id": "a029",
+      "role": "query",
+      "tokens": 14,
+      "ids_sha256": "cae937c852f74cb41c75d1908caa715f2731113358847fe76b6a5144927251bd",
+      "wall_ns": 72832486,
+      "allocated_bytes": 18011584,
+      "vector_sha256": "e47d0b56c4e0deffde89da6ef099c3a58376cbd63e8ebce2261b7005895c43f3"
+    },
+    {
+      "id": "a030",
+      "role": "query",
+      "tokens": 12,
+      "ids_sha256": "96deb89d12d9ce4dd8e3c2f1f795b1e9d179891f953dc3a36120bef055e76e64",
+      "wall_ns": 60372388,
+      "allocated_bytes": 15415200,
+      "vector_sha256": "a05bf4a1fa894ec6a83332b028ef8feecbeea47c531b282de96170d8f25855b4"
+    },
+    {
+      "id": "a031",
+      "role": "query",
+      "tokens": 12,
+      "ids_sha256": "61bbcfbc0f76f44d1ccaa346b9c3e5b5ff7750297984151d21348ae6d413fa42",
+      "wall_ns": 60330118,
+      "allocated_bytes": 15415200,
+      "vector_sha256": "314eea0a7abcfbca58e56506506ebd45c1d4033e9894ae5e36005909a6a6ac27"
+    },
+    {
+      "id": "a032",
+      "role": "query",
+      "tokens": 14,
+      "ids_sha256": "e387424c7a235baa9b5645a813826444f86a4214e6483388a5e93476f46b8382",
+      "wall_ns": 72506377,
+      "allocated_bytes": 18011488,
+      "vector_sha256": "9da3c7afda48e4758ef5f4eae1e984825d8b216afddb24ac276be0fb259c85f8"
+    },
+    {
+      "id": "a033",
+      "role": "query",
+      "tokens": 12,
+      "ids_sha256": "ec3df222fc23ef7069e8e8da6aeb7302c4bef0bd7f8f8a9615af30932e10e145",
+      "wall_ns": 60434566,
+      "allocated_bytes": 15415072,
+      "vector_sha256": "cc1eda300dfd64e5018bcd1c1af686185155aa740353eaef9a4fafc3292fdc30"
+    },
+    {
+      "id": "a034",
+      "role": "query",
+      "tokens": 12,
+      "ids_sha256": "9544a56380cce9ee5ac389a6a1e1adc09107200033918747c6c5ec752792e7e5",
+      "wall_ns": 60133605,
+      "allocated_bytes": 15414928,
+      "vector_sha256": "c8fc4074fd36f204c96a32aee4c56aac115187caa5fdc2fcaad29bf792d922df"
+    },
+    {
+      "id": "a035",
+      "role": "query",
+      "tokens": 11,
+      "ids_sha256": "e0dd65a0f7d1121e3b2174fca2d82fc5dab4731330757da7c7f6d8706121a47d",
+      "wall_ns": 61917030,
+      "allocated_bytes": 14871424,
+      "vector_sha256": "e19f3ff4e3f7b5de408824c42a3f22d06ff0c54c6377101e8460ff44a36ae8bd"
+    },
+    {
+      "id": "a036",
+      "role": "query",
+      "tokens": 13,
+      "ids_sha256": "d3157414f80a404838786369bd18ada14709b51f938e4e9a30297c6836a97433",
+      "wall_ns": 65956827,
+      "allocated_bytes": 17080256,
+      "vector_sha256": "beb8685a6684baa176fe2912c642b2d82a6fb1f9eb722627ebc96a1c18cac606"
+    },
+    {
+      "id": "a037",
+      "role": "query",
+      "tokens": 24,
+      "ids_sha256": "de6ff464ec07f837d22b0020b73e27cf63baa32dc45e72d50ee7e7033fb77e71",
+      "wall_ns": 58053658,
+      "allocated_bytes": 30751424,
+      "vector_sha256": "38ded1c38b6804ef32cac032b09c0eefaeeeb234a87469d839687042e4016b58"
+    },
+    {
+      "id": "a038",
+      "role": "query",
+      "tokens": 22,
+      "ids_sha256": "b1f443c02180e0dffa60a8d0df7983d2afb2e01cb6b9327f19b2822222cb40ae",
+      "wall_ns": 60046600,
+      "allocated_bytes": 29171024,
+      "vector_sha256": "c7ebca9c20c65e03514ba685e314383ef2c816f6c08bb24e2a40928469e9dc0f"
+    },
+    {
+      "id": "a039",
+      "role": "query",
+      "tokens": 22,
+      "ids_sha256": "da9d1cd359adcd48f02fa1cfe18a206fd9b4c3248d3c20b951e1e88b6dcdd3f6",
+      "wall_ns": 55280735,
+      "allocated_bytes": 29170608,
+      "vector_sha256": "4931164848b98f7a1a937bc447239e985fbe65e02d217c564c35a64fc9d066b6"
+    },
+    {
+      "id": "a040",
+      "role": "query",
+      "tokens": 25,
+      "ids_sha256": "35d93937af85d1c9d5308f310cfd4ba673400a1e8adfb1c641d2068a4583eb6c",
+      "wall_ns": 64485244,
+      "allocated_bytes": 33634992,
+      "vector_sha256": "f4bd2e13524d6335c0c4ed88aea7158bb30d48b6dae54837c1b40ceb0f1750bb"
+    },
+    {
+      "id": "a041",
+      "role": "query",
+      "tokens": 22,
+      "ids_sha256": "c1da4bb0e3687c0004e55795ff0bbebedfca9cf7c0fcb929b9d798df4c8e5d60",
+      "wall_ns": 54763563,
+      "allocated_bytes": 29171312,
+      "vector_sha256": "89b543709fe5e676143fc1372ff1f28620d75d0d7e931143e23728caea1782ad"
+    },
+    {
+      "id": "a042",
+      "role": "query",
+      "tokens": 26,
+      "ids_sha256": "55f6a14d3392c2a79f563bb4ddd761cd1bf7fca685921e7e6177819b5bae90a4",
+      "wall_ns": 66182504,
+      "allocated_bytes": 34186000,
+      "vector_sha256": "c7539e873a92f6463346983fc0ee6204b9ef05eec2b0a56698c434cc46c60011"
+    },
+    {
+      "id": "a043",
+      "role": "query",
+      "tokens": 24,
+      "ids_sha256": "fa2b74c3a1b8530c5656d0239b20d7b200ae2c73afaf95f853d3aa20b5f9641f",
+      "wall_ns": 58562333,
+      "allocated_bytes": 30751424,
+      "vector_sha256": "bbcbae94167dfc1cb68b6aa7e1127ffa0e251d87b5fddb8d2be639f33dd293f0"
+    },
+    {
+      "id": "a044",
+      "role": "query",
+      "tokens": 24,
+      "ids_sha256": "5d5b9a1940f28d54dd0d5e0dd33b58b7423754072243cdbe549c9f8988804659",
+      "wall_ns": 56568789,
+      "allocated_bytes": 30751008,
+      "vector_sha256": "09e743fc2531118bb47704e51644773baaab7b3717dc202926f667c416b99a33"
+    },
+    {
+      "id": "a045",
+      "role": "query",
+      "tokens": 23,
+      "ids_sha256": "f674ac33be79a0fd08454f93539fb85a7f60b749cf50abb93a893765813f04f4",
+      "wall_ns": 59481919,
+      "allocated_bytes": 30210768,
+      "vector_sha256": "37a2e76be998377c4d1848b6178154f9513753b83a7379f71d906600f8efdb43"
+    },
+    {
+      "id": "a046",
+      "role": "query",
+      "tokens": 22,
+      "ids_sha256": "ecf4b7f5196c991d14b5b3f2d947370efe910b23f7ac5fbacebfe98bc32f2178",
+      "wall_ns": 57239914,
+      "allocated_bytes": 29170608,
+      "vector_sha256": "3a9ff18a84d0e84154b506ac46e44c00d58eb1b649513cfceec665747b1a435a"
+    },
+    {
+      "id": "a047",
+      "role": "query",
+      "tokens": 31,
+      "ids_sha256": "673b97663491e511c1bc09cf3c32607dabab0577b7e8019c40b4ac97abfec26b",
+      "wall_ns": 74219999,
+      "allocated_bytes": 40437056,
+      "vector_sha256": "e80b33ef620644dd599c86417fc1fc1c649d107f2f88b40f4b4adc68418772de"
+    },
+    {
+      "id": "u001",
+      "role": "query",
+      "tokens": 24,
+      "ids_sha256": "b9f9fa4212155e2554d686eaba0a31b5dbac87cd746915f433c88ab215638844",
+      "wall_ns": 58599193,
+      "allocated_bytes": 30751424,
+      "vector_sha256": "833112c66ac1ba0139843e8a37d02765fea3f0de453b9a70ce25d2e77b9a84a8"
+    },
+    {
+      "id": "u002",
+      "role": "query",
+      "tokens": 26,
+      "ids_sha256": "228b03a58a0353417235adf28c5a8f2051a4d880b5dbf0eb0d14ec6a0f41f1b6",
+      "wall_ns": 63469215,
+      "allocated_bytes": 34185952,
+      "vector_sha256": "864a9919d6f8564f2bc0fd6006c6f90a62ca75e0c81b39371551126903f5981c"
+    },
+    {
+      "id": "u003",
+      "role": "query",
+      "tokens": 23,
+      "ids_sha256": "da2ca9dcea2d27f5bd1f63df4b4db60e15110323b28ec96b2e7735940659c29e",
+      "wall_ns": 62612169,
+      "allocated_bytes": 30208992,
+      "vector_sha256": "7c42877560dd422bd8c72e1058b1a41401523341307faedafcb4b7426ef07dcf"
+    },
+    {
+      "id": "u004",
+      "role": "query",
+      "tokens": 26,
+      "ids_sha256": "86056903c15ee511c293f72e4b4dd5481ecb590ab64c57245292c4671c8df024",
+      "wall_ns": 69894129,
+      "allocated_bytes": 34184464,
+      "vector_sha256": "98c36dbb63d154af111e0920589ab162d21e8325afd577bd4017a077d6f4440e"
+    },
+    {
+      "id": "u005",
+      "role": "query",
+      "tokens": 23,
+      "ids_sha256": "d139a7b535739ed63b3ea41d05b57be08e3549bd603856400d85bc8258cf1653",
+      "wall_ns": 61362537,
+      "allocated_bytes": 30209456,
+      "vector_sha256": "d47afb5963d68dfe6f11d8d97406a609ce0bc9f8d013b13171a0a7e44cf3459c"
+    },
+    {
+      "id": "u006",
+      "role": "query",
+      "tokens": 20,
+      "ids_sha256": "d2189482eed23e281092462eb52e31f12bf66e51fc339f544cbeab071ef4992a",
+      "wall_ns": 54652162,
+      "allocated_bytes": 25650064,
+      "vector_sha256": "9ec560ef6b578ff89f483b90037fd6fd0c04c19b298d1fca9b0113d9429a650e"
+    },
+    {
+      "id": "u007",
+      "role": "query",
+      "tokens": 22,
+      "ids_sha256": "d604d1fe88597f16cb3e7e1d412ee351379fedfa874a7d2bf08af415082d1d95",
+      "wall_ns": 58757403,
+      "allocated_bytes": 29171280,
+      "vector_sha256": "a07daa116e56443f55b40997d74baa9aa0c208741d004040dab7483aba6f0010"
+    },
+    {
+      "id": "u008",
+      "role": "query",
+      "tokens": 23,
+      "ids_sha256": "174faa9b9563328cbb43afb01b9dd50a3ff6d9598919d33d19bdc2f5bbfed2cd",
+      "wall_ns": 60656397,
+      "allocated_bytes": 30210336,
+      "vector_sha256": "eaff1b351111186502a9f43ba591883664e3822b51adf9eff5ee4316787e6b69"
+    },
+    {
+      "id": "u009",
+      "role": "query",
+      "tokens": 22,
+      "ids_sha256": "dca39570e0a715e20fe222fed985e7c297b0996171a9a356b17d92d21ed37b58",
+      "wall_ns": 57693945,
+      "allocated_bytes": 29170752,
+      "vector_sha256": "21c1b347b238a02d2b7142fa1d0b1c491a837f2825e92db1e60eeb575d8b8702"
+    },
+    {
+      "id": "u010",
+      "role": "query",
+      "tokens": 19,
+      "ids_sha256": "ff5ce323e4872dd500610634fb7989e31ad418f4076ec60b5446df9592a52908",
+      "wall_ns": 52747969,
+      "allocated_bytes": 25082896,
+      "vector_sha256": "633cb182984dbb340f26bf53f3eacbfaee5c2881857c07e796349df6000d24d8"
+    },
+    {
+      "id": "u011",
+      "role": "query",
+      "tokens": 27,
+      "ids_sha256": "a8300e002e952774e174e4bd9c69a17bea09ed31089336e047f81827a69e5eb1",
+      "wall_ns": 67074267,
+      "allocated_bytes": 35324032,
+      "vector_sha256": "1533bc2ee183bc9c3467a8c762cb47cb564e8dcf0572f00b2eaab054a7489300"
+    },
+    {
+      "id": "u012",
+      "role": "query",
+      "tokens": 21,
+      "ids_sha256": "80e1631d8efac2551640ddf8846d79dff5d99ab04587cb6114a7e6aae06ac898",
+      "wall_ns": 55445748,
+      "allocated_bytes": 28424112,
+      "vector_sha256": "dc3bf089b610244b88b6b982869225530a8c1b65dd43d596fd5e46fce6e87d77"
+    },
+    {
+      "id": "u013",
+      "role": "query",
+      "tokens": 25,
+      "ids_sha256": "454da169200feb1bed8902d5c3d0c273263ecd7d349a96e41cebce2f417a0b16",
+      "wall_ns": 59949355,
+      "allocated_bytes": 33634992,
+      "vector_sha256": "c5efc30c0a543d8355424277b873d99e701810d86bc97c090c5c48a1cae840ce"
+    },
+    {
+      "id": "u014",
+      "role": "query",
+      "tokens": 22,
+      "ids_sha256": "b6c749edcb943b2a7f8a640c3ab95b11edfb02d11525e8ee8d636f8c91bc1b7e",
+      "wall_ns": 57354100,
+      "allocated_bytes": 29171024,
+      "vector_sha256": "ec0b18ed07b6453bccee56392a698e6482bf16946acf1701dc5bfff6d74159bd"
+    },
+    {
+      "id": "u015",
+      "role": "query",
+      "tokens": 22,
+      "ids_sha256": "c1c2a701423e55bfff4806fa4cc5588feb1a1c13512c825f2cbf2f157a05b4da",
+      "wall_ns": 60143344,
+      "allocated_bytes": 29170608,
+      "vector_sha256": "dd8cec7ac2b7b38cb802345844f2474fae39f243678fe44af9976aed285df417"
+    },
+    {
+      "id": "u016",
+      "role": "query",
+      "tokens": 19,
+      "ids_sha256": "767d028fb22a2f1a29cef1a45fafd41c533a57e6ffdaef17822581928e6a4857",
+      "wall_ns": 53283705,
+      "allocated_bytes": 25082736,
+      "vector_sha256": "3c59b4117681689b1d283f2a9b6c7bfbf1208983d72bea3ca16ecbdba26c237f"
+    },
+    {
+      "id": "u017",
+      "role": "query",
+      "tokens": 20,
+      "ids_sha256": "cd5184c759b4c4e339e7649a1624697cb03ecf93f442afbcde1340d7dcb6942e",
+      "wall_ns": 55490013,
+      "allocated_bytes": 25650064,
+      "vector_sha256": "de1948c3ecc1848a24d8625535e1a1d21b0ac03ee3e049d871f5aabaddb83d77"
+    },
+    {
+      "id": "u018",
+      "role": "query",
+      "tokens": 19,
+      "ids_sha256": "bb7e8bffdecf574ecf7b91ab10f74257554c5910b2dc6915da6999e98125788f",
+      "wall_ns": 50986044,
+      "allocated_bytes": 25082768,
+      "vector_sha256": "0b15a0ea55e329fa9143e7b313807056008df5a52b0c54ba01ab5bd6c26367a8"
+    },
+    {
+      "id": "u019",
+      "role": "query",
+      "tokens": 18,
+      "ids_sha256": "5379030a8540ba668288c10fcc46c39235b4946585064b39ce171125d30537d2",
+      "wall_ns": 50544246,
+      "allocated_bytes": 23930416,
+      "vector_sha256": "3eb6b24dcf98b909ee2475ea80ec6c9345499303c508cfc7c9af287e8d0c6631"
+    },
+    {
+      "id": "u020",
+      "role": "query",
+      "tokens": 21,
+      "ids_sha256": "1e965549331d4a73ae50efab1a88957c5dc7f2dddc62193c6b37d0a48a2d6179",
+      "wall_ns": 54421965,
+      "allocated_bytes": 28424112,
+      "vector_sha256": "928daa25436bb8be8886b4b46d614a6673a7f2ab672db066148fc21c5b472247"
+    },
+    {
+      "id": "u021",
+      "role": "query",
+      "tokens": 20,
+      "ids_sha256": "63719ec32dbb0bd74a11884da74a9455d421e6167c37f890b8bb73e7143809bc",
+      "wall_ns": 54419380,
+      "allocated_bytes": 25649776,
+      "vector_sha256": "23ba2e34057eda7035177fc9a160d6004601281ad9a04e82ee2362e054230ade"
+    },
+    {
+      "id": "u022",
+      "role": "query",
+      "tokens": 21,
+      "ids_sha256": "3ec4afaa45462ae405246de9740c3cbfbdcb73d08231f96ef773ddf13ee329c7",
+      "wall_ns": 55074935,
+      "allocated_bytes": 28424256,
+      "vector_sha256": "699214274f27ce5c03a39f58a828bb0bb015c479cf6107774d1fe81f24c18832"
+    },
+    {
+      "id": "u023",
+      "role": "query",
+      "tokens": 21,
+      "ids_sha256": "2db75ce70bbacc9a7a15e039109f792413d5ed938528f35ca14783a8e3659a31",
+      "wall_ns": 55670004,
+      "allocated_bytes": 28424112,
+      "vector_sha256": "b49249155aa6db6712f0138a5715ea0fe63194481a7a19dbbf61c6e56b0f20e6"
+    },
+    {
+      "id": "u024",
+      "role": "query",
+      "tokens": 21,
+      "ids_sha256": "b85845dc40e6da72d5cfe3ecbd308022ab63030211f9e60e0646ea46a10f1961",
+      "wall_ns": 53716086,
+      "allocated_bytes": 28424800,
+      "vector_sha256": "a98c539ffa5ca4e53cf41db3957431a9ad272a00033bb0fb48f4dc0ddecda9ac"
+    },
+    {
+      "id": "u025",
+      "role": "query",
+      "tokens": 21,
+      "ids_sha256": "29576b12c0078654401bf70805d3cdbc72e203b8946928b7751f71246140f974",
+      "wall_ns": 55829467,
+      "allocated_bytes": 28424128,
+      "vector_sha256": "757b46f5179d55d9ce9731a03d200b395ae28027be0a7d947b0efb410e2d5aa7"
+    },
+    {
+      "id": "u026",
+      "role": "query",
+      "tokens": 20,
+      "ids_sha256": "b477a8f0cb782b1fe87e98c5c07d9cdb82d666c0d3023aaf05c5c50c1a01e958",
+      "wall_ns": 53622467,
+      "allocated_bytes": 25649392,
+      "vector_sha256": "bfbee5b844ecba15bb826fd2a2ea1608ac97fc715126433ecf8d37de0f8be816"
+    },
+    {
+      "id": "u027",
+      "role": "query",
+      "tokens": 20,
+      "ids_sha256": "e081c1022f68b4cadba0f963af762454315efd165e218af6b3b18c8ff8da69a7",
+      "wall_ns": 51978458,
+      "allocated_bytes": 25649392,
+      "vector_sha256": "374bbeb0d7c54bd8b03a8a7ed3a4002965a515b3c8e3356a4d5be07e38f838d5"
+    },
+    {
+      "id": "u028",
+      "role": "query",
+      "tokens": 19,
+      "ids_sha256": "e6660ffdfa644a02801abf519997bb663f5ad199cba767126f7ee6021d7d6bca",
+      "wall_ns": 53264549,
+      "allocated_bytes": 25082080,
+      "vector_sha256": "4240557874d3a4797f2df5009a97b1d00c07f027ec34c5df798f929242228b64"
+    },
+    {
+      "id": "u029",
+      "role": "query",
+      "tokens": 20,
+      "ids_sha256": "aba3b8f5f96da01316204b8bf61938eeb12d116e17e9e04da71af586767bd814",
+      "wall_ns": 52460112,
+      "allocated_bytes": 25650064,
+      "vector_sha256": "2f47094bfcec6d932407b78cc1ac95e66447e3681a9957d679334bc2e08df638"
+    },
+    {
+      "id": "u030",
+      "role": "query",
+      "tokens": 17,
+      "ids_sha256": "4a99f29d2ebd442ec2d56b91bcceaedd30f8579baac2e4bd45f4a06a276cceba",
+      "wall_ns": 48257085,
+      "allocated_bytes": 23383552,
+      "vector_sha256": "9f342a8919928bc1784424ccc7b82521b372344301b4f04191ba54a486273b00"
+    },
+    {
+      "id": "u031",
+      "role": "query",
+      "tokens": 20,
+      "ids_sha256": "03215ed67547fe087947e2a453abf531664fb83b4b05a2459590d6c1a8a54cf9",
+      "wall_ns": 51850415,
+      "allocated_bytes": 25650064,
+      "vector_sha256": "ddef24bbafee3472f03eb4ccf1fdb2b374018dddfa75e6a9a6ba6dbd655dc711"
+    },
+    {
+      "id": "u032",
+      "role": "query",
+      "tokens": 25,
+      "ids_sha256": "dd0bc110f4bb26329e3ee5c581e2638741c4e58c977216ba4b0d3a9c40db5741",
+      "wall_ns": 61679749,
+      "allocated_bytes": 33635648,
+      "vector_sha256": "5ec7b61ce3ef4a2ee8a9c7c78fb27014cb6cf36533e08168f59d1fe658cf2869"
+    },
+    {
+      "id": "u033",
+      "role": "query",
+      "tokens": 22,
+      "ids_sha256": "aec86c8ddf80e9c194adb8d6649a7715101d2cc83dc64e308b1ec25ff714b3e3",
+      "wall_ns": 55100002,
+      "allocated_bytes": 29171296,
+      "vector_sha256": "1ccad6a6b1312e35922d7dbba2b8a04adb47c2b08f35a9eace088dd16dc10ff7"
+    },
+    {
+      "id": "u034",
+      "role": "query",
+      "tokens": 21,
+      "ids_sha256": "395cba57f7c4af8c58e6906823bf061cd1da63878a6f06dcd1e6f935d2db9920",
+      "wall_ns": 52971202,
+      "allocated_bytes": 28424800,
+      "vector_sha256": "131e4071f7e4c4c19a18757de71588a9deb0b553d93ca0a74d81a0e5442b3527"
+    },
+    {
+      "id": "u035",
+      "role": "query",
+      "tokens": 27,
+      "ids_sha256": "52e01277b24f1475855ad5a01d04627f1977c7cadf977c0b5e0e163d5d5db9ac",
+      "wall_ns": 63568303,
+      "allocated_bytes": 35323648,
+      "vector_sha256": "0916f31b051a7c4956710edce3babf3e4d2b57424fd0e275d02489eb6bfa2406"
+    },
+    {
+      "id": "u036",
+      "role": "query",
+      "tokens": 22,
+      "ids_sha256": "d04a1350e6f86f109e9ea61f9c2a2b2d8421f417f5c00ff61bb20a7f76c8bbba",
+      "wall_ns": 55765745,
+      "allocated_bytes": 29171040,
+      "vector_sha256": "e38c4a7d7273dc45b1e99f7431a5e6074ff95d614bdbeb53eeb25bf4552a77fe"
+    },
+    {
+      "id": "u037",
+      "role": "query",
+      "tokens": 21,
+      "ids_sha256": "f805f131e6ed5a905547fad91e032e89938eab7fa6bdf90c40f3e1007dd90ed0",
+      "wall_ns": 51642450,
+      "allocated_bytes": 28424800,
+      "vector_sha256": "88a9d791b80dde9f9e0b40f0c4d582a09f06494e15f1736cc44dce14eceb5430"
+    },
+    {
+      "id": "u038",
+      "role": "query",
+      "tokens": 22,
+      "ids_sha256": "36b86fecee3060e1732d85441014076dd51bc8ad9c766ca9bc1a6323d696b078",
+      "wall_ns": 55740969,
+      "allocated_bytes": 29170608,
+      "vector_sha256": "9ba2029a2c918c409fbd8a5b99df7dc3eed19cbb6431b4b9dc972c32de113713"
+    },
+    {
+      "id": "u039",
+      "role": "query",
+      "tokens": 22,
+      "ids_sha256": "1d225211205e5b112f3168a0c75932e8fc32d29e05c2f31b20293039bf88e020",
+      "wall_ns": 58276671,
+      "allocated_bytes": 29171952,
+      "vector_sha256": "c70916ec0fd6052a29b4b163ef40b7cd2c42322c4340ed225b401c620ad30018"
+    },
+    {
+      "id": "u040",
+      "role": "query",
+      "tokens": 23,
+      "ids_sha256": "684de099ade340b03a7bbd8297ed4da9ef39dd425ea62068b50de1f988903157",
+      "wall_ns": 62287613,
+      "allocated_bytes": 30209680,
+      "vector_sha256": "598d6d16ef10850b5d8ed22a37d9f8004db20c466716fcd96153daf99dc29dc9"
+    },
+    {
+      "id": "u041",
+      "role": "query",
+      "tokens": 23,
+      "ids_sha256": "04e61f4fe505cae8b20423ff608bc82224cc5709cb410e5a039ea86bf5eddcf0",
+      "wall_ns": 58979715,
+      "allocated_bytes": 30209168,
+      "vector_sha256": "9650b41ad61c8494f6ebcbef5339ad55d4d78a9959c60388d4d764e67986aaa3"
+    },
+    {
+      "id": "u042",
+      "role": "query",
+      "tokens": 21,
+      "ids_sha256": "73bb299b88fe35cff6da21dc8548c6549cf5ec00e12289dbc7f291948db1b2fc",
+      "wall_ns": 53932777,
+      "allocated_bytes": 28424800,
+      "vector_sha256": "d7e5bf05a8d2f0f4bf96c63ab6b0231e16ffa8c26e15ac0e795ecf9b98bdb3d1"
+    },
+    {
+      "id": "u043",
+      "role": "query",
+      "tokens": 24,
+      "ids_sha256": "f7370136c4a3a6fa5d020298a30839c16da6c22e709728d102f8f50a223d7bd1",
+      "wall_ns": 58347906,
+      "allocated_bytes": 30750112,
+      "vector_sha256": "f3c026b197404b9f5a1551662062a30a94a4df2c00f1db739bf31814bccb832f"
+    },
+    {
+      "id": "u044",
+      "role": "query",
+      "tokens": 24,
+      "ids_sha256": "b206fce4db1cbf206501b086553c47e6ceec10f8a4c6dafc0e85c2215d7fb2fb",
+      "wall_ns": 58528068,
+      "allocated_bytes": 30750352,
+      "vector_sha256": "c6d02d4d2045c58352fa598c264aac0f3a5cb55853cfdecd823fcaa86f33ada0"
+    },
+    {
+      "id": "u045",
+      "role": "query",
+      "tokens": 22,
+      "ids_sha256": "35996099a4e7c70f7350ef234f2bd164ef6ee6d97ccd5c6ee73f4d17e288c0e8",
+      "wall_ns": 60531019,
+      "allocated_bytes": 29170608,
+      "vector_sha256": "4cd59b3577e324ed8e2a1cc04c85061bd0e80d99f4ac262bbedba6b1ad690f93"
+    },
+    {
+      "id": "u046",
+      "role": "query",
+      "tokens": 23,
+      "ids_sha256": "7f4db193c8b67b0cc63b5318cd8b065ff4edd760ab843968509ee309100949d2",
+      "wall_ns": 58685807,
+      "allocated_bytes": 30209024,
+      "vector_sha256": "0ce9420538e16ad5e067bb568a3b7e03249d441291a3e1a191df263e58919ada"
+    },
+    {
+      "id": "u047",
+      "role": "query",
+      "tokens": 21,
+      "ids_sha256": "616ccab5984abe222d7d21f19fea15595d6b4c5bac11aec7484c2d1f66670095",
+      "wall_ns": 53853416,
+      "allocated_bytes": 28424096,
+      "vector_sha256": "444d26b2c019e99b5cb8cff9e2a977d2650954b731a10623666878a5b68d2781"
+    },
+    {
+      "id": "u048",
+      "role": "query",
+      "tokens": 22,
+      "ids_sha256": "ad818998f7d1736839d58df51c4021c52f6cf2fc0f23fdb8bff62522d88779bb",
+      "wall_ns": 57407752,
+      "allocated_bytes": 29170608,
+      "vector_sha256": "feba62d2bc92848a39892c3a849b853925325a8218b59cae7877784846048f79"
+    },
+    {
+      "id": "u049",
+      "role": "query",
+      "tokens": 20,
+      "ids_sha256": "6a4c236112bcbf951a6f0bdf56c1a2fbd08bc400edc109192f752bbe0b8fe76e",
+      "wall_ns": 56054594,
+      "allocated_bytes": 25650048,
+      "vector_sha256": "7f90b272c96273d8a420464318ca777cb7df8a26de8d1b830f9d014e4a5758b3"
+    },
+    {
+      "id": "u050",
+      "role": "query",
+      "tokens": 21,
+      "ids_sha256": "d06b10414469c5cc5896416c7991e8d66c9dd69eb3ca89496a54216e414bd344",
+      "wall_ns": 53154540,
+      "allocated_bytes": 28424128,
+      "vector_sha256": "6e8abfef5335a65e533dddd075af5d2c097dc24d3d03d39e4ffa70e05d0a968f"
+    },
+    {
+      "id": "u051",
+      "role": "query",
+      "tokens": 23,
+      "ids_sha256": "5c238a3daa27ff93b0cc62ff3f0d03698526cf9d4fdee48071ab5f53e650fccd",
+      "wall_ns": 62651534,
+      "allocated_bytes": 30209152,
+      "vector_sha256": "b6007615e0269aa71b4488db0e0d620f3bc9c617db6c4685db967b0502c744eb"
+    },
+    {
+      "id": "u052",
+      "role": "query",
+      "tokens": 21,
+      "ids_sha256": "b3180ae5edbdcdc65aa95e77bfcfe54d2c2a04006fad772db97efc116c527ef7",
+      "wall_ns": 56531890,
+      "allocated_bytes": 28424112,
+      "vector_sha256": "ecc5dd419b9e3189d808d45c47cadcb39b1bee3f6ee8ee54295e1d7746239daf"
+    },
+    {
+      "id": "u053",
+      "role": "query",
+      "tokens": 19,
+      "ids_sha256": "b935f4718716611626ba2eddf64b2408a81ef7736f691bfc22ce1913ccbddc52",
+      "wall_ns": 55593268,
+      "allocated_bytes": 25082736,
+      "vector_sha256": "f60a377a00b8eb7ebbe6e3fbdf46a9883ea2d8067e1388e806519a4bfb447d36"
+    },
+    {
+      "id": "u054",
+      "role": "query",
+      "tokens": 22,
+      "ids_sha256": "6d5d568765d3662a5167ec2be4e15bf2c8e46bdcbe4ee56fd21e72cca7eed0d5",
+      "wall_ns": 57367245,
+      "allocated_bytes": 29170624,
+      "vector_sha256": "e34c74cabd55da14a79513f79e7e8a592d94aa06808c80ed0d2a915fee8d04d3"
+    },
+    {
+      "id": "u055",
+      "role": "query",
+      "tokens": 22,
+      "ids_sha256": "ba5d6286e92f9c422ea7968a209e81ad18c3e99d757d0b4d55712930de6fe047",
+      "wall_ns": 58766260,
+      "allocated_bytes": 29171312,
+      "vector_sha256": "d57c66d7de0617f73fd70b90010aff54956f4ffb7c6c694e5dc9ffc03a99b362"
+    },
+    {
+      "id": "u056",
+      "role": "query",
+      "tokens": 23,
+      "ids_sha256": "73a930a8b11bb1510cf47c527fd692cf75b02223da35f3d93e4ce60c3876a32c",
+      "wall_ns": 60966797,
+      "allocated_bytes": 30209152,
+      "vector_sha256": "544e3ccd4f15a0d48d3c56b3e86855c361de287f4f77f285cb4f924116abcf4e"
+    },
+    {
+      "id": "u057",
+      "role": "query",
+      "tokens": 21,
+      "ids_sha256": "ad3712a6329d2c7bb433fef09128b7c513704f96afdaec1a116c56a0ab7f414c",
+      "wall_ns": 58689695,
+      "allocated_bytes": 28423696,
+      "vector_sha256": "82e0cfc3bebff9c84fd7452430c3e764737dc842c9c822f932bce0b6d1cafef6"
+    },
+    {
+      "id": "u058",
+      "role": "query",
+      "tokens": 20,
+      "ids_sha256": "e357080129b6d102b1faa097a1167e351bdf1a39c5ef0bea0ed3bea80c740769",
+      "wall_ns": 54045230,
+      "allocated_bytes": 25649376,
+      "vector_sha256": "6901f5b9d4112a60d065e7df0ef45a24eb70b8ef70fe94409825ff5fa71496df"
+    },
+    {
+      "id": "u059",
+      "role": "query",
+      "tokens": 17,
+      "ids_sha256": "2b7699ccbade839f67f64a1094b8f279ba8a90dec40d2fb49d9fa0d2b920e809",
+      "wall_ns": 48341496,
+      "allocated_bytes": 23383552,
+      "vector_sha256": "0000e0788adf7a061bac8cd8e55001d0ab8729c1c19c50cf3fc68d9f7dfdf453"
+    },
+    {
+      "id": "u060",
+      "role": "query",
+      "tokens": 22,
+      "ids_sha256": "484853115dafae99d3d4437406bed7256d4755d8eee263d6b53a3497721fae5d",
+      "wall_ns": 58633569,
+      "allocated_bytes": 29169920,
+      "vector_sha256": "df84eb413ae503487cdd93bea8abd4ce0096ba77f67fb60a254abd56c7909d26"
+    }
+  ],
+  "queries": [
+    {
+      "id": "a001",
+      "kind": "answerable",
+      "style": "reworded",
+      "expected": [
+        "index-refresh"
+      ],
+      "first_expected_rank": 1,
+      "recall_at_1": 1,
+      "recall_at_5": 1,
+      "abstained": false,
+      "top_5": [
+        {
+          "id": "index-refresh",
+          "cosine": 0.7337922251773531
+        },
+        {
+          "id": "linked-summary",
+          "cosine": 0.7327212197558911
+        },
+        {
+          "id": "model-cache",
+          "cosine": 0.7255825932669655
+        },
+        {
+          "id": "partial-readiness",
+          "cosine": 0.7167285421420859
+        },
+        {
+          "id": "standing-rule",
+          "cosine": 0.716590359299149
+        }
+      ]
+    },
+    {
+      "id": "a002",
+      "kind": "answerable",
+      "style": "reworded",
+      "expected": [
+        "partial-readiness"
+      ],
+      "first_expected_rank": 1,
+      "recall_at_1": 1,
+      "recall_at_5": 1,
+      "abstained": false,
+      "top_5": [
+        {
+          "id": "partial-readiness",
+          "cosine": 0.7421353181479934
+        },
+        {
+          "id": "index-refresh",
+          "cosine": 0.7223384597596603
+        },
+        {
+          "id": "outside-window",
+          "cosine": 0.7132150427228027
+        },
+        {
+          "id": "search-page-size",
+          "cosine": 0.711704527345811
+        },
+        {
+          "id": "model-cache",
+          "cosine": 0.7102709349857548
+        }
+      ]
+    },
+    {
+      "id": "a003",
+      "kind": "answerable",
+      "style": "reworded",
+      "expected": [
+        "hybrid-order"
+      ],
+      "first_expected_rank": 1,
+      "recall_at_1": 1,
+      "recall_at_5": 1,
+      "abstained": false,
+      "top_5": [
+        {
+          "id": "hybrid-order",
+          "cosine": 0.7319170265422995
+        },
+        {
+          "id": "combined-gate",
+          "cosine": 0.7007153095868716
+        },
+        {
+          "id": "search-page-size",
+          "cosine": 0.6916767107838185
+        },
+        {
+          "id": "partial-readiness",
+          "cosine": 0.68082916872456
+        },
+        {
+          "id": "outside-window",
+          "cosine": 0.678980891876739
+        }
+      ]
+    },
+    {
+      "id": "a004",
+      "kind": "answerable",
+      "style": "reworded",
+      "expected": [
+        "combined-gate"
+      ],
+      "first_expected_rank": 1,
+      "recall_at_1": 1,
+      "recall_at_5": 1,
+      "abstained": false,
+      "top_5": [
+        {
+          "id": "combined-gate",
+          "cosine": 0.8039386165801784
+        },
+        {
+          "id": "adoption-gates",
+          "cosine": 0.7245850819612092
+        },
+        {
+          "id": "hybrid-order",
+          "cosine": 0.6982648644245042
+        },
+        {
+          "id": "bge-aikit",
+          "cosine": 0.6906738814121198
+        },
+        {
+          "id": "index-refresh",
+          "cosine": 0.6825193906333565
+        }
+      ]
+    },
+    {
+      "id": "a005",
+      "kind": "answerable",
+      "style": "reworded",
+      "expected": [
+        "file-navigation"
+      ],
+      "first_expected_rank": 1,
+      "recall_at_1": 1,
+      "recall_at_5": 1,
+      "abstained": false,
+      "top_5": [
+        {
+          "id": "file-navigation",
+          "cosine": 0.7831856644562627
+        },
+        {
+          "id": "search-page-size",
+          "cosine": 0.7246364059959197
+        },
+        {
+          "id": "outside-window",
+          "cosine": 0.7145697197084414
+        },
+        {
+          "id": "budget-minimum",
+          "cosine": 0.6795087498648283
+        },
+        {
+          "id": "context-budget",
+          "cosine": 0.6751154920620592
+        }
+      ]
+    },
+    {
+      "id": "a006",
+      "kind": "answerable",
+      "style": "reworded",
+      "expected": [
+        "context-budget"
+      ],
+      "first_expected_rank": 1,
+      "recall_at_1": 1,
+      "recall_at_5": 1,
+      "abstained": false,
+      "top_5": [
+        {
+          "id": "context-budget",
+          "cosine": 0.7541568550954162
+        },
+        {
+          "id": "budget-minimum",
+          "cosine": 0.7424867551769435
+        },
+        {
+          "id": "search-page-size",
+          "cosine": 0.7334569173725781
+        },
+        {
+          "id": "outside-window",
+          "cosine": 0.7239554261985718
+        },
+        {
+          "id": "file-navigation",
+          "cosine": 0.7059630522941569
+        }
+      ]
+    },
+    {
+      "id": "a007",
+      "kind": "answerable",
+      "style": "reworded",
+      "expected": [
+        "delete-preview"
+      ],
+      "first_expected_rank": 3,
+      "recall_at_1": 0,
+      "recall_at_5": 1,
+      "abstained": false,
+      "top_5": [
+        {
+          "id": "original-refcount",
+          "cosine": 0.7625359673123947
+        },
+        {
+          "id": "missing-links",
+          "cosine": 0.734282798541021
+        },
+        {
+          "id": "delete-preview",
+          "cosine": 0.7317680801678177
+        },
+        {
+          "id": "index-refresh",
+          "cosine": 0.7107387669692549
+        },
+        {
+          "id": "combined-gate",
+          "cosine": 0.7027429224201326
+        }
+      ]
+    },
+    {
+      "id": "a008",
+      "kind": "answerable",
+      "style": "reworded",
+      "expected": [
+        "original-refcount"
+      ],
+      "first_expected_rank": 1,
+      "recall_at_1": 1,
+      "recall_at_5": 1,
+      "abstained": false,
+      "top_5": [
+        {
+          "id": "original-refcount",
+          "cosine": 0.8024217028778622
+        },
+        {
+          "id": "linked-summary",
+          "cosine": 0.7222072979555608
+        },
+        {
+          "id": "delete-preview",
+          "cosine": 0.7169956728227702
+        },
+        {
+          "id": "missing-links",
+          "cosine": 0.7125343796979615
+        },
+        {
+          "id": "routed-lock",
+          "cosine": 0.7079970662292256
+        }
+      ]
+    },
+    {
+      "id": "a009",
+      "kind": "answerable",
+      "style": "reworded",
+      "expected": [
+        "routed-lock"
+      ],
+      "first_expected_rank": 1,
+      "recall_at_1": 1,
+      "recall_at_5": 1,
+      "abstained": false,
+      "top_5": [
+        {
+          "id": "routed-lock",
+          "cosine": 0.7843140956934685
+        },
+        {
+          "id": "linked-summary",
+          "cosine": 0.752047436198363
+        },
+        {
+          "id": "model-cache",
+          "cosine": 0.7434429872909378
+        },
+        {
+          "id": "factory-ready",
+          "cosine": 0.7340794341254029
+        },
+        {
+          "id": "original-refcount",
+          "cosine": 0.7089010705101065
+        }
+      ]
+    },
+    {
+      "id": "a010",
+      "kind": "answerable",
+      "style": "reworded",
+      "expected": [
+        "linked-summary"
+      ],
+      "first_expected_rank": 1,
+      "recall_at_1": 1,
+      "recall_at_5": 1,
+      "abstained": false,
+      "top_5": [
+        {
+          "id": "linked-summary",
+          "cosine": 0.7585090399922516
+        },
+        {
+          "id": "model-cache",
+          "cosine": 0.750944991157429
+        },
+        {
+          "id": "routed-lock",
+          "cosine": 0.7310569174048707
+        },
+        {
+          "id": "storage-field-guide",
+          "cosine": 0.7297824757690915
+        },
+        {
+          "id": "tag-count-view",
+          "cosine": 0.7278257926922959
+        }
+      ]
+    },
+    {
+      "id": "a011",
+      "kind": "answerable",
+      "style": "reworded",
+      "expected": [
+        "model-cache"
+      ],
+      "first_expected_rank": 1,
+      "recall_at_1": 1,
+      "recall_at_5": 1,
+      "abstained": false,
+      "top_5": [
+        {
+          "id": "model-cache",
+          "cosine": 0.7854439383470349
+        },
+        {
+          "id": "guard-tracked",
+          "cosine": 0.6976361565781473
+        },
+        {
+          "id": "index-refresh",
+          "cosine": 0.6811214607022013
+        },
+        {
+          "id": "linked-summary",
+          "cosine": 0.6739268348976457
+        },
+        {
+          "id": "tag-count-view",
+          "cosine": 0.6707174815044521
+        }
+      ]
+    },
+    {
+      "id": "a012",
+      "kind": "answerable",
+      "style": "reworded",
+      "expected": [
+        "factory-ready"
+      ],
+      "first_expected_rank": 1,
+      "recall_at_1": 1,
+      "recall_at_5": 1,
+      "abstained": false,
+      "top_5": [
+        {
+          "id": "factory-ready",
+          "cosine": 0.7811450081357495
+        },
+        {
+          "id": "factory-review",
+          "cosine": 0.7499734685989344
+        },
+        {
+          "id": "factory-install",
+          "cosine": 0.7338738038426241
+        },
+        {
+          "id": "factory-resume",
+          "cosine": 0.6840413949409904
+        },
+        {
+          "id": "standing-rule",
+          "cosine": 0.6824856346514303
+        }
+      ]
+    },
+    {
+      "id": "a013",
+      "kind": "answerable",
+      "style": "reworded",
+      "expected": [
+        "standing-rule"
+      ],
+      "first_expected_rank": 1,
+      "recall_at_1": 1,
+      "recall_at_5": 1,
+      "abstained": false,
+      "top_5": [
+        {
+          "id": "standing-rule",
+          "cosine": 0.7309657539758114
+        },
+        {
+          "id": "original-refcount",
+          "cosine": 0.7045137798203593
+        },
+        {
+          "id": "factory-resume",
+          "cosine": 0.6886175423868749
+        },
+        {
+          "id": "missing-links",
+          "cosine": 0.6858240884377373
+        },
+        {
+          "id": "factory-review",
+          "cosine": 0.6790669738149774
+        }
+      ]
+    },
+    {
+      "id": "a014",
+      "kind": "answerable",
+      "style": "reworded",
+      "expected": [
+        "factory-install"
+      ],
+      "first_expected_rank": 1,
+      "recall_at_1": 1,
+      "recall_at_5": 1,
+      "abstained": false,
+      "top_5": [
+        {
+          "id": "factory-install",
+          "cosine": 0.7680054385620515
+        },
+        {
+          "id": "model-cache",
+          "cosine": 0.6831253447420386
+        },
+        {
+          "id": "factory-ready",
+          "cosine": 0.6821994818172707
+        },
+        {
+          "id": "routed-lock",
+          "cosine": 0.6751467135022212
+        },
+        {
+          "id": "linked-summary",
+          "cosine": 0.6649213674694007
+        }
+      ]
+    },
+    {
+      "id": "a015",
+      "kind": "answerable",
+      "style": "reworded",
+      "expected": [
+        "factory-review"
+      ],
+      "first_expected_rank": 1,
+      "recall_at_1": 1,
+      "recall_at_5": 1,
+      "abstained": false,
+      "top_5": [
+        {
+          "id": "factory-review",
+          "cosine": 0.8105003513995096
+        },
+        {
+          "id": "routed-lock",
+          "cosine": 0.7184529444380445
+        },
+        {
+          "id": "factory-ready",
+          "cosine": 0.7076730200524501
+        },
+        {
+          "id": "standing-rule",
+          "cosine": 0.7027192858521365
+        },
+        {
+          "id": "original-refcount",
+          "cosine": 0.6987823153408012
+        }
+      ]
+    },
+    {
+      "id": "a016",
+      "kind": "answerable",
+      "style": "reworded",
+      "expected": [
+        "fixture-reader"
+      ],
+      "first_expected_rank": 1,
+      "recall_at_1": 1,
+      "recall_at_5": 1,
+      "abstained": false,
+      "top_5": [
+        {
+          "id": "fixture-reader",
+          "cosine": 0.7217923422326591
+        },
+        {
+          "id": "partial-readiness",
+          "cosine": 0.7212585539522607
+        },
+        {
+          "id": "outside-window",
+          "cosine": 0.7202851583981683
+        },
+        {
+          "id": "missing-links",
+          "cosine": 0.7083521244341902
+        },
+        {
+          "id": "hybrid-order",
+          "cosine": 0.7030277914576439
+        }
+      ]
+    },
+    {
+      "id": "a017",
+      "kind": "answerable",
+      "style": "reworded",
+      "expected": [
+        "adoption-gates"
+      ],
+      "first_expected_rank": 1,
+      "recall_at_1": 1,
+      "recall_at_5": 1,
+      "abstained": false,
+      "top_5": [
+        {
+          "id": "adoption-gates",
+          "cosine": 0.7978292009243176
+        },
+        {
+          "id": "bge-aikit",
+          "cosine": 0.7311147822233349
+        },
+        {
+          "id": "fixture-reader",
+          "cosine": 0.7225074555202622
+        },
+        {
+          "id": "index-refresh",
+          "cosine": 0.7164168862509238
+        },
+        {
+          "id": "combined-gate",
+          "cosine": 0.6952524543356496
+        }
+      ]
+    },
+    {
+      "id": "a018",
+      "kind": "answerable",
+      "style": "reworded",
+      "expected": [
+        "tag-map"
+      ],
+      "first_expected_rank": 5,
+      "recall_at_1": 0,
+      "recall_at_5": 1,
+      "abstained": false,
+      "top_5": [
+        {
+          "id": "tag-count-view",
+          "cosine": 0.7247153107815788
+        },
+        {
+          "id": "model-cache",
+          "cosine": 0.7201960324223861
+        },
+        {
+          "id": "missing-links",
+          "cosine": 0.7152764836245641
+        },
+        {
+          "id": "standing-rule",
+          "cosine": 0.7129496381345811
+        },
+        {
+          "id": "tag-map",
+          "cosine": 0.7128750963633136
+        }
+      ]
+    },
+    {
+      "id": "a019",
+      "kind": "answerable",
+      "style": "short",
+      "expected": [
+        "time-window"
+      ],
+      "first_expected_rank": 1,
+      "recall_at_1": 1,
+      "recall_at_5": 1,
+      "abstained": false,
+      "top_5": [
+        {
+          "id": "time-window",
+          "cosine": 0.7359486213235775
+        },
+        {
+          "id": "outside-window",
+          "cosine": 0.692544997900691
+        },
+        {
+          "id": "linked-summary",
+          "cosine": 0.6597622604188291
+        },
+        {
+          "id": "vector-sql",
+          "cosine": 0.6414641372970064
+        },
+        {
+          "id": "factory-resume",
+          "cosine": 0.6412207778021687
+        }
+      ]
+    },
+    {
+      "id": "a020",
+      "kind": "answerable",
+      "style": "short",
+      "expected": [
+        "outside-window"
+      ],
+      "first_expected_rank": 1,
+      "recall_at_1": 1,
+      "recall_at_5": 1,
+      "abstained": false,
+      "top_5": [
+        {
+          "id": "outside-window",
+          "cosine": 0.7475952468250617
+        },
+        {
+          "id": "tag-count-view",
+          "cosine": 0.6705049208435764
+        },
+        {
+          "id": "search-page-size",
+          "cosine": 0.6663622416147547
+        },
+        {
+          "id": "fixture-reader",
+          "cosine": 0.6552749234604285
+        },
+        {
+          "id": "budget-minimum",
+          "cosine": 0.6527803079863008
+        }
+      ]
+    },
+    {
+      "id": "a021",
+      "kind": "answerable",
+      "style": "short",
+      "expected": [
+        "tag-count-view"
+      ],
+      "first_expected_rank": 1,
+      "recall_at_1": 1,
+      "recall_at_5": 1,
+      "abstained": false,
+      "top_5": [
+        {
+          "id": "tag-count-view",
+          "cosine": 0.8184784600513212
+        },
+        {
+          "id": "tag-map",
+          "cosine": 0.7061997918382819
+        },
+        {
+          "id": "model-cache",
+          "cosine": 0.7034588172376107
+        },
+        {
+          "id": "outside-window",
+          "cosine": 0.6908215778320904
+        },
+        {
+          "id": "linked-summary",
+          "cosine": 0.6866287350930329
+        }
+      ]
+    },
+    {
+      "id": "a022",
+      "kind": "answerable",
+      "style": "short",
+      "expected": [
+        "model-cache"
+      ],
+      "first_expected_rank": 1,
+      "recall_at_1": 1,
+      "recall_at_5": 1,
+      "abstained": false,
+      "top_5": [
+        {
+          "id": "model-cache",
+          "cosine": 0.7568163758755659
+        },
+        {
+          "id": "vector-sql",
+          "cosine": 0.7341761330266453
+        },
+        {
+          "id": "index-refresh",
+          "cosine": 0.6928124655744651
+        },
+        {
+          "id": "adoption-gates",
+          "cosine": 0.681926543505572
+        },
+        {
+          "id": "routed-lock",
+          "cosine": 0.6615724676268131
+        }
+      ]
+    },
+    {
+      "id": "a023",
+      "kind": "answerable",
+      "style": "short",
+      "expected": [
+        "delete-preview"
+      ],
+      "first_expected_rank": 2,
+      "recall_at_1": 0,
+      "recall_at_5": 1,
+      "abstained": false,
+      "top_5": [
+        {
+          "id": "missing-links",
+          "cosine": 0.7474738244066155
+        },
+        {
+          "id": "delete-preview",
+          "cosine": 0.7391818601889633
+        },
+        {
+          "id": "linked-summary",
+          "cosine": 0.73875256662705
+        },
+        {
+          "id": "outside-window",
+          "cosine": 0.6689557828238031
+        },
+        {
+          "id": "fixture-reader",
+          "cosine": 0.6652885560097583
+        }
+      ]
+    },
+    {
+      "id": "a024",
+      "kind": "answerable",
+      "style": "short",
+      "expected": [
+        "factory-resume"
+      ],
+      "first_expected_rank": 1,
+      "recall_at_1": 1,
+      "recall_at_5": 1,
+      "abstained": false,
+      "top_5": [
+        {
+          "id": "factory-resume",
+          "cosine": 0.7485329264433744
+        },
+        {
+          "id": "standing-rule",
+          "cosine": 0.6601100849940464
+        },
+        {
+          "id": "guard-tracked",
+          "cosine": 0.6426756230524254
+        },
+        {
+          "id": "linked-summary",
+          "cosine": 0.6385980645092337
+        },
+        {
+          "id": "model-cache",
+          "cosine": 0.6376201215040894
+        }
+      ]
+    },
+    {
+      "id": "a025",
+      "kind": "answerable",
+      "style": "short",
+      "expected": [
+        "factory-review"
+      ],
+      "first_expected_rank": 1,
+      "recall_at_1": 1,
+      "recall_at_5": 1,
+      "abstained": false,
+      "top_5": [
+        {
+          "id": "factory-review",
+          "cosine": 0.761102511466661
+        },
+        {
+          "id": "combined-gate",
+          "cosine": 0.6822137396170894
+        },
+        {
+          "id": "linked-summary",
+          "cosine": 0.6575046169107727
+        },
+        {
+          "id": "budget-minimum",
+          "cosine": 0.6513835942799193
+        },
+        {
+          "id": "missing-links",
+          "cosine": 0.6463981227404414
+        }
+      ]
+    },
+    {
+      "id": "a026",
+      "kind": "answerable",
+      "style": "short",
+      "expected": [
+        "original-refcount"
+      ],
+      "first_expected_rank": 1,
+      "recall_at_1": 1,
+      "recall_at_5": 1,
+      "abstained": false,
+      "top_5": [
+        {
+          "id": "original-refcount",
+          "cosine": 0.7416939331279193
+        },
+        {
+          "id": "index-refresh",
+          "cosine": 0.6869476324504082
+        },
+        {
+          "id": "linked-summary",
+          "cosine": 0.6823607098808716
+        },
+        {
+          "id": "storage-field-guide",
+          "cosine": 0.675379407723532
+        },
+        {
+          "id": "model-cache",
+          "cosine": 0.6714718380139287
+        }
+      ]
+    },
+    {
+      "id": "a027",
+      "kind": "answerable",
+      "style": "short",
+      "expected": [
+        "linked-summary"
+      ],
+      "first_expected_rank": 1,
+      "recall_at_1": 1,
+      "recall_at_5": 1,
+      "abstained": false,
+      "top_5": [
+        {
+          "id": "linked-summary",
+          "cosine": 0.7753111083067187
+        },
+        {
+          "id": "routed-lock",
+          "cosine": 0.7144911410094745
+        },
+        {
+          "id": "factory-review",
+          "cosine": 0.7056197037735122
+        },
+        {
+          "id": "file-navigation",
+          "cosine": 0.7048005559360918
+        },
+        {
+          "id": "missing-links",
+          "cosine": 0.7036423407938611
+        }
+      ]
+    },
+    {
+      "id": "a028",
+      "kind": "answerable",
+      "style": "short",
+      "expected": [
+        "file-navigation"
+      ],
+      "first_expected_rank": 1,
+      "recall_at_1": 1,
+      "recall_at_5": 1,
+      "abstained": false,
+      "top_5": [
+        {
+          "id": "file-navigation",
+          "cosine": 0.7527290780786622
+        },
+        {
+          "id": "context-budget",
+          "cosine": 0.7229285340654783
+        },
+        {
+          "id": "search-page-size",
+          "cosine": 0.6906584789081334
+        },
+        {
+          "id": "budget-minimum",
+          "cosine": 0.6725963784152419
+        },
+        {
+          "id": "outside-window",
+          "cosine": 0.6709116119286948
+        }
+      ]
+    },
+    {
+      "id": "a029",
+      "kind": "answerable",
+      "style": "identifier",
+      "expected": [
+        "budget-minimum"
+      ],
+      "first_expected_rank": 1,
+      "recall_at_1": 1,
+      "recall_at_5": 1,
+      "abstained": false,
+      "top_5": [
+        {
+          "id": "budget-minimum",
+          "cosine": 0.7728273561347563
+        },
+        {
+          "id": "search-page-size",
+          "cosine": 0.72253199158631
+        },
+        {
+          "id": "outside-window",
+          "cosine": 0.6982614831998217
+        },
+        {
+          "id": "adoption-gates",
+          "cosine": 0.6941986412897339
+        },
+        {
+          "id": "linked-summary",
+          "cosine": 0.6932186370018513
+        }
+      ]
+    },
+    {
+      "id": "a030",
+      "kind": "answerable",
+      "style": "identifier",
+      "expected": [
+        "partial-readiness"
+      ],
+      "first_expected_rank": 1,
+      "recall_at_1": 1,
+      "recall_at_5": 1,
+      "abstained": false,
+      "top_5": [
+        {
+          "id": "partial-readiness",
+          "cosine": 0.7884835857404935
+        },
+        {
+          "id": "hybrid-order",
+          "cosine": 0.7487103765596258
+        },
+        {
+          "id": "index-refresh",
+          "cosine": 0.716434983717119
+        },
+        {
+          "id": "tag-count-view",
+          "cosine": 0.7104087829124629
+        },
+        {
+          "id": "linked-summary",
+          "cosine": 0.70983546869507
+        }
+      ]
+    },
+    {
+      "id": "a031",
+      "kind": "answerable",
+      "style": "identifier",
+      "expected": [
+        "delete-preview"
+      ],
+      "first_expected_rank": 1,
+      "recall_at_1": 1,
+      "recall_at_5": 1,
+      "abstained": true,
+      "top_5": [
+        {
+          "id": "delete-preview",
+          "cosine": 0.7098003467658393
+        },
+        {
+          "id": "routed-lock",
+          "cosine": 0.6860760067865732
+        },
+        {
+          "id": "factory-install",
+          "cosine": 0.6840881408883804
+        },
+        {
+          "id": "tag-map",
+          "cosine": 0.6811973136933082
+        },
+        {
+          "id": "linked-summary",
+          "cosine": 0.6780483729767389
+        }
+      ]
+    },
+    {
+      "id": "a032",
+      "kind": "answerable",
+      "style": "identifier",
+      "expected": [
+        "tag-map"
+      ],
+      "first_expected_rank": 1,
+      "recall_at_1": 1,
+      "recall_at_5": 1,
+      "abstained": false,
+      "top_5": [
+        {
+          "id": "tag-map",
+          "cosine": 0.8119221871619953
+        },
+        {
+          "id": "tag-count-view",
+          "cosine": 0.802078106652158
+        },
+        {
+          "id": "missing-links",
+          "cosine": 0.7015858666385933
+        },
+        {
+          "id": "linked-summary",
+          "cosine": 0.7005891150132891
+        },
+        {
+          "id": "standing-rule",
+          "cosine": 0.7000950464767771
+        }
+      ]
+    },
+    {
+      "id": "a033",
+      "kind": "answerable",
+      "style": "identifier",
+      "expected": [
+        "missing-links"
+      ],
+      "first_expected_rank": 1,
+      "recall_at_1": 1,
+      "recall_at_5": 1,
+      "abstained": false,
+      "top_5": [
+        {
+          "id": "missing-links",
+          "cosine": 0.7652859751910748
+        },
+        {
+          "id": "linked-summary",
+          "cosine": 0.734816821395279
+        },
+        {
+          "id": "delete-preview",
+          "cosine": 0.6971149602991648
+        },
+        {
+          "id": "fixture-reader",
+          "cosine": 0.6684045790541959
+        },
+        {
+          "id": "standing-rule",
+          "cosine": 0.6660856990196221
+        }
+      ]
+    },
+    {
+      "id": "a034",
+      "kind": "answerable",
+      "style": "identifier",
+      "expected": [
+        "file-navigation"
+      ],
+      "first_expected_rank": 1,
+      "recall_at_1": 1,
+      "recall_at_5": 1,
+      "abstained": false,
+      "top_5": [
+        {
+          "id": "file-navigation",
+          "cosine": 0.7603473669390645
+        },
+        {
+          "id": "context-budget",
+          "cosine": 0.7065248131221638
+        },
+        {
+          "id": "linked-summary",
+          "cosine": 0.6798610710670615
+        },
+        {
+          "id": "outside-window",
+          "cosine": 0.6716259601129431
+        },
+        {
+          "id": "bge-aikit",
+          "cosine": 0.6650905320479079
+        }
+      ]
+    },
+    {
+      "id": "a035",
+      "kind": "answerable",
+      "style": "identifier",
+      "expected": [
+        "factory-resume"
+      ],
+      "first_expected_rank": 1,
+      "recall_at_1": 1,
+      "recall_at_5": 1,
+      "abstained": true,
+      "top_5": [
+        {
+          "id": "factory-resume",
+          "cosine": 0.6998425221416333
+        },
+        {
+          "id": "index-refresh",
+          "cosine": 0.6947379074318976
+        },
+        {
+          "id": "outside-window",
+          "cosine": 0.6809932253337124
+        },
+        {
+          "id": "linked-summary",
+          "cosine": 0.6762861788989024
+        },
+        {
+          "id": "time-window",
+          "cosine": 0.6695882141937953
+        }
+      ]
+    },
+    {
+      "id": "a036",
+      "kind": "answerable",
+      "style": "identifier",
+      "expected": [
+        "linked-summary"
+      ],
+      "first_expected_rank": 1,
+      "recall_at_1": 1,
+      "recall_at_5": 1,
+      "abstained": false,
+      "top_5": [
+        {
+          "id": "linked-summary",
+          "cosine": 0.7672571328529457
+        },
+        {
+          "id": "missing-links",
+          "cosine": 0.7270633139845374
+        },
+        {
+          "id": "delete-preview",
+          "cosine": 0.7168522855984362
+        },
+        {
+          "id": "model-cache",
+          "cosine": 0.6960072719620674
+        },
+        {
+          "id": "guard-tracked",
+          "cosine": 0.6879200726864002
+        }
+      ]
+    },
+    {
+      "id": "a037",
+      "kind": "answerable",
+      "style": "superseded",
+      "expected": [
+        "search-page-size"
+      ],
+      "first_expected_rank": 1,
+      "recall_at_1": 1,
+      "recall_at_5": 1,
+      "abstained": false,
+      "top_5": [
+        {
+          "id": "search-page-size",
+          "cosine": 0.7546731525424297
+        },
+        {
+          "id": "outside-window",
+          "cosine": 0.7145564135587578
+        },
+        {
+          "id": "budget-minimum",
+          "cosine": 0.6959815313864666
+        },
+        {
+          "id": "partial-readiness",
+          "cosine": 0.6935374007227243
+        },
+        {
+          "id": "hybrid-order",
+          "cosine": 0.6913484009671789
+        }
+      ]
+    },
+    {
+      "id": "a038",
+      "kind": "answerable",
+      "style": "superseded",
+      "expected": [
+        "vector-sql"
+      ],
+      "first_expected_rank": 1,
+      "recall_at_1": 1,
+      "recall_at_5": 1,
+      "abstained": true,
+      "top_5": [
+        {
+          "id": "vector-sql",
+          "cosine": 0.7103993058845279
+        },
+        {
+          "id": "index-refresh",
+          "cosine": 0.6758575163296601
+        },
+        {
+          "id": "model-cache",
+          "cosine": 0.674119102008437
+        },
+        {
+          "id": "bge-aikit",
+          "cosine": 0.6688737549280449
+        },
+        {
+          "id": "pack-startup",
+          "cosine": 0.6605592836365901
+        }
+      ]
+    },
+    {
+      "id": "a039",
+      "kind": "answerable",
+      "style": "superseded",
+      "expected": [
+        "bge-aikit"
+      ],
+      "first_expected_rank": 1,
+      "recall_at_1": 1,
+      "recall_at_5": 1,
+      "abstained": false,
+      "top_5": [
+        {
+          "id": "bge-aikit",
+          "cosine": 0.7498989444488252
+        },
+        {
+          "id": "adoption-gates",
+          "cosine": 0.7097222160871642
+        },
+        {
+          "id": "pack-startup",
+          "cosine": 0.6541070265516232
+        },
+        {
+          "id": "tokenizer-report",
+          "cosine": 0.6512795163046246
+        },
+        {
+          "id": "search-page-size",
+          "cosine": 0.6471468666680852
+        }
+      ]
+    },
+    {
+      "id": "a040",
+      "kind": "answerable",
+      "style": "long-document",
+      "expected": [
+        "discovery-field-guide"
+      ],
+      "first_expected_rank": 1,
+      "recall_at_1": 1,
+      "recall_at_5": 1,
+      "abstained": true,
+      "top_5": [
+        {
+          "id": "discovery-field-guide",
+          "cosine": 0.7198711758957168
+        },
+        {
+          "id": "pack-startup",
+          "cosine": 0.7024255785880421
+        },
+        {
+          "id": "guard-tracked",
+          "cosine": 0.6921609640992662
+        },
+        {
+          "id": "tokenizer-report",
+          "cosine": 0.6820705060116528
+        },
+        {
+          "id": "storage-field-guide",
+          "cosine": 0.6813864344702562
+        }
+      ]
+    },
+    {
+      "id": "a041",
+      "kind": "answerable",
+      "style": "long-document",
+      "expected": [
+        "discovery-field-guide"
+      ],
+      "first_expected_rank": 3,
+      "recall_at_1": 0,
+      "recall_at_5": 1,
+      "abstained": true,
+      "top_5": [
+        {
+          "id": "guard-tracked",
+          "cosine": 0.7046381087050823
+        },
+        {
+          "id": "outside-window",
+          "cosine": 0.6980848237309645
+        },
+        {
+          "id": "discovery-field-guide",
+          "cosine": 0.6936625063742408
+        },
+        {
+          "id": "storage-field-guide",
+          "cosine": 0.6879845467210018
+        },
+        {
+          "id": "model-cache",
+          "cosine": 0.6872400406850431
+        }
+      ]
+    },
+    {
+      "id": "a042",
+      "kind": "answerable",
+      "style": "long-document",
+      "expected": [
+        "storage-field-guide"
+      ],
+      "first_expected_rank": 2,
+      "recall_at_1": 0,
+      "recall_at_5": 1,
+      "abstained": false,
+      "top_5": [
+        {
+          "id": "guard-tracked",
+          "cosine": 0.7395036836152669
+        },
+        {
+          "id": "storage-field-guide",
+          "cosine": 0.7268687571381497
+        },
+        {
+          "id": "discovery-field-guide",
+          "cosine": 0.6986600712151684
+        },
+        {
+          "id": "tag-map",
+          "cosine": 0.6803528006642743
+        },
+        {
+          "id": "missing-links",
+          "cosine": 0.6771559654197611
+        }
+      ]
+    },
+    {
+      "id": "a043",
+      "kind": "answerable",
+      "style": "long-document",
+      "expected": [
+        "storage-field-guide"
+      ],
+      "first_expected_rank": 3,
+      "recall_at_1": 0,
+      "recall_at_5": 1,
+      "abstained": false,
+      "top_5": [
+        {
+          "id": "original-refcount",
+          "cosine": 0.731534968284292
+        },
+        {
+          "id": "search-page-size",
+          "cosine": 0.7188186808851452
+        },
+        {
+          "id": "storage-field-guide",
+          "cosine": 0.7176018701627845
+        },
+        {
+          "id": "discovery-field-guide",
+          "cosine": 0.7140810939969099
+        },
+        {
+          "id": "outside-window",
+          "cosine": 0.7118250740035026
+        }
+      ]
+    },
+    {
+      "id": "a044",
+      "kind": "answerable",
+      "style": "long-document",
+      "expected": [
+        "tokenizer-report"
+      ],
+      "first_expected_rank": 1,
+      "recall_at_1": 1,
+      "recall_at_5": 1,
+      "abstained": false,
+      "top_5": [
+        {
+          "id": "tokenizer-report",
+          "cosine": 0.7419709515901083
+        },
+        {
+          "id": "pack-startup",
+          "cosine": 0.7373208786804443
+        },
+        {
+          "id": "bge-aikit",
+          "cosine": 0.7353269150811627
+        },
+        {
+          "id": "index-refresh",
+          "cosine": 0.7001592033538301
+        },
+        {
+          "id": "delete-preview",
+          "cosine": 0.6806153045370306
+        }
+      ]
+    },
+    {
+      "id": "a045",
+      "kind": "answerable",
+      "style": "long-document",
+      "expected": [
+        "tokenizer-report"
+      ],
+      "first_expected_rank": 2,
+      "recall_at_1": 0,
+      "recall_at_5": 1,
+      "abstained": false,
+      "top_5": [
+        {
+          "id": "pack-startup",
+          "cosine": 0.7430752698186033
+        },
+        {
+          "id": "tokenizer-report",
+          "cosine": 0.7401464529757339
+        },
+        {
+          "id": "index-refresh",
+          "cosine": 0.7068390058582696
+        },
+        {
+          "id": "combined-gate",
+          "cosine": 0.6928179874533107
+        },
+        {
+          "id": "hybrid-order",
+          "cosine": 0.670953860841837
+        }
+      ]
+    },
+    {
+      "id": "a046",
+      "kind": "answerable",
+      "style": "reworded",
+      "expected": [
+        "pack-startup",
+        "tokenizer-report"
+      ],
+      "first_expected_rank": 1,
+      "recall_at_1": 0.5,
+      "recall_at_5": 1,
+      "abstained": false,
+      "top_5": [
+        {
+          "id": "pack-startup",
+          "cosine": 0.7525878360047357
+        },
+        {
+          "id": "tokenizer-report",
+          "cosine": 0.724851674666539
+        },
+        {
+          "id": "bge-aikit",
+          "cosine": 0.6937161122507752
+        },
+        {
+          "id": "adoption-gates",
+          "cosine": 0.6882171744119838
+        },
+        {
+          "id": "index-refresh",
+          "cosine": 0.6694323775406925
+        }
+      ]
+    },
+    {
+      "id": "a047",
+      "kind": "answerable",
+      "style": "reworded",
+      "expected": [
+        "guard-tracked",
+        "discovery-field-guide"
+      ],
+      "first_expected_rank": 1,
+      "recall_at_1": 0.5,
+      "recall_at_5": 1,
+      "abstained": false,
+      "top_5": [
+        {
+          "id": "guard-tracked",
+          "cosine": 0.8595638767364275
+        },
+        {
+          "id": "discovery-field-guide",
+          "cosine": 0.7762263572140212
+        },
+        {
+          "id": "model-cache",
+          "cosine": 0.7269957739611037
+        },
+        {
+          "id": "storage-field-guide",
+          "cosine": 0.6892918871802873
+        },
+        {
+          "id": "tag-count-view",
+          "cosine": 0.6834062992004063
+        }
+      ]
+    },
+    {
+      "id": "u001",
+      "kind": "unanswerable",
+      "style": "near",
+      "half": "calibration",
+      "regression": true,
+      "recall_at_1": 0,
+      "recall_at_5": 0,
+      "abstained": false,
+      "top_5": [
+        {
+          "id": "factory-review",
+          "cosine": 0.7242796892530926
+        },
+        {
+          "id": "factory-install",
+          "cosine": 0.7169311949830679
+        },
+        {
+          "id": "factory-ready",
+          "cosine": 0.6987386392507401
+        },
+        {
+          "id": "routed-lock",
+          "cosine": 0.667258277730976
+        },
+        {
+          "id": "bge-aikit",
+          "cosine": 0.6638618523176848
+        }
+      ]
+    },
+    {
+      "id": "u002",
+      "kind": "unanswerable",
+      "style": "near",
+      "half": "calibration",
+      "recall_at_1": 0,
+      "recall_at_5": 0,
+      "abstained": true,
+      "top_5": [
+        {
+          "id": "index-refresh",
+          "cosine": 0.6909629395410075
+        },
+        {
+          "id": "fixture-reader",
+          "cosine": 0.6735750613499579
+        },
+        {
+          "id": "bge-aikit",
+          "cosine": 0.671049162012968
+        },
+        {
+          "id": "adoption-gates",
+          "cosine": 0.6684530065557144
+        },
+        {
+          "id": "tokenizer-report",
+          "cosine": 0.662647140626476
+        }
+      ]
+    },
+    {
+      "id": "u003",
+      "kind": "unanswerable",
+      "style": "near",
+      "half": "calibration",
+      "recall_at_1": 0,
+      "recall_at_5": 0,
+      "abstained": false,
+      "top_5": [
+        {
+          "id": "routed-lock",
+          "cosine": 0.7244703964214719
+        },
+        {
+          "id": "linked-summary",
+          "cosine": 0.7055181059737293
+        },
+        {
+          "id": "model-cache",
+          "cosine": 0.6950320809486279
+        },
+        {
+          "id": "storage-field-guide",
+          "cosine": 0.6774897420491047
+        },
+        {
+          "id": "tokenizer-report",
+          "cosine": 0.6757039191121221
+        }
+      ]
+    },
+    {
+      "id": "u004",
+      "kind": "unanswerable",
+      "style": "near",
+      "half": "calibration",
+      "recall_at_1": 0,
+      "recall_at_5": 0,
+      "abstained": true,
+      "top_5": [
+        {
+          "id": "adoption-gates",
+          "cosine": 0.6781985075584116
+        },
+        {
+          "id": "pack-startup",
+          "cosine": 0.6567260102585549
+        },
+        {
+          "id": "tokenizer-report",
+          "cosine": 0.6455465886871339
+        },
+        {
+          "id": "model-cache",
+          "cosine": 0.6341178745249162
+        },
+        {
+          "id": "vector-sql",
+          "cosine": 0.6307538086537863
+        }
+      ]
+    },
+    {
+      "id": "u005",
+      "kind": "unanswerable",
+      "style": "near",
+      "half": "calibration",
+      "recall_at_1": 0,
+      "recall_at_5": 0,
+      "abstained": false,
+      "top_5": [
+        {
+          "id": "bge-aikit",
+          "cosine": 0.7329634682530741
+        },
+        {
+          "id": "pack-startup",
+          "cosine": 0.7252592198366963
+        },
+        {
+          "id": "tokenizer-report",
+          "cosine": 0.7141923910412363
+        },
+        {
+          "id": "adoption-gates",
+          "cosine": 0.6899681896468901
+        },
+        {
+          "id": "factory-review",
+          "cosine": 0.6878976321616139
+        }
+      ]
+    },
+    {
+      "id": "u006",
+      "kind": "unanswerable",
+      "style": "near",
+      "half": "calibration",
+      "recall_at_1": 0,
+      "recall_at_5": 0,
+      "abstained": false,
+      "top_5": [
+        {
+          "id": "original-refcount",
+          "cosine": 0.7222604838265321
+        },
+        {
+          "id": "missing-links",
+          "cosine": 0.707320126056616
+        },
+        {
+          "id": "factory-review",
+          "cosine": 0.7003075599982
+        },
+        {
+          "id": "index-refresh",
+          "cosine": 0.6883758319797104
+        },
+        {
+          "id": "routed-lock",
+          "cosine": 0.6816018402532553
+        }
+      ]
+    },
+    {
+      "id": "u007",
+      "kind": "unanswerable",
+      "style": "near",
+      "half": "calibration",
+      "recall_at_1": 0,
+      "recall_at_5": 0,
+      "abstained": true,
+      "top_5": [
+        {
+          "id": "factory-install",
+          "cosine": 0.6675253354220282
+        },
+        {
+          "id": "factory-review",
+          "cosine": 0.6661891608798376
+        },
+        {
+          "id": "linked-summary",
+          "cosine": 0.6633811284128114
+        },
+        {
+          "id": "tokenizer-report",
+          "cosine": 0.6568074396828755
+        },
+        {
+          "id": "bge-aikit",
+          "cosine": 0.6567794582277388
+        }
+      ]
+    },
+    {
+      "id": "u008",
+      "kind": "unanswerable",
+      "style": "near",
+      "half": "calibration",
+      "recall_at_1": 0,
+      "recall_at_5": 0,
+      "abstained": true,
+      "top_5": [
+        {
+          "id": "fixture-reader",
+          "cosine": 0.67349880181992
+        },
+        {
+          "id": "combined-gate",
+          "cosine": 0.6682716871700647
+        },
+        {
+          "id": "bge-aikit",
+          "cosine": 0.6638961260872379
+        },
+        {
+          "id": "file-navigation",
+          "cosine": 0.6624706545910543
+        },
+        {
+          "id": "storage-field-guide",
+          "cosine": 0.6621593608350719
+        }
+      ]
+    },
+    {
+      "id": "u009",
+      "kind": "unanswerable",
+      "style": "near",
+      "half": "calibration",
+      "recall_at_1": 0,
+      "recall_at_5": 0,
+      "abstained": true,
+      "top_5": [
+        {
+          "id": "model-cache",
+          "cosine": 0.7056608092265514
+        },
+        {
+          "id": "guard-tracked",
+          "cosine": 0.7038503600399426
+        },
+        {
+          "id": "tag-count-view",
+          "cosine": 0.6728291985143954
+        },
+        {
+          "id": "standing-rule",
+          "cosine": 0.6691680667000524
+        },
+        {
+          "id": "linked-summary",
+          "cosine": 0.6682366448180073
+        }
+      ]
+    },
+    {
+      "id": "u010",
+      "kind": "unanswerable",
+      "style": "near",
+      "half": "calibration",
+      "recall_at_1": 0,
+      "recall_at_5": 0,
+      "abstained": false,
+      "top_5": [
+        {
+          "id": "tag-count-view",
+          "cosine": 0.726019809026683
+        },
+        {
+          "id": "model-cache",
+          "cosine": 0.722940691706024
+        },
+        {
+          "id": "tag-map",
+          "cosine": 0.7054151190848464
+        },
+        {
+          "id": "partial-readiness",
+          "cosine": 0.7048401752445329
+        },
+        {
+          "id": "linked-summary",
+          "cosine": 0.6980701388175969
+        }
+      ]
+    },
+    {
+      "id": "u011",
+      "kind": "unanswerable",
+      "style": "near",
+      "half": "calibration",
+      "recall_at_1": 0,
+      "recall_at_5": 0,
+      "abstained": true,
+      "top_5": [
+        {
+          "id": "budget-minimum",
+          "cosine": 0.7127765877469188
+        },
+        {
+          "id": "context-budget",
+          "cosine": 0.6698506111259974
+        },
+        {
+          "id": "search-page-size",
+          "cosine": 0.6680391707053588
+        },
+        {
+          "id": "file-navigation",
+          "cosine": 0.666502849062167
+        },
+        {
+          "id": "linked-summary",
+          "cosine": 0.6600139917093655
+        }
+      ]
+    },
+    {
+      "id": "u012",
+      "kind": "unanswerable",
+      "style": "near",
+      "half": "calibration",
+      "recall_at_1": 0,
+      "recall_at_5": 0,
+      "abstained": false,
+      "top_5": [
+        {
+          "id": "tokenizer-report",
+          "cosine": 0.7515952162463136
+        },
+        {
+          "id": "pack-startup",
+          "cosine": 0.7464266125032588
+        },
+        {
+          "id": "discovery-field-guide",
+          "cosine": 0.7038565022377441
+        },
+        {
+          "id": "linked-summary",
+          "cosine": 0.7014120826467964
+        },
+        {
+          "id": "guard-tracked",
+          "cosine": 0.7002896472309381
+        }
+      ]
+    },
+    {
+      "id": "u013",
+      "kind": "unanswerable",
+      "style": "near",
+      "half": "calibration",
+      "recall_at_1": 0,
+      "recall_at_5": 0,
+      "abstained": true,
+      "top_5": [
+        {
+          "id": "budget-minimum",
+          "cosine": 0.6874500027505857
+        },
+        {
+          "id": "pack-startup",
+          "cosine": 0.6858213475937034
+        },
+        {
+          "id": "tokenizer-report",
+          "cosine": 0.6713758787096968
+        },
+        {
+          "id": "combined-gate",
+          "cosine": 0.657129937844881
+        },
+        {
+          "id": "hybrid-order",
+          "cosine": 0.6529386245177081
+        }
+      ]
+    },
+    {
+      "id": "u014",
+      "kind": "unanswerable",
+      "style": "near",
+      "half": "calibration",
+      "recall_at_1": 0,
+      "recall_at_5": 0,
+      "abstained": true,
+      "top_5": [
+        {
+          "id": "standing-rule",
+          "cosine": 0.7001218622455143
+        },
+        {
+          "id": "combined-gate",
+          "cosine": 0.6945769750889778
+        },
+        {
+          "id": "search-page-size",
+          "cosine": 0.6897292257318763
+        },
+        {
+          "id": "model-cache",
+          "cosine": 0.6877491292485728
+        },
+        {
+          "id": "factory-review",
+          "cosine": 0.6869678038232637
+        }
+      ]
+    },
+    {
+      "id": "u015",
+      "kind": "unanswerable",
+      "style": "far",
+      "half": "calibration",
+      "recall_at_1": 0,
+      "recall_at_5": 0,
+      "abstained": true,
+      "top_5": [
+        {
+          "id": "storage-field-guide",
+          "cosine": 0.6355518404477418
+        },
+        {
+          "id": "model-cache",
+          "cosine": 0.6248717119907209
+        },
+        {
+          "id": "factory-install",
+          "cosine": 0.6184977757068663
+        },
+        {
+          "id": "bge-aikit",
+          "cosine": 0.6137583731948658
+        },
+        {
+          "id": "guard-tracked",
+          "cosine": 0.6134439211321342
+        }
+      ]
+    },
+    {
+      "id": "u016",
+      "kind": "unanswerable",
+      "style": "far",
+      "half": "calibration",
+      "recall_at_1": 0,
+      "recall_at_5": 0,
+      "abstained": true,
+      "top_5": [
+        {
+          "id": "model-cache",
+          "cosine": 0.6404261585549756
+        },
+        {
+          "id": "factory-resume",
+          "cosine": 0.6293299922321312
+        },
+        {
+          "id": "combined-gate",
+          "cosine": 0.6286239858039409
+        },
+        {
+          "id": "budget-minimum",
+          "cosine": 0.6255154858447524
+        },
+        {
+          "id": "adoption-gates",
+          "cosine": 0.6193541577467447
+        }
+      ]
+    },
+    {
+      "id": "u017",
+      "kind": "unanswerable",
+      "style": "far",
+      "half": "calibration",
+      "recall_at_1": 0,
+      "recall_at_5": 0,
+      "abstained": true,
+      "top_5": [
+        {
+          "id": "search-page-size",
+          "cosine": 0.6841582723803077
+        },
+        {
+          "id": "factory-resume",
+          "cosine": 0.6773669805298469
+        },
+        {
+          "id": "factory-install",
+          "cosine": 0.6648391278324224
+        },
+        {
+          "id": "budget-minimum",
+          "cosine": 0.6645871461976852
+        },
+        {
+          "id": "index-refresh",
+          "cosine": 0.656314875989169
+        }
+      ]
+    },
+    {
+      "id": "u018",
+      "kind": "unanswerable",
+      "style": "far",
+      "half": "calibration",
+      "recall_at_1": 0,
+      "recall_at_5": 0,
+      "abstained": true,
+      "top_5": [
+        {
+          "id": "pack-startup",
+          "cosine": 0.6101741306221563
+        },
+        {
+          "id": "fixture-reader",
+          "cosine": 0.6051448545671362
+        },
+        {
+          "id": "budget-minimum",
+          "cosine": 0.5974613754788841
+        },
+        {
+          "id": "tokenizer-report",
+          "cosine": 0.5966647248698169
+        },
+        {
+          "id": "outside-window",
+          "cosine": 0.5903525577311768
+        }
+      ]
+    },
+    {
+      "id": "u019",
+      "kind": "unanswerable",
+      "style": "far",
+      "half": "calibration",
+      "recall_at_1": 0,
+      "recall_at_5": 0,
+      "abstained": true,
+      "top_5": [
+        {
+          "id": "tokenizer-report",
+          "cosine": 0.6501872036201292
+        },
+        {
+          "id": "bge-aikit",
+          "cosine": 0.6447646353332268
+        },
+        {
+          "id": "pack-startup",
+          "cosine": 0.641929606565895
+        },
+        {
+          "id": "budget-minimum",
+          "cosine": 0.6408120382037508
+        },
+        {
+          "id": "factory-review",
+          "cosine": 0.6388093876670298
+        }
+      ]
+    },
+    {
+      "id": "u020",
+      "kind": "unanswerable",
+      "style": "far",
+      "half": "calibration",
+      "recall_at_1": 0,
+      "recall_at_5": 0,
+      "abstained": true,
+      "top_5": [
+        {
+          "id": "factory-ready",
+          "cosine": 0.672733489813959
+        },
+        {
+          "id": "factory-resume",
+          "cosine": 0.6684587881902971
+        },
+        {
+          "id": "standing-rule",
+          "cosine": 0.6575426290934948
+        },
+        {
+          "id": "factory-review",
+          "cosine": 0.6452195081758737
+        },
+        {
+          "id": "budget-minimum",
+          "cosine": 0.632396684340192
+        }
+      ]
+    },
+    {
+      "id": "u021",
+      "kind": "unanswerable",
+      "style": "far",
+      "half": "calibration",
+      "recall_at_1": 0,
+      "recall_at_5": 0,
+      "abstained": true,
+      "top_5": [
+        {
+          "id": "combined-gate",
+          "cosine": 0.6582524718259936
+        },
+        {
+          "id": "factory-install",
+          "cosine": 0.6568081280020859
+        },
+        {
+          "id": "factory-resume",
+          "cosine": 0.6470160216353039
+        },
+        {
+          "id": "outside-window",
+          "cosine": 0.6449807447954073
+        },
+        {
+          "id": "tokenizer-report",
+          "cosine": 0.6407239953556668
+        }
+      ]
+    },
+    {
+      "id": "u022",
+      "kind": "unanswerable",
+      "style": "far",
+      "half": "calibration",
+      "recall_at_1": 0,
+      "recall_at_5": 0,
+      "abstained": true,
+      "top_5": [
+        {
+          "id": "search-page-size",
+          "cosine": 0.6531495363292289
+        },
+        {
+          "id": "file-navigation",
+          "cosine": 0.6382225873633236
+        },
+        {
+          "id": "outside-window",
+          "cosine": 0.6153844185733244
+        },
+        {
+          "id": "factory-install",
+          "cosine": 0.6096466647308859
+        },
+        {
+          "id": "linked-summary",
+          "cosine": 0.605960449195933
+        }
+      ]
+    },
+    {
+      "id": "u023",
+      "kind": "unanswerable",
+      "style": "far",
+      "half": "calibration",
+      "recall_at_1": 0,
+      "recall_at_5": 0,
+      "abstained": true,
+      "top_5": [
+        {
+          "id": "storage-field-guide",
+          "cosine": 0.6647509654274558
+        },
+        {
+          "id": "index-refresh",
+          "cosine": 0.6577572608886496
+        },
+        {
+          "id": "model-cache",
+          "cosine": 0.6569281831235644
+        },
+        {
+          "id": "adoption-gates",
+          "cosine": 0.656598664046122
+        },
+        {
+          "id": "bge-aikit",
+          "cosine": 0.6557131200867621
+        }
+      ]
+    },
+    {
+      "id": "u024",
+      "kind": "unanswerable",
+      "style": "far",
+      "half": "calibration",
+      "recall_at_1": 0,
+      "recall_at_5": 0,
+      "abstained": true,
+      "top_5": [
+        {
+          "id": "budget-minimum",
+          "cosine": 0.6368379457651443
+        },
+        {
+          "id": "time-window",
+          "cosine": 0.619785142308986
+        },
+        {
+          "id": "combined-gate",
+          "cosine": 0.6126015038616159
+        },
+        {
+          "id": "linked-summary",
+          "cosine": 0.6109458078031542
+        },
+        {
+          "id": "storage-field-guide",
+          "cosine": 0.6108161956997115
+        }
+      ]
+    },
+    {
+      "id": "u025",
+      "kind": "unanswerable",
+      "style": "far",
+      "half": "calibration",
+      "recall_at_1": 0,
+      "recall_at_5": 0,
+      "abstained": true,
+      "top_5": [
+        {
+          "id": "fixture-reader",
+          "cosine": 0.6574088385607788
+        },
+        {
+          "id": "linked-summary",
+          "cosine": 0.6489114352703816
+        },
+        {
+          "id": "model-cache",
+          "cosine": 0.6457033571897755
+        },
+        {
+          "id": "file-navigation",
+          "cosine": 0.6262829809667437
+        },
+        {
+          "id": "routed-lock",
+          "cosine": 0.6221484188861766
+        }
+      ]
+    },
+    {
+      "id": "u026",
+      "kind": "unanswerable",
+      "style": "far",
+      "half": "calibration",
+      "recall_at_1": 0,
+      "recall_at_5": 0,
+      "abstained": true,
+      "top_5": [
+        {
+          "id": "combined-gate",
+          "cosine": 0.6396489298561674
+        },
+        {
+          "id": "factory-install",
+          "cosine": 0.636445701480136
+        },
+        {
+          "id": "routed-lock",
+          "cosine": 0.6282111955599256
+        },
+        {
+          "id": "factory-review",
+          "cosine": 0.6215357463284207
+        },
+        {
+          "id": "linked-summary",
+          "cosine": 0.6203583536097788
+        }
+      ]
+    },
+    {
+      "id": "u027",
+      "kind": "unanswerable",
+      "style": "personal-only",
+      "half": "calibration",
+      "recall_at_1": 0,
+      "recall_at_5": 0,
+      "abstained": true,
+      "top_5": [
+        {
+          "id": "factory-install",
+          "cosine": 0.691970535269252
+        },
+        {
+          "id": "adoption-gates",
+          "cosine": 0.6530687034985917
+        },
+        {
+          "id": "factory-review",
+          "cosine": 0.6417595232363263
+        },
+        {
+          "id": "factory-ready",
+          "cosine": 0.6413579153676863
+        },
+        {
+          "id": "combined-gate",
+          "cosine": 0.6400486017446682
+        }
+      ]
+    },
+    {
+      "id": "u028",
+      "kind": "unanswerable",
+      "style": "personal-only",
+      "half": "calibration",
+      "recall_at_1": 0,
+      "recall_at_5": 0,
+      "abstained": true,
+      "top_5": [
+        {
+          "id": "factory-review",
+          "cosine": 0.6706876495661763
+        },
+        {
+          "id": "outside-window",
+          "cosine": 0.6646765967591477
+        },
+        {
+          "id": "linked-summary",
+          "cosine": 0.6581686954080859
+        },
+        {
+          "id": "time-window",
+          "cosine": 0.6548467470648315
+        },
+        {
+          "id": "routed-lock",
+          "cosine": 0.648958244672834
+        }
+      ]
+    },
+    {
+      "id": "u029",
+      "kind": "unanswerable",
+      "style": "personal-only",
+      "half": "calibration",
+      "regression": true,
+      "recall_at_1": 0,
+      "recall_at_5": 0,
+      "abstained": true,
+      "top_5": [
+        {
+          "id": "missing-links",
+          "cosine": 0.6930378541872333
+        },
+        {
+          "id": "factory-review",
+          "cosine": 0.6923795716119315
+        },
+        {
+          "id": "factory-ready",
+          "cosine": 0.6855780747112478
+        },
+        {
+          "id": "fixture-reader",
+          "cosine": 0.6761826545172318
+        },
+        {
+          "id": "outside-window",
+          "cosine": 0.6738152686210218
+        }
+      ]
+    },
+    {
+      "id": "u030",
+      "kind": "unanswerable",
+      "style": "personal-only",
+      "half": "calibration",
+      "recall_at_1": 0,
+      "recall_at_5": 0,
+      "abstained": true,
+      "top_5": [
+        {
+          "id": "linked-summary",
+          "cosine": 0.6794109552315841
+        },
+        {
+          "id": "routed-lock",
+          "cosine": 0.6671451983536857
+        },
+        {
+          "id": "factory-review",
+          "cosine": 0.6663986264551812
+        },
+        {
+          "id": "index-refresh",
+          "cosine": 0.665294435580294
+        },
+        {
+          "id": "factory-ready",
+          "cosine": 0.6651574179747125
+        }
+      ]
+    },
+    {
+      "id": "u031",
+      "kind": "unanswerable",
+      "style": "near",
+      "half": "held-out",
+      "regression": true,
+      "recall_at_1": 0,
+      "recall_at_5": 0,
+      "abstained": true,
+      "top_5": [
+        {
+          "id": "linked-summary",
+          "cosine": 0.7177347307409405
+        },
+        {
+          "id": "factory-review",
+          "cosine": 0.6835513082518794
+        },
+        {
+          "id": "model-cache",
+          "cosine": 0.6724200815899464
+        },
+        {
+          "id": "routed-lock",
+          "cosine": 0.6689240757228081
+        },
+        {
+          "id": "bge-aikit",
+          "cosine": 0.665911686583236
+        }
+      ]
+    },
+    {
+      "id": "u032",
+      "kind": "unanswerable",
+      "style": "near",
+      "half": "held-out",
+      "recall_at_1": 0,
+      "recall_at_5": 0,
+      "abstained": false,
+      "top_5": [
+        {
+          "id": "vector-sql",
+          "cosine": 0.7309061293490431
+        },
+        {
+          "id": "model-cache",
+          "cosine": 0.6814776378730538
+        },
+        {
+          "id": "linked-summary",
+          "cosine": 0.6695131286481244
+        },
+        {
+          "id": "factory-install",
+          "cosine": 0.668888689805743
+        },
+        {
+          "id": "index-refresh",
+          "cosine": 0.6684170924110331
+        }
+      ]
+    },
+    {
+      "id": "u033",
+      "kind": "unanswerable",
+      "style": "near",
+      "half": "held-out",
+      "recall_at_1": 0,
+      "recall_at_5": 0,
+      "abstained": false,
+      "top_5": [
+        {
+          "id": "model-cache",
+          "cosine": 0.7220434261157934
+        },
+        {
+          "id": "factory-install",
+          "cosine": 0.7142677439257158
+        },
+        {
+          "id": "linked-summary",
+          "cosine": 0.6952126403681946
+        },
+        {
+          "id": "factory-ready",
+          "cosine": 0.6912831418016484
+        },
+        {
+          "id": "factory-review",
+          "cosine": 0.6900539968438387
+        }
+      ]
+    },
+    {
+      "id": "u034",
+      "kind": "unanswerable",
+      "style": "near",
+      "half": "held-out",
+      "recall_at_1": 0,
+      "recall_at_5": 0,
+      "abstained": true,
+      "top_5": [
+        {
+          "id": "search-page-size",
+          "cosine": 0.6829191660382272
+        },
+        {
+          "id": "outside-window",
+          "cosine": 0.681992767144443
+        },
+        {
+          "id": "fixture-reader",
+          "cosine": 0.6812435078515697
+        },
+        {
+          "id": "budget-minimum",
+          "cosine": 0.6698520962501658
+        },
+        {
+          "id": "standing-rule",
+          "cosine": 0.6600504501484707
+        }
+      ]
+    },
+    {
+      "id": "u035",
+      "kind": "unanswerable",
+      "style": "near",
+      "half": "held-out",
+      "recall_at_1": 0,
+      "recall_at_5": 0,
+      "abstained": true,
+      "top_5": [
+        {
+          "id": "factory-install",
+          "cosine": 0.6661422392271078
+        },
+        {
+          "id": "adoption-gates",
+          "cosine": 0.6601048980969891
+        },
+        {
+          "id": "file-navigation",
+          "cosine": 0.6553462508695606
+        },
+        {
+          "id": "model-cache",
+          "cosine": 0.6496103943163962
+        },
+        {
+          "id": "vector-sql",
+          "cosine": 0.637098995320835
+        }
+      ]
+    },
+    {
+      "id": "u036",
+      "kind": "unanswerable",
+      "style": "near",
+      "half": "held-out",
+      "recall_at_1": 0,
+      "recall_at_5": 0,
+      "abstained": true,
+      "top_5": [
+        {
+          "id": "linked-summary",
+          "cosine": 0.7024222966521617
+        },
+        {
+          "id": "storage-field-guide",
+          "cosine": 0.6933049463371851
+        },
+        {
+          "id": "model-cache",
+          "cosine": 0.6894505494490848
+        },
+        {
+          "id": "bge-aikit",
+          "cosine": 0.6858506753480433
+        },
+        {
+          "id": "routed-lock",
+          "cosine": 0.6822112019619473
+        }
+      ]
+    },
+    {
+      "id": "u037",
+      "kind": "unanswerable",
+      "style": "near",
+      "half": "held-out",
+      "recall_at_1": 0,
+      "recall_at_5": 0,
+      "abstained": true,
+      "top_5": [
+        {
+          "id": "factory-resume",
+          "cosine": 0.6905098578126361
+        },
+        {
+          "id": "index-refresh",
+          "cosine": 0.6564491855788199
+        },
+        {
+          "id": "factory-ready",
+          "cosine": 0.6492735825770585
+        },
+        {
+          "id": "factory-install",
+          "cosine": 0.6461081650953474
+        },
+        {
+          "id": "model-cache",
+          "cosine": 0.6437581591293643
+        }
+      ]
+    },
+    {
+      "id": "u038",
+      "kind": "unanswerable",
+      "style": "near",
+      "half": "held-out",
+      "recall_at_1": 0,
+      "recall_at_5": 0,
+      "abstained": true,
+      "top_5": [
+        {
+          "id": "factory-resume",
+          "cosine": 0.6961198108076302
+        },
+        {
+          "id": "outside-window",
+          "cosine": 0.690220831468245
+        },
+        {
+          "id": "missing-links",
+          "cosine": 0.6872474536490067
+        },
+        {
+          "id": "search-page-size",
+          "cosine": 0.6850230466563201
+        },
+        {
+          "id": "linked-summary",
+          "cosine": 0.6818757212620878
+        }
+      ]
+    },
+    {
+      "id": "u039",
+      "kind": "unanswerable",
+      "style": "near",
+      "half": "held-out",
+      "recall_at_1": 0,
+      "recall_at_5": 0,
+      "abstained": false,
+      "top_5": [
+        {
+          "id": "search-page-size",
+          "cosine": 0.7216681328065243
+        },
+        {
+          "id": "bge-aikit",
+          "cosine": 0.7073281189696664
+        },
+        {
+          "id": "budget-minimum",
+          "cosine": 0.7052269743718189
+        },
+        {
+          "id": "outside-window",
+          "cosine": 0.6962811519860923
+        },
+        {
+          "id": "pack-startup",
+          "cosine": 0.6833314935162057
+        }
+      ]
+    },
+    {
+      "id": "u040",
+      "kind": "unanswerable",
+      "style": "near",
+      "half": "held-out",
+      "recall_at_1": 0,
+      "recall_at_5": 0,
+      "abstained": true,
+      "top_5": [
+        {
+          "id": "linked-summary",
+          "cosine": 0.7081767608593555
+        },
+        {
+          "id": "original-refcount",
+          "cosine": 0.7004161335153692
+        },
+        {
+          "id": "model-cache",
+          "cosine": 0.6927341611269443
+        },
+        {
+          "id": "standing-rule",
+          "cosine": 0.6904058940255918
+        },
+        {
+          "id": "search-page-size",
+          "cosine": 0.6883228114321351
+        }
+      ]
+    },
+    {
+      "id": "u041",
+      "kind": "unanswerable",
+      "style": "near",
+      "half": "held-out",
+      "recall_at_1": 0,
+      "recall_at_5": 0,
+      "abstained": true,
+      "top_5": [
+        {
+          "id": "discovery-field-guide",
+          "cosine": 0.6998633507767738
+        },
+        {
+          "id": "guard-tracked",
+          "cosine": 0.6902338418802736
+        },
+        {
+          "id": "routed-lock",
+          "cosine": 0.6742410267271679
+        },
+        {
+          "id": "model-cache",
+          "cosine": 0.6699195628245945
+        },
+        {
+          "id": "storage-field-guide",
+          "cosine": 0.6591330081557525
+        }
+      ]
+    },
+    {
+      "id": "u042",
+      "kind": "unanswerable",
+      "style": "near",
+      "half": "held-out",
+      "recall_at_1": 0,
+      "recall_at_5": 0,
+      "abstained": true,
+      "top_5": [
+        {
+          "id": "pack-startup",
+          "cosine": 0.7196574606641557
+        },
+        {
+          "id": "tokenizer-report",
+          "cosine": 0.7096799381599297
+        },
+        {
+          "id": "bge-aikit",
+          "cosine": 0.7081128064953025
+        },
+        {
+          "id": "linked-summary",
+          "cosine": 0.695258696946333
+        },
+        {
+          "id": "routed-lock",
+          "cosine": 0.6932879944719808
+        }
+      ]
+    },
+    {
+      "id": "u043",
+      "kind": "unanswerable",
+      "style": "near",
+      "half": "held-out",
+      "recall_at_1": 0,
+      "recall_at_5": 0,
+      "abstained": true,
+      "top_5": [
+        {
+          "id": "linked-summary",
+          "cosine": 0.7003082275136513
+        },
+        {
+          "id": "routed-lock",
+          "cosine": 0.6576583102829685
+        },
+        {
+          "id": "standing-rule",
+          "cosine": 0.6575362734867132
+        },
+        {
+          "id": "factory-review",
+          "cosine": 0.6570600441180031
+        },
+        {
+          "id": "factory-ready",
+          "cosine": 0.6536936384809579
+        }
+      ]
+    },
+    {
+      "id": "u044",
+      "kind": "unanswerable",
+      "style": "near",
+      "half": "held-out",
+      "recall_at_1": 0,
+      "recall_at_5": 0,
+      "abstained": true,
+      "top_5": [
+        {
+          "id": "combined-gate",
+          "cosine": 0.6504818340782267
+        },
+        {
+          "id": "factory-resume",
+          "cosine": 0.6412480650504048
+        },
+        {
+          "id": "factory-install",
+          "cosine": 0.6378517085794346
+        },
+        {
+          "id": "outside-window",
+          "cosine": 0.6336440809226525
+        },
+        {
+          "id": "linked-summary",
+          "cosine": 0.6332176739923108
+        }
+      ]
+    },
+    {
+      "id": "u045",
+      "kind": "unanswerable",
+      "style": "far",
+      "half": "held-out",
+      "recall_at_1": 0,
+      "recall_at_5": 0,
+      "abstained": true,
+      "top_5": [
+        {
+          "id": "index-refresh",
+          "cosine": 0.6763003887090367
+        },
+        {
+          "id": "vector-sql",
+          "cosine": 0.6430359404928162
+        },
+        {
+          "id": "factory-review",
+          "cosine": 0.636376644477792
+        },
+        {
+          "id": "routed-lock",
+          "cosine": 0.6360797481516551
+        },
+        {
+          "id": "tokenizer-report",
+          "cosine": 0.6336494938470284
+        }
+      ]
+    },
+    {
+      "id": "u046",
+      "kind": "unanswerable",
+      "style": "far",
+      "half": "held-out",
+      "recall_at_1": 0,
+      "recall_at_5": 0,
+      "abstained": true,
+      "top_5": [
+        {
+          "id": "factory-install",
+          "cosine": 0.6327240825221382
+        },
+        {
+          "id": "pack-startup",
+          "cosine": 0.6317788114830085
+        },
+        {
+          "id": "factory-review",
+          "cosine": 0.6315501829329853
+        },
+        {
+          "id": "index-refresh",
+          "cosine": 0.6227241098540167
+        },
+        {
+          "id": "factory-resume",
+          "cosine": 0.6183807948778985
+        }
+      ]
+    },
+    {
+      "id": "u047",
+      "kind": "unanswerable",
+      "style": "far",
+      "half": "held-out",
+      "recall_at_1": 0,
+      "recall_at_5": 0,
+      "abstained": true,
+      "top_5": [
+        {
+          "id": "linked-summary",
+          "cosine": 0.6255985056459606
+        },
+        {
+          "id": "factory-review",
+          "cosine": 0.6214541492465827
+        },
+        {
+          "id": "storage-field-guide",
+          "cosine": 0.6206872010839274
+        },
+        {
+          "id": "fixture-reader",
+          "cosine": 0.6155220577671587
+        },
+        {
+          "id": "budget-minimum",
+          "cosine": 0.6114990640265494
+        }
+      ]
+    },
+    {
+      "id": "u048",
+      "kind": "unanswerable",
+      "style": "far",
+      "half": "held-out",
+      "recall_at_1": 0,
+      "recall_at_5": 0,
+      "abstained": true,
+      "top_5": [
+        {
+          "id": "factory-install",
+          "cosine": 0.6121309343605692
+        },
+        {
+          "id": "tag-map",
+          "cosine": 0.5932108409787448
+        },
+        {
+          "id": "guard-tracked",
+          "cosine": 0.5927435387194006
+        },
+        {
+          "id": "factory-resume",
+          "cosine": 0.5864166394972221
+        },
+        {
+          "id": "tokenizer-report",
+          "cosine": 0.5814565060562972
+        }
+      ]
+    },
+    {
+      "id": "u049",
+      "kind": "unanswerable",
+      "style": "far",
+      "half": "held-out",
+      "recall_at_1": 0,
+      "recall_at_5": 0,
+      "abstained": true,
+      "top_5": [
+        {
+          "id": "fixture-reader",
+          "cosine": 0.6274529715099045
+        },
+        {
+          "id": "factory-ready",
+          "cosine": 0.617892140519954
+        },
+        {
+          "id": "routed-lock",
+          "cosine": 0.6126665905344962
+        },
+        {
+          "id": "factory-install",
+          "cosine": 0.6109481533901703
+        },
+        {
+          "id": "linked-summary",
+          "cosine": 0.6051911073856764
+        }
+      ]
+    },
+    {
+      "id": "u050",
+      "kind": "unanswerable",
+      "style": "far",
+      "half": "held-out",
+      "recall_at_1": 0,
+      "recall_at_5": 0,
+      "abstained": true,
+      "top_5": [
+        {
+          "id": "guard-tracked",
+          "cosine": 0.6582032539402617
+        },
+        {
+          "id": "tag-count-view",
+          "cosine": 0.6421813361537676
+        },
+        {
+          "id": "linked-summary",
+          "cosine": 0.6399837964841654
+        },
+        {
+          "id": "model-cache",
+          "cosine": 0.6353117861489134
+        },
+        {
+          "id": "context-budget",
+          "cosine": 0.6299297002201482
+        }
+      ]
+    },
+    {
+      "id": "u051",
+      "kind": "unanswerable",
+      "style": "far",
+      "half": "held-out",
+      "recall_at_1": 0,
+      "recall_at_5": 0,
+      "abstained": true,
+      "top_5": [
+        {
+          "id": "budget-minimum",
+          "cosine": 0.6672990192899463
+        },
+        {
+          "id": "fixture-reader",
+          "cosine": 0.6474175577390036
+        },
+        {
+          "id": "search-page-size",
+          "cosine": 0.6425961300529172
+        },
+        {
+          "id": "outside-window",
+          "cosine": 0.6334733282498283
+        },
+        {
+          "id": "adoption-gates",
+          "cosine": 0.6271257782999281
+        }
+      ]
+    },
+    {
+      "id": "u052",
+      "kind": "unanswerable",
+      "style": "far",
+      "half": "held-out",
+      "recall_at_1": 0,
+      "recall_at_5": 0,
+      "abstained": true,
+      "top_5": [
+        {
+          "id": "pack-startup",
+          "cosine": 0.6485512269273672
+        },
+        {
+          "id": "factory-resume",
+          "cosine": 0.6424560541885089
+        },
+        {
+          "id": "linked-summary",
+          "cosine": 0.6377215116395151
+        },
+        {
+          "id": "storage-field-guide",
+          "cosine": 0.6356830325405332
+        },
+        {
+          "id": "model-cache",
+          "cosine": 0.6319406608932122
+        }
+      ]
+    },
+    {
+      "id": "u053",
+      "kind": "unanswerable",
+      "style": "far",
+      "half": "held-out",
+      "recall_at_1": 0,
+      "recall_at_5": 0,
+      "abstained": true,
+      "top_5": [
+        {
+          "id": "combined-gate",
+          "cosine": 0.6509079527984832
+        },
+        {
+          "id": "search-page-size",
+          "cosine": 0.6480900654904156
+        },
+        {
+          "id": "outside-window",
+          "cosine": 0.6456986273970737
+        },
+        {
+          "id": "budget-minimum",
+          "cosine": 0.6360099605347608
+        },
+        {
+          "id": "missing-links",
+          "cosine": 0.6358273839310146
+        }
+      ]
+    },
+    {
+      "id": "u054",
+      "kind": "unanswerable",
+      "style": "far",
+      "half": "held-out",
+      "recall_at_1": 0,
+      "recall_at_5": 0,
+      "abstained": true,
+      "top_5": [
+        {
+          "id": "factory-install",
+          "cosine": 0.6471138763397579
+        },
+        {
+          "id": "pack-startup",
+          "cosine": 0.6454816974484059
+        },
+        {
+          "id": "file-navigation",
+          "cosine": 0.6400933584925832
+        },
+        {
+          "id": "bge-aikit",
+          "cosine": 0.639791370449346
+        },
+        {
+          "id": "combined-gate",
+          "cosine": 0.6365163596369918
+        }
+      ]
+    },
+    {
+      "id": "u055",
+      "kind": "unanswerable",
+      "style": "far",
+      "half": "held-out",
+      "recall_at_1": 0,
+      "recall_at_5": 0,
+      "abstained": true,
+      "top_5": [
+        {
+          "id": "bge-aikit",
+          "cosine": 0.6399952790415709
+        },
+        {
+          "id": "factory-install",
+          "cosine": 0.627767078047803
+        },
+        {
+          "id": "factory-review",
+          "cosine": 0.6197744185818929
+        },
+        {
+          "id": "index-refresh",
+          "cosine": 0.6170172776817408
+        },
+        {
+          "id": "missing-links",
+          "cosine": 0.6161784892430999
+        }
+      ]
+    },
+    {
+      "id": "u056",
+      "kind": "unanswerable",
+      "style": "far",
+      "half": "held-out",
+      "recall_at_1": 0,
+      "recall_at_5": 0,
+      "abstained": true,
+      "top_5": [
+        {
+          "id": "search-page-size",
+          "cosine": 0.6555661705519009
+        },
+        {
+          "id": "budget-minimum",
+          "cosine": 0.6506845161661163
+        },
+        {
+          "id": "linked-summary",
+          "cosine": 0.6333212006781952
+        },
+        {
+          "id": "time-window",
+          "cosine": 0.6266345049956052
+        },
+        {
+          "id": "combined-gate",
+          "cosine": 0.6235685420960476
+        }
+      ]
+    },
+    {
+      "id": "u057",
+      "kind": "unanswerable",
+      "style": "personal-only",
+      "half": "held-out",
+      "recall_at_1": 0,
+      "recall_at_5": 0,
+      "abstained": true,
+      "top_5": [
+        {
+          "id": "adoption-gates",
+          "cosine": 0.6740248207721677
+        },
+        {
+          "id": "factory-install",
+          "cosine": 0.6675665101157702
+        },
+        {
+          "id": "tokenizer-report",
+          "cosine": 0.651546212315134
+        },
+        {
+          "id": "bge-aikit",
+          "cosine": 0.6414461058220811
+        },
+        {
+          "id": "combined-gate",
+          "cosine": 0.6412195986548265
+        }
+      ]
+    },
+    {
+      "id": "u058",
+      "kind": "unanswerable",
+      "style": "personal-only",
+      "half": "held-out",
+      "recall_at_1": 0,
+      "recall_at_5": 0,
+      "abstained": true,
+      "top_5": [
+        {
+          "id": "linked-summary",
+          "cosine": 0.7146172206427174
+        },
+        {
+          "id": "bge-aikit",
+          "cosine": 0.6669149690694256
+        },
+        {
+          "id": "model-cache",
+          "cosine": 0.6653520889761715
+        },
+        {
+          "id": "adoption-gates",
+          "cosine": 0.6644497776695703
+        },
+        {
+          "id": "tag-map",
+          "cosine": 0.6640291637557829
+        }
+      ]
+    },
+    {
+      "id": "u059",
+      "kind": "unanswerable",
+      "style": "personal-only",
+      "half": "held-out",
+      "regression": true,
+      "recall_at_1": 0,
+      "recall_at_5": 0,
+      "abstained": true,
+      "top_5": [
+        {
+          "id": "search-page-size",
+          "cosine": 0.6727515538574618
+        },
+        {
+          "id": "linked-summary",
+          "cosine": 0.6680811468937184
+        },
+        {
+          "id": "adoption-gates",
+          "cosine": 0.6629291552480048
+        },
+        {
+          "id": "guard-tracked",
+          "cosine": 0.6605292612850754
+        },
+        {
+          "id": "model-cache",
+          "cosine": 0.657499265306167
+        }
+      ]
+    },
+    {
+      "id": "u060",
+      "kind": "unanswerable",
+      "style": "personal-only",
+      "half": "held-out",
+      "recall_at_1": 0,
+      "recall_at_5": 0,
+      "abstained": true,
+      "top_5": [
+        {
+          "id": "routed-lock",
+          "cosine": 0.6503351290229749
+        },
+        {
+          "id": "linked-summary",
+          "cosine": 0.6498084356436399
+        },
+        {
+          "id": "fixture-reader",
+          "cosine": 0.6400697034190097
+        },
+        {
+          "id": "outside-window",
+          "cosine": 0.6399636955669459
+        },
+        {
+          "id": "factory-install",
+          "cosine": 0.6330371600175941
+        }
+      ]
+    }
+  ]
+}

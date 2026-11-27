@@ -1,0 +1,29 @@
+{
+  "start": {
+    "MemAvailable": 93936044,
+    "SwapTotal": 13097264,
+    "SwapFree": 11552040,
+    "time": "2026-11-21T15:28:10-05:00",
+    "load_1m": 0.92919921875,
+    "tctl_c": 42.125
+  },
+  "end": {
+    "MemAvailable": 94115008,
+    "SwapTotal": 13097264,
+    "SwapFree": 11550772,
+    "time": "2026-11-21T15:28:37-05:00",
+    "load_1m": 1.8349609375,
+    "tctl_c": 68.375
+  },
+  "exit_status": 0,
+  "elapsed_seconds": 26.95665635698242,
+  "peak_rss_kib": 2787224,
+  "sampled_peak_vmswap_kib": 0,
+  "vmswap_samples": 268,
+  "fit_estimate_gib": 8.0,
+  "physical_cores": 16,
+  "logical_cpus": 32,
+  "kernel": "7.3.4",
+  "machine": "x86_64",
+  "gomaxprocs": "4"
+}
