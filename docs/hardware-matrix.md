@@ -179,7 +179,7 @@ How it ran: **native** is real hardware; **ci-pool** is a GitHub runner whose CP
 | GitHub windows-11-arm runner: Azure Cobalt 100 (ARMv8, Microsoft), 4 logical CPUs, Windows 10.0.26200, windows/arm64, go1.27.0 | ci-pool | 1 | 2026-10-04 |
 | NVIDIA RTX PRO 6000 Blackwell Max-Q Workstation Edition (driver 595.112.07) with AMD Radeon RX 9060 XT (RADV, Mesa 26.3.1) | native | 1 | 2026-11-22 |
 
-**11 of 35 hardware-selected paths have no record of ever executing:**
+**12 of 36 hardware-selected paths have no record of ever executing:**
 
 - `cpu-popcnt`: POPCNT Hamming distance
 - `cuda-compute-mode`: CUDA graphs tenancy check (device compute mode)
@@ -192,3 +192,4 @@ How it ran: **native** is real hardware; **ci-pool** is a GitHub runner whose CP
 - `metal-unified-memory-above-16gib`: Configurations selected only with more than 16 GiB of unified memory
 - `webgpu-vendors`: WebGPU on AMD, Intel, and Windows DX12
 - `metal-eg2-inventory-memory-architecture`: EmbeddingGemma 2 system-default Metal device memory architecture
+- `metal-registry-id`: Metal boot-scoped device identity for explicit attachment

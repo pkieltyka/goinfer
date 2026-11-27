@@ -356,10 +356,34 @@ and [FP16 FFN qualification](measurements/eg2-fp16-ffn-2026-11-22.md)
 | --- | --- | --- |
 | CUDA | The driver's GPU UUID follows the card across slot and ordinal changes. The ordinal alias follows the visible CUDA order. Rows with missing or duplicate UUIDs have no ID or alias. | `"cuda"` opens ordinal 0. |
 | Vulkan | The UUID identifies a visible adapter. Under RADV it encodes the PCI address and can change with the slot or bus numbering. The ordinal alias follows the current Vulkan inventory. | `"vulkan"` requires a unique eligible card. |
-| Metal | Discovery describes the system default device without an ID or alias. | `"metal"` selects the system default device. |
+| Metal | `AllDevices` reports the boot-scoped registry ID (`metal:<registryID>@<boot-session>`) for a uniquely discovered device; the ordinal alias follows the current Metal inventory. Rows with a missing or duplicate registry ID have no ID or alias. `Devices` keeps the legacy system-default row. | `"metal"` selects the system default device. |
 
-Metal discovery and attachment cover the system default device only. Enumerating
-additional Metal devices and selecting one explicitly remain open work.
+`embeddinggemma2.AllDevices(ProbeOptions{})` lists every visible Metal device; the
+legacy `Devices(ProbeOptions{})` row and a bare `UseAccelerator("metal")` stay on the
+system default with blank ID/alias. An explicit attachment takes the exact
+boot-scoped ID and verifies it on the opened device; the ordinal alias is for the
+current inventory only. A token from a different boot is rejected.
+
+For example, an inventory row might report `metal:4294967296@<boot-session>` with
+alias `metal:0`; the alias is current-order only, while the full ID is the value to
+store. A row with a missing or duplicated registry ID reports neither ID nor alias.
+
+```text
+	rows, failures := embeddinggemma2.AllDevices(embeddinggemma2.ProbeOptions{IncludeMemory: true})
+	for _, failure := range failures {
+		fmt.Fprintf(os.Stderr, "%s: %v\n", failure.Backend, failure.Err)
+	}
+	for _, row := range rows {
+		if row.Backend == "metal" && row.ID != "" {
+			acc, err := encoder.UseDevice(row.ID, "metal-eg2-batch")
+			if err != nil {
+				return nil, err
+			}
+			return acc, nil
+		}
+	}
+	return nil, fmt.Errorf("no addressable Metal device")
+```
 
 Passing `ProbeOptions{IncludeMemory: true}` requests headroom as well as known capacity.
 CUDA reads capacity without retaining a context. The available-byte query temporarily

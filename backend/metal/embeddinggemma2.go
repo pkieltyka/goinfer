@@ -38,6 +38,7 @@ func init() {
 		return &eg2BatchAccel{eg2Accel: a}, nil
 	})
 	embeddinggemma2.RegisterDeviceProber("metal", probeMetalDevice)
+	embeddinggemma2.RegisterDeviceInventoryProber("metal", probeMetalDevices)
 }
 
 const eg2TG = 128
@@ -342,14 +343,18 @@ func newEG2Accel(m *embeddinggemma2.Model) (*eg2Accel, error) {
 	return newEG2AccelWithAttention(m, eg2AttentionDefault)
 }
 
-func newEG2AccelWithAttention(m *embeddinggemma2.Model, request eg2AttentionRequest) (_ *eg2Accel, err error) {
+func newEG2AccelWithAttention(m *embeddinggemma2.Model, request eg2AttentionRequest) (*eg2Accel, error) {
+	return newEG2AccelWithAttentionOn(m, request, CreateSystemDefaultDevice)
+}
+
+func newEG2AccelWithAttentionOn(m *embeddinggemma2.Model, request eg2AttentionRequest, open func() (*Device, error)) (_ *eg2Accel, err error) {
 	w := m.TransformerWeights()
 	for _, ly := range w.Layers {
 		if ly.HeadDim > 512 {
 			return nil, fmt.Errorf("metal: EmbeddingGemma 2 head dim %d, over the attention kernel's 512", ly.HeadDim)
 		}
 	}
-	ops, err := newEG2Ops("", nil)
+	ops, err := newEG2OpsOn(open, "", nil)
 	if err != nil {
 		return nil, err
 	}
