@@ -438,6 +438,7 @@ func TestGatePTX_nothingVerifiedIsRed(t *testing.T) {
 	var all []string
 	for _, dir := range []string{
 		filepath.Join("backend", "cuda", "testdata"),
+		filepath.Join("backend", "cuda", "eg2", "testdata"),
 		filepath.Join("backend", "cuda", "internal", "tower", "testdata"),
 	} {
 		m, _ := filepath.Glob(filepath.Join(dir, "*.ptx"))

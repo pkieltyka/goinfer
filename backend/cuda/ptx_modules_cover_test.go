@@ -16,9 +16,8 @@ import (
 // hand-written list had left gptoss_act.ptx, the gpt-oss expert-cache path, out). TestKernelFMALint_coversEmbeddedPTX
 // closes the same gap for the FMA lint.
 func TestPTXModules_coverEveryEmbed(t *testing.T) {
-	if !validCensusPTXTarget("argmax.ptx", 75) || validCensusPTXTarget("argmax.ptx", 80) ||
-		!validCensusPTXTarget("eg2_ffn_fp16.ptx", 80) || validCensusPTXTarget("eg2_ffn_fp16.ptx", 75) {
-		t.Fatal("production sm_75 targets and the FP16 sm_80 exception must be checked independently")
+	if !validCensusPTXTarget("argmax.ptx", 75) || validCensusPTXTarget("argmax.ptx", 80) {
+		t.Fatal("production sm_75 targets must reject higher SM targets")
 	}
 	files, err := filepath.Glob("*.go")
 	if err != nil {
@@ -37,15 +36,12 @@ func TestPTXModules_coverEveryEmbed(t *testing.T) {
 			embedded[m[1]] = true
 		}
 	}
-	if len(embedded) < 10 || !embedded["eg2_ffn_fp16.ptx"] {
+	if len(embedded) < 10 {
 		t.Fatalf("found %d embedded PTX in production embed files", len(embedded))
 	}
 	listed := map[string]bool{}
 	for _, m := range ptxModules(t) {
 		listed[m.name] = true
-		if m.name == "eg2_ffn_fp16.ptx" && m.minSM != 80 {
-			t.Errorf("FP16 FFN module requires SM%d, want SM80", m.minSM)
-		}
 	}
 	var missing, stale []string
 	for f := range embedded {

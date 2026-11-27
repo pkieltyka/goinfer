@@ -29,7 +29,7 @@
     },
     {
       "unit": "transposed",
-      "ptx": "testdata/eg2_transposed_experiment.ptx",
+      "ptx": "eg2/testdata/eg2_transposed_experiment.ptx",
       "ptx_sha256": "b965898a6eed3233e7cef13298e8d29517d9efbd6e50d2b7faffdda6cfa181a4",
       "cubin": "transposed.sm120.cubin",
       "cubin_sha256": "1b61c884935704fdcdc19075134f6f0232e400af0355b1881fd37851f6b6814f",
@@ -37,7 +37,7 @@
     },
     {
       "unit": "fusion",
-      "ptx": "testdata/eg2_fusions.ptx",
+      "ptx": "eg2/testdata/eg2_fusions.ptx",
       "ptx_sha256": "446e34045eeafac5e229894d90f429379d0d4c8c1768c56515e1ae6210198c62",
       "cubin": "fusion.sm120.cubin",
       "cubin_sha256": "93693f491ba1483c6969d5bab67845e7645aa03627e7604c2b1a541fac55c714",
@@ -45,7 +45,7 @@
     },
     {
       "unit": "ffn",
-      "ptx": "testdata/eg2_ffn_fp16.ptx",
+      "ptx": "eg2/testdata/eg2_ffn_fp16.ptx",
       "ptx_sha256": "4211568d2b58019d7375bbec6a6e4f2560f2640a4d4808929bbfde352ccdd358",
       "cubin": "ffn.sm120.cubin",
       "cubin_sha256": "91dc9d7b53111a8c0ad9575c3067f29225b782fce24a40e591c2cedf8c0948a0",
@@ -53,7 +53,7 @@
     },
     {
       "unit": "packed",
-      "ptx": "testdata/eg2_packed_attn.ptx",
+      "ptx": "eg2/testdata/eg2_packed_attn.ptx",
       "ptx_sha256": "d0ea4dac4c894d51c7df5e5632c69a7303a1b99dfb41e63d2d24ac3412ec01fa",
       "cubin": "packed.sm120.cubin",
       "cubin_sha256": "26f456727fdcda465cc31f3f3846e33ae281eb29913fab881acd4186e363d7d4",

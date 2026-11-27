@@ -127,7 +127,7 @@ func TestKernelFMALint(t *testing.T) {
 // which is the point at which the author is still holding the context to decide which it should be.
 func TestKernelFMALint_coversEmbeddedPTX(t *testing.T) {
 	var embedded []string
-	for _, dir := range []string{"..", "../internal/tower"} {
+	for _, dir := range []string{"..", "../internal/tower", "../eg2"} {
 		mods, err := launchgeom.EmbeddedPTXModules(dir)
 		if err != nil {
 			t.Fatal(err)

@@ -1,6 +1,6 @@
 //go:build cuda
 
-package cuda
+package eg2
 
 import (
 	"errors"
@@ -11,6 +11,7 @@ import (
 
 	gc "github.com/eitamring/gocudrv/cuda"
 	gpu "github.com/pkieltyka/goinfer/backend/cuda/internal/gpudev"
+	"github.com/pkieltyka/goinfer/backend/cuda/internal/tower"
 	"github.com/pkieltyka/goinfer/embeddinggemma2"
 	"github.com/pkieltyka/goinfer/internal/cudaid"
 )
@@ -32,7 +33,7 @@ func selectedEG2FactoryOn(attach eg2Attacher) func(*embeddinggemma2.Model, strin
 		if err != nil {
 			return nil, err
 		}
-		acc, err := attach(m, func() (*Device, error) {
+		acc, err := attach(m, func() (*gpu.Device, error) {
 			return gpu.CreateSelectedDevice(selected)
 		})
 		if err != nil {
@@ -60,7 +61,7 @@ func cudaEligible(a gpu.Adapter) bool {
 }
 
 func cudaSupportsPTX(major, minor int) bool {
-	return major > ptxTargetMajor || major == ptxTargetMajor && minor >= ptxTargetMinor
+	return major > tower.PTXTargetMajor || major == tower.PTXTargetMajor && minor >= tower.PTXTargetMinor
 }
 
 func cudaSupportsEG2(d embeddinggemma2.DeviceInfo) bool {
@@ -85,7 +86,7 @@ func resolveCUDADevice(token string, adapters []gpu.Adapter) (gpu.Adapter, error
 		}
 		if !cudaEligible(a) {
 			return gpu.Adapter{}, fmt.Errorf("%w: CUDA ordinal %d has compute capability %d.%d, need %d.%d",
-				embeddinggemma2.ErrNoDevice, a.Ordinal, a.Major, a.Minor, ptxTargetMajor, ptxTargetMinor)
+				embeddinggemma2.ErrNoDevice, a.Ordinal, a.Major, a.Minor, tower.PTXTargetMajor, tower.PTXTargetMinor)
 		}
 		for _, other := range adapters {
 			if a.Ordinal != other.Ordinal && strings.EqualFold(a.UUID, other.UUID) {
@@ -117,6 +118,14 @@ func (a *eg2Accel) DeviceMemory() (reading embeddinggemma2.DeviceMemory, err err
 		return readErr
 	})
 	return reading, err
+}
+
+type cudaMemoryReader interface {
+	MemInfo() (uint64, uint64, error)
+}
+
+func cudaMemInfo(ctx cudaMemoryReader) (free, total uint64, err error) {
+	return ctx.MemInfo()
 }
 
 func cudaMemory(dev cudaMemoryReader) (embeddinggemma2.DeviceMemory, error) {

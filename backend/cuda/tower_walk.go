@@ -11,9 +11,8 @@ import (
 )
 
 var (
-	i32  = gpu.ArgValue[int32]
-	f32v = gpu.ArgValue[float32]
-	i64  = gpu.ArgValue[int64]
+	i32 = gpu.ArgValue[int32]
+	i64 = gpu.ArgValue[int64]
 )
 
 // towerRegs are a tower walker's activation buffers, by vision.TowerReg: x is the residual stream, mid and mid2 are

@@ -1,6 +1,6 @@
 //go:build cuda
 
-package cuda
+package eg2
 
 import (
 	"bufio"
@@ -106,7 +106,7 @@ func TestCUDAEG2OpenerFailure(t *testing.T) {
 	m := eg2TinyModel(t)
 	for _, combined := range []bool{false, true} {
 		calls := 0
-		got, err := newEG2AccelOn(m, combined, func() (*Device, error) {
+		got, err := newEG2AccelOn(m, combined, func() (*gpu.Device, error) {
 			calls++
 			return nil, gc.ErrOutOfMemory
 		})
@@ -270,7 +270,7 @@ func TestCUDAEG2InventoryAttach(t *testing.T) {
 				!slices.Equal(reported.RunnableSelectors(), selectors) {
 				t.Fatalf("retained row %+v disagrees with inventory %+v", reported, row)
 			}
-			if wantFP16 := selector == eg2FP16TestSelector; (a.ffnFP16 != (Pipeline{})) != wantFP16 || a.packedAttnMode != wantFP16 {
+			if wantFP16 := selector == eg2FP16TestSelector; (a.ffnFP16 != (gpu.Pipeline{})) != wantFP16 || a.packedAttnMode != wantFP16 {
 				t.Fatalf("%s attached the wrong precision path", selector)
 			}
 			if rejectFP16 && selector == "cuda" {
@@ -285,7 +285,7 @@ func TestCUDAEG2InventoryAttach(t *testing.T) {
 	}
 }
 
-const eg2TinyDir = "../../testdata/embeddinggemma2-tiny"
+const eg2TinyDir = "../../../testdata/embeddinggemma2-tiny"
 
 // eg2TinyModel is the tiny fixture (sliding radius 3; head dims 16 with 2 KV heads and 32 with 1) with every norm weight
 // redrawn in [0.5, 1.5) through Weights' aliasing slices, so a norm given the wrong weight cannot hide behind the
@@ -639,7 +639,7 @@ func TestEG2CUDA_batchRopeSegments(t *testing.T) {
 	lens := []int{5, 9, 3}
 	if err := a.ops.Do(func() error {
 		defer a.ops.ReleaseScratch()
-		var pending []Buffer
+		var pending []gpu.Buffer
 		var relErr error
 		tabs, err := a.batchRope(lens, &pending, &relErr)
 		if err != nil {
@@ -656,7 +656,7 @@ func TestEG2CUDA_batchRopeSegments(t *testing.T) {
 			if err != nil {
 				return err
 			}
-			for j, src := range []Buffer{cs, sn} {
+			for j, src := range []gpu.Buffer{cs, sn} {
 				ref := make([]float32, 9*k.hd)
 				got := make([]float32, 17*k.hd)
 				if err := errors.Join(gpu.Download(src, ref), gpu.Download(tb[j], got)); err != nil {
@@ -900,7 +900,7 @@ func TestEG2CUDA_realBatchParity(t *testing.T) {
 			t.Fatalf("%d tokens alone: cosine %.9f with the CPU", lens[i], cs)
 		}
 	}
-	raw, err := os.ReadFile("../../testdata/embeddinggemma2-real/golden.json")
+	raw, err := os.ReadFile("../../../testdata/embeddinggemma2-real/golden.json")
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -1092,7 +1092,7 @@ func TestEG2CUDA_realParity(t *testing.T) {
 	if strings.HasPrefix(dir, "/Volumes/") || strings.HasPrefix(dir, "/srv/models") {
 		t.Fatalf("%s is on the archive, not local disk (CLAUDE.md)", dir)
 	}
-	raw, err := os.ReadFile("../../testdata/embeddinggemma2-real/golden.json")
+	raw, err := os.ReadFile("../../../testdata/embeddinggemma2-real/golden.json")
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -1176,7 +1176,7 @@ func TestEG2CUDA_realParity(t *testing.T) {
 		t.Fatal(err)
 	}
 	wantStock, wantTransposed := c.Layers, 0
-	if len(longest) >= 128 && a.combinedAttention != (Pipeline{}) {
+	if len(longest) >= 128 && a.combinedAttention != (gpu.Pipeline{}) {
 		wantStock, wantTransposed = 0, c.Layers
 	}
 	t.Logf("the %d-token forward: %d stock, %d transpose, %d transposed-attention launches", len(longest), stock, transposes, transposed)
@@ -1271,12 +1271,12 @@ func checkEG2Transposed(t *testing.T, selector string, shortTiled bool, model *e
 		t.Fatalf("default CUDA attached to %q", a.AttachedDevice().ID)
 	}
 	transpose, attention := a.combinedTranspose, a.combinedAttention
-	if transpose == (Pipeline{}) || attention == (Pipeline{}) || a.ops.ShortTiled != shortTiled {
+	if transpose == (gpu.Pipeline{}) || attention == (gpu.Pipeline{}) || a.ops.ShortTiled != shortTiled {
 		t.Fatalf("%s transposed attention or short GEMM policy is unavailable", selector)
 	}
 	for _, shape := range shapes {
 		t.Run(fmt.Sprint(shape), func(t *testing.T) {
-			a.combinedTranspose, a.combinedAttention, a.ops.ShortTiled = Pipeline{}, Pipeline{}, false
+			a.combinedTranspose, a.combinedAttention, a.ops.ShortTiled = gpu.Pipeline{}, gpu.Pipeline{}, false
 			ids := make([][]int, len(shape))
 			want := make([][]float32, len(shape))
 			total, longest := 0, 0
@@ -1854,23 +1854,23 @@ func TestEG2CUDA_RetryOOM_ClassificationContract(t *testing.T) {
 	if _, err := newEG2AccelOn(m, false, nil); err == nil || errors.Is(err, embeddinggemma2.ErrDeviceOutOfMemory) {
 		t.Fatalf("nil opener = %v, want non-OOM error", err)
 	}
-	if _, err := newEG2AccelOn(m, false, func() (*Device, error) {
+	if _, err := newEG2AccelOn(m, false, func() (*gpu.Device, error) {
 		return nil, fmt.Errorf("primary retain: %w", gc.ErrOutOfMemory)
 	}); !errors.Is(err, embeddinggemma2.ErrDeviceOutOfMemory) || !errors.Is(err, gc.ErrOutOfMemory) || errors.Is(err, embeddinggemma2.ErrBatchOutOfMemory) {
 		t.Fatalf("raw opener attach OOM = %v, want ErrDeviceOutOfMemory + gc.ErrOutOfMemory without ErrBatchOutOfMemory", err)
 	}
-	if _, err := newEG2AccelOn(m, false, func() (*Device, error) {
+	if _, err := newEG2AccelOn(m, false, func() (*gpu.Device, error) {
 		return nil, gpu.AllocFailedPanic("attach", 1024, gc.ErrOutOfMemory)
 	}); !errors.Is(err, embeddinggemma2.ErrDeviceOutOfMemory) || !errors.Is(err, gc.ErrOutOfMemory) || errors.Is(err, embeddinggemma2.ErrBatchOutOfMemory) {
 		t.Fatalf("alloc-panic attach OOM = %v, want ErrDeviceOutOfMemory + gc.ErrOutOfMemory without ErrBatchOutOfMemory", err)
 	}
-	if _, err := newEG2AccelOn(m, false, func() (*Device, error) {
+	if _, err := newEG2AccelOn(m, false, func() (*gpu.Device, error) {
 		return nil, errors.New("plain text OUT_OF_MEMORY")
 	}); err == nil || errors.Is(err, embeddinggemma2.ErrDeviceOutOfMemory) || errors.Is(err, embeddinggemma2.ErrBatchOutOfMemory) {
 		t.Fatalf("text-only attach error matched OOM: %v", err)
 	}
 	unrelated := errors.New("cuda: synthetic unrelated attach failure")
-	if _, err := newEG2AccelOn(m, false, func() (*Device, error) {
+	if _, err := newEG2AccelOn(m, false, func() (*gpu.Device, error) {
 		return nil, unrelated
 	}); !errors.Is(err, unrelated) || errors.Is(err, embeddinggemma2.ErrDeviceOutOfMemory) || errors.Is(err, embeddinggemma2.ErrBatchOutOfMemory) {
 		t.Fatalf("unrelated attach = %v", err)
@@ -1894,12 +1894,12 @@ func TestEG2CUDA_RetryOOM_ClassificationContract(t *testing.T) {
 			}
 			return nil
 		}}
-		stuckDev := &Device{}
+		stuckDev := &gpu.Device{}
 		stuckDev.TrackObj(obj)
 		stuckOps := &tower.Ops{Dev: stuckDev, ReqCh: make(chan func() error), AckCh: make(chan error)}
 		go func() {
 			for j := range stuckOps.ReqCh {
-				stuckOps.AckCh <- runJob(j)
+				stuckOps.AckCh <- tower.RunJob(j)
 			}
 		}()
 		eg2AttachCleanup.mu.Lock()
@@ -1950,7 +1950,7 @@ func TestEG2CUDA_RetryOOM_ClassificationContract(t *testing.T) {
 					errs[idx] = err
 					return
 				}
-				acc, err := newEG2AccelOn(m, false, func() (*Device, error) {
+				acc, err := newEG2AccelOn(m, false, func() (*gpu.Device, error) {
 					openMu.Lock()
 					openCalls++
 					openMu.Unlock()
@@ -1978,7 +1978,7 @@ func TestEG2CUDA_RetryOOM_ClassificationContract(t *testing.T) {
 		failMu.Lock()
 		failClose = false
 		failMu.Unlock()
-		_, err := newEG2AccelOn(m, false, func() (*Device, error) {
+		_, err := newEG2AccelOn(m, false, func() (*gpu.Device, error) {
 			openMu.Lock()
 			openCalls++
 			openMu.Unlock()
@@ -2001,7 +2001,7 @@ func TestEG2CUDA_RetryOOM_ClassificationContract(t *testing.T) {
 	t.Run("close-teardown-progress-skips-drain-on-retry", func(t *testing.T) {
 		failObj := true
 		objErr := errors.New("cuda: synthetic post-stream module close failure")
-		dev := &Device{}
+		dev := &gpu.Device{}
 		dev.TrackObj(&testCloser{fn: func() error {
 			if failObj {
 				return objErr
@@ -2011,7 +2011,7 @@ func TestEG2CUDA_RetryOOM_ClassificationContract(t *testing.T) {
 		ops := &tower.Ops{Dev: dev, ReqCh: make(chan func() error), AckCh: make(chan error)}
 		go func() {
 			for j := range ops.ReqCh {
-				ops.AckCh <- runJob(j)
+				ops.AckCh <- tower.RunJob(j)
 			}
 		}()
 		a := &eg2Accel{ops: ops}
@@ -2044,7 +2044,7 @@ type testCloser struct{ fn func() error }
 func (c *testCloser) Close() error { return c.fn() }
 
 func TestEG2CUDA_RetryOOM_DeviceAcceptance(t *testing.T) {
-	probe, err := CreateSystemDefaultDevice()
+	probe, err := gpu.CreateSystemDefaultDevice()
 	if err != nil {
 		t.Skipf("no CUDA device: %v", err)
 	}
@@ -2570,10 +2570,10 @@ func TestEG2CUDA_RetryOOM_DeviceAcceptance(t *testing.T) {
 				}
 
 				// Attach OOM after several real weight uploads -> ErrDeviceOutOfMemory only, 0 leaks.
-				var attachDev *Device
+				var attachDev *gpu.Device
 				attachAllocs := 0
-				gotAcc, err := newEG2AccelOn(m, combined, func() (*Device, error) {
-					d, err := CreateSystemDefaultDevice()
+				gotAcc, err := newEG2AccelOn(m, combined, func() (*gpu.Device, error) {
+					d, err := gpu.CreateSystemDefaultDevice()
 					if err != nil {
 						return nil, err
 					}
@@ -2601,14 +2601,14 @@ func TestEG2CUDA_RetryOOM_DeviceAcceptance(t *testing.T) {
 				recAttach := &eg2RecordingLeaser{}
 				origAttachLeaser := gpu.NewLeaser
 				gpu.NewLeaser = func() gpu.Leaser { return recAttach }
-				var stuckDev *Device
+				var stuckDev *gpu.Device
 				attachFreeErr := errors.New("cuda: planted partial-attach rollback close failure")
 				attachAllocs = 0
 				var closeMu sync.Mutex
 				closeAttempts := 0
 				failRemaining := false
-				gotAcc, err = newEG2AccelOn(m, combined, func() (*Device, error) {
-					d, err := CreateSystemDefaultDevice()
+				gotAcc, err = newEG2AccelOn(m, combined, func() (*gpu.Device, error) {
+					d, err := gpu.CreateSystemDefaultDevice()
 					if err != nil {
 						return nil, err
 					}
@@ -2663,11 +2663,11 @@ func TestEG2CUDA_RetryOOM_DeviceAcceptance(t *testing.T) {
 				var blockedMu sync.Mutex
 				blockedOpens := 0
 				for attempt := range 2 {
-					accBlocked, errBlocked := newEG2AccelOn(m, combined, func() (*Device, error) {
+					accBlocked, errBlocked := newEG2AccelOn(m, combined, func() (*gpu.Device, error) {
 						blockedMu.Lock()
 						blockedOpens++
 						blockedMu.Unlock()
-						return CreateSystemDefaultDevice()
+						return gpu.CreateSystemDefaultDevice()
 					})
 					if accBlocked != nil || !errors.Is(errBlocked, attachFreeErr) || errors.Is(errBlocked, embeddinggemma2.ErrBatchOutOfMemory) {
 						t.Fatalf("blocked attach attempt %d = (%v, %v), want %v without retry", attempt, accBlocked, errBlocked, attachFreeErr)
@@ -2694,11 +2694,11 @@ func TestEG2CUDA_RetryOOM_DeviceAcceptance(t *testing.T) {
 							simErrs[idx] = errPub
 							return
 						}
-						accInt, errInt := newEG2AccelOn(m, combined, func() (*Device, error) {
+						accInt, errInt := newEG2AccelOn(m, combined, func() (*gpu.Device, error) {
 							blockedMu.Lock()
 							blockedOpens++
 							blockedMu.Unlock()
-							return CreateSystemDefaultDevice()
+							return gpu.CreateSystemDefaultDevice()
 						})
 						if accInt != nil {
 							t.Errorf("simultaneous newEG2AccelOn(%d) returned non-nil accel", idx)
@@ -2732,9 +2732,9 @@ func TestEG2CUDA_RetryOOM_DeviceAcceptance(t *testing.T) {
 				// Clear close hook: the next attach drains the retained cleanup to zero and succeeds cleanly.
 				stuckDev.SetCloseBufHookForTest(nil)
 				recoveredOpens := 0
-				recovAcc, errRecov := newEG2AccelOn(m, combined, func() (*Device, error) {
+				recovAcc, errRecov := newEG2AccelOn(m, combined, func() (*gpu.Device, error) {
 					recoveredOpens++
-					return CreateSystemDefaultDevice()
+					return gpu.CreateSystemDefaultDevice()
 				})
 				if errRecov != nil || recovAcc == nil {
 					t.Fatalf("recovered attach after cleanup cleared = (%v, %v)", recovAcc, errRecov)
@@ -2762,8 +2762,8 @@ func TestEG2CUDA_RetryOOM_DeviceAcceptance(t *testing.T) {
 
 				// Unrelated attach allocation error (gc.ErrInvalidValue) -> neither OOM sentinel, 0 leaks.
 				attachAllocs = 0
-				gotAcc, err = newEG2AccelOn(m, combined, func() (*Device, error) {
-					d, err := CreateSystemDefaultDevice()
+				gotAcc, err = newEG2AccelOn(m, combined, func() (*gpu.Device, error) {
+					d, err := gpu.CreateSystemDefaultDevice()
 					if err != nil {
 						return nil, err
 					}
@@ -3064,7 +3064,7 @@ func TestEG2CUDA_BatchMemory_UnitContract(t *testing.T) {
 }
 
 func TestEG2CUDA_BatchMemory_InstrumentedOracle(t *testing.T) {
-	dev, err := CreateSystemDefaultDevice()
+	dev, err := gpu.CreateSystemDefaultDevice()
 	if err != nil {
 		t.Skipf("no CUDA device: %v", err)
 	}
@@ -3368,7 +3368,7 @@ func TestCUDAEG2FP16RetainedCapability(t *testing.T) {
 			}
 			// A rejection must precede any JIT work on the device.
 			projection, gate, err := eg2FP16Pipelines(nil, nil, true, cc, tt.query)
-			if projection != (Pipeline{}) || gate != (Pipeline{}) || !errors.Is(err, tt.want) {
+			if projection != (gpu.Pipeline{}) || gate != (gpu.Pipeline{}) || !errors.Is(err, tt.want) {
 				t.Fatalf("capability %+v: projection %v, gate %v, error %v; want %v", cc, projection, gate, err, tt.want)
 			}
 			if errors.Is(err, embeddinggemma2.ErrUnsupportedSelector) != (tt.want == embeddinggemma2.ErrUnsupportedSelector) ||
@@ -3563,7 +3563,7 @@ func TestEG2FP16Encoder(t *testing.T) {
 			t.Error(err)
 		}
 	})
-	if a.ffnFP16 == (Pipeline{}) || a.ffnGateEpilogue == (Pipeline{}) || a.fusions == nil ||
+	if a.ffnFP16 == (gpu.Pipeline{}) || a.ffnGateEpilogue == (gpu.Pipeline{}) || a.fusions == nil ||
 		a.AttachedDevice().ID != "cuda:"+device.UUID {
 		t.Fatalf("FP16 pipeline/device not selected: %s", a.AttachedDevice().ID)
 	}
@@ -3724,9 +3724,9 @@ func TestEG2FP16FailedAttach(t *testing.T) {
 		t.Fatal(err)
 	}
 	bytes := m.Config().Hidden * m.Config().Intermediate * 2
-	var dev *Device
+	var dev *gpu.Device
 	var count int
-	acc, err := newEG2AccelWithFFN(m, true, ptx, func() (*Device, error) {
+	acc, err := newEG2AccelWithFFN(m, true, ptx, func() (*gpu.Device, error) {
 		d, err := gpu.CreateSelectedDevice(adapter)
 		if err != nil {
 			return nil, err
@@ -3754,7 +3754,7 @@ func TestEG2FP16FailedAttach(t *testing.T) {
 		t.Fatalf("failed attach retains %d allocations and %d objects", allocs, objects)
 	}
 	m.Weights().Layers[0].Up[0] = 65520
-	acc, err = newEG2AccelWithFFN(m, true, ptx, func() (*Device, error) {
+	acc, err = newEG2AccelWithFFN(m, true, ptx, func() (*gpu.Device, error) {
 		d, err := gpu.CreateSelectedDevice(adapter)
 		dev = d
 		return d, err
@@ -3929,10 +3929,10 @@ func TestEG2FP16PackedAttnContract(t *testing.T) {
 			t.Error(err)
 		}
 	})
-	if !a.packedAttnMode || len(a.packedAttn) == 0 || a.ffnFP16 == (Pipeline{}) ||
-		a.fusions == nil || a.fusions.geluMul == (Pipeline{}) || a.fusions.geluPLE == (Pipeline{}) {
+	if !a.packedAttnMode || len(a.packedAttn) == 0 || a.ffnFP16 == (gpu.Pipeline{}) ||
+		a.fusions == nil || a.fusions.geluMul == (gpu.Pipeline{}) || a.fusions.geluPLE == (gpu.Pipeline{}) {
 		t.Fatalf("cuda-eg2-fp16 did not enable packedAttn (%v, %d pipes), ffnFP16 (%v), and fusions (%v)",
-			a.packedAttnMode, len(a.packedAttn), a.ffnFP16 != (Pipeline{}), a.fusions != nil)
+			a.packedAttnMode, len(a.packedAttn), a.ffnFP16 != (gpu.Pipeline{}), a.fusions != nil)
 	}
 
 	expectedColdRope := func(acc *eg2Accel, maxT int) int64 {
@@ -4156,7 +4156,7 @@ func TestEG2FP16PackedAttnContract(t *testing.T) {
 					ovModel.Weights().Layers[0].KNorm[i] = 1e5
 				}
 			}
-			ovA, err := newEG2AccelConfigured(ovModel, true, mode.ffnPTX, mode.packedPTX, mode.fusionPTX, func() (*Device, error) {
+			ovA, err := newEG2AccelConfigured(ovModel, true, mode.ffnPTX, mode.packedPTX, mode.fusionPTX, func() (*gpu.Device, error) {
 				return gpu.CreateSelectedDevice(adapter)
 			})
 			if err != nil {
@@ -4417,7 +4417,7 @@ func checkEG2Fusions(t *testing.T, m *embeddinggemma2.Model, inputs [][]int, kee
 					return func() { release(); recordRelease() }
 				}
 				defer func() { tower.LeaseSeenForTest = old }()
-				a, err := newEG2AccelConfigured(m, true, arm.fp16PTX, arm.packedPTX, ptx, func() (*Device, error) {
+				a, err := newEG2AccelConfigured(m, true, arm.fp16PTX, arm.packedPTX, ptx, func() (*gpu.Device, error) {
 					return gpu.CreateSelectedDevice(device)
 				})
 				if err != nil {
@@ -4431,7 +4431,7 @@ func checkEG2Fusions(t *testing.T, m *embeddinggemma2.Model, inputs [][]int, kee
 				if a.AttachedDevice().ID != "cuda:"+device.UUID || (a.fusions != nil) != (len(ptx) != 0) {
 					t.Fatal("wrong device or fusion mode")
 				}
-				if (a.ffnGateEpilogue != (Pipeline{})) != (len(arm.fp16PTX) != 0 && len(ptx) != 0) {
+				if (a.ffnGateEpilogue != (gpu.Pipeline{})) != (len(arm.fp16PTX) != 0 && len(ptx) != 0) {
 					t.Fatal("wrong FP16 gate epilogue mode")
 				}
 				fit, err := a.BatchMemory(lengths)
@@ -4564,9 +4564,9 @@ func checkEG2Fusions(t *testing.T, m *embeddinggemma2.Model, inputs [][]int, kee
 					}
 				}()
 				pubA := pub.(*eg2Accel)
-				if pubA.fusions == nil || !pubA.packedAttnMode || pubA.ffnFP16 == (Pipeline{}) {
+				if pubA.fusions == nil || !pubA.packedAttnMode || pubA.ffnFP16 == (gpu.Pipeline{}) {
 					t.Fatalf("public %s missing composed pipelines: ffn=%v packed=%v fusions=%v",
-						eg2FP16TestSelector, pubA.ffnFP16 != (Pipeline{}), pubA.packedAttnMode, pubA.fusions != nil)
+						eg2FP16TestSelector, pubA.ffnFP16 != (gpu.Pipeline{}), pubA.packedAttnMode, pubA.fusions != nil)
 				}
 				pubOut, err := pubA.ForwardBatch(inputs)
 				if err != nil {
@@ -4618,7 +4618,7 @@ func TestEG2SM120Assets(t *testing.T) {
 			t.Fatalf("unknown or duplicate module %s", unit.Unit)
 		}
 		delete(ptxModules, unit.Unit)
-		ptx, err := os.ReadFile(unit.PTX)
+		ptx, err := os.ReadFile(filepath.Join("..", unit.PTX))
 		if err != nil {
 			t.Fatal(err)
 		}
@@ -4750,7 +4750,7 @@ func TestEG2SM120Native(t *testing.T) {
 		t.Run(tc.selector, func(t *testing.T) {
 			fp16 := tc.selector == eg2FP16Selector
 			attach := func(loader func(cudaModuleCompile, embeddinggemma2.CUDAComputeCapability) towerModuleLoader) eg2Attacher {
-				return func(m *embeddinggemma2.Model, open func() (*Device, error)) (*eg2Accel, error) {
+				return func(m *embeddinggemma2.Model, open func() (*gpu.Device, error)) (*eg2Accel, error) {
 					if fp16 {
 						return newEG2AccelWithLoader(m, true, eg2FFNFP16PTX, eg2PackedAttnPTX, eg2FusionsPTX, open, loader)
 					}

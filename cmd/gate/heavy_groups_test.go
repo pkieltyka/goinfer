@@ -224,7 +224,10 @@ func TestHeavyPartition_cudaTreeFitsTheTable(t *testing.T) {
 	if got := byGroup["kv10"]; !slices.Equal(got, []string{"TestKV10_longContextFidelity"}) {
 		t.Errorf("group kv10 = %v, want [TestKV10_longContextFidelity] alone, out of the shared group", got)
 	}
-	for _, sub := range []string{filepath.Join("backend", "cuda", "internal", "tower")} {
+	for _, sub := range []string{
+		filepath.Join("backend", "cuda", "eg2"),
+		filepath.Join("backend", "cuda", "internal", "tower"),
+	} {
 		subRefs, err := testReachableLiterals(filepath.Join(root, sub), []string{"cuda", "goinfer_testhooks"}, filepath.Join(root, "testdata", "assets.json"))
 		if err != nil {
 			t.Fatal(err)

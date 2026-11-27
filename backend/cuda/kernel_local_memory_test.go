@@ -35,9 +35,6 @@ type censusPTXModule struct {
 }
 
 func validCensusPTXTarget(name string, target int) bool {
-	if name == "eg2_ffn_fp16.ptx" {
-		return target == 10*eg2FP16MinMajor
-	}
 	return target > 0 && target <= 10*ptxTargetMajor+ptxTargetMinor
 }
 

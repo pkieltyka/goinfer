@@ -81,7 +81,7 @@ nvrtc() {
 		NVRTC_SO="$NVRTC_LIB/libnvrtc.so.12" python3 nvrtc_compile.py "$@")
 }
 
-mkdir -p testdata internal/tower/testdata
+mkdir -p testdata internal/tower/testdata eg2/testdata
 for k in "${targets[@]}"; do
 	src="./${k%.cu}.cu"
 	[ -f "$src" ] || { echo "build_ptx: no such kernel source: $src" >&2; exit 1; }
@@ -121,6 +121,7 @@ done
 for f in "$STAGE"/out/*.ptx; do
 	case "$(basename "$f")" in
 	tower_base.ptx) cp "$f" internal/tower/testdata/ ;;
+	eg2_transposed_experiment.ptx | eg2_ffn_fp16.ptx | eg2_packed_attn.ptx | eg2_fusions.ptx) cp "$f" eg2/testdata/ ;;
 	*) cp "$f" testdata/ ;;
 	esac
 done

@@ -13,5 +13,6 @@
 //
 // Build with `-tags cuda`. BuildResident builds a resident forward when the driver and the arch's features allow, and
 // declines (ok=false) otherwise, in which case the decoder falls back to the staged/CPU path. Blank-importing this
-// package is safe either way.
+// package is safe either way. Text-only EmbeddingGemma 2 clients can blank-import github.com/pkieltyka/goinfer/backend/cuda/eg2
+// instead; shared tower helpers live in backend/cuda/internal/tower.
 package cuda

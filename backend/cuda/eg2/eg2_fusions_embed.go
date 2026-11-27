@@ -1,6 +1,6 @@
 //go:build cuda && (eg2_fusions || (eg2_combined && eg2_fp16))
 
-package cuda
+package eg2
 
 import _ "embed"
 

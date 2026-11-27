@@ -532,6 +532,7 @@ func (g *gpuGate) readHeavy() heavyInput {
 	for _, extra := range []struct {
 		label, pkg string
 	}{
+		{"eg2", cudaEG2Pkg},
 		{"tower", cudaTowerPkg},
 	} {
 		extraTests, err := listCUDATests(extra.pkg)
@@ -554,6 +555,7 @@ func (g *gpuGate) readHeavy() heavyInput {
 // cudaKernelsPkg holds the CUDA kernel-level tests that need nothing from package cuda but its PTX.
 const (
 	cudaKernelsPkg = "./backend/cuda/kernels/"
+	cudaEG2Pkg     = "./backend/cuda/eg2/"
 	cudaTowerPkg   = "./backend/cuda/internal/tower/"
 )
 
@@ -772,6 +774,7 @@ func readPTX(keepDir string) ptxInput {
 	var ptxFiles []string
 	for _, dir := range []string{
 		filepath.Join("backend", "cuda", "testdata"),
+		filepath.Join("backend", "cuda", "eg2", "testdata"),
 		filepath.Join("backend", "cuda", "internal", "tower", "testdata"),
 	} {
 		m, _ := filepath.Glob(filepath.Join(dir, "*.ptx"))

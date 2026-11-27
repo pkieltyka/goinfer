@@ -1,6 +1,6 @@
 //go:build cuda
 
-package cuda
+package eg2
 
 import (
 	"fmt"
@@ -10,8 +10,8 @@ import (
 )
 
 type eg2Fusions struct {
-	geluMul Pipeline
-	geluPLE Pipeline
+	geluMul gpu.Pipeline
+	geluPLE gpu.Pipeline
 }
 
 var eg2FusionsPTX []byte
@@ -32,7 +32,7 @@ func loadEG2Fusions(ops *tower.Ops, ptx []byte) (*eg2Fusions, error) {
 	return &eg2Fusions{geluMul: ffn, geluPLE: ple}, nil
 }
 
-func (a *eg2Accel) ffnActivation(gate, up Buffer, n int) {
+func (a *eg2Accel) ffnActivation(gate, up gpu.Buffer, n int) {
 	o := a.ops
 	if a.fusions == nil {
 		o.GeluTanh(gate, n)
@@ -40,10 +40,10 @@ func (a *eg2Accel) ffnActivation(gate, up Buffer, n int) {
 		return
 	}
 	o.Cls(tower.ClsElem)
-	o.Launch(a.fusions.geluMul, gpu.Grid1D(n, 256), Arg(gate), Arg(up), i32(int32(n)))
+	o.Launch(a.fusions.geluMul, gpu.Grid1D(n, 256), gpu.Arg(gate), gpu.Arg(up), i32(int32(n)))
 }
 
-func (a *eg2Accel) pleActivation(gate, table, gathered Buffer, rows, layer int) {
+func (a *eg2Accel) pleActivation(gate, table, gathered gpu.Buffer, rows, layer int) {
 	o := a.ops
 	p := a.cfg.PLEDim
 	stride := a.cfg.Layers * p
@@ -58,5 +58,5 @@ func (a *eg2Accel) pleActivation(gate, table, gathered Buffer, rows, layer int) 
 	}
 	o.Cls(tower.ClsElem)
 	o.Launch(a.fusions.geluPLE, gpu.Grid1D(rows*p, 256),
-		Arg(gate), Arg(layerTable), i32(int32(p)), i64(int64(stride)), i32(int32(rows*p)))
+		gpu.Arg(gate), gpu.Arg(layerTable), i32(int32(p)), i64(int64(stride)), i32(int32(rows*p)))
 }

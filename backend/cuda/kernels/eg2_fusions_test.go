@@ -56,8 +56,8 @@ func TestEG2FusionsArithmetic(t *testing.T) {
 		t.Fatal(err)
 	}
 	mul := pipe("../internal/tower/testdata/tower_base.ptx", "tower_mul")
-	fused := pipe("../testdata/eg2_fusions.ptx", "eg2_gelu_mul")
-	fusedPLE := pipe("../testdata/eg2_fusions.ptx", "eg2_gelu_mul_ple")
+	fused := pipe("../eg2/testdata/eg2_fusions.ptx", "eg2_gelu_mul")
+	fusedPLE := pipe("../eg2/testdata/eg2_fusions.ptx", "eg2_gelu_mul_ple")
 	const rows, layers, channels = 33, 4, 17
 	const n = rows * channels
 	grid := gpu.Grid1D(n, 256)

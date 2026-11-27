@@ -9,7 +9,7 @@ import tempfile
 import zipfile
 
 ROOT = Path(__file__).resolve().parent
-ASSETS = ROOT / "testdata/eg2-sm120"
+ASSETS = ROOT / "eg2/testdata/eg2-sm120"
 
 def verify(path, expected):
     got = hashlib.sha256(path.read_bytes()).hexdigest()

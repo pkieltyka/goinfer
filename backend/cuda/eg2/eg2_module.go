@@ -1,6 +1,6 @@
 //go:build cuda
 
-package cuda
+package eg2
 
 import (
 	"crypto/sha256"
@@ -30,6 +30,11 @@ type cudaModuleCompile = tower.Compile
 type towerModuleLoader = tower.ModuleLoader
 
 var towerPTXLoader = tower.PTXLoader
+
+// eg2CombinedAttentionPTX transposes key heads and attends over the encoder's bounded rows.
+//
+//go:embed testdata/eg2_transposed_experiment.ptx
+var eg2CombinedAttentionPTX []byte
 
 //go:embed testdata/eg2-sm120/vit.sm120.cubin
 var eg2ViTSM120 []byte

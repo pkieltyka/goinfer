@@ -1,6 +1,6 @@
 //go:build cuda && eg2_combined
 
-package cuda
+package eg2
 
 import "github.com/pkieltyka/goinfer/embeddinggemma2"
 
