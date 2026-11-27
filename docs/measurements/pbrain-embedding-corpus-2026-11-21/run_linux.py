@@ -16,12 +16,6 @@ GIB_KIB = 1024 * 1024
 TERMINATE_GRACE_SECONDS = 5.0
 
 
-class _Interrupted(BaseException):
-    def __init__(self, signum):
-        super().__init__(signum)
-        self.signum = signum
-
-
 def proc_kib(path, fields):
     values = {}
     for line in path.read_text().splitlines():
@@ -47,45 +41,93 @@ def host():
     return out
 
 
-def _terminate_child(proc, grace_seconds):
-    if proc.poll() is not None:
-        return proc.wait()
-    for sig in (signal.SIGTERM, signal.SIGKILL):
+def _signal_group(pgid, signum):
+    try:
+        os.killpg(pgid, signum)
+        return True
+    except ProcessLookupError:
+        return False
+    except PermissionError:
+        return False
+
+
+def _group_exists(pgid):
+    try:
+        os.killpg(pgid, 0)
+        return True
+    except ProcessLookupError:
+        return False
+    except PermissionError:
+        return True
+
+
+def _finish_group(proc, pgid, grace_seconds):
+    """Terminate the whole child process group, then reap the leader.
+
+    The leader may already be gone while descendants remain, so every stage
+    signals the captured process-group id rather than checking only proc.poll().
+    Bounded waits keep a stuck group from holding the caller forever.
+    """
+    status = proc.poll()
+    if status is not None and not _group_exists(pgid):
+        return status
+
+    _signal_group(pgid, signal.SIGTERM)
+    if status is None and not _group_exists(pgid):
         try:
-            os.killpg(proc.pid, sig)
+            proc.terminate()
         except ProcessLookupError:
-            break
-        except PermissionError:
-            if sig == signal.SIGTERM:
-                proc.terminate()
-            else:
-                proc.kill()
-        if sig == signal.SIGTERM:
-            try:
-                return proc.wait(timeout=grace_seconds)
-            except subprocess.TimeoutExpired:
-                continue
-        return proc.wait()
-    return proc.wait()
+            pass
+    deadline = time.monotonic() + grace_seconds
+    while time.monotonic() < deadline:
+        status = proc.poll()
+        if status is not None and not _group_exists(pgid):
+            return status
+        time.sleep(0.02)
+
+    _signal_group(pgid, signal.SIGKILL)
+    if status is None:
+        try:
+            proc.kill()
+        except ProcessLookupError:
+            pass
+    deadline = time.monotonic() + grace_seconds
+    while time.monotonic() < deadline:
+        status = proc.poll()
+        if status is not None and not _group_exists(pgid):
+            return status
+        time.sleep(0.02)
+    try:
+        return proc.wait(timeout=grace_seconds)
+    except subprocess.TimeoutExpired:
+        return status if status is not None else -signal.SIGKILL
 
 
 def run_monitored(command, output_dir, grace_seconds=TERMINATE_GRACE_SECONDS):
-    """Run command in its own process group, reaping it on signals or errors before exit."""
-    output_dir.mkdir()
-    peak_swap = 0
-    swap_samples = 0
-    interrupted_signal = None
-    begin = time.monotonic()
+    """Run command in its own process group, reaping it on signals or errors before exit.
+
+    Signal handlers only record the pending signal; they never raise from the
+    handler. Cleanup therefore cannot be interrupted by a second signal and
+    always runs to a bounded end, even when the group leader exited before its
+    descendants.
+    """
+    pending = []
+    handled = [signal.SIGTERM, signal.SIGHUP, signal.SIGINT]
 
     def _handle_signal(signum, _frame):
-        raise _Interrupted(signum)
+        if not pending:
+            pending.append(signum)
 
-    handled = [signal.SIGTERM, signal.SIGHUP, signal.SIGINT]
     previous = {sig: signal.getsignal(sig) for sig in handled}
     for sig in handled:
         signal.signal(sig, _handle_signal)
 
+    output_dir.mkdir()
+    peak_swap = 0
+    swap_samples = 0
+    begin = time.monotonic()
     proc = None
+    pgid = None
     status = None
     try:
         with (output_dir / "cpu.json.partial").open("x") as out, (output_dir / "stderr.log").open("x") as err:
@@ -96,8 +138,9 @@ def run_monitored(command, output_dir, grace_seconds=TERMINATE_GRACE_SECONDS):
                 stderr=err,
                 start_new_session=True,
             )
+            pgid = proc.pid
             status_path = Path(f"/proc/{proc.pid}/status")
-            while proc.poll() is None:
+            while not pending and proc.poll() is None:
                 try:
                     values = proc_kib(status_path, {"VmSwap"})
                 except FileNotFoundError:
@@ -106,21 +149,13 @@ def run_monitored(command, output_dir, grace_seconds=TERMINATE_GRACE_SECONDS):
                     peak_swap = max(peak_swap, values["VmSwap"])
                     swap_samples += 1
                 time.sleep(0.1)
-            status = proc.wait()
-    except _Interrupted as exc:
-        interrupted_signal = exc.signum
-        if proc is not None:
-            status = _terminate_child(proc, grace_seconds)
-    except BaseException:
-        if proc is not None:
-            _terminate_child(proc, grace_seconds)
-        raise
     finally:
-        if proc is not None and proc.poll() is None:
-            status = _terminate_child(proc, grace_seconds)
+        if proc is not None:
+            status = _finish_group(proc, pgid, grace_seconds)
         for sig, prev in previous.items():
             signal.signal(sig, prev)
 
+    interrupted_signal = pending[0] if pending else None
     elapsed = time.monotonic() - begin
     return status, interrupted_signal, elapsed, peak_swap, swap_samples
 

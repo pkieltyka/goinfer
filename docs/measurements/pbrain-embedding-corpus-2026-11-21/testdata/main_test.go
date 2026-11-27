@@ -105,13 +105,15 @@ func TestRunLinuxReapsChildOnSignal(t *testing.T) {
 	}
 
 	cases := []struct {
-		name       string
-		sig        syscall.Signal
-		ignoreTerm bool
+		name        string
+		sig         syscall.Signal
+		ignoreTerm  bool
+		secondDelay time.Duration
 	}{
 		{name: "SIGTERM terminates cooperative child", sig: syscall.SIGTERM, ignoreTerm: false},
 		{name: "SIGHUP terminates cooperative child", sig: syscall.SIGHUP, ignoreTerm: false},
 		{name: "SIGTERM escalates to SIGKILL when child ignores SIGTERM", sig: syscall.SIGTERM, ignoreTerm: true},
+		{name: "second signal during cleanup still reaps", sig: syscall.SIGTERM, ignoreTerm: true, secondDelay: 100 * time.Millisecond},
 	}
 
 	for _, tc := range cases {
@@ -169,6 +171,12 @@ sys.exit(128 + interrupted if interrupted is not None else (status if status >= 
 				_ = cmd.Wait()
 				t.Fatalf("signal recorder: %v", err)
 			}
+			if tc.secondDelay > 0 {
+				time.Sleep(tc.secondDelay)
+				if err := cmd.Process.Signal(tc.sig); err != nil && !strings.Contains(err.Error(), "process already finished") {
+					t.Fatalf("second signal recorder: %v", err)
+				}
+			}
 			waitErr := cmd.Wait()
 			if waitErr == nil {
 				t.Fatalf("expected non-zero exit after %v", tc.sig)
@@ -187,5 +195,61 @@ sys.exit(128 + interrupted if interrupted is not None else (status if status >= 
 				t.Fatalf("interrupted run must not promote cpu.json.partial to cpu.json (stat err=%v)", err)
 			}
 		})
+	}
+}
+
+func TestRunLinuxReapsGroupAfterLeaderExit(t *testing.T) {
+	if runtime.GOOS != "linux" {
+		t.Skip("run_linux.py is Linux-specific")
+	}
+	py, err := exec.LookPath("python3")
+	if err != nil {
+		t.Skipf("python3 unavailable: %v", err)
+	}
+	scriptPath, err := filepath.Abs("../run_linux.py")
+	if err != nil {
+		t.Fatal(err)
+	}
+	tmp := t.TempDir()
+	grandchildFile := filepath.Join(tmp, "grandchild.pid")
+	outDir := filepath.Join(tmp, "cell")
+	childCode := fmt.Sprintf(`
+import subprocess, sys, time
+p = subprocess.Popen([sys.executable, "-c", "import time; time.sleep(60)"])
+open(%q, "w").write(str(p.pid))
+time.sleep(0.3)
+`, grandchildFile)
+	driverCode := fmt.Sprintf(`
+import importlib.util, json, pathlib, sys
+spec = importlib.util.spec_from_file_location("run_linux", %q)
+mod = importlib.util.module_from_spec(spec)
+spec.loader.exec_module(mod)
+status, interrupted, elapsed, peak_swap, samples = mod.run_monitored(
+    [sys.executable, "-c", %q],
+    pathlib.Path(%q),
+    grace_seconds=0.5,
+)
+if interrupted is None and status == 0:
+    (pathlib.Path(%q) / "cpu.json.partial").rename(pathlib.Path(%q) / "cpu.json")
+sys.exit(128 + interrupted if interrupted is not None else (status if status >= 0 else 128 - status))
+`, scriptPath, childCode, outDir, outDir, outDir)
+	cmd := exec.Command(py, "-c", driverCode)
+	if err := cmd.Run(); err != nil {
+		t.Fatalf("recorder: %v", err)
+	}
+	raw, err := os.ReadFile(grandchildFile)
+	if err != nil {
+		t.Fatal(err)
+	}
+	grandchildPID, err := strconv.Atoi(strings.TrimSpace(string(raw)))
+	if err != nil || grandchildPID <= 0 {
+		t.Fatalf("grandchild pid %q: %v", raw, err)
+	}
+	if err := syscall.Kill(grandchildPID, 0); err != syscall.ESRCH {
+		_ = syscall.Kill(grandchildPID, syscall.SIGKILL)
+		t.Fatalf("grandchild pid %d survived leader exit (kill(0) err=%v)", grandchildPID, err)
+	}
+	if _, err := os.Stat(filepath.Join(outDir, "cpu.json")); err != nil {
+		t.Fatalf("successful run did not promote cpu.json: %v", err)
 	}
 }
