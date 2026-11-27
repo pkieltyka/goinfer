@@ -323,6 +323,7 @@ type report struct {
 	Threads      int           `json:"gomaxprocs"`
 	Backend      string        `json:"backend"`
 	Cutoff       float64       `json:"abstention_cutoff"`
+	VerifyNanos  int64         `json:"model_verify_wall_ns,omitempty"`
 	LoadNanos    int64         `json:"load_wall_ns"`
 	LoadBytes    uint64        `json:"load_allocated_bytes"`
 	Samples      []observation `json:"samples"`
@@ -333,9 +334,15 @@ func run(w workload, model string, p preparation) (report, error) {
 	if p.ManifestSHA != w.pinSHA || len(p.Tokens) != len(w.docs)+len(w.qs) {
 		return report{}, fmt.Errorf("preflight and corpus manifest differ")
 	}
+	verifyStart := time.Now()
+	if err := verifyModel(model, w.pins.ModelFiles); err != nil {
+		return report{}, fmt.Errorf("verify pinned model before load: %w", err)
+	}
+	verifyNanos := time.Since(verifyStart).Nanoseconds()
 	r := report{
 		Source: w.pins.Source, Revision: w.pins.Revision, FixtureClock: w.pins.FixtureClock, ManifestSHA: w.pinSHA,
 		Model: w.pins.Model, ModelRev: w.pins.ModelRevision, Threads: runtime.GOMAXPROCS(0), Backend: "cpu", Cutoff: w.pins.Cutoff,
+		VerifyNanos: verifyNanos,
 	}
 	var enc *embeddinggemma2.Encoder
 	ns, bytes, err := measure(func() error {

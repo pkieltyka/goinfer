@@ -7,11 +7,19 @@ import json
 import os
 from pathlib import Path
 import resource
+import signal
 import subprocess
 import sys
 import time
 
 GIB_KIB = 1024 * 1024
+TERMINATE_GRACE_SECONDS = 5.0
+
+
+class _Interrupted(BaseException):
+    def __init__(self, signum):
+        super().__init__(signum)
+        self.signum = signum
 
 
 def proc_kib(path, fields):
@@ -39,6 +47,84 @@ def host():
     return out
 
 
+def _terminate_child(proc, grace_seconds):
+    if proc.poll() is not None:
+        return proc.wait()
+    for sig in (signal.SIGTERM, signal.SIGKILL):
+        try:
+            os.killpg(proc.pid, sig)
+        except ProcessLookupError:
+            break
+        except PermissionError:
+            if sig == signal.SIGTERM:
+                proc.terminate()
+            else:
+                proc.kill()
+        if sig == signal.SIGTERM:
+            try:
+                return proc.wait(timeout=grace_seconds)
+            except subprocess.TimeoutExpired:
+                continue
+        return proc.wait()
+    return proc.wait()
+
+
+def run_monitored(command, output_dir, grace_seconds=TERMINATE_GRACE_SECONDS):
+    """Run command in its own process group, reaping it on signals or errors before exit."""
+    output_dir.mkdir()
+    peak_swap = 0
+    swap_samples = 0
+    interrupted_signal = None
+    begin = time.monotonic()
+
+    def _handle_signal(signum, _frame):
+        raise _Interrupted(signum)
+
+    handled = [signal.SIGTERM, signal.SIGHUP, signal.SIGINT]
+    previous = {sig: signal.getsignal(sig) for sig in handled}
+    for sig in handled:
+        signal.signal(sig, _handle_signal)
+
+    proc = None
+    status = None
+    try:
+        with (output_dir / "cpu.json.partial").open("x") as out, (output_dir / "stderr.log").open("x") as err:
+            proc = subprocess.Popen(
+                command,
+                stdin=subprocess.DEVNULL,
+                stdout=out,
+                stderr=err,
+                start_new_session=True,
+            )
+            status_path = Path(f"/proc/{proc.pid}/status")
+            while proc.poll() is None:
+                try:
+                    values = proc_kib(status_path, {"VmSwap"})
+                except FileNotFoundError:
+                    break
+                if "VmSwap" in values:
+                    peak_swap = max(peak_swap, values["VmSwap"])
+                    swap_samples += 1
+                time.sleep(0.1)
+            status = proc.wait()
+    except _Interrupted as exc:
+        interrupted_signal = exc.signum
+        if proc is not None:
+            status = _terminate_child(proc, grace_seconds)
+    except BaseException:
+        if proc is not None:
+            _terminate_child(proc, grace_seconds)
+        raise
+    finally:
+        if proc is not None and proc.poll() is None:
+            status = _terminate_child(proc, grace_seconds)
+        for sig, prev in previous.items():
+            signal.signal(sig, prev)
+
+    elapsed = time.monotonic() - begin
+    return status, interrupted_signal, elapsed, peak_swap, swap_samples
+
+
 def main():
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--output", required=True, type=Path)
@@ -54,27 +140,11 @@ def main():
         print(f"timing cell refused before launch: {json.dumps(start)}", file=sys.stderr)
         return 75
 
-    args.output.mkdir()
-    peak_swap = 0
-    swap_samples = 0
-    begin = time.monotonic()
-    with (args.output / "cpu.json.partial").open("x") as out, (args.output / "stderr.log").open("x") as err:
-        proc = subprocess.Popen(args.command[1:], stdin=subprocess.DEVNULL, stdout=out, stderr=err)
-        status_path = Path(f"/proc/{proc.pid}/status")
-        while proc.poll() is None:
-            try:
-                values = proc_kib(status_path, {"VmSwap"})
-            except FileNotFoundError:
-                break
-            if "VmSwap" in values:
-                peak_swap = max(peak_swap, values["VmSwap"])
-                swap_samples += 1
-            time.sleep(0.1)
-        status = proc.wait()
+    status, interrupted_signal, elapsed, peak_swap, swap_samples = run_monitored(args.command[1:], args.output)
     end = host()
     meta = {
         "start": start, "end": end, "exit_status": status,
-        "elapsed_seconds": time.monotonic() - begin,
+        "elapsed_seconds": elapsed,
         "peak_rss_kib": resource.getrusage(resource.RUSAGE_CHILDREN).ru_maxrss,
         "sampled_peak_vmswap_kib": peak_swap if swap_samples else None,
         "vmswap_samples": swap_samples,
@@ -82,10 +152,14 @@ def main():
         "logical_cpus": os.cpu_count(), "kernel": os.uname().release,
         "machine": os.uname().machine, "gomaxprocs": os.environ.get("GOMAXPROCS"),
     }
+    if interrupted_signal is not None:
+        meta["interrupted_signal"] = interrupted_signal
     (args.output / "host.json").write_text(json.dumps(meta, indent=2) + "\n")
-    if status == 0:
+    if interrupted_signal is None and status == 0:
         (args.output / "cpu.json.partial").rename(args.output / "cpu.json")
     print(json.dumps(meta))
+    if interrupted_signal is not None:
+        return 128 + interrupted_signal
     return status if status >= 0 else 128 - status
 
 

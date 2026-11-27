@@ -105,12 +105,21 @@ describe whole-document retrieval at the recorded cutoff.
   and `run_linux.py` were revalidated with `CGO_ENABLED=0` and produced
   byte-identical `preflight.json` against the pinned local snapshot; the
   historical `cpu.json`, `host.json`, and `preflight.json` records remain
-  unchanged. The model, fixture and interpretation pins are in the manifest.
+  unchanged. Compared with the archived binary, the integrated runner
+  additionally re-verifies all `manifest.model_files` off-clock before
+  `LoadEncoder` (recording `model_verify_wall_ns` separately) and `run_linux.py`
+  terminates and waits for its child process group on `SIGTERM`/`SIGHUP`/`SIGINT`
+  so the outer timing lock is never released while a corpus child still runs.
+  The model, fixture and interpretation pins are in the manifest.
   Inference is deterministic and uses no sampling.
 - The verified snapshot was on local NVMe-backed Btrfs at the Hugging Face
-  cache's `hub/models--google--embeddinggemma-2/snapshots/` path. Preflight
-  streamed the pinned files before the idle wait. Launch-time page-cache
-  residency was unmeasured.
+  cache's `hub/models--google--embeddinggemma-2/snapshots/` path. For the
+  archived 2026-11-21 run, preflight streamed the pinned files before the idle
+  wait and launch-time page-cache residency was unmeasured. For future reruns
+  with the integrated runner, the off-clock `verifyModel` pass immediately
+  before `LoadEncoder` streams every pinned checkpoint file inside the scoring
+  process, so future `load_wall_ns` readings reflect a warm OS page cache
+  rather than cold-disk I/O.
 - Start load was 0.929 and `MemAvailable` was 93,936,044 KiB. The CPU's
   `k10temp` Tctl reading was 42.125 °C at start and 68.375 °C at exit.
   The recorder collected endpoint temperatures. The waiter launched one
