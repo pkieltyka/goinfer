@@ -7,7 +7,6 @@ import (
 	"path/filepath"
 	"regexp"
 	"sort"
-	"strconv"
 	"strings"
 	"testing"
 	"unsafe"
@@ -15,15 +14,57 @@ import (
 	gc "github.com/eitamring/gocudrv/cuda"
 	gpu "github.com/pkieltyka/goinfer/backend/cuda/internal/gpudev"
 	"github.com/pkieltyka/goinfer/backend/cuda/internal/launchgeom"
+	"github.com/pkieltyka/goinfer/backend/cuda/internal/ptxtest"
 	"github.com/pkieltyka/goinfer/backend/cuda/internal/tower"
 )
 
-var (
-	eg2CensusPTXSM    = regexp.MustCompile(`(?m)^\s*\.target\s+sm_([0-9]+)(?:[ ,\t]|$)`)
-	eg2CensusPTXEntry = regexp.MustCompile(`\.visible\s+\.entry\s+([A-Za-z_][A-Za-z0-9_$]*)`)
-	eg2CensusCUGlobal = regexp.MustCompile(`__global__\s+(?:__launch_bounds__\s*\([^)]*\)\s*)?void\s+(?:__launch_bounds__\s*\([^)]*\)\s*)?([A-Za-z_][A-Za-z0-9_]*)\s*\(`)
-	eg2CensusCUComm   = regexp.MustCompile(`(?s)/\*.*?\*/|//[^\n]*`)
-)
+func eg2BoundKernelNames(t *testing.T) []string {
+	t.Helper()
+	files, err := filepath.Glob("*.go")
+	if err != nil {
+		t.Fatal(err)
+	}
+	res := []*regexp.Regexp{
+		regexp.MustCompile(`NewComputePipeline\(\s*\w+\s*,\s*"([A-Za-z_][A-Za-z0-9_]*)"\s*\)`),
+		regexp.MustCompile(`\{\s*"([A-Za-z_][A-Za-z0-9_]*)"\s*,\s*&[\w.\[\]]+\s*\}`),
+		regexp.MustCompile(`\{\s*&[\w.\[\]]+\s*,\s*"([A-Za-z_][A-Za-z0-9_]*)"\s*\}`),
+	}
+	seen := map[string]bool{}
+	usesPackedSpec := false
+	for _, f := range files {
+		if strings.HasSuffix(f, "_test.go") {
+			continue
+		}
+		b, err := os.ReadFile(f)
+		if err != nil {
+			t.Fatal(err)
+		}
+		text := string(b)
+		for _, re := range res {
+			for _, m := range re.FindAllStringSubmatch(text, -1) {
+				seen[m[1]] = true
+			}
+		}
+		if strings.Contains(text, "NewComputePipeline(lib, spec.Entry)") && strings.Contains(text, "EG2PackedAttnSpecForHD") {
+			usesPackedSpec = true
+		}
+	}
+	if usesPackedSpec {
+		for _, hd := range []int{16, 32, 256, 512} {
+			spec, ok := launchgeom.EG2PackedAttnSpecForHD(hd)
+			if !ok {
+				t.Fatalf("EG2PackedAttnSpecForHD(%d) unexpectedly unsupported", hd)
+			}
+			seen[spec.Entry] = true
+		}
+	}
+	out := make([]string, 0, len(seen))
+	for name := range seen {
+		out = append(out, name)
+	}
+	sort.Strings(out)
+	return out
+}
 
 type eg2CensusModule struct {
 	name  string
@@ -50,13 +91,9 @@ func eg2CensusModules(t *testing.T) []eg2CensusModule {
 		if err != nil {
 			t.Fatal(err)
 		}
-		match := eg2CensusPTXSM.FindSubmatch(b)
-		if len(match) != 2 {
+		minSM, ok := ptxtest.TargetSM(b)
+		if !ok {
 			t.Fatalf("%s has no numeric PTX SM target", name)
-		}
-		minSM, err := strconv.Atoi(string(match[1]))
-		if err != nil {
-			t.Fatalf("%s PTX SM target: %v", name, err)
 		}
 		if !validEG2CensusPTXTarget(name, minSM) {
 			t.Fatalf("%s PTX target sm_%d exceeds or disagrees with its supported architecture", name, minSM)
@@ -79,35 +116,50 @@ func TestEG2PTX_censusAndSourceMatch(t *testing.T) {
 		"eg2_transposed_experiment.ptx",
 	}
 	var gotNames []string
+	entryMod := map[string]string{}
+	checkedKernels := 0
 	for _, m := range mods {
 		gotNames = append(gotNames, m.name)
 		if m.name == "eg2_ffn_fp16.ptx" && m.minSM != 80 {
 			t.Errorf("FP16 FFN module requires SM%d, want SM80", m.minSM)
 		}
-		src, _ := launchgeom.PTXSourceName(strings.TrimSuffix(m.name, ".ptx"))
+		mod := strings.TrimSuffix(m.name, ".ptx")
+		src, _ := launchgeom.PTXSourceName(mod)
 		cu, err := os.ReadFile(filepath.Join("..", src+".cu"))
 		if err != nil {
 			t.Fatalf("%s is embedded but ../%s.cu is missing: %v", m.name, src, err)
 		}
-		want := map[string]bool{}
-		for _, mm := range eg2CensusCUGlobal.FindAllStringSubmatch(eg2CensusCUComm.ReplaceAllString(string(cu), ""), -1) {
-			want[mm[1]] = true
-		}
-		got := map[string]bool{}
-		for _, mm := range eg2CensusPTXEntry.FindAllStringSubmatch(string(m.ptx), -1) {
-			got[mm[1]] = true
-		}
-		if len(want) == 0 {
+		globals := ptxtest.Globals(string(cu))
+		entries := ptxtest.Entries(string(m.ptx))
+		if len(globals) == 0 {
 			t.Fatalf("no __global__ kernels found in %s.cu", src)
 		}
-		for k := range want {
-			if !got[k] {
-				t.Errorf("%s.cu declares %s missing from %s", src, k, m.name)
+		if len(entries) == 0 {
+			t.Fatalf("%s has no .visible .entry — empty or unparseable", m.name)
+		}
+		for name := range entries {
+			entryMod[name] = mod
+		}
+		for name, want := range globals {
+			checkedKernels++
+			got, ok := entries[name]
+			if !ok {
+				t.Errorf("%s.cu declares __global__ %s missing from %s", src, name, m.name)
+				continue
+			}
+			if len(got) != len(want) {
+				t.Errorf("%s: %s.cu has %d parameters, %s has %d — the PTX lags its source", name, src, len(want), m.name, len(got))
+				continue
+			}
+			for i := range want {
+				if want[i] == "?" || got[i] == "?" || want[i] != got[i] {
+					t.Errorf("%s parameter %d: %s.cu kind %s, %s kind %s — the PTX lags its source", name, i, src, want[i], m.name, got[i])
+				}
 			}
 		}
-		for k := range got {
-			if !want[k] {
-				t.Errorf("%s declares stale entry %s not in %s.cu", m.name, k, src)
+		for name := range entries {
+			if _, ok := globals[name]; !ok {
+				t.Errorf("%s declares stale entry %s not in %s.cu", m.name, name, src)
 			}
 		}
 	}
@@ -115,6 +167,16 @@ func TestEG2PTX_censusAndSourceMatch(t *testing.T) {
 	if strings.Join(gotNames, ",") != strings.Join(wantMods, ",") {
 		t.Fatalf("embedded EG2 PTX modules = %v, want %v", gotNames, wantMods)
 	}
+	bound := eg2BoundKernelNames(t)
+	if len(bound) < 10 {
+		t.Fatalf("found only %d bound kernel names in eg2 — binding scan is broken (%v)", len(bound), bound)
+	}
+	for _, name := range bound {
+		if _, ok := entryMod[name]; !ok {
+			t.Errorf("production code binds kernel %q, which no embedded EG2 PTX defines", name)
+		}
+	}
+	t.Logf("%d .cu/.ptx pairs, %d kernels checked by name and signature; %d bound kernel names resolved", len(mods), checkedKernels, len(bound))
 }
 
 type eg2PipeShim struct{ f *gc.Function }
@@ -140,14 +202,11 @@ func TestEG2KernelLocalMemoryCensus(t *testing.T) {
 		if err != nil {
 			t.Fatalf("CompileLibrary(%s): %v", m.name, err)
 		}
-		seen := map[string]bool{}
-		for _, mm := range eg2CensusPTXEntry.FindAllStringSubmatch(string(m.ptx), -1) {
-			seen[mm[1]] = true
-		}
-		if len(seen) == 0 {
+		entries := ptxtest.Entries(string(m.ptx))
+		if len(entries) == 0 {
 			t.Fatalf("%s has no .visible .entry", m.name)
 		}
-		for name := range seen {
+		for name := range entries {
 			p, err := dev.NewComputePipeline(mod, name)
 			if err != nil {
 				t.Fatalf("%s/%s: NewComputePipeline: %v", m.name, name, err)

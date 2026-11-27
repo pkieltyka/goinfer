@@ -166,8 +166,10 @@ func TestBackendCUDA_noDuplicateEG2Registration(t *testing.T) {
 	}
 	forbidden := []string{
 		"embeddinggemma2.RegisterAccelerator",
+		"embeddinggemma2.RegisterDeviceAccelerator",
 		"embeddinggemma2.RegisterDeviceAcceleratorWithSupport",
 		"embeddinggemma2.RegisterDeviceProber",
+		"embeddinggemma2.RegisterSelectedAccelerator",
 	}
 	for _, f := range files {
 		if strings.HasSuffix(f, "_test.go") {

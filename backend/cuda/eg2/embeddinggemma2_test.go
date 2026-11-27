@@ -2832,6 +2832,7 @@ func TestEG2CUDA_RetryOOM_DeviceAcceptance(t *testing.T) {
 // eg2RecordingLeaser tracks live and peak charged device allocations separately
 // from host allocations as an independent oracle for BatchMemory.
 type eg2RecordingLeaser struct {
+	tower.Ledger
 	mu           sync.Mutex
 	devLive      int64
 	devPeak      int64
@@ -2842,7 +2843,8 @@ type eg2RecordingLeaser struct {
 	hostReleases int
 }
 
-func (l *eg2RecordingLeaser) Lease(onDevice bool, _ string, _, charged int64) func() {
+func (l *eg2RecordingLeaser) Lease(onDevice bool, line string, requested, charged int64) func() {
+	rel := l.Ledger.Lease(onDevice, line, requested, charged)
 	l.mu.Lock()
 	if onDevice {
 		l.devAllocs++
@@ -2858,6 +2860,7 @@ func (l *eg2RecordingLeaser) Lease(onDevice bool, _ string, _, charged int64) fu
 	var once sync.Once
 	return func() {
 		once.Do(func() {
+			rel()
 			l.mu.Lock()
 			if onDevice {
 				l.devReleases++
