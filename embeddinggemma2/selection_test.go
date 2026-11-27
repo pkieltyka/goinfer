@@ -611,3 +611,14 @@ func TestSelectTextCleanupFailureStops(t *testing.T) {
 		t.Fatal("failed selection changed the receiver encoder")
 	}
 }
+
+func TestSelectTextInvalidTokenIsInputError(t *testing.T) {
+	e := newTinyEncoderForTest(t)
+	session, report, err := e.SelectText(TextSelectionOptions{Targets: []TextTarget{{Selector: "cpu"}}}, [][]int{{e.m.cfg.VocabSize}})
+	if err == nil || session != nil || report.Winner != -1 {
+		t.Fatalf("out-of-range token: session %v, report %+v, err %v", session, report, err)
+	}
+	if errors.Is(err, ErrDeviceUnavailable) || errors.Is(err, ErrDeviceOutOfMemory) || errors.Is(err, ErrSelectionFit) {
+		t.Fatalf("invalid token was classified as a device/selection failure: %v", err)
+	}
+}
