@@ -132,7 +132,7 @@ func TestDo_aBugOnTheExecutorPanicsOnTheCaller(t *testing.T) {
 			return z.launchErr
 		})
 	})
-	if msg := bug.Error(); !strings.Contains(msg, "executor goroutine stack") || !strings.Contains(msg, "runJob") {
+	if msg := bug.Error(); !strings.Contains(msg, "executor goroutine stack") || !strings.Contains(msg, "/internal/tower.RunJob(") {
 		t.Errorf("the re-raised bug does not carry the executor's stack: %s", msg)
 	}
 	if mem.DeviceAllocFailed(bug) {
