@@ -151,7 +151,7 @@ func TestCUDAEG2SelectedDevice(t *testing.T) {
 					}
 				})
 				a := acc.(*eg2Accel)
-				native := a.ops.dev.Context().Device()
+				native := a.ops.Dev.Context().Device()
 				gotUUID, err := native.UUID()
 				if err != nil || !strings.EqualFold(gotUUID, uuid) || native.Ordinal() != target.Ordinal {
 					t.Fatalf("attached UUID %q ordinal %d, error %v; want %q ordinal %d", gotUUID, native.Ordinal(), err, uuid, target.Ordinal)
@@ -172,7 +172,7 @@ func TestCUDAEG2SelectedDevice(t *testing.T) {
 					reading.AvailableBytes > reading.TotalBytes || reading.TotalBytes <= 0 {
 					t.Fatalf("memory %+v: %v", reading, readErr)
 				}
-				launches, _ := a.ops.dev.Activity()
+				launches, _ := a.ops.Dev.Activity()
 				if launches == 0 {
 					t.Fatal("no native CUDA launches")
 				}
@@ -257,7 +257,7 @@ func TestCUDAEG2InventoryAttach(t *testing.T) {
 				}
 			})
 			a := acc.(*eg2Accel)
-			native := a.ops.dev.Context().Device()
+			native := a.ops.Dev.Context().Device()
 			gotUUID, uuidErr := native.UUID()
 			major, minor, ccErr := native.ComputeCapability()
 			if uuidErr != nil || ccErr != nil || !strings.EqualFold(gotUUID, uuid) || native.Ordinal() != target.Ordinal ||
@@ -468,7 +468,7 @@ func TestEG2CUDA_runsOnDevice(t *testing.T) {
 	c := m.Config()
 	var mu sync.Mutex
 	var launches, attn, copies int
-	attnPtr := a.ops.vit.AttentionSeg.Ptr()
+	attnPtr := a.ops.ViT.AttentionSeg.Ptr()
 	gpu.TraceForTest = func(e gpu.TraceEvent) {
 		mu.Lock()
 		defer mu.Unlock()
@@ -488,7 +488,7 @@ func TestEG2CUDA_runsOnDevice(t *testing.T) {
 	}
 	gpu.TraceForTest = nil
 	var name string
-	if err := a.ops.do(func() error { name = a.ops.dev.Name(); return nil }); err != nil {
+	if err := a.ops.Do(func() error { name = a.ops.Dev.Name(); return nil }); err != nil {
 		t.Fatal(err)
 	}
 	t.Logf("device %q: %d launches, %d attention_seg, %d strided copies over %d layers", name, launches, attn, copies, c.Layers)
@@ -510,7 +510,7 @@ func eg2Count(t *testing.T, a *eg2Accel, f func()) eg2Counts {
 	t.Helper()
 	var mu sync.Mutex
 	var n eg2Counts
-	attnPtr := a.ops.vit.AttentionSeg.Ptr()
+	attnPtr := a.ops.ViT.AttentionSeg.Ptr()
 	gpu.TraceForTest = func(e gpu.TraceEvent) {
 		mu.Lock()
 		defer mu.Unlock()
@@ -636,15 +636,15 @@ func TestEG2CUDA_batchRopeSegments(t *testing.T) {
 	m := eg2TinyModel(t)
 	a := newEG2ForTest(t, m)
 	lens := []int{5, 9, 3}
-	if err := a.ops.do(func() error {
-		defer a.ops.releaseScratch()
+	if err := a.ops.Do(func() error {
+		defer a.ops.ReleaseScratch()
 		var pending []Buffer
 		var relErr error
 		tabs, err := a.batchRope(lens, &pending, &relErr)
 		if err != nil {
 			return err
 		}
-		if err := a.ops.finish(); err != nil {
+		if err := a.ops.Finish(); err != nil {
 			return err
 		}
 		if len(tabs) != 2 {
@@ -779,7 +779,7 @@ func TestEG2CUDA_failedDrain(t *testing.T) {
 	if _, err := a.ForwardBatch(in); err != nil {
 		t.Fatal(err)
 	}
-	dev := a.ops.dev
+	dev := a.ops.Dev
 	held, _ := dev.LedgerLen()
 	a.defect.failForward = true
 	if _, err := a.ForwardBatch(in); err == nil {
@@ -845,7 +845,7 @@ func TestEG2CUDA_realBatchParity(t *testing.T) {
 	defer acc.Close()
 	a := acc.(*eg2Accel)
 	var name string
-	if err := a.ops.do(func() error { name = a.ops.dev.Name(); return nil }); err != nil {
+	if err := a.ops.Do(func() error { name = a.ops.Dev.Name(); return nil }); err != nil {
 		t.Fatal(err)
 	}
 	c := m.Config()
@@ -1116,7 +1116,7 @@ func TestEG2CUDA_realParity(t *testing.T) {
 	a := acc.(*eg2Accel)
 	tAttach := time.Since(t0) - tLoad
 	var name string
-	if err := a.ops.do(func() error { name = a.ops.dev.Name(); return nil }); err != nil {
+	if err := a.ops.Do(func() error { name = a.ops.Dev.Name(); return nil }); err != nil {
 		t.Fatal(err)
 	}
 	c := m.Config()
@@ -1160,7 +1160,7 @@ func TestEG2CUDA_realParity(t *testing.T) {
 	gpu.TraceForTest = func(e gpu.TraceEvent) {
 		if e.Op == gpu.TraceLaunch {
 			switch e.Pipe {
-			case a.ops.vit.AttentionSeg.Ptr():
+			case a.ops.ViT.AttentionSeg.Ptr():
 				stock++
 			case a.combinedTranspose.Ptr():
 				transposes++
@@ -1270,12 +1270,12 @@ func checkEG2Transposed(t *testing.T, selector string, shortTiled bool, model *e
 		t.Fatalf("default CUDA attached to %q", a.AttachedDevice().ID)
 	}
 	transpose, attention := a.combinedTranspose, a.combinedAttention
-	if transpose == (Pipeline{}) || attention == (Pipeline{}) || a.ops.shortTiled != shortTiled {
+	if transpose == (Pipeline{}) || attention == (Pipeline{}) || a.ops.ShortTiled != shortTiled {
 		t.Fatalf("%s transposed attention or short GEMM policy is unavailable", selector)
 	}
 	for _, shape := range shapes {
 		t.Run(fmt.Sprint(shape), func(t *testing.T) {
-			a.combinedTranspose, a.combinedAttention, a.ops.shortTiled = Pipeline{}, Pipeline{}, false
+			a.combinedTranspose, a.combinedAttention, a.ops.ShortTiled = Pipeline{}, Pipeline{}, false
 			ids := make([][]int, len(shape))
 			want := make([][]float32, len(shape))
 			total, longest := 0, 0
@@ -1288,20 +1288,20 @@ func checkEG2Transposed(t *testing.T, selector string, shortTiled bool, model *e
 				}
 				want[i] = out
 			}
-			a.combinedTranspose, a.combinedAttention, a.ops.shortTiled = transpose, attention, shortTiled
+			a.combinedTranspose, a.combinedAttention, a.ops.ShortTiled = transpose, attention, shortTiled
 			var tiled, transposes, attn, stock int
 			gpu.TraceForTest = func(event gpu.TraceEvent) {
 				if event.Op != gpu.TraceLaunch {
 					return
 				}
 				switch event.Pipe {
-				case a.ops.vit.GEMMF32Tiled.Ptr():
+				case a.ops.ViT.GEMMF32Tiled.Ptr():
 					tiled++
 				case transpose.Ptr():
 					transposes++
 				case attention.Ptr():
 					attn++
-				case a.ops.vit.AttentionSeg.Ptr():
+				case a.ops.ViT.AttentionSeg.Ptr():
 					stock++
 				}
 			}
@@ -1895,10 +1895,10 @@ func TestEG2CUDA_RetryOOM_ClassificationContract(t *testing.T) {
 		}}
 		stuckDev := &Device{}
 		stuckDev.TrackObj(obj)
-		stuckOps := &towerOps{dev: stuckDev, reqCh: make(chan func() error), ackCh: make(chan error)}
+		stuckOps := &towerOps{Dev: stuckDev, ReqCh: make(chan func() error), AckCh: make(chan error)}
 		go func() {
-			for j := range stuckOps.reqCh {
-				stuckOps.ackCh <- runJob(j)
+			for j := range stuckOps.ReqCh {
+				stuckOps.AckCh <- runJob(j)
 			}
 		}()
 		eg2AttachCleanup.mu.Lock()
@@ -2007,10 +2007,10 @@ func TestEG2CUDA_RetryOOM_ClassificationContract(t *testing.T) {
 			}
 			return nil
 		}})
-		ops := &towerOps{dev: dev, reqCh: make(chan func() error), ackCh: make(chan error)}
+		ops := &towerOps{Dev: dev, ReqCh: make(chan func() error), AckCh: make(chan error)}
 		go func() {
-			for j := range ops.reqCh {
-				ops.ackCh <- runJob(j)
+			for j := range ops.ReqCh {
+				ops.AckCh <- runJob(j)
 			}
 		}()
 		a := &eg2Accel{ops: ops}
@@ -2131,7 +2131,7 @@ func TestEG2CUDA_RetryOOM_DeviceAcceptance(t *testing.T) {
 						t.Errorf("Close: %v", err)
 					}
 				}()
-				dev := a.ops.dev
+				dev := a.ops.Dev
 				heldBefore, _ := dev.LedgerLen()
 				var traceMu sync.Mutex
 				launches, copies2D := 0, 0
@@ -2205,7 +2205,7 @@ func TestEG2CUDA_RetryOOM_DeviceAcceptance(t *testing.T) {
 						t.Errorf("Close: %v", err)
 					}
 				}()
-				dev := a.ops.dev
+				dev := a.ops.Dev
 				// First prove repeated 2nd RoPE allocation failure leaks 0 buffers.
 				// Singleton allocates 20 base scratch buffers, then rope() allocates cos (#21) and sin (#22).
 				heldCold, _ := dev.LedgerLen()
@@ -2321,7 +2321,7 @@ func TestEG2CUDA_RetryOOM_DeviceAcceptance(t *testing.T) {
 				// sticky calls must return CUDA_ERROR_ASSERT first via errors.As (not OOM) with no retry marker, while
 				// the initial call also retains ErrDeviceOutOfMemory and gc.ErrOutOfMemory.
 				eLatch, aLatch := attachFresh(t)
-				devLatch := aLatch.ops.dev
+				devLatch := aLatch.ops.Dev
 				assertLatch := &cudaresult.Error{Code: cudasys.CUDA_ERROR_ASSERT, Op: "cuLaunchKernel"}
 				aLatch.defect.failForward = true
 				aLatch.defect.failForwardErr = assertLatch
@@ -2363,7 +2363,7 @@ func TestEG2CUDA_RetryOOM_DeviceAcceptance(t *testing.T) {
 
 				// 3b: OOM + failed drain -> no retry, sticky broken, no premature free, Close obeys drain contract.
 				eDrain, aDrain := attachFresh(t)
-				devDrain := aDrain.ops.dev
+				devDrain := aDrain.ops.Dev
 				heldBefore, _ := devDrain.LedgerLen()
 				aDrain.defect.drainFails = 1
 				allocs = 0
@@ -2410,7 +2410,7 @@ func TestEG2CUDA_RetryOOM_DeviceAcceptance(t *testing.T) {
 				gpu.NewLeaser = func() gpu.Leaser { return recFree }
 				eFree, aFree := attachFresh(t)
 				gpu.NewLeaser = origLeaser
-				devFree := aFree.ops.dev
+				devFree := aFree.ops.Dev
 				heldBeforeFree, _ := devFree.LedgerLen()
 				freeErr := errors.New("cuda: planted buffer close failure")
 				failFirst := true
@@ -2477,7 +2477,7 @@ func TestEG2CUDA_RetryOOM_DeviceAcceptance(t *testing.T) {
 				// 3d: Primary fatal CUDA launch error outranks subsequent drain failure, and subsequent
 				// valid forwards preserve the original fatal cause while performing zero device work.
 				eFatal, aFatal := attachFresh(t)
-				devFatal := aFatal.ops.dev
+				devFatal := aFatal.ops.Dev
 				assertErr := &cudaresult.Error{Code: cudasys.CUDA_ERROR_ASSERT, Op: "cuLaunchKernel"}
 				aFatal.defect.failForward = true
 				aFatal.defect.failForwardErr = assertErr
@@ -2504,7 +2504,7 @@ func TestEG2CUDA_RetryOOM_DeviceAcceptance(t *testing.T) {
 				// fails in ReleaseObjectsChecked after real command stream q is closed): retry Close
 				// must skip q.Sync on the destroyed stream and finish tearing down cleanly.
 				eTear, aTear := attachFresh(t)
-				devTear := aTear.ops.dev
+				devTear := aTear.ops.Dev
 				failTearObj := true
 				tearErr := errors.New("cuda: planted post-stream close failure")
 				devTear.TrackObj(&testCloser{fn: func() error {
@@ -2545,7 +2545,7 @@ func TestEG2CUDA_RetryOOM_DeviceAcceptance(t *testing.T) {
 						t.Errorf("Close: %v", err)
 					}
 				}()
-				dev := a.ops.dev
+				dev := a.ops.Dev
 				allocs := 0
 				dev.SetAllocHookForTest(func(what string, nBytes int) error {
 					allocs++
@@ -3115,11 +3115,11 @@ func TestEG2CUDA_BatchMemory_InstrumentedOracle(t *testing.T) {
 
 			// Verify BatchMemory performs zero allocations and zero kernel launches/waits.
 			baseLive, baseAllocs := rec.resetWindow()
-			l0, w0 := a.ops.dev.Activity()
+			l0, w0 := a.ops.Dev.Activity()
 			if _, err := a.BatchMemory([]int{64, 64}); err != nil {
 				t.Fatal(err)
 			}
-			l1, w1 := a.ops.dev.Activity()
+			l1, w1 := a.ops.Dev.Activity()
 			peakD, endD, newAllocs := rec.windowDelta(baseLive, baseAllocs)
 			if newAllocs != 0 || peakD != 0 || endD != 0 || l1 != l0 || w1 != w0 {
 				t.Fatalf("BatchMemory mutated device: allocs=%d peak=%d end=%d launches=%d waits=%d",
@@ -3158,8 +3158,8 @@ func TestEG2CUDA_BatchMemory_InstrumentedOracle(t *testing.T) {
 				}
 				baseLive, baseAllocs := rec.resetWindow()
 				var freeBefore, freeAfter uint64
-				_ = a.ops.do(func() error {
-					freeBefore, _, _ = a.ops.dev.Context().MemInfo()
+				_ = a.ops.Do(func() error {
+					freeBefore, _, _ = a.ops.Dev.Context().MemInfo()
 					return nil
 				})
 				if len(tc.lens) == 1 {
@@ -3175,8 +3175,8 @@ func TestEG2CUDA_BatchMemory_InstrumentedOracle(t *testing.T) {
 						t.Fatalf("%s: ForwardBatch: %v", tc.label, err)
 					}
 				}
-				_ = a.ops.do(func() error {
-					freeAfter, _, _ = a.ops.dev.Context().MemInfo()
+				_ = a.ops.Do(func() error {
+					freeAfter, _, _ = a.ops.Dev.Context().MemInfo()
 					return nil
 				})
 				peakDelta, endDelta, _ := rec.windowDelta(baseLive, baseAllocs)
@@ -3685,9 +3685,9 @@ func TestEG2FP16Encoder(t *testing.T) {
 	}
 
 	oom := gc.ErrOutOfMemory
-	a.ops.dev.SetAllocHookForTest(func(string, int) error { return oom })
+	a.ops.Dev.SetAllocHookForTest(func(string, int) error { return oom })
 	out, err = a.ForwardBatch(inputs[:2])
-	a.ops.dev.SetAllocHookForTest(nil)
+	a.ops.Dev.SetAllocHookForTest(nil)
 	if out != nil || !errors.Is(err, embeddinggemma2.ErrBatchOutOfMemory) || !errors.Is(err, oom) {
 		t.Fatalf("forward allocation failure returned %d outputs, %v", len(out), err)
 	}
@@ -4187,7 +4187,7 @@ func TestEG2FP16PackedAttnContract(t *testing.T) {
 			// error must take precedence with nil kept layers, no range/retry sentinel,
 			// sticky next call with zero GPU launches, and clean Close recovery.
 			plantedFree := errors.New("cuda: planted scratch free failure")
-			ovA.ops.dev.SetCloseBufHookForTest(func(func() error) error { return plantedFree })
+			ovA.ops.Dev.SetCloseBufHookForTest(func(func() error) error { return plantedFree })
 			ovOut, ovLays, err = runOverflow(true)
 			if ovOut != nil || ovLays != nil || !errors.Is(err, plantedFree) ||
 				errors.Is(err, errEG2FP16InputRange) || errors.Is(err, embeddinggemma2.ErrBatchOutOfMemory) {
@@ -4212,8 +4212,8 @@ func TestEG2FP16PackedAttnContract(t *testing.T) {
 				t.Fatalf("sticky follow-up: err=%v launches=%d, want plantedFree and 0 launches", stickyErr, launches)
 			}
 			// Clear free hook and prove Close releases all remaining ownership cleanly.
-			ovA.ops.dev.SetCloseBufHookForTest(nil)
-			dev := ovA.ops.dev
+			ovA.ops.Dev.SetCloseBufHookForTest(nil)
+			dev := ovA.ops.Dev
 			if err := ovA.Close(); err != nil {
 				t.Fatalf("Close retry after cleared free hook failed: %v", err)
 			}
@@ -4446,7 +4446,7 @@ func checkEG2Fusions(t *testing.T, m *embeddinggemma2.Model, inputs [][]int, kee
 
 				stats := evidence{estimate: fit.AdditionalPeakBytes}
 				base, beforeAllocs := rec.resetWindow()
-				lo, _ := a.ops.dev.Activity()
+				lo, _ := a.ops.Dev.Activity()
 				oldTrace := gpu.TraceForTest
 				func() {
 					defer func() { gpu.TraceForTest = oldTrace }()
@@ -4463,7 +4463,7 @@ func checkEG2Fusions(t *testing.T, m *embeddinggemma2.Model, inputs [][]int, kee
 				if err != nil {
 					t.Fatal(err)
 				}
-				hi, _ := a.ops.dev.Activity()
+				hi, _ := a.ops.Dev.Activity()
 				stats.launches = int(hi - lo)
 				stats.peak, _, stats.allocs = rec.windowDelta(base, beforeAllocs)
 				if stats.peak > stats.estimate {

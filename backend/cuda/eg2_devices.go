@@ -111,9 +111,9 @@ func (a *eg2Accel) DeviceMemory() (reading embeddinggemma2.DeviceMemory, err err
 	if a.closed {
 		return reading, fmt.Errorf("cuda: EmbeddingGemma 2 accelerator is closed")
 	}
-	err = a.ops.do(func() error {
+	err = a.ops.Do(func() error {
 		var readErr error
-		reading, readErr = cudaMemory(a.ops.dev.Context())
+		reading, readErr = cudaMemory(a.ops.Dev.Context())
 		return readErr
 	})
 	return reading, err

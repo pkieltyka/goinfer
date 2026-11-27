@@ -76,12 +76,12 @@ func (a *gridTower) walkBlock(prog vision.TowerBlock, b *gridBlock, r *towerRegs
 			}
 			switch {
 			case op.Kind == vision.TowerNorm && op.Form == vision.TowerLayerNorm:
-				o.layerNorm(in, w, bias, out, rows, a.hidden, float32(op.Eps))
+				o.LayerNorm(in, w, bias, out, rows, a.hidden, float32(op.Eps))
 			case op.Kind == vision.TowerNorm && op.Form == vision.TowerRMSNorm:
-				o.rms(in, w, out, rows, a.hidden, float32(op.Eps))
+				o.RMS(in, w, out, rows, a.hidden, float32(op.Eps))
 			case op.Kind == vision.TowerHeadNorm && op.Form == vision.TowerRMSNorm:
 				if !env.noHeadNorm {
-					o.rms(out, w, out, rows*a.heads, a.hd, float32(op.Eps))
+					o.RMS(out, w, out, rows*a.heads, a.hd, float32(op.Eps))
 				}
 			default:
 				return fmt.Errorf("op %d (%s): norm form %d not implemented on CUDA", i, op.Kind, op.Form)
@@ -116,26 +116,26 @@ func (a *gridTower) walkBlock(prog vision.TowerBlock, b *gridBlock, r *towerRegs
 			if env.cs == (Buffer{}) || env.sn == (Buffer{}) {
 				return fmt.Errorf("op %d (%s): no RoPE tables", i, op.Kind)
 			}
-			o.ropeHalfTo(out, env.cs, env.sn, rows, a.heads, a.hd)
+			o.RopeHalfTo(out, env.cs, env.sn, rows, a.heads, a.hd)
 		case vision.TowerAttention:
 			s := float32(op.Scale)
 			if env.scale != 0 {
 				s = env.scale
 			}
 			if env.segs == nil {
-				if err := o.attention(r.q, r.k, r.v, out, rows, a.heads, a.hd, s); err != nil {
+				if err := o.Attention(r.q, r.k, r.v, out, rows, a.heads, a.hd, s); err != nil {
 					return err
 				}
 				continue
 			}
 			for si := 1; si < len(env.segs); si++ {
 				off, T := env.segs[si-1]*a.hidden*4, env.segs[si]-env.segs[si-1]
-				if err := o.attention(r.q.At(off), r.k.At(off), r.v.At(off), out.At(off), T, a.heads, a.hd, s); err != nil {
+				if err := o.Attention(r.q.At(off), r.k.At(off), r.v.At(off), out.At(off), T, a.heads, a.hd, s); err != nil {
 					return err
 				}
 			}
 		case vision.TowerGELUTanh:
-			o.geluTanh(out, rows*width(op.Out))
+			o.GeluTanh(out, rows*width(op.Out))
 		case vision.TowerGELUErf:
 			if env.geluErf == nil {
 				return fmt.Errorf("op %d (%s): this tower has no exact GELU", i, op.Kind)
@@ -146,8 +146,8 @@ func (a *gridTower) walkBlock(prog vision.TowerBlock, b *gridBlock, r *towerRegs
 				return fmt.Errorf("op %d (%s): registers %d and %d differ in width", i, op.Kind, op.In, op.Out)
 			}
 			n := rows * width(op.Out)
-			o.cls(clsElem)
-			o.launch(o.vit.SiLUMul, gpu.Grid1D(n, 256), Arg(out), Arg(in), i32(int32(n)))
+			o.Cls(clsElem)
+			o.Launch(o.ViT.SiLUMul, gpu.Grid1D(n, 256), Arg(out), Arg(in), i32(int32(n)))
 		default:
 			return fmt.Errorf("op %d: kind %s not implemented on CUDA", i, op.Kind)
 		}

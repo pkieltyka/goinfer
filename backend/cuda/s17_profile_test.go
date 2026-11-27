@@ -48,11 +48,11 @@ func s17Profile(t *testing.T, name string, ops *towerOps, fwd func() ([]float32,
 	var gf, af float64
 	same := true
 	for range 3 {
-		ops.startProf()
+		ops.StartProf()
 		t0 := time.Now()
 		out, err := fwd()
 		profWalls = append(profWalls, time.Since(t0))
-		p := ops.stopProf()
+		p := ops.StopProf()
 		if err != nil {
 			t.Fatal(err)
 		}
@@ -67,9 +67,9 @@ func s17Profile(t *testing.T, name string, ops *towerOps, fwd func() ([]float32,
 			}
 		}
 		for c := range per {
-			per[c] = append(per[c], p.acc[c])
+			per[c] = append(per[c], p.Acc[c])
 		}
-		gf, af = p.gemmFLOPs, p.attnFLOPs
+		gf, af = p.GEMMFLOPs, p.AttnFLOPs
 	}
 	wall, pwall := medianDur(walls), medianDur(profWalls)
 	var sum time.Duration

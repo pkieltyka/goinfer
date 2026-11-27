@@ -55,9 +55,9 @@ func attnRef(q, k, v []float32, T, nH, hd int, scale float64, rows []int) map[in
 func runAttn(t *testing.T, ops *towerOps, q, k, v []float32, T, nH, hd int, scale float32, segs []int) []float32 {
 	t.Helper()
 	out := make([]float32, len(q))
-	err := ops.do(func() error {
-		defer ops.releaseScratch()
-		qb, kb, vb, ob := ops.af(len(q)), ops.af(len(q)), ops.af(len(q)), ops.af(len(q))
+	err := ops.Do(func() error {
+		defer ops.ReleaseScratch()
+		qb, kb, vb, ob := ops.Af(len(q)), ops.Af(len(q)), ops.Af(len(q)), ops.Af(len(q))
 		for _, u := range []struct {
 			b Buffer
 			v []float32
@@ -69,11 +69,11 @@ func runAttn(t *testing.T, ops *towerOps, q, k, v []float32, T, nH, hd int, scal
 		stride := nH * hd
 		for si := 1; si < len(segs); si++ {
 			off, n := segs[si-1]*stride*4, segs[si]-segs[si-1]
-			if e := ops.attention(qb.At(off), kb.At(off), vb.At(off), ob.At(off), n, nH, hd, scale); e != nil {
+			if e := ops.Attention(qb.At(off), kb.At(off), vb.At(off), ob.At(off), n, nH, hd, scale); e != nil {
 				return e
 			}
 		}
-		if e := ops.finish(); e != nil {
+		if e := ops.Finish(); e != nil {
 			return e
 		}
 		return gpu.Download(ob, out)

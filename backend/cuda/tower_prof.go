@@ -23,17 +23,17 @@ const (
 var towerClassNames = [nTowerClass]string{"gemm", "attention", "norm", "elementwise"}
 
 type towerProf struct {
-	acc         [nTowerClass]time.Duration
+	Acc         [nTowerClass]time.Duration
 	cur         towerClass
 	last        time.Time
 	open        bool
-	gemmFLOPs   float64
-	attnFLOPs   float64
+	GEMMFLOPs   float64
+	AttnFLOPs   float64
 	launchCount int
 }
 
 // cls marks the start of an op of class c: a change of class drains the queue and closes the running class's interval.
-func (t *towerOps) cls(c towerClass) {
+func (t *towerOps) Cls(c towerClass) {
 	p := t.prof
 	if p == nil {
 		return
@@ -55,30 +55,30 @@ func (t *towerOps) profFlush() {
 	if p == nil || !p.open {
 		return
 	}
-	_ = t.q.Sync() // a launch error is latched in t.err and reported by finish
+	_ = t.Q.Sync() // a launch error is latched in t.err and reported by finish
 	now := time.Now()
-	p.acc[p.cur] += now.Sub(p.last)
+	p.Acc[p.cur] += now.Sub(p.last)
 	p.last = now
 }
 
 // profGEMM and profAttn add a call's FLOPs.
-func (t *towerOps) profGEMM(M, N, K int) {
+func (t *towerOps) ProfGEMM(M, N, K int) {
 	if t.prof != nil {
-		t.prof.gemmFLOPs += 2 * float64(M) * float64(N) * float64(K)
+		t.prof.GEMMFLOPs += 2 * float64(M) * float64(N) * float64(K)
 	}
 }
 
 func (t *towerOps) profAttn(np, nH, hd int) {
 	if t.prof != nil {
-		t.prof.attnFLOPs += 4 * float64(np) * float64(np) * float64(hd) * float64(nH)
+		t.prof.AttnFLOPs += 4 * float64(np) * float64(np) * float64(hd) * float64(nH)
 	}
 }
 
 // startProf attaches a fresh profile; stopProf detaches and returns it. A forward ends in finish(), which closes the last interval on the executor thread (the CUDA context is bound to it,
 // so stopProf does not drain from the caller's thread). Both run while no call is in flight.
-func (t *towerOps) startProf() { t.prof = &towerProf{} }
+func (t *towerOps) StartProf() { t.prof = &towerProf{} }
 
-func (t *towerOps) stopProf() *towerProf {
+func (t *towerOps) StopProf() *towerProf {
 	p := t.prof
 	t.prof = nil
 	return p

@@ -57,7 +57,7 @@ func newQwen25Tower(enc *vision.QwenVisionEncoder) (*qwen25Tower, error) {
 		}
 	}
 	if _, err := g.build(func() error {
-		g.patchW = g.ops.up(w.PatchW) // no patch bias
+		g.patchW = g.ops.Up(w.PatchW) // no patch bias
 		for i, b := range w.Blocks {
 			n := func(s string) string { return fmt.Sprintf("block %d %s", i, s) }
 			var ws [5][]float32
@@ -92,7 +92,7 @@ func newQwen25Tower(enc *vision.QwenVisionEncoder) (*qwen25Tower, error) {
 			for r := 0; r < b.Downw.Rows; r++ {
 				copy(pd[r*inter:r*inter+b.Downw.Cols], ws[4][r*b.Downw.Cols:(r+1)*b.Downw.Cols])
 			}
-			g.blocks = append(g.blocks, gridBlock{norm1w: g.ops.up(b.Norm1w), norm2w: g.ops.up(b.Norm2w), q: q, k: k, v: v,
+			g.blocks = append(g.blocks, gridBlock{norm1w: g.ops.Up(b.Norm1w), norm2w: g.ops.Up(b.Norm2w), q: q, k: k, v: v,
 				proj: p(ws[1], b.Projb, b.Projw), gate: padRows(ws[2], b.Gateb, b.Gatew), up: padRows(ws[3], b.Upb, b.Upw),
 				down: g.proj(vision.VisionProj{W: pd, B: b.Downb, Out: b.Downw.Rows, In: inter})})
 		}
@@ -173,13 +173,13 @@ func (r *qwen25Tower) ForwardViT(pixels []float32, gridTHW [][3]int) ([]float32,
 	a.mu.Lock()
 	defer a.mu.Unlock()
 	var h []float32
-	err = a.ops.do(func() error {
-		defer a.ops.releaseScratch()
+	err = a.ops.Do(func() error {
+		defer a.ops.ReleaseScratch()
 		o := a.ops
-		x, xn, pt := o.af(np*H), o.af(np*H), o.af(np*pd)
-		q, k, v, ctx, tmp := o.af(np*H), o.af(np*H), o.af(np*H), o.af(np*H), o.af(np*H)
-		f1, f2 := o.af(np*I), o.af(np*I)
-		csB, snB := o.af(np*hd), o.af(np*hd)
+		x, xn, pt := o.Af(np*H), o.Af(np*H), o.Af(np*pd)
+		q, k, v, ctx, tmp := o.Af(np*H), o.Af(np*H), o.Af(np*H), o.Af(np*H), o.Af(np*H)
+		f1, f2 := o.Af(np*I), o.Af(np*I)
+		csB, snB := o.Af(np*hd), o.Af(np*hd)
 		for _, u := range []struct {
 			b Buffer
 			v []float32
@@ -204,7 +204,7 @@ func (r *qwen25Tower) ForwardViT(pixels []float32, gridTHW [][3]int) ([]float32,
 				return fmt.Errorf("block %d: %w", bi, e)
 			}
 		}
-		if e := o.finish(); e != nil {
+		if e := o.Finish(); e != nil {
 			return e
 		}
 		h = make([]float32, np*H)

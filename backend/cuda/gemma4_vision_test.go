@@ -262,10 +262,10 @@ func TestG4VCUDA_closeAndErrors(t *testing.T) {
 	if _, err := a.Hidden(p, bad); err == nil {
 		t.Error("a position past the table must be refused")
 	}
-	if allocs, _ := a.ops.dev.LedgerLen(); allocs == 0 {
+	if allocs, _ := a.ops.Dev.LedgerLen(); allocs == 0 {
 		t.Fatal("the tower holds no device allocations before Close: the leak check below would prove nothing")
 	}
-	dev := a.ops.dev
+	dev := a.ops.Dev
 	if err := a.Close(); err != nil {
 		t.Fatal(err)
 	}

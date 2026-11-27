@@ -23,7 +23,7 @@ func newTestTower(t *testing.T, maxN int) *towerOps {
 	if err != nil {
 		t.Skipf("no CUDA device for the tower base: %v", err)
 	}
-	t.Cleanup(ops.close)
+	t.Cleanup(ops.Close)
 	return ops
 }
 
@@ -38,10 +38,10 @@ func tbRand(rng *rand.Rand, n int, scale float64) []float32 {
 // run uploads nothing itself: it executes body on the executor, syncs, and fails the test on any error.
 func (ops *towerOps) mustRun(t *testing.T, body func()) {
 	t.Helper()
-	err := ops.do(func() error {
-		defer ops.releaseScratch()
+	err := ops.Do(func() error {
+		defer ops.ReleaseScratch()
 		body()
-		return ops.finish()
+		return ops.Finish()
 	})
 	if err != nil {
 		t.Fatal(err)
@@ -51,7 +51,7 @@ func (ops *towerOps) mustRun(t *testing.T, body func()) {
 func (ops *towerOps) download(t *testing.T, b Buffer, n int) []float32 {
 	t.Helper()
 	out := make([]float32, n)
-	if err := ops.do(func() error { return gpu.Download(b, out) }); err != nil {
+	if err := ops.Do(func() error { return gpu.Download(b, out) }); err != nil {
 		t.Fatal(err)
 	}
 	return out
@@ -61,7 +61,7 @@ func (ops *towerOps) download(t *testing.T, b Buffer, n int) []float32 {
 func (ops *towerOps) alloc(t *testing.T, n int) Buffer {
 	t.Helper()
 	var b Buffer
-	if err := ops.do(func() error { b = gpu.NewBufferLenOf[float32](ops.dev, n); return nil }); err != nil {
+	if err := ops.Do(func() error { b = gpu.NewBufferLenOf[float32](ops.Dev, n); return nil }); err != nil {
 		t.Fatal(err)
 	}
 	return b
@@ -70,7 +70,7 @@ func (ops *towerOps) alloc(t *testing.T, n int) Buffer {
 func (ops *towerOps) upload(t *testing.T, x []float32) Buffer {
 	t.Helper()
 	var b Buffer
-	if err := ops.do(func() error { b = gpu.NewBufferOf(ops.dev, x); return nil }); err != nil {
+	if err := ops.Do(func() error { b = gpu.NewBufferOf(ops.Dev, x); return nil }); err != nil {
 		t.Fatal(err)
 	}
 	return b
@@ -122,16 +122,16 @@ func TestTowerBase_gemmBranches(t *testing.T) {
 		ab, wb, bb := ops.upload(t, a), ops.upload(t, w), ops.upload(t, bias)
 		var o1, o2, o3 Buffer
 		ops.mustRun(t, func() {
-			o1, o2 = ops.af(M*N), ops.af(M*N)
-			o3 = ops.af(M * N)
-			tmp := ops.af(M * N)
+			o1, o2 = ops.Af(M*N), ops.Af(M*N)
+			o3 = ops.Af(M * N)
+			tmp := ops.Af(M * N)
 			if err := gpu.Upload(o3, resid0); err != nil {
 				panic(err)
 			}
-			ops.gemm(ab, wb, o1, M, N, K)
-			ops.gemmBias(ab, wb, bb, o2, M, N, K)
-			ops.gemmBiasAdd(ab, wb, bb, o3, tmp, M, N, K)
-			if err := ops.q.Sync(); err != nil {
+			ops.GEMM(ab, wb, o1, M, N, K)
+			ops.GEMMBias(ab, wb, bb, o2, M, N, K)
+			ops.GEMMBiasAdd(ab, wb, bb, o3, tmp, M, N, K)
+			if err := ops.Q.Sync(); err != nil {
 				panic(err)
 			}
 			g1, g2, g3 := make([]float32, M*N), make([]float32, M*N), make([]float32, M*N)
@@ -165,8 +165,8 @@ func TestTowerBase_normsAndActivations(t *testing.T) {
 	xb, wb, bb := ops.upload(t, x), ops.upload(t, w), ops.upload(t, b)
 	rmsO, lnO := ops.alloc(t, rows*dim), ops.alloc(t, rows*dim)
 	ops.mustRun(t, func() {
-		ops.rms(xb, wb, rmsO, rows, dim, 1e-6)
-		ops.layerNorm(xb, wb, bb, lnO, rows, dim, 1e-6)
+		ops.RMS(xb, wb, rmsO, rows, dim, 1e-6)
+		ops.LayerNorm(xb, wb, bb, lnO, rows, dim, 1e-6)
 	})
 	gotRMS, gotLN := ops.download(t, rmsO, rows*dim), ops.download(t, lnO, rows*dim)
 	wantRMS, wantLN := make([]float64, rows*dim), make([]float64, rows*dim)
@@ -208,9 +208,9 @@ func TestTowerBase_kernels(t *testing.T) {
 		xb := ops.upload(t, x)
 		cp, ci, cinf := ops.alloc(t, n), ops.alloc(t, n), ops.alloc(t, n)
 		ops.mustRun(t, func() {
-			ops.clampCopyTo(xb, cp, n, lo, hi)
-			ops.launch(ops.clampCopy, gpu.Grid1D(n, 256), Arg(xb), Arg(ci), i64(int64(n)), f32v(-inf), f32v(inf)) // infinite bounds: a copy
-			ops.clampCopyTo(xb, cinf, n, lo, inf)
+			ops.ClampCopyTo(xb, cp, n, lo, hi)
+			ops.Launch(ops.clampCopy, gpu.Grid1D(n, 256), Arg(xb), Arg(ci), i64(int64(n)), f32v(-inf), f32v(inf)) // infinite bounds: a copy
+			ops.ClampCopyTo(xb, cinf, n, lo, inf)
 		})
 		got, gotI, gotHalf := ops.download(t, cp, n), ops.download(t, ci, n), ops.download(t, cinf, n)
 		for i, v := range x {
@@ -229,7 +229,7 @@ func TestTowerBase_kernels(t *testing.T) {
 				t.Fatalf("element %d: clamp %v (want %v), infinite bounds %v (want %v), one-sided %v (want %v)", i, got[i], w, gotI[i], v, gotHalf[i], wh)
 			}
 		}
-		ops.mustRun(t, func() { ops.clampInPlace(xb, n, lo, hi) })
+		ops.mustRun(t, func() { ops.ClampInPlace(xb, n, lo, hi) })
 		inPlace := ops.download(t, xb, n)
 		for i := range inPlace {
 			if inPlace[i] != got[i] {
@@ -247,10 +247,10 @@ func TestTowerBase_kernels(t *testing.T) {
 		}
 		xb, Xb, Yb := ops.upload(t, x), ops.upload(t, X), ops.upload(t, Y)
 		var pb Buffer
-		if err := ops.do(func() error { pb = gpu.NewBufferOf(ops.dev, pos); return nil }); err != nil {
+		if err := ops.Do(func() error { pb = gpu.NewBufferOf(ops.Dev, pos); return nil }); err != nil {
 			t.Fatal(err)
 		}
-		ops.mustRun(t, func() { ops.posAddTo(xb, Xb, Yb, pb, rows, H) })
+		ops.mustRun(t, func() { ops.PosAddTo(xb, Xb, Yb, pb, rows, H) })
 		got := ops.download(t, xb, n)
 		for i := range rows {
 			for d := range H {
@@ -268,7 +268,7 @@ func TestTowerBase_kernels(t *testing.T) {
 		x := tbRand(rng, T*heads*hd, 1)
 		cs, sn := tbRand(rng, T*hd, 1), tbRand(rng, T*hd, 1)
 		xb, cb, sb := ops.upload(t, x), ops.upload(t, cs), ops.upload(t, sn)
-		ops.mustRun(t, func() { ops.ropeAxialTo(xb, cb, sb, T, heads, hd) })
+		ops.mustRun(t, func() { ops.RopeAxialTo(xb, cb, sb, T, heads, hd) })
 		got := ops.download(t, xb, len(x))
 		want := append([]float32(nil), x...)
 		half, q := hd/2, hd/4
@@ -297,7 +297,7 @@ func TestTowerBase_kernels(t *testing.T) {
 		x := tbRand(rng, T*heads*hd, 1)
 		cs, sn := tbRand(rng, T*hd, 1), tbRand(rng, T*hd, 1)
 		xb, cb, sb := ops.upload(t, x), ops.upload(t, cs), ops.upload(t, sn)
-		ops.mustRun(t, func() { ops.ropeHalfTo(xb, cb, sb, T, heads, hd) })
+		ops.mustRun(t, func() { ops.RopeHalfTo(xb, cb, sb, T, heads, hd) })
 		got := ops.download(t, xb, len(x))
 		want := append([]float32(nil), x...)
 		half := hd / 2
@@ -323,7 +323,7 @@ func TestTowerBase_kernels(t *testing.T) {
 		x, u := tbRand(rng, n, 1), tbRand(rng, n, 1)
 		xb, ub := ops.upload(t, x), ops.upload(t, u)
 		x2 := ops.upload(t, x)
-		ops.mustRun(t, func() { ops.mulVec(xb, ub, n); ops.scaleVec(x2, n, 0.125) })
+		ops.mustRun(t, func() { ops.MulVec(xb, ub, n); ops.ScaleVec(x2, n, 0.125) })
 		gm, gs := ops.download(t, xb, n), ops.download(t, x2, n)
 		for i := range x {
 			if gm[i] != x[i]*u[i] || gs[i] != x[i]*0.125 {
@@ -343,11 +343,11 @@ func TestTowerBase_attention(t *testing.T) {
 		var ob Buffer
 		for _, scale := range []float32{1, float32(1 / math.Sqrt(float64(c.hd)))} {
 			ops.mustRun(t, func() {
-				ob = ops.af(c.np * hidden)
-				if err := ops.attention(qb, kb, vb, ob, c.np, c.nH, c.hd, scale); err != nil {
+				ob = ops.Af(c.np * hidden)
+				if err := ops.Attention(qb, kb, vb, ob, c.np, c.nH, c.hd, scale); err != nil {
 					panic(err)
 				}
-				if err := ops.q.Sync(); err != nil {
+				if err := ops.Q.Sync(); err != nil {
 					panic(err)
 				}
 				got := make([]float32, c.np*hidden)
@@ -386,7 +386,7 @@ func TestTowerBase_attention(t *testing.T) {
 		}
 	}
 	// An image past the untiled kernel's shared-memory row with a head dim that has no tiled kernel is refused by name (hd 64 takes the tiled kernel instead).
-	if err := ops.attention(Buffer{}, Buffer{}, Buffer{}, Buffer{}, 13000, 2, 200, 1); err == nil {
+	if err := ops.Attention(Buffer{}, Buffer{}, Buffer{}, Buffer{}, 13000, 2, 200, 1); err == nil {
 		t.Error("an attention over 13000 patches at head dim 200 must be refused")
 	}
 }

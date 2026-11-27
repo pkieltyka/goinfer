@@ -218,7 +218,7 @@ func TestGridVisionCUDA_scratchDeterminismClose(t *testing.T) {
 			if _, err := c.acc.Hidden(pBig[:len(pBig)-1], big); err == nil {
 				t.Error("a short pixel buffer must be refused")
 			}
-			dev := c.acc.ops.dev
+			dev := c.acc.ops.Dev
 			if allocs, _ := dev.LedgerLen(); allocs == 0 {
 				t.Fatal("the tower holds no device allocations before Close: the leak check would prove nothing")
 			}

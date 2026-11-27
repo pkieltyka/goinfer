@@ -75,8 +75,8 @@ func newG4Tower(enc *vision.Gemma4Encoder) (tw *g4Tower, err error) {
 		return nil, err
 	}
 	tw = &g4Tower{ops: ops, cfg: c, theta: w.RopeTheta}
-	if err := ops.do(func() error {
-		up := ops.up
+	if err := ops.Do(func() error {
+		up := ops.Up
 		proj := func(p vision.Gemma4Proj) g4Proj {
 			return g4Proj{w: up(p.W), out: p.Out, in: p.In, inMin: p.InMin, inMax: p.InMax, outMin: p.OutMin, outMax: p.OutMax}
 		}
@@ -91,9 +91,9 @@ func newG4Tower(enc *vision.Gemma4Encoder) (tw *g4Tower, err error) {
 				postFFNorm: up(l.PostFFNNorm), qNorm: up(l.QNorm), kNorm: up(l.KNorm), q: proj(l.Q), k: proj(l.K), v: proj(l.V),
 				o: proj(l.O), gate: proj(l.Gate), up: proj(l.Up), down: proj(l.Down)})
 		}
-		return ops.finish()
+		return ops.Finish()
 	}); err != nil {
-		ops.close()
+		ops.Close()
 		return nil, fmt.Errorf("cuda: Gemma 4 tower upload: %w", err)
 	}
 	return tw, nil
@@ -104,7 +104,7 @@ func (a *g4Tower) Name() string { return "cuda" }
 func (a *g4Tower) Close() error {
 	a.mu.Lock()
 	defer a.mu.Unlock()
-	a.ops.close()
+	a.ops.Close()
 	return nil
 }
 
@@ -114,12 +114,12 @@ func finite32(v float32) bool { return !math.IsInf(float64(v), 0) }
 func (a *g4Tower) proj(x Buffer, p *g4Proj, out, cp Buffer, rows int) {
 	in := x
 	if !a.defect.noClamp && (finite32(p.inMin) || finite32(p.inMax)) {
-		a.ops.clampCopyTo(x, cp, rows*p.in, p.inMin, p.inMax)
+		a.ops.ClampCopyTo(x, cp, rows*p.in, p.inMin, p.inMax)
 		in = cp
 	}
-	a.ops.gemm(in, p.w, out, rows, p.out, p.in)
+	a.ops.GEMM(in, p.w, out, rows, p.out, p.in)
 	if !a.defect.noClamp && (finite32(p.outMin) || finite32(p.outMax)) {
-		a.ops.clampInPlace(out, rows*p.out, p.outMin, p.outMax)
+		a.ops.ClampInPlace(out, rows*p.out, p.outMin, p.outMax)
 	}
 }
 
@@ -146,17 +146,17 @@ func (a *g4Tower) Hidden(patches []float32, pos [][2]int) ([]float32, error) {
 	}
 	cs, sn := vision.Gemma4RopeTables(pos, hd, a.theta)
 	var out []float32
-	err := a.ops.do(func() error {
-		defer a.ops.releaseScratch()
+	err := a.ops.Do(func() error {
+		defer a.ops.ReleaseScratch()
 		o := a.ops
-		af := o.af
+		af := o.Af
 		x, xn := af(np*H), af(np*H)
 		cp := af(np * max(H, I))
 		ptB := af(np * pd)
 		q, k, v, ctx := af(np*H), af(np*H), af(np*H), af(np*H)
 		g, u := af(np*I), af(np*I)
 		csB, snB := af(np*hd), af(np*hd)
-		posB := o.ai(2 * np)
+		posB := o.Ai(2 * np)
 		for _, up := range []struct {
 			b Buffer
 			v []float32
@@ -168,13 +168,13 @@ func (a *g4Tower) Hidden(patches []float32, pos [][2]int) ([]float32, error) {
 		if e := gpu.Upload(posB, pb); e != nil {
 			return e
 		}
-		o.gemm(ptB, a.patchW, x, np, H, pd)
+		o.GEMM(ptB, a.patchW, x, np, H, pd)
 		if !a.defect.noPosAdd {
 			pxT, pyT := a.posX, a.posY
 			if a.defect.swapPosXY {
 				pxT, pyT = a.posY, a.posX
 			}
-			o.posAddTo(x, pxT, pyT, posB, np, H)
+			o.PosAddTo(x, pxT, pyT, posB, np, H)
 		}
 		regs := &towerRegs{x: x, xn: xn, q: q, k: k, v: v, ctx: ctx, mid: g, mid2: u}
 		prog := vision.Gemma4Program(c)
@@ -183,7 +183,7 @@ func (a *g4Tower) Hidden(patches []float32, pos [][2]int) ([]float32, error) {
 				return fmt.Errorf("block %d: %w", li, e)
 			}
 		}
-		if e := o.finish(); e != nil {
+		if e := o.Finish(); e != nil {
 			return e
 		}
 		out = make([]float32, np*H)
@@ -225,7 +225,7 @@ func (a *g4Tower) walkBlock(prog vision.TowerBlock, ly *g4Layer, r *towerRegs, c
 			if !ok || op.Form != vision.TowerRMSNorm {
 				return fmt.Errorf("op %d: norm of weight %d, form %d", i, op.W, op.Form)
 			}
-			o.rms(in, w, out, rows, H, float32(op.Eps))
+			o.RMS(in, w, out, rows, H, float32(op.Eps))
 		case vision.TowerHeadNorm:
 			if op.Out != vision.TowerQ && op.Out != vision.TowerK && op.Out != vision.TowerV {
 				return fmt.Errorf("op %d: the per-head norm runs on q, k or v, not register %d", i, op.Out)
@@ -244,7 +244,7 @@ func (a *g4Tower) walkBlock(prog vision.TowerBlock, ly *g4Layer, r *towerRegs, c
 			default:
 				return fmt.Errorf("op %d: per-head norm form %d", i, op.Form)
 			}
-			o.rms(out, w, out, rows*nH, hd, float32(op.Eps))
+			o.RMS(out, w, out, rows*nH, hd, float32(op.Eps))
 		case vision.TowerLinear:
 			p, ok := ly.towerLinear(op.W)
 			if !ok {
@@ -259,21 +259,21 @@ func (a *g4Tower) walkBlock(prog vision.TowerBlock, ly *g4Layer, r *towerRegs, c
 				return fmt.Errorf("op %d: RoPE runs on q or k, not register %d", i, op.Out)
 			}
 			if !a.defect.noRope {
-				o.ropeAxialTo(out, cs, sn, rows, nH, hd)
+				o.RopeAxialTo(out, cs, sn, rows, nH, hd)
 			}
 		case vision.TowerAttention:
 			scale := float32(op.Scale)
 			if a.defect.scaleRoot {
 				scale = float32(1 / math.Sqrt(float64(hd)))
 			}
-			if err := o.attention(r.q, r.k, r.v, out, rows, nH, hd, scale); err != nil {
+			if err := o.Attention(r.q, r.k, r.v, out, rows, nH, hd, scale); err != nil {
 				return err
 			}
 		case vision.TowerGELUMul:
-			o.geluTanh(out, rows*I)
-			o.mulVec(out, in, rows*I)
+			o.GeluTanh(out, rows*I)
+			o.MulVec(out, in, rows*I)
 		case vision.TowerAdd:
-			o.addVec(out, in, rows*H)
+			o.AddVec(out, in, rows*H)
 		default:
 			return fmt.Errorf("op %d: kind %s not implemented on the CUDA Gemma 4 tower", i, op.Kind)
 		}
